@@ -537,6 +537,16 @@ export async function fetchUserProfile(username) {
   return null;
 }
 
+export async function fetchUsersList() {
+  try {
+    const res = await fetch(`/user/list`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error('[USERS] Fetch error:', e);
+  }
+  return [];
+}
+
 export async function fetchRandomTrack() {
   try {
     const res = await fetch(`${state.API}/random-track`);

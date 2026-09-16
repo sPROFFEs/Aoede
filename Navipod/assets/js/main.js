@@ -272,6 +272,7 @@ window.showContextMenu = views.showContextMenu;
 window.closeContextMenu = views.closeContextMenu;
 window.renderArtist = views.renderArtist;
 window.renderProfile = views.renderProfile;
+window.renderCommunity = views.renderCommunity;
 window.startSmartRadio = views.startSmartRadio;
 window.setCrossfadePending = views.setCrossfadePending;
 window.markPlaybackPrefsDirty = views.markPlaybackPrefsDirty;

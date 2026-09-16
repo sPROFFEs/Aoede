@@ -750,3 +750,48 @@ async def get_public_profile(username: str, request: Request, db: Session = Depe
         "public_playlists": public_playlists,
         "favorites": favorites,
     }
+
+
+@router.get("/list")
+async def list_public_users(request: Request, db: Session = Depends(get_db)):
+    """List all active server users with public summary."""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse("/login")
+
+    users = (
+        db.query(database.User)
+        .filter(
+            database.User.is_active == True,
+            database.User.is_service_account == False,
+        )
+        .order_by(database.User.username.asc())
+        .all()
+    )
+
+    import admin_statistics_service
+
+    from routers.music.playlists import fetch_playlist_summaries
+
+    result = []
+    for u in users:
+        public_playlists = fetch_playlist_summaries(
+            db, viewer_id=current_user.id, owner_id=u.id, public_only=True if u.id != current_user.id else False
+        )
+        fav_count = db.query(database.UserFavorite).filter(database.UserFavorite.user_id == u.id).count()
+        rows, _ = admin_statistics_service._read_user_activity(u.username, None)
+        total_listens = sum(int(r.get("qualified_listens") or 0) for r in rows)
+
+        result.append(
+            {
+                "username": u.username,
+                "avatar_url": f"/user/avatar/{u.username}",
+                "is_admin": bool(u.is_admin),
+                "is_self": bool(u.id == current_user.id),
+                "public_playlists_count": len(public_playlists),
+                "favorites_count": fav_count,
+                "total_listens": total_listens,
+            }
+        )
+
+    return result

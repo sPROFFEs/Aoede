@@ -12,6 +12,7 @@ from routers.user import (
     detect_image_format,
     get_avatar,
     get_public_profile,
+    list_public_users,
     upload_avatar,
     validate_image_file,
 )
@@ -306,3 +307,21 @@ async def test_get_public_profile(db_session, monkeypatch):
     assert len(profile["favorites"]) == 1
     assert profile["favorites"][0]["title"] == "Song 1"
     assert profile["stats"]["favorites_count"] == 1
+
+
+@pytest.mark.anyio
+async def test_list_public_users(db_session, monkeypatch):
+    user_a = database.User(id=20, username="alice", hashed_password="pw", is_active=True)
+    user_b = database.User(id=21, username="bob", hashed_password="pw", is_active=True)
+    service_u = database.User(id=22, username="svc", hashed_password="pw", is_active=True, is_service_account=True)
+    db_session.add_all([user_a, user_b, service_u])
+    db_session.commit()
+
+    monkeypatch.setattr("routers.user.get_current_user", lambda req, db: user_a)
+    request = Request({"type": "http", "method": "GET", "path": "/user/list", "headers": []})
+
+    users = await list_public_users(request, db_session)
+    usernames = [u["username"] for u in users]
+    assert "alice" in usernames
+    assert "bob" in usernames
+    assert "svc" not in usernames

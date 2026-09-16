@@ -53,6 +53,7 @@ export function homeTabsBar(activeTab) {
     { key: 'all', label: 'All', view: 'home' },
     { key: 'party', label: 'Party', view: 'party' },
     { key: 'public', label: 'Public', view: 'public' },
+    { key: 'community', label: 'Community', view: 'community' },
     { key: 'discovery', label: 'Discover', view: 'discovery' },
     { key: 'discover_radios', label: 'Radios', view: 'discover_radios' }
   ];

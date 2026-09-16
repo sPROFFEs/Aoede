@@ -5,6 +5,7 @@
 
 import * as state from './state.js';
 import * as ui from './ui.js';
+import * as api from './api.js';
 
 // === SEARCH INPUT HANDLER ===
 
@@ -64,14 +65,27 @@ function renderResults(container, bodyHtml) {
   container.innerHTML = `${LOADER_STRIP_HTML}<div class="search-results-body">${bodyHtml}</div>`;
 }
 
+function userProfileCard(u) {
+  return `
+    <div class="user-profile-card" onclick="loadView('profile', '${ui.escHtml(u.username).replace(/'/g, "\\'")}')">
+      <div class="user-profile-card-avatar">
+        <img src="${u.avatar_url}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
+      </div>
+      <div class="user-profile-card-name">
+        <span>${ui.escHtml(u.username)}</span>
+        ${u.is_admin ? '<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">Admin</span>' : ''}
+      </div>
+      <div class="user-profile-card-meta">
+        ${u.public_playlists_count} playlists · ${u.favorites_count} favorites · ${u.total_listens} listens
+      </div>
+    </div>`;
+}
+
 export async function executeSearch(query) {
   const results = document.getElementById('search-results');
   if (!results) return;
 
-  // Always abort the previous in-flight search before starting a new
-  // one. Without this, a slow upstream (yt-dlp can take 1-3s) lands its
-  // response on top of a faster subsequent search, producing the
-  // "previous search's results appear after switching source" bug.
+  // Always abort the previous in-flight search before starting a new one.
   if (state.searchAbortController) {
     try {
       state.searchAbortController.abort();
@@ -82,69 +96,130 @@ export async function executeSearch(query) {
   const controller = new AbortController();
   state.setSearchAbortController(controller);
 
-  // Empty query: render a help/empty state and stop. The backend
-  // returns [] for q='', and the frontend never had a real discovery
-  // payload — surfacing "No results found" here was actively misleading.
+  // If source is 'users', list all server users if empty query or filter by name
+  if (state.currentSource === 'users') {
+    results.classList.add('search-results-fetching');
+    try {
+      const allUsers = await api.fetchUsersList();
+      if (controller.signal.aborted || state.searchAbortController !== controller) return;
+
+      const filtered = query
+        ? allUsers.filter((u) => u.username.toLowerCase().includes(query.toLowerCase()))
+        : allUsers;
+
+      if (!filtered.length) {
+        renderResults(
+          results,
+          `<div class="empty-state glass-panel"><i data-lucide="user-x" class="empty-icon"></i><p>No server users found matching "${ui.escHtml(query)}".</p></div>`
+        );
+      } else {
+        renderResults(
+          results,
+          `
+          <div class="shelf-section" style="margin-top: 12px;">
+            <div class="shelf-header">
+              <h2 class="shelf-title">Server Community Profiles (${filtered.length})</h2>
+            </div>
+            <div class="user-cards-grid">
+              ${filtered.map(userProfileCard).join('')}
+            </div>
+          </div>`
+        );
+      }
+      if (window.lucide?.createIcons) lucide.createIcons();
+    } catch (e) {
+      if (e.name !== 'AbortError') {
+        renderResults(results, `<div class="empty-state" style="color:#e74c3c;">Failed to load users.</div>`);
+      }
+    } finally {
+      if (state.searchAbortController === controller) {
+        state.setSearchAbortController(null);
+        results.classList.remove('search-results-fetching');
+      }
+    }
+    return;
+  }
+
+  // Empty query for audio search: render help state
   if (!query) {
     results.classList.remove('search-results-fetching');
     renderResults(
       results,
-      '<div class="empty-state"><p>Type to search your library, federated peers, and remote sources.</p></div>'
+      '<div class="empty-state"><p>Type to search your library, federated peers, server users, and remote sources.</p></div>'
     );
     state.setCurrentViewList([]);
     return;
   }
 
-  // Flag the panel as fetching — CSS reveals the loader strip and
-  // dims the existing body. Body content stays on screen until the
-  // new render swaps it in, so there's no flash on supersede.
+  // Flag the panel as fetching
   results.classList.add('search-results-fetching');
-
-  // If the panel is empty (first search after view load) make sure
-  // the wrapper exists so the loader strip has somewhere to render.
   if (!results.querySelector('.search-results-body')) {
     renderResults(results, '');
   }
 
   try {
     const url = `${state.API}/search?q=${encodeURIComponent(query)}&source=${encodeURIComponent(state.currentSource)}`;
-    const res = await fetch(url, { signal: controller.signal });
 
-    if (!res.ok) {
+    // In 'all' mode, also search server users in parallel
+    const [searchRes, usersList] = await Promise.all([
+      fetch(url, { signal: controller.signal }),
+      state.currentSource === 'all' ? api.fetchUsersList().catch(() => []) : Promise.resolve([])
+    ]);
+
+    if (!searchRes.ok) {
       const msg =
-        res.status === 401
+        searchRes.status === 401
           ? 'Your session expired. Reload the page to log in.'
-          : res.status === 429
+          : searchRes.status === 429
             ? 'Too many searches in a row — slow down (limit: 30/min).'
-            : `Search failed (HTTP ${res.status}).`;
+            : `Search failed (HTTP ${searchRes.status}).`;
       renderResults(results, `<div class="empty-state" style="color:#e74c3c;"><p>${ui.escHtml(msg)}</p></div>`);
       return;
     }
 
-    const data = await res.json();
-
-    // Stale-response guard: a newer search may have superseded us
-    // between fetch completion and json() parsing. AbortController
-    // covers the fetch itself; this catches the gap.
+    const data = await searchRes.json();
     if (controller.signal.aborted || state.searchAbortController !== controller) return;
 
+    const matchingUsers = (usersList || []).filter((u) => u.username.toLowerCase().includes(query.toLowerCase()));
+
+    let usersSectionHtml = '';
+    if (matchingUsers.length > 0) {
+      usersSectionHtml = `
+        <div class="shelf-section" style="margin-bottom: 24px;">
+          <div class="shelf-header">
+            <h2 class="shelf-title">Matching Profiles</h2>
+          </div>
+          <div class="user-cards-grid" style="margin-top: 10px;">
+            ${matchingUsers.slice(0, 4).map(userProfileCard).join('')}
+          </div>
+        </div>`;
+    }
+
     if (!Array.isArray(data) || data.length === 0) {
-      renderResults(
-        results,
-        '<div class="empty-state"><p>No results found in your library or remote sources.</p></div>'
-      );
+      if (matchingUsers.length > 0) {
+        renderResults(
+          results,
+          `${usersSectionHtml}<div class="empty-state"><p>No matching audio tracks found.</p></div>`
+        );
+      } else {
+        renderResults(
+          results,
+          '<div class="empty-state"><p>No results found in your library or remote sources.</p></div>'
+        );
+      }
       state.setCurrentViewList([]);
+      if (window.lucide?.createIcons) lucide.createIcons();
       return;
     }
 
     state.setCurrentViewList(data);
     renderResults(
       results,
-      `<div class="track-list"><div class="track-row header"><div class="track-num">#</div><div>Title</div><div>Source</div><div></div><div></div></div>${data.map((item, i) => (window.createTrackRow ? window.createTrackRow(item, i) : '')).join('')}</div>`
+      `${usersSectionHtml}<div class="track-list"><div class="track-row header"><div class="track-num">#</div><div>Title</div><div>Source</div><div></div><div></div></div>${data.map((item, i) => (window.createTrackRow ? window.createTrackRow(item, i) : '')).join('')}</div>`
     );
     if (window.lucide?.createIcons) lucide.createIcons();
   } catch (e) {
-    if (e.name === 'AbortError') return; // expected on supersede
+    if (e.name === 'AbortError') return;
     console.error('[SEARCH] Error:', e);
     renderResults(
       results,

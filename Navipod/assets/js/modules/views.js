@@ -291,6 +291,7 @@ export async function loadView(view, param = null, options = {}) {
     if (view === 'home') await renderHome(container);
     else if (view === 'offline' || view === 'downloads_offline') await renderOfflineDownloads(container);
     else if (view === 'profile') await renderProfile(container, param);
+    else if (view === 'community' || view === 'users') await renderCommunity(container);
     else if (view === 'party') await party.renderPartyList(container);
     else if (view === 'party_room') await party.renderPartyRoom(container, Number(param));
     else if (view === 'library') await library.renderLibrary(container);
@@ -825,6 +826,7 @@ export function renderSearch(container) {
             <div class="chip lastfm" onclick="setSource(this, 'lastfm')">Last.fm</div>
             <div class="chip musicbrainz" onclick="setSource(this, 'musicbrainz')">MusicBrainz</div>
             <div class="chip" onclick="setSource(this, 'local')">Local</div>
+            <div class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> Users</div>
         </div>
         <div id="search-results"></div>`;
   lucide.createIcons();
@@ -2825,23 +2827,31 @@ export async function renderProfile(container, username) {
   }
 
   container.innerHTML = `
-    <section class="home-overview library-theme" style="padding-bottom: 28px;">
+    <section class="home-overview library-theme" style="padding-bottom: 24px;">
+      <button class="library-back" onclick="history.back()" style="margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--text-sub); cursor:pointer; font-size:0.88rem;">
+        <i data-lucide="arrow-left" width="16" height="16"></i> Back
+      </button>
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
-        <div class="profile-avatar-large" style="width:110px; height:110px; border-radius:50%; overflow:hidden; border:2px solid rgba(255,255,255,0.15); flex-shrink:0;">
+        <div class="profile-avatar-large" style="width:116px; height:116px; border-radius:50%; overflow:hidden; border:2px solid rgba(255,255,255,0.18); flex-shrink:0; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
           <img src="${avatarUrl}" alt="${ui.escHtml(username)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
         </div>
-        <div style="flex:1; min-width:200px;">
+        <div style="flex:1; min-width:220px;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
             <span class="hero-kicker" style="margin:0;">Profile</span>
             <span class="status-badge finished" style="font-size:0.75rem; text-transform:uppercase;">${roleLabel}</span>
           </div>
-          <h1 class="hero-greeting" style="font-size: clamp(2rem, 4vw, 3rem); margin: 4px 0 8px 0;">${ui.escHtml(username)}</h1>
-          <p class="hero-sub" style="color:var(--text-sub); margin:0;">
-            ${playlists.length} ${playlists.length === 1 ? 'playlist' : 'playlists'} · ${favorites.length} ${favorites.length === 1 ? 'favorite song' : 'favorite songs'} · ${stats.total_listens || 0} listens (${stats.listening_minutes || 0} mins)
-          </p>
+          <h1 class="hero-greeting" style="font-size: clamp(2rem, 4vw, 3rem); margin: 4px 0 10px 0;">${ui.escHtml(username)}</h1>
+          
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+            <div class="user-stat-chip"><i data-lucide="list-music" width="14" height="14"></i> <strong>${playlists.length}</strong> Playlists</div>
+            <div class="user-stat-chip"><i data-lucide="heart" width="14" height="14"></i> <strong>${favorites.length}</strong> Favorites</div>
+            <div class="user-stat-chip"><i data-lucide="headphones" width="14" height="14"></i> <strong>${stats.total_listens || 0}</strong> Listens</div>
+            <div class="user-stat-chip"><i data-lucide="clock" width="14" height="14"></i> <strong>${stats.listening_minutes || 0}</strong> Mins</div>
+          </div>
+
           ${
             profile.is_self
-              ? `<div style="margin-top:14px;"><button class="btn-secondary" onclick="loadView('settings_user')"><i data-lucide="settings" width="16" height="16"></i> Edit Profile & Settings</button></div>`
+              ? `<div style="margin-top:16px;"><button class="btn-secondary" onclick="loadView('settings_user')"><i data-lucide="settings" width="16" height="16"></i> Edit Profile & Settings</button></div>`
               : ''
           }
         </div>
@@ -2860,6 +2870,64 @@ export async function renderProfile(container, username) {
            </div>`
         : ''
     }
+  `;
+  if (window.lucide) lucide.createIcons();
+}
+
+// === SERVER COMMUNITY / USERS VIEW ==========================================
+
+export async function renderCommunity(container) {
+  let users = [];
+  try {
+    users = await api.fetchUsersList();
+  } catch (e) {
+    console.error('[COMMUNITY] Error fetching users:', e);
+  }
+
+  function renderUserCard(u) {
+    return `
+      <div class="user-profile-card" onclick="loadView('profile', '${ui.escHtml(u.username).replace(/'/g, "\\'")}')">
+        <div class="user-profile-card-avatar">
+          <img src="${u.avatar_url}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
+        </div>
+        <div class="user-profile-card-name">
+          <span>${ui.escHtml(u.username)}</span>
+          ${u.is_admin ? '<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">Admin</span>' : ''}
+        </div>
+        <div class="user-profile-card-meta">
+          ${u.public_playlists_count} playlists · ${u.favorites_count} favorites · ${u.total_listens} listens
+        </div>
+      </div>`;
+  }
+
+  container.innerHTML = `
+    <section class="home-overview public-theme">
+      ${ui.homeTabsBar('community')}
+      <div class="hero-section">
+        <div class="hero-kicker">Server Network & Members</div>
+        <h1 class="hero-greeting">Community Profiles</h1>
+        <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Explore listener profiles on this Navipod server. Discover their shared playlists, favorites, and music taste.</p>
+      </div>
+    </section>
+
+    <section class="shelf-section home-shelf">
+      <div class="shelf-header" style="margin-bottom:16px;">
+        <h2 class="shelf-title">Server Members (${users.length})</h2>
+        <div style="min-width:200px; max-width:320px;">
+          <input id="community-search-input" class="modal-input" placeholder="Filter by username..." style="padding:7px 14px; font-size:0.85rem;" oninput="
+            const query = this.value.trim().toLowerCase();
+            const cards = document.querySelectorAll('.user-cards-grid .user-profile-card');
+            cards.forEach(card => {
+              const name = card.querySelector('.user-profile-card-name').textContent.toLowerCase();
+              card.style.display = name.includes(query) ? '' : 'none';
+            });
+          ">
+        </div>
+      </div>
+      <div class="user-cards-grid">
+        ${users.map(renderUserCard).join('')}
+      </div>
+    </section>
   `;
   if (window.lucide) lucide.createIcons();
 }
