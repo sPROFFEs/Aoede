@@ -176,8 +176,6 @@ def _run_git(args, *, check=True, fallback=None, include_details=False):
 
 def _get_container_mount_source(destination_path: Path):
     configured_name = os.getenv("SELF_CONTAINER_NAME")
-    if not configured_name:
-        return None
 
     # Explicit container names are stable for current installations, but old
     # Compose deployments may still use a generated project/service name. The
@@ -186,6 +184,12 @@ def _get_container_mount_source(destination_path: Path):
     try:
         inspect_targets.append(socket.gethostname())
     except OSError:
+        pass
+    try:
+        etc_host = Path("/etc/hostname").read_text(encoding="utf-8").strip()
+        if etc_host:
+            inspect_targets.append(etc_host)
+    except Exception:
         pass
 
     seen = set()
@@ -204,7 +208,8 @@ def _get_container_mount_source(destination_path: Path):
                 continue
             mounts = json.loads((completed.stdout or "").strip() or "[]")
             for mount in mounts:
-                if Path(mount.get("Destination") or "") == destination_path:
+                dest = Path(mount.get("Destination") or "")
+                if dest == destination_path or dest.resolve() == destination_path.resolve():
                     source = mount.get("Source")
                     if source:
                         return Path(source)
@@ -215,6 +220,17 @@ def _get_container_mount_source(destination_path: Path):
 
 def _get_host_visible_compose_roots():
     host_repo_root = _get_container_mount_source(REPO_ROOT)
+    host_concierge_root = _get_container_mount_source(Path("/app"))
+
+    if not host_repo_root and host_concierge_root:
+        if host_concierge_root.name == "concierge":
+            host_app_root = host_concierge_root.parent
+            host_repo_root = host_app_root.parent if (host_app_root.parent / "Navipod").exists() else host_app_root
+            return host_repo_root, host_app_root
+        host_app_root = host_concierge_root.parent
+        host_repo_root = host_app_root.parent
+        return host_repo_root, host_app_root
+
     if not host_repo_root:
         return None, None
     try:
@@ -228,6 +244,8 @@ def _get_host_visible_compose_roots():
 def _build_host_bind_compose_file():
     host_repo_root, host_app_root = _get_host_visible_compose_roots()
     host_concierge_root = _get_container_mount_source(Path("/app"))
+    if not host_concierge_root and host_app_root:
+        host_concierge_root = host_app_root / "concierge"
     compose_file = COMPOSE_PROJECT_ROOT / "docker-compose.yaml"
     if not host_repo_root or not host_app_root or not compose_file.exists():
         return None
