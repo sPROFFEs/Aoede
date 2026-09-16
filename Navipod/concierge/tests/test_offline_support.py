@@ -65,6 +65,10 @@ def test_offline_store_module_and_contract():
     assert "export async function flushPendingActions" in content
     assert "export async function saveLibrarySnapshot" in content
     assert "export async function getLibrarySnapshot" in content
+    assert "export async function saveOfflinePlaylist" in content
+    assert "export async function listOfflinePlaylists" in content
+    assert "export async function deleteOfflinePlaylist" in content
+    assert "export async function listOfflineSingles" in content
     assert "export async function checkOfflineReadiness" in content
 
 

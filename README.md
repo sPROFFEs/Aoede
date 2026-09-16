@@ -84,6 +84,7 @@ Navipod is a personal, self-hosted music platform built around isolated **Navidr
 - **Library views** — searchable and paginated artists, albums and genres.
 - **Smart playlists** — editable rules, previews and automatic refreshes.
 - **Everyday player tools** — persistent queues, lyrics, sleep timer, normalization and track fades.
+- **Cross-platform offline playback** — download tracks and playlists locally in IndexedDB with auto-expanding device storage and deferred action resync.
 - **Playlist sharing** — public playlists, synchronized read-only copies, custom covers and track ordering.
 - **Party Rooms** — synchronized playback, room queues and host/guest controls.
 - **Subsonic compatibility** — connect established mobile clients to each user's Navidrome instance.
