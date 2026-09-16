@@ -221,8 +221,83 @@
  * feel like the same family of objects. */
 
 .library-shell {
-    padding: 0 16px;
-    max-width: 720px;
+    padding: 0;
+    width: 100%;
+    max-width: 100%;
+}
+
+.library-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+}
+@media (max-width: 768px) {
+    .library-cards-grid {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 12px;
+    }
+}
+
+.library-card {
+    background: var(--surface-1, #181818);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: var(--radius-md, 8px);
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+    color: inherit;
+    transition: transform 0.15s ease, background-color 0.15s ease, border-color 0.15s ease;
+    position: relative;
+}
+.library-card:hover {
+    background: var(--surface-2, #242424);
+    border-color: rgba(255, 255, 255, 0.18);
+    transform: translateY(-2px);
+}
+.library-card-cover {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: var(--radius-sm, 6px);
+    overflow: hidden;
+    background: var(--surface-3, #282828);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+.library-card-cover.artist-cover {
+    border-radius: 50%;
+}
+.library-card-cover img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.library-card-cover i,
+.library-card-cover svg {
+    width: 44px;
+    height: 44px;
+    color: var(--text-sub, #a7a7a7);
+}
+.library-card-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main, #fff);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.library-card-sub {
+    font-size: 0.8rem;
+    color: var(--text-sub, #a7a7a7);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .library-head {

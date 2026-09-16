@@ -11,74 +11,87 @@ let facetQuery = '';
 let facetSort = 'name';
 let facetLimit = 50;
 
-function playlistRow(pl) {
+function playlistCard(pl) {
   const tracks = Number(pl.track_count || 0);
   const type = pl.is_smart ? 'Smart playlist' : pl.source_playlist_id ? 'Synced playlist' : 'Playlist';
   const icon = pl.is_smart ? 'sparkles' : pl.source_playlist_id ? 'refresh-cw' : 'list-music';
   const thumb = pl.thumbnail || '/static/img/default_cover.png';
   const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
   return `
-    <div class="library-row" onclick="loadView('playlist', ${pl.id})">
-      <div class="library-row-cover">
+    <div class="library-card" onclick="loadView('playlist', ${pl.id})">
+      <div class="library-card-cover">
         ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="${icon}"></i>`}
       </div>
-      <div class="library-row-meta">
-        <div class="library-row-name">${ui.escHtml(pl.name || 'Playlist')}</div>
-        <div class="library-row-sub">${type} · ${tracks} ${tracks === 1 ? 'song' : 'songs'}${pl.smart_rule_summary ? ` · ${ui.escHtml(pl.smart_rule_summary)}` : ''}</div>
-      </div>
-      ${pl.is_smart ? `<span class="library-row-actions"><button class="library-row-action" onclick="event.stopPropagation(); showEditSmartPlaylistModal(${pl.id})" title="Edit rules"><i data-lucide="pencil"></i></button><button class="library-row-action" onclick="event.stopPropagation(); refreshSmartPlaylist(${pl.id})" title="Refresh rules"><i data-lucide="refresh-cw"></i></button></span>` : ''}
+      <div class="library-card-name" title="${ui.escHtml(pl.name || 'Playlist')}">${ui.escHtml(pl.name || 'Playlist')}</div>
+      <div class="library-card-sub">${type} · ${tracks} ${tracks === 1 ? 'song' : 'songs'}</div>
     </div>`;
 }
 
-function facetRow(kind, facet) {
+function facetCard(kind, facet) {
   const singular = kind === 'artists' ? 'artist' : kind === 'albums' ? 'album' : 'genre';
   const icon = kind === 'artists' ? 'user-round' : kind === 'albums' ? 'disc-3' : 'tags';
   const encoded = encodeURIComponent(facet.name).replace(/'/g, '%27');
   const encodedArtist = encodeURIComponent(facet.artist || '').replace(/'/g, '%27');
   return `
-    <button class="library-row library-facet-row" onclick="openLibraryFacet('${singular}', decodeURIComponent('${encoded}'), decodeURIComponent('${encodedArtist}'))">
-      <span class="library-row-cover">${facet.thumbnail ? `<img src="${ui.escHtml(facet.thumbnail)}" loading="lazy" onerror="this.replaceWith(document.createTextNode(''))">` : `<i data-lucide="${icon}"></i>`}</span>
-      <span class="library-row-meta">
-        <span class="library-row-name">${ui.escHtml(facet.name)}</span>
-        <span class="library-row-sub">${facet.artist ? `${ui.escHtml(facet.artist)} · ` : ''}${facet.track_count} ${facet.track_count === 1 ? 'song' : 'songs'}</span>
-      </span>
-      <i data-lucide="chevron-right"></i>
+    <button class="library-card" onclick="openLibraryFacet('${singular}', decodeURIComponent('${encoded}'), decodeURIComponent('${encodedArtist}'))">
+      <div class="library-card-cover ${kind === 'artists' ? 'artist-cover' : ''}">
+        ${facet.thumbnail ? `<img src="${ui.escHtml(facet.thumbnail)}" loading="lazy" onerror="this.replaceWith(document.createTextNode(''))">` : `<i data-lucide="${icon}"></i>`}
+      </div>
+      <div class="library-card-name" title="${ui.escHtml(facet.name)}">${ui.escHtml(facet.name)}</div>
+      <div class="library-card-sub">${facet.artist ? `${ui.escHtml(facet.artist)} · ` : ''}${facet.track_count} ${facet.track_count === 1 ? 'song' : 'songs'}</div>
     </button>`;
 }
 
 function shell(content, browsing = false, total = 0, hasMore = false) {
   return `
     <section class="library-shell">
-      <header class="library-head">
-        <h1 class="library-title">Your Library</h1>
-        <div class="library-head-actions">
-          <button class="library-icon-btn" onclick="loadView('search')" title="Search"><i data-lucide="search"></i></button>
-          <button class="library-icon-btn" onclick="showCreateSmartPlaylistModal()" title="New smart playlist"><i data-lucide="sparkles"></i></button>
-          <button class="library-icon-btn" onclick="showCreatePlaylistModal()" title="New playlist"><i data-lucide="plus"></i></button>
+      <section class="home-overview library-theme">
+        <div class="library-head" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
+          <div>
+            <div class="hero-kicker">Your personal music collection</div>
+            <h1 class="hero-greeting">Your Library</h1>
+            <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Browse your playlists, artists, albums, genres, and device downloads.</p>
+          </div>
+          <div class="library-actions-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <button class="btn-secondary" onclick="showCreateSmartPlaylistModal()" title="New smart playlist">
+              <i data-lucide="sparkles" width="16" height="16"></i> Smart Playlist
+            </button>
+            <button class="btn-primary" onclick="showCreatePlaylistModal()" title="New playlist">
+              <i data-lucide="plus" width="16" height="16"></i> New Playlist
+            </button>
+          </div>
         </div>
-      </header>
-      <div class="library-filters">
-        ${['playlists', 'offline', 'artists', 'albums', 'genres'].map((kind) => `<button class="library-filter${kind === activeKind ? ' active' : ''}" onclick="switchLibraryKind('${kind}')">${kind === 'offline' ? 'Offline' : kind[0].toUpperCase() + kind.slice(1)}</button>`).join('')}
+      </section>
+
+      <div class="library-filters" style="margin: 16px 0 16px 0;">
+        <button class="library-filter ${activeKind === 'playlists' ? 'active' : ''}" onclick="switchLibraryKind('playlists')">Playlists</button>
+        <button class="library-filter ${activeKind === 'artists' ? 'active' : ''}" onclick="switchLibraryKind('artists')">Artists</button>
+        <button class="library-filter ${activeKind === 'albums' ? 'active' : ''}" onclick="switchLibraryKind('albums')">Albums</button>
+        <button class="library-filter ${activeKind === 'genres' ? 'active' : ''}" onclick="switchLibraryKind('genres')">Genres</button>
+        <button class="library-filter" onclick="loadView('offline')" title="Offline Downloads"><i data-lucide="cloud-off" width="14" height="14" style="margin-right:4px;"></i> Offline</button>
       </div>
+
       ${browsing ? `<div class="library-sort"><input id="library-facet-query" class="modal-input" value="${ui.escHtml(facetQuery)}" placeholder="Search ${activeKind}" onkeyup="if(event.key==='Enter') reloadLibraryFacets()"><select id="library-facet-sort" class="modal-input" onchange="reloadLibraryFacets()"><option value="name"${facetSort === 'name' ? ' selected' : ''}>Name</option><option value="count"${facetSort === 'count' ? ' selected' : ''}>Most songs</option></select><button class="library-icon-btn" onclick="reloadLibraryFacets()" title="Search"><i data-lucide="search"></i></button></div>` : ''}
       ${content}
-      ${browsing ? `<p class="library-facet-count">Showing ${Math.min(facetLimit, total)} of ${total}</p>${hasMore ? '<button class="btn-secondary" onclick="loadMoreLibraryFacets()">Load more</button>' : ''}` : ''}
+      ${browsing ? `<p class="library-facet-count" style="margin-top:20px;">Showing ${Math.min(facetLimit, total)} of ${total}</p>${hasMore ? '<button class="btn-secondary" style="margin-top:10px;" onclick="loadMoreLibraryFacets()">Load more</button>' : ''}` : ''}
     </section>`;
 }
 
-export async function renderLibrary(container, kind = activeKind) {
-  if (kind !== activeKind) {
+export async function renderLibrary(container, kind = null) {
+  const validKinds = ['playlists', 'artists', 'albums', 'genres'];
+  if (kind === 'offline') {
+    window.loadView('offline');
+    return;
+  }
+  const selectedKind = validKinds.includes(kind) ? kind : validKinds.includes(activeKind) ? activeKind : 'playlists';
+  if (selectedKind !== activeKind) {
     facetQuery = '';
     facetSort = 'name';
     facetLimit = 50;
   }
-  activeKind = kind;
+  activeKind = selectedKind;
   try {
-    if (kind === 'offline') {
-      window.loadView('offline');
-      return;
-    }
-    if (kind === 'playlists') {
+    if (activeKind === 'playlists') {
       let playlists = [];
       if (navigator.onLine) {
         playlists = await api.fetchPlaylists();
@@ -89,22 +102,26 @@ export async function renderLibrary(container, kind = activeKind) {
       }
       container.innerHTML = shell(
         playlists.length
-          ? `<div class="library-list">${playlists.map(playlistRow).join('')}</div>`
+          ? `<div class="library-cards-grid">${playlists.map(playlistCard).join('')}</div>`
           : '<div class="empty-state"><p>No playlists yet. Use + or create a smart playlist.</p></div>'
       );
     } else {
       let page = { items: [], total: 0, has_more: false };
       if (navigator.onLine) {
-        page = await api.fetchLibraryFacets(kind, { q: facetQuery, sort: facetSort, limit: facetLimit });
-        offlineStore.saveLibrarySnapshot(`facets_${kind}`, page);
+        page = await api.fetchLibraryFacets(activeKind, { q: facetQuery, sort: facetSort, limit: facetLimit });
+        offlineStore.saveLibrarySnapshot(`facets_${activeKind}`, page);
       } else {
-        page = (await offlineStore.getLibrarySnapshot(`facets_${kind}`)) || { items: [], total: 0, has_more: false };
+        page = (await offlineStore.getLibrarySnapshot(`facets_${activeKind}`)) || {
+          items: [],
+          total: 0,
+          has_more: false
+        };
       }
       const facets = page.items || [];
       container.innerHTML = shell(
         facets.length
-          ? `<div class="library-list">${facets.map((facet) => facetRow(kind, facet)).join('')}</div>`
-          : `<div class="empty-state"><p>No ${kind} with metadata found.</p></div>`,
+          ? `<div class="library-cards-grid">${facets.map((facet) => facetCard(activeKind, facet)).join('')}</div>`
+          : `<div class="empty-state"><p>No ${activeKind} with metadata found.</p></div>`,
         true,
         page.total || 0,
         Boolean(page.has_more)
@@ -114,7 +131,7 @@ export async function renderLibrary(container, kind = activeKind) {
   } catch (error) {
     const cached = await offlineStore.getLibrarySnapshot('playlists');
     if (cached && cached.length) {
-      container.innerHTML = shell(`<div class="library-list">${cached.map(playlistRow).join('')}</div>`);
+      container.innerHTML = shell(`<div class="library-cards-grid">${cached.map(playlistCard).join('')}</div>`);
       ui.refreshIcons(container);
     } else {
       container.innerHTML = '<div class="empty-state glass-panel"><p>Failed to load your library.</p></div>';
