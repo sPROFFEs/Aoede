@@ -213,6 +213,7 @@ window.resetPlaylistCover = playlists.resetPlaylistCover;
 window.downloadOfflineTrack = offlineStore.downloadTrack;
 window.downloadOfflineTrackAction = views.downloadOfflineTrackAction;
 window.deleteOfflineTrackAction = views.deleteOfflineTrackAction;
+window.deleteOfflinePlaylistAction = views.deleteOfflinePlaylistAction;
 window.clearOfflineData = offlineStore.clearOfflineData;
 window.clearAllOfflineData = views.clearAllOfflineData;
 window.showClearOfflineConfirmModal = views.showClearOfflineConfirmModal;

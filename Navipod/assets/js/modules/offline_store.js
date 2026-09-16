@@ -148,8 +148,9 @@ export async function isTrackAvailableOffline(trackId) {
  * Download a track for offline playback
  * @param {Object} track
  * @param {Function} [onProgress] - Callback (percent, loadedBytes, totalBytes)
+ * @param {Object} [options] - Optional context { playlistId, playlistName, isSingle }
  */
-export async function downloadTrack(track, onProgress = null) {
+export async function downloadTrack(track, onProgress = null, options = {}) {
   if (!track) throw new Error('No track provided');
   const trackId = Number(track.db_id || track.id);
   if (!trackId) throw new Error('Track has no valid database ID');
@@ -158,14 +159,34 @@ export async function downloadTrack(track, onProgress = null) {
     throw new Error('Cannot download tracks while offline');
   }
 
-  // If already downloaded, return existing record
+  // If already downloaded, update playlist associations if passed
   const existing = await getOfflineTrack(trackId);
   if (existing && existing.status === 'complete') {
+    if (options.playlistId) {
+      const playlistIds = new Set(existing.playlist_ids || []);
+      playlistIds.add(Number(options.playlistId));
+      existing.playlist_ids = Array.from(playlistIds);
+      if (options.playlistName) {
+        existing.playlist_names = existing.playlist_names || {};
+        existing.playlist_names[options.playlistId] = options.playlistName;
+      }
+      const db = await getDB();
+      await new Promise((resolve) => {
+        const tx = db.transaction('tracks', 'readwrite');
+        tx.objectStore('tracks').put(existing);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      });
+    }
     if (typeof onProgress === 'function') onProgress(100, existing.size_bytes, existing.size_bytes);
     return existing;
   }
 
   const db = await getDB();
+
+  const playlistIds = options.playlistId ? [Number(options.playlistId)] : [];
+  const playlistNames =
+    options.playlistId && options.playlistName ? { [options.playlistId]: options.playlistName } : {};
 
   // 1. Mark status as 'downloading'
   const tempRecord = {
@@ -185,6 +206,9 @@ export async function downloadTrack(track, onProgress = null) {
       year: track.year || null,
       genre: track.genre || ''
     },
+    playlist_ids: playlistIds,
+    playlist_names: playlistNames,
+    is_single: Boolean(options.isSingle || (!options.playlistId && !playlistIds.length)),
     artwork_blob: null,
     downloaded_at: Date.now(),
     last_played_at: null,
@@ -332,6 +356,9 @@ export async function listOfflineTracks() {
         .filter((item) => item && item.status === 'complete')
         .map((item) => ({
           ...item.metadata,
+          playlist_ids: item.playlist_ids || [],
+          playlist_names: item.playlist_names || {},
+          is_single: Boolean(item.is_single || !item.playlist_ids || item.playlist_ids.length === 0),
           offline_record: {
             size_bytes: item.size_bytes,
             downloaded_at: item.downloaded_at,
@@ -342,6 +369,94 @@ export async function listOfflineTracks() {
     };
     req.onerror = () => reject(req.error);
   });
+}
+
+/**
+ * Save an offline playlist definition into the manifest
+ */
+export async function saveOfflinePlaylist(playlist) {
+  if (!playlist || !playlist.id) return;
+  const numId = Number(playlist.id);
+
+  // Save the full snapshot
+  await saveLibrarySnapshot(`playlist_${numId}`, playlist);
+
+  // Update manifest
+  const manifest = (await getLibrarySnapshot('offline_playlists_manifest')) || [];
+  const existingIdx = manifest.findIndex((p) => Number(p.id) === numId);
+  const summary = {
+    id: numId,
+    name: playlist.name || 'Playlist',
+    thumbnail: playlist.thumbnail || '',
+    track_count: playlist.tracks ? playlist.tracks.length : playlist.track_count || 0,
+    downloaded_at: Date.now()
+  };
+
+  if (existingIdx >= 0) {
+    manifest[existingIdx] = { ...manifest[existingIdx], ...summary };
+  } else {
+    manifest.push(summary);
+  }
+
+  await saveLibrarySnapshot('offline_playlists_manifest', manifest);
+
+  window.dispatchEvent(
+    new CustomEvent('navipod:offline-changed', {
+      detail: { type: 'playlist-added', playlistId: numId }
+    })
+  );
+}
+
+/**
+ * List all offline playlists and their tracks
+ */
+export async function listOfflinePlaylists() {
+  const manifest = (await getLibrarySnapshot('offline_playlists_manifest')) || [];
+  const validPlaylists = [];
+
+  for (const item of manifest) {
+    const full = await getLibrarySnapshot(`playlist_${item.id}`);
+    if (full) {
+      validPlaylists.push(full);
+    } else {
+      validPlaylists.push(item);
+    }
+  }
+
+  return validPlaylists;
+}
+
+/**
+ * Delete an offline playlist from the manifest, optionally deleting its tracks
+ */
+export async function deleteOfflinePlaylist(playlistId, deleteTracks = false) {
+  const numId = Number(playlistId);
+  const manifest = (await getLibrarySnapshot('offline_playlists_manifest')) || [];
+  const updated = manifest.filter((p) => Number(p.id) !== numId);
+  await saveLibrarySnapshot('offline_playlists_manifest', updated);
+
+  if (deleteTracks) {
+    const tracks = await listOfflineTracks();
+    for (const t of tracks) {
+      if (t.playlist_ids && t.playlist_ids.includes(numId)) {
+        await deleteOfflineTrack(t.id || t.db_id);
+      }
+    }
+  }
+
+  window.dispatchEvent(
+    new CustomEvent('navipod:offline-changed', {
+      detail: { type: 'playlist-removed', playlistId: numId }
+    })
+  );
+}
+
+/**
+ * List all standalone / single tracks that were downloaded individually
+ */
+export async function listOfflineSingles() {
+  const all = await listOfflineTracks();
+  return all.filter((t) => t.is_single);
 }
 
 /**

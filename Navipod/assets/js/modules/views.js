@@ -2430,20 +2430,30 @@ export async function startSmartRadio(artist, title) {
 
 // === OFFLINE DOWNLOADS VIEW =================================================
 
-export async function renderOfflineDownloads(container) {
-  let tracks = [];
+export async function renderOfflineDownloads(container, activeTab = 'all') {
+  let allTracks = [];
+  let offlinePlaylists = [];
+  let offlineSingles = [];
   let storage = { bytesUsed: 0, trackCount: 0 };
+
   try {
-    [tracks, storage] = await Promise.all([offlineStore.listOfflineTracks(), offlineStore.getStorageUsage()]);
+    [allTracks, offlinePlaylists, offlineSingles, storage] = await Promise.all([
+      offlineStore.listOfflineTracks(),
+      offlineStore.listOfflinePlaylists(),
+      offlineStore.listOfflineSingles(),
+      offlineStore.getStorageUsage()
+    ]);
   } catch (e) {
     console.error('[OFFLINE] Load error:', e);
   }
 
-  state.setCurrentViewList(tracks);
+  let displayTracks = allTracks;
+  if (activeTab === 'singles') displayTracks = offlineSingles;
+  state.setCurrentViewList(displayTracks);
 
-  const trackCount = tracks.length;
+  const trackCount = allTracks.length;
   const mbUsed = (storage.bytesUsed / (1024 * 1024)).toFixed(1);
-  const subtitle = `${trackCount} ${trackCount === 1 ? 'song' : 'songs'} · ${mbUsed} MB stored on device`;
+  const subtitle = `${trackCount} ${trackCount === 1 ? 'song' : 'songs'} · ${offlinePlaylists.length} ${offlinePlaylists.length === 1 ? 'playlist' : 'playlists'} · ${mbUsed} MB stored on device`;
 
   let quotaBarHtml = '';
   if (storage.quotaBytes) {
@@ -2453,7 +2463,75 @@ export async function renderOfflineDownloads(container) {
       <div class="offline-storage-bar-bg">
         <div class="offline-storage-bar-fill" style="width: ${Math.min(100, pct)}%"></div>
       </div>
-      <div class="offline-storage-meta">${mbUsed} MB used of ~${quotaMB} MB browser quota (${pct}%)</div>`;
+      <div class="offline-storage-meta">${mbUsed} MB used of ~${quotaMB} MB browser allocated storage (${pct}%)</div>`;
+  }
+
+  // Playlists section HTML
+  let playlistsHtml = '';
+  if (offlinePlaylists.length > 0 && (activeTab === 'all' || activeTab === 'playlists')) {
+    playlistsHtml = `
+      <h2 class="offline-section-title"><i data-lucide="list-music"></i> Offline Playlists</h2>
+      <div class="offline-playlists-grid">
+        ${offlinePlaylists
+          .map((pl) => {
+            const thumb = pl.thumbnail || '/static/img/default_cover.png';
+            const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
+            const count = pl.tracks ? pl.tracks.length : pl.track_count || 0;
+            return `
+              <div class="offline-playlist-card" onclick="loadView('playlist', ${pl.id})">
+                <div class="offline-playlist-card-cover">
+                  ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
+                </div>
+                <div class="offline-playlist-card-info">
+                  <div class="offline-playlist-card-name" title="${ui.escHtml(pl.name || 'Playlist')}">${ui.escHtml(pl.name || 'Playlist')}</div>
+                  <div class="offline-playlist-card-sub">${count} ${count === 1 ? 'song' : 'songs'} · Offline</div>
+                </div>
+                <div class="offline-playlist-card-actions" onclick="event.stopPropagation()">
+                  <button class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', ${pl.id}).then(() => playPlaylistInOrder())" title="Play Playlist">
+                    <i data-lucide="play" width="14" height="14"></i> Play
+                  </button>
+                  <button class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', ${pl.id})" title="Open Playlist">
+                    <i data-lucide="external-link" width="14" height="14"></i> Open
+                  </button>
+                  <button class="btn-danger-outline" style="padding: 6px 10px; font-size: 0.8rem;" onclick="event.stopPropagation(); deleteOfflinePlaylistAction(${pl.id})" title="Remove Offline Copy">
+                    <i data-lucide="trash-2" width="14" height="14"></i>
+                  </button>
+                </div>
+              </div>
+            `;
+          })
+          .join('')}
+      </div>`;
+  } else if (activeTab === 'playlists') {
+    playlistsHtml = `
+      <div class="empty-state glass-panel">
+        <i data-lucide="list-music" class="empty-icon"></i>
+        <p>No offline playlists downloaded yet.<br>Open any playlist while online and tap "Download for Offline".</p>
+      </div>`;
+  }
+
+  // Tracks section HTML
+  let tracksHtml = '';
+  if (activeTab === 'all' || activeTab === 'singles') {
+    const listToRender = activeTab === 'singles' ? offlineSingles : allTracks;
+    const title =
+      activeTab === 'singles'
+        ? 'Individual / Standalone Songs'
+        : offlinePlaylists.length > 0
+          ? 'All Downloaded Tracks'
+          : 'Downloaded Tracks';
+    if (listToRender.length > 0) {
+      tracksHtml = `
+        <h2 class="offline-section-title"><i data-lucide="music"></i> ${title}</h2>
+        <div class="track-list">${listToRender.map((t, i) => createTrackRow({ ...t, is_local: true, is_offline: true, db_id: t.id }, i)).join('')}</div>
+      `;
+    } else if (activeTab === 'singles') {
+      tracksHtml = `
+        <div class="empty-state glass-panel">
+          <i data-lucide="music" class="empty-icon"></i>
+          <p>No standalone single tracks downloaded yet.<br>Use "Make Available Offline" from any track's options menu.</p>
+        </div>`;
+    }
   }
 
   container.innerHTML = `
@@ -2488,37 +2566,65 @@ export async function renderOfflineDownloads(container) {
     <div class="offline-storage-card">
       <div class="offline-storage-header">
         <span class="offline-storage-title"><i data-lucide="hard-drive"></i> Device Storage</span>
-        <span class="offline-storage-meta">${trackCount} tracks</span>
+        <span class="offline-storage-meta">${trackCount} tracks · ${offlinePlaylists.length} playlists</span>
       </div>
       ${quotaBarHtml}
       <div class="offline-storage-actions">
         <p class="offline-disclaimer">
           Tracks are stored locally in your browser/app private database for offline playback.
         </p>
-        <div style="display:flex; gap:8px;">
-          <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity"></i> Check Readiness</button>
-          ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2"></i> Clear Downloads</button>` : ''}
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity" width="16" height="16"></i> Check Readiness</button>
+          ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2" width="16" height="16"></i> Clear All Downloads</button>` : ''}
         </div>
       </div>
     </div>
 
+    <div class="library-filters" style="margin-bottom: 20px;">
+      <button class="library-filter ${activeTab === 'all' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'all')">
+        All Tracks (${trackCount})
+      </button>
+      <button class="library-filter ${activeTab === 'playlists' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'playlists')">
+        Playlists (${offlinePlaylists.length})
+      </button>
+      <button class="library-filter ${activeTab === 'singles' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'singles')">
+        Individual Songs (${offlineSingles.length})
+      </button>
+    </div>
+
+    ${playlistsHtml}
+    ${tracksHtml}
+
     ${
-      trackCount > 0
-        ? `<div class="track-list">${tracks.map((t, i) => createTrackRow({ ...t, is_local: true, is_offline: true, db_id: t.id }, i)).join('')}</div>`
-        : `<div class="empty-state glass-panel">
+      trackCount === 0 && offlinePlaylists.length === 0
+        ? `<div class="empty-state glass-panel">
             <i data-lucide="cloud-off" class="empty-icon"></i>
-            <p>No offline downloads yet.<br>Use the "Make Available Offline" option on any track or playlist while online.</p>
+            <p>No offline downloads yet.<br>Use the "Make Available Offline" option on any track or "Download for Offline" on playlists while online.</p>
          </div>`
+        : ''
     }
   `;
   if (window.lucide) lucide.createIcons();
+}
+
+export async function deleteOfflinePlaylistAction(playlistId) {
+  try {
+    await offlineStore.deleteOfflinePlaylist(playlistId);
+    ui.showToast('Removed playlist from offline storage');
+    if (state.currentViewName === 'offline' || state.currentViewName === 'downloads_offline') {
+      const container = document.getElementById('view-container');
+      if (container) await renderOfflineDownloads(container, 'playlists');
+    }
+  } catch (err) {
+    ui.showToast(`Failed to remove playlist: ${err.message}`, 'error');
+  }
 }
 
 export async function downloadOfflineTrackAction(encodedData) {
   try {
     const item = JSON.parse(decodeURIComponent(atob(encodedData)));
     ui.showToast(`Downloading "${item.title || 'track'}" for offline playback...`, 'info');
-    await offlineStore.downloadTrack(item);
+    await offlineStore.downloadTrack(item, null, { isSingle: true });
     ui.showToast(`Downloaded "${item.title || 'track'}"!`, 'success');
 
     // Update any offline badges in visible track rows
@@ -2615,9 +2721,12 @@ export async function checkOfflineReadinessAction() {
                     <strong>${info.storageInfo.trackCount} tracks (${mb} MB)</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; padding-bottom:8px;">
-                    <span>Storage Quota</span>
+                    <span>Browser Storage Quota</span>
                     <strong>${quota}</strong>
                 </div>
+                <p style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
+                    Browser storage quota is allocated dynamically by your browser/device per origin.
+                </p>
                 <div class="modal-actions" style="margin-top:16px;">
                     <button class="btn-primary" onclick="closeModal()">OK</button>
                 </div>

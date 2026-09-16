@@ -1032,29 +1032,67 @@ export async function addToPlaylist(playlistId, trackId) {
 }
 
 export async function downloadPlaylistOffline(playlistId) {
-  const tracks = state.currentViewList || [];
-  const localTracks = tracks.filter((t) => t.is_local && (t.db_id || t.id));
-  if (!localTracks.length) {
-    ui.showToast('No downloadable tracks in this playlist', 'info');
-    return;
-  }
-
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     ui.showToast('Cannot download while offline', 'error');
     return;
   }
 
-  ui.showToast(`Starting offline download for ${localTracks.length} tracks...`, 'info');
+  let playlistData = null;
+  let tracks = state.currentViewList || [];
+
+  try {
+    const res = await fetch(`${state.API}/playlists/${playlistId}`);
+    if (res.ok) {
+      playlistData = await res.json();
+      if (playlistData && Array.isArray(playlistData.tracks) && playlistData.tracks.length > 0) {
+        tracks = playlistData.tracks;
+      }
+    }
+  } catch {
+    /* fallback to currentViewList */
+  }
+
+  const plName =
+    playlistData?.name || document.getElementById(`playlist-title-${playlistId}`)?.textContent?.trim() || 'Playlist';
+
+  const localTracks = tracks
+    .map((t) => ({
+      ...t,
+      db_id: t.track_id || t.id || t.db_id,
+      id: t.track_id || t.id || t.db_id,
+      is_local: true
+    }))
+    .filter((t) => t.db_id && t.source !== 'federation' && !t.is_radio);
+
+  if (!localTracks.length) {
+    ui.showToast('No downloadable tracks detected in this playlist', 'info');
+    return;
+  }
+
+  ui.showToast(`Starting offline download for ${localTracks.length} tracks in "${plName}"...`, 'info');
   let successCount = 0;
+
+  // Save playlist snapshot in offline store
+  await offlineStore.saveOfflinePlaylist({
+    id: playlistId,
+    name: plName,
+    thumbnail: playlistData?.thumbnail || '',
+    tracks: localTracks,
+    track_count: localTracks.length,
+    is_owner: playlistData?.is_owner ?? true,
+    is_smart: playlistData?.is_smart ?? false
+  });
+
   for (const t of localTracks) {
     try {
-      await offlineStore.downloadTrack(t);
+      await offlineStore.downloadTrack(t, null, { playlistId, playlistName: plName, isSingle: false });
       successCount++;
     } catch (e) {
       console.warn('[OFFLINE] Failed to download playlist track:', t.title, e);
     }
   }
-  ui.showToast(`Downloaded ${successCount} of ${localTracks.length} tracks for offline use!`, 'success');
+
+  ui.showToast(`Downloaded ${successCount} of ${localTracks.length} tracks from "${plName}"!`, 'success');
   if (window.lucide) lucide.createIcons();
 }
 
