@@ -2022,15 +2022,18 @@ export async function renderDiscovery(container) {
 
   if (!items.length) {
     container.innerHTML = `
-        ${ui.homeTabsBar('discovery')}
-        <div class="discovery-shell">
-            <header class="discovery-head">
-                <h1>Discover</h1>
-                <p class="discovery-sub">Tracks recommended for you, with previews.</p>
-            </header>
-            <div class="empty-state">
+        <section class="home-overview discovery-theme">
+            ${ui.homeTabsBar('discovery')}
+            <div class="hero-section">
+                <div class="hero-kicker">New Music Audition</div>
+                <h1 class="hero-greeting">Discover Feed</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Tracks recommended for you with instant 30-second previews.</p>
+            </div>
+        </section>
+        <div class="discovery-shell" style="margin-top: 20px;">
+            <div class="empty-state glass-panel">
                 <i data-lucide="compass" class="empty-icon"></i>
-                <p>No discovery items right now.<br>Visit <strong>Home</strong> first to refresh recommendations, then come back.</p>
+                <p>No discovery items right now.<br>Explore music in <strong>Search</strong> to build recommendations, then come back.</p>
             </div>
         </div>`;
     lucide.createIcons();
@@ -2041,12 +2044,15 @@ export async function renderDiscovery(container) {
   const visible = items.filter((it) => !dismissed.has(_discoveryKey(it)));
 
   container.innerHTML = `
-        ${ui.homeTabsBar('discovery')}
-        <div class="discovery-shell">
-            <header class="discovery-head">
-                <h1>Discover</h1>
-                <p class="discovery-sub">${visible.length} new tracks · tap ▶ to preview</p>
-            </header>
+        <section class="home-overview discovery-theme">
+            ${ui.homeTabsBar('discovery')}
+            <div class="hero-section">
+                <div class="hero-kicker">New Music Audition</div>
+                <h1 class="hero-greeting">Discover Feed</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${visible.length} recommended tracks · tap ▶ to audition</p>
+            </div>
+        </section>
+        <div class="discovery-shell" style="margin-top: 20px;">
             <div class="discovery-feed">
                 ${visible.map(_discoveryCard).join('')}
             </div>

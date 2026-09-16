@@ -12,34 +12,44 @@ import * as player from './player.js';
 
 export async function renderRadio(container) {
   container.innerHTML = `
-        ${ui.homeTabsBar('discover_radios')}
-        <section class="collection-shell">
-        <div class="collection-header collection-header-stack">
-            <div>
-                <h1 class="section-title">Discover Radios</h1>
+        <section class="home-overview radios-theme">
+            ${ui.homeTabsBar('discover_radios')}
+            <div class="hero-section">
+                <div class="hero-kicker">Live Worldwide Broadcasts</div>
+                <h1 class="hero-greeting">Discover Radios</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Dial: <span id="radio-dial" class="text-accent" style="font-weight:600; color:var(--primary);">${state.currentRadioHub.toUpperCase()}</span> · Explore radio stations and live broadcasts around the world.</p>
             </div>
-        </div>
-        <p class="section-subtitle">Dial: <span id="radio-dial" class="text-accent">${state.currentRadioHub.toUpperCase()}</span></p>
+        </section>
 
-        <h2 class="shelf-title radio-shelf-title" style="margin-bottom: 16px;">Editorial Playlists</h2>
-        <div id="radio-playlists" class="grid-shelf"></div>
-
-        <h2 class="shelf-title radio-shelf-title" style="margin: 32px 0 16px 0;">Search Stations</h2>
-        <div class="search-bar-row radio-search-bar">
-            <div class="search-input-wrapper glass-panel" style="margin:0; flex:1;">
-                <i data-lucide="radio" class="search-icon"></i>
-                <input type="text" id="radio-search-input" placeholder="Search city or station..." value="${state.currentRadioHub}" onkeyup="if(event.key==='Enter') executeRadioSearch()">
+        <section class="shelf-section home-shelf">
+            <div class="shelf-header">
+                <h2 class="shelf-title radio-shelf-title">Editorial Playlists</h2>
             </div>
-            <button onclick="executeRadioSearch()" class="btn-primary radio-search-btn">
-                <i data-lucide="search"></i>
-                <span>Search</span>
-            </button>
-        </div>
+            <div id="radio-playlists" class="grid-shelf home-rail" tabindex="0"></div>
+        </section>
 
-        <div id="radio-results" style="margin-top: 24px;"></div>
+        <section class="shelf-section home-shelf">
+            <div class="shelf-header">
+                <h2 class="shelf-title radio-shelf-title">Search Stations</h2>
+            </div>
+            <div class="search-bar-row radio-search-bar" style="margin-bottom: 20px;">
+                <div class="search-input-wrapper glass-panel" style="margin:0; flex:1;">
+                    <i data-lucide="radio" class="search-icon"></i>
+                    <input type="text" id="radio-search-input" placeholder="Search city or station..." value="${state.currentRadioHub}" onkeyup="if(event.key==='Enter') executeRadioSearch()">
+                </div>
+                <button onclick="executeRadioSearch()" class="btn-primary radio-search-btn">
+                    <i data-lucide="search"></i>
+                    <span>Search</span>
+                </button>
+            </div>
+            <div id="radio-results"></div>
+        </section>
 
-        <h2 class="shelf-title radio-shelf-title" style="margin: 40px 0 16px 0;">Your Saved Radios</h2>
-        <div id="radio-saved-section"></div>
+        <section class="shelf-section home-shelf" style="margin-top: 32px;">
+            <div class="shelf-header">
+                <h2 class="shelf-title radio-shelf-title">Your Saved Radios</h2>
+            </div>
+            <div id="radio-saved-section"></div>
         </section>`;
   lucide.createIcons();
 

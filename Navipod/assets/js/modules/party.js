@@ -77,21 +77,31 @@ export async function renderPartyList(container) {
   const rooms = await fetchRooms();
   const owned = rooms.find((room) => room.is_owner);
   container.innerHTML = `
-    ${ui.homeTabsBar('party')}
-    <section class="party-page-head">
-      <div><span class="hero-kicker">Listen together</span><h1>Party rooms</h1>
-      <p>Join a shared queue and stay on the same song with everyone in the room.</p></div>
-      <button class="btn-primary party-create-btn" onclick="showCreatePartyModal()" ${owned ? 'disabled title="Delete your existing room first"' : ''}>
-        <i data-lucide="plus"></i> Create room
-      </button>
+    <section class="home-overview party-theme">
+      ${ui.homeTabsBar('party')}
+      <div class="hero-section" style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;">
+        <div>
+          <div class="hero-kicker">Listen together in real time</div>
+          <h1 class="hero-greeting">Party Rooms</h1>
+          <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Join a shared queue and stay on the same beat with everyone in the room.</p>
+        </div>
+        <button class="btn-primary party-create-btn" onclick="showCreatePartyModal()" ${owned ? 'disabled title="Delete your existing room first"' : ''}>
+          <i data-lucide="plus" width="18" height="18"></i> Create Room
+        </button>
+      </div>
     </section>
     ${
       owned
         ? `<div class="party-owner-notice"><i data-lucide="info"></i><span>You already own <strong>${ui.escHtml(owned.name)}</strong>. Delete it before creating another room.</span></div>`
         : ''
     }
-    <div class="party-room-list">
-      ${rooms.length ? rooms.map((room) => roomCard(room)).join('') : `<div class="empty-state glass-panel"><i data-lucide="radio-tower" class="empty-icon"></i><p>No party rooms yet. Start the first one.</p></div>`}
+    <div class="shelf-section home-shelf">
+      <div class="shelf-header">
+        <h2 class="shelf-title">Live Listening Rooms</h2>
+      </div>
+      <div class="party-room-list">
+        ${rooms.length ? rooms.map((room) => roomCard(room)).join('') : `<div class="empty-state glass-panel"><i data-lucide="radio-tower" class="empty-icon"></i><p>No party rooms active right now.<br>Start the first one and invite listeners!</p></div>`}
+      </div>
     </div>`;
   ui.refreshIcons(container);
 }

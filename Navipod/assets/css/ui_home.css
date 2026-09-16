@@ -57,6 +57,30 @@
     pointer-events: none;
 }
 
+.home-overview.party-theme::before {
+    background:
+        radial-gradient(80% 140% at 8% 0%, rgba(147, 51, 234, 0.32), transparent 62%),
+        linear-gradient(180deg, rgba(88, 28, 135, 0.45) 0%, rgba(17, 19, 21, 0) 100%);
+}
+
+.home-overview.public-theme::before {
+    background:
+        radial-gradient(80% 140% at 8% 0%, rgba(6, 182, 212, 0.32), transparent 62%),
+        linear-gradient(180deg, rgba(14, 116, 144, 0.45) 0%, rgba(17, 19, 21, 0) 100%);
+}
+
+.home-overview.discovery-theme::before {
+    background:
+        radial-gradient(80% 140% at 8% 0%, rgba(244, 63, 94, 0.32), transparent 62%),
+        linear-gradient(180deg, rgba(159, 18, 57, 0.45) 0%, rgba(17, 19, 21, 0) 100%);
+}
+
+.home-overview.radios-theme::before {
+    background:
+        radial-gradient(80% 140% at 8% 0%, rgba(249, 115, 22, 0.32), transparent 62%),
+        linear-gradient(180deg, rgba(185, 28, 28, 0.45) 0%, rgba(17, 19, 21, 0) 100%);
+}
+
 .quick-picks-grid {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));

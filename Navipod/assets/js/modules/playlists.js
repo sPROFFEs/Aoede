@@ -461,18 +461,26 @@ export async function renderPublicPlaylists(container) {
   }
 
   container.innerHTML = `
-        ${ui.homeTabsBar('public')}
-        <div class="hero-section">
-            <h1 class="hero-greeting">Public Playlists</h1>
-            <p class="playlist-stats">Browse read-only playlists shared by other users and create your own synced copy.</p>
-        </div>
-        ${
-          fetchError
-            ? '<div class="empty-state glass-panel"><p>Failed to load public playlists.</p></div>'
-            : publicPlaylists.length > 0
-              ? `<div class="grid-shelf playlist-mobile-list">${publicPlaylists.map(window.createPlaylistCard).join('')}</div>`
-              : '<div class="empty-state glass-panel"><p>No public playlists yet.</p></div>'
-        }`;
+        <section class="home-overview public-theme">
+            ${ui.homeTabsBar('public')}
+            <div class="hero-section">
+                <div class="hero-kicker">Community & Sharing</div>
+                <h1 class="hero-greeting">Public Playlists</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Browse read-only playlists shared by other users and create your own synced copy.</p>
+            </div>
+        </section>
+        <section class="shelf-section home-shelf">
+            <div class="shelf-header">
+                <h2 class="shelf-title">Shared Playlists</h2>
+            </div>
+            ${
+              fetchError
+                ? '<div class="empty-state glass-panel"><p>Failed to load public playlists.</p></div>'
+                : publicPlaylists.length > 0
+                  ? `<div class="grid-shelf playlist-mobile-list">${publicPlaylists.map(window.createPlaylistCard).join('')}</div>`
+                  : '<div class="empty-state glass-panel"><i data-lucide="globe" class="empty-icon"></i><p>No public playlists shared on this server yet.</p></div>'
+            }
+        </section>`;
   lucide.createIcons();
 }
 

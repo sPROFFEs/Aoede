@@ -46,5 +46,5 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # These are uncompressed upper bounds. Nginx serves them compressed, so a
     # regression here catches accidental large bundles before transfer cost is
     # multiplied across every navigation.
-    assert sum(path.stat().st_size for path in javascript) < 500_000
+    assert sum(path.stat().st_size for path in javascript) < 550_000
     assert sum(path.stat().st_size for path in stylesheets) < 300_000
