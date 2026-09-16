@@ -15,6 +15,7 @@ import * as downloads from './downloads.js';
 import * as sync from './sync.js';
 import * as library from './library.js';
 import * as party from './party.js';
+import * as offlineStore from './offline_store.js';
 import { initSystemMonitor } from './system_monitor.js';
 import { initDownloadManager } from './admin_downloads.js';
 
@@ -288,6 +289,7 @@ export async function loadView(view, param = null, options = {}) {
     }
 
     if (view === 'home') await renderHome(container);
+    else if (view === 'offline' || view === 'downloads_offline') await renderOfflineDownloads(container);
     else if (view === 'party') await party.renderPartyList(container);
     else if (view === 'party_room') await party.renderPartyRoom(container, Number(param));
     else if (view === 'library') await library.renderLibrary(container);
@@ -521,22 +523,38 @@ export async function renderHome(container) {
   state.setCurrentViewList([]);
 
   try {
-    const currentYear = new Date().getFullYear();
-    const [recommendations, personalizedMixes, wrappedPayload, rooms] = await Promise.all([
-      api.fetchRecommendations(),
-      api.fetchMixes(),
-      api.fetchWrapped(currentYear),
-      party.fetchRooms().catch((error) => {
-        console.warn('Party rooms unavailable:', error);
-        return [];
-      })
-    ]);
-    sections = recommendations;
-    mixes = personalizedMixes;
-    wrapped = wrappedPayload?.visible !== false && wrappedPayload?.enabled !== false ? wrappedPayload : null;
-    partyRooms = rooms;
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      const currentYear = new Date().getFullYear();
+      const [recommendations, personalizedMixes, wrappedPayload, rooms] = await Promise.all([
+        api.fetchRecommendations(),
+        api.fetchMixes(),
+        api.fetchWrapped(currentYear),
+        party.fetchRooms().catch((error) => {
+          console.warn('Party rooms unavailable:', error);
+          return [];
+        })
+      ]);
+      sections = recommendations || [];
+      mixes = personalizedMixes || [];
+      wrapped = wrappedPayload?.visible !== false && wrappedPayload?.enabled !== false ? wrappedPayload : null;
+      partyRooms = rooms || [];
+      offlineStore.saveLibrarySnapshot('home_feed', { sections, mixes, wrapped, partyRooms });
+    } else {
+      const cached = await offlineStore.getLibrarySnapshot('home_feed');
+      if (cached) {
+        sections = cached.sections || [];
+        mixes = cached.mixes || [];
+        wrapped = cached.wrapped || null;
+      }
+    }
   } catch (e) {
     console.error('Recs error:', e);
+    const cached = await offlineStore.getLibrarySnapshot('home_feed');
+    if (cached) {
+      sections = cached.sections || [];
+      mixes = cached.mixes || [];
+      wrapped = cached.wrapped || null;
+    }
   }
 
   const username = ui.escHtml(window.USER_DATA?.username || 'User');
@@ -1006,22 +1024,27 @@ export function createTrackRow(item, idx, playlistId = null) {
   const canLike = item.is_local && item.db_id;
   const canAddToPlaylist = item.is_local && item.db_id;
   const isActive = item.id === state.currentTrack?.id;
+  const isOfflineAvailable = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
+  const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const isUnavailableOffline = isDeviceOffline && !isOfflineAvailable && !item.is_offline;
 
   // Federation results are NOT local but ARE playable (we proxy them
   // through /api/federation/proxy). Route them to a dedicated handler
   // so we can short-circuit playback if the peer drops offline
   // between the search render and the click.
   const isFederated = item.source === 'federation' && item.fed_instance_id != null;
-  const rowClickAction = item.is_local
-    ? `playFromView(${idx})`
-    : isFederated
-      ? `playFederatedTrack('${data}')`
-      : `playPreview('${data}')`;
+  const rowClickAction = isUnavailableOffline
+    ? `ui.showToast('This track is not downloaded for offline use.', 'error')`
+    : item.is_local
+      ? `playFromView(${idx})`
+      : isFederated
+        ? `playFederatedTrack('${data}')`
+        : `playPreview('${data}')`;
 
   const _safeTitle = ui.escHtml(item.title || 'Unknown').replace(/'/g, "\\'");
   const _safeArtist = ui.escHtml(item.artist || 'Unknown').replace(/'/g, "\\'");
 
-  return `<div class="track-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''}" onclick="${rowClickAction}" data-idx="${idx}">
+  return `<div class="track-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''} ${isUnavailableOffline ? 'offline-disabled' : ''}" onclick="${rowClickAction}" data-idx="${idx}">
         <div class="track-num">
             <span class="num-text">${idx + 1}</span>
             <i data-lucide="play" class="hover-play-icon"></i>
@@ -1032,6 +1055,7 @@ export function createTrackRow(item, idx, playlistId = null) {
             <div class="track-titles">
                 <div class="track-name-sm">
                     ${ui.escHtml(item.title || 'Unknown')}
+                    ${isOfflineAvailable ? `<span class="track-offline-badge" title="Available offline"><i data-lucide="check-circle" width="13" height="13"></i></span>` : ''}
                     ${
                       isFederated
                         ? `
@@ -1099,12 +1123,19 @@ export function createPlaylistTrackRow(item, idx, playlistId = null) {
   const isLiked = state.userFavorites.has(item.db_id || item.id);
   const canAddToPlaylist = item.is_local && item.db_id;
   const isActive = item.id === state.currentTrack?.id;
+  const isOfflineAvailable = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
+  const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const isUnavailableOffline = isDeviceOffline && !isOfflineAvailable && !item.is_offline;
 
   const _safeTitle = ui.escHtml(item.title || 'Unknown').replace(/'/g, "\\'");
   const _safeArtist = ui.escHtml(item.artist || 'Unknown').replace(/'/g, "\\'");
   const duration = ui.fmtTime(item.duration);
 
-  return `<div class="track-row playlist-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''}" onclick="playFromView(${idx})" data-idx="${idx}">
+  const rowClickAction = isUnavailableOffline
+    ? `ui.showToast('This track is not downloaded for offline use.', 'error')`
+    : `playFromView(${idx})`;
+
+  return `<div class="track-row playlist-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''} ${isUnavailableOffline ? 'offline-disabled' : ''}" onclick="${rowClickAction}" data-idx="${idx}">
         <div class="track-num">
             <span class="num-text">${idx + 1}</span>
             <i data-lucide="play" class="hover-play-icon"></i>
@@ -1113,7 +1144,10 @@ export function createPlaylistTrackRow(item, idx, playlistId = null) {
         <div class="track-main">
             <img src="${ui.escHtml(img)}" class="track-cover-sm" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">
             <div class="track-titles">
-                <div class="track-name-sm">${ui.escHtml(item.title || 'Unknown')}</div>
+                <div class="track-name-sm">
+                    ${ui.escHtml(item.title || 'Unknown')}
+                    ${isOfflineAvailable ? `<span class="track-offline-badge" title="Available offline"><i data-lucide="check-circle" width="13" height="13"></i></span>` : ''}
+                </div>
                 <div class="track-artist-sm">
                     <a class="artist-link"
                        onclick="event.stopPropagation(); loadView('artist', '${_safeArtist}')"
@@ -1189,6 +1223,18 @@ export function showTrackActionsSheet(encodedData, playlistId) {
       <button class="tas-action-btn" onclick="addToQueue('${encodedData}'); closeTrackActionsSheet()">
         <i data-lucide="list-plus"></i><span>Add to Queue</span>
       </button>`);
+
+    if (offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id)) {
+      actions.push(`
+        <button class="tas-action-btn danger" onclick="deleteOfflineTrackAction(${item.db_id || item.id}); closeTrackActionsSheet()">
+          <i data-lucide="trash-2"></i><span>Remove from Offline</span>
+        </button>`);
+    } else {
+      actions.push(`
+        <button class="tas-action-btn" onclick="downloadOfflineTrackAction('${encodedData}'); closeTrackActionsSheet()">
+          <i data-lucide="download-cloud"></i><span>Make Available Offline</span>
+        </button>`);
+    }
   }
   if (canAddToPlaylist) {
     actions.push(`
@@ -1302,6 +1348,14 @@ export function showContextMenu(encodedData, playlistId, x, y) {
   if (item.is_local) {
     actions.push(`<div class="ctx-item" onclick="addToQueue('${encodedData}'); closeContextMenu()">
       <i data-lucide="list-plus"></i><span>Add to Queue</span></div>`);
+
+    if (offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id)) {
+      actions.push(`<div class="ctx-item danger" onclick="deleteOfflineTrackAction(${item.db_id || item.id}); closeContextMenu()">
+        <i data-lucide="trash-2"></i><span>Remove from Offline</span></div>`);
+    } else {
+      actions.push(`<div class="ctx-item" onclick="downloadOfflineTrackAction('${encodedData}'); closeContextMenu()">
+        <i data-lucide="download-cloud"></i><span>Make Available Offline</span></div>`);
+    }
   }
   if (canAddToPlaylist) {
     actions.push(`<div class="ctx-item" onclick="openAddToPlaylistFlyout(${item.db_id}, this)">
@@ -1742,40 +1796,69 @@ export async function trackRecentMix(mixKey) {
 
 export async function loadUserData() {
   try {
-    // CRITICAL PATH: only favorites + playlists block first paint. The
-    // sidebar's "Recent" section is not visible above the fold on mobile
-    // and is harmless if it populates a few hundred ms later — defer it.
-    const [favsRes, playlistsRes] = await Promise.all([
-      fetch(`${state.API}/favorites`),
-      fetch(`${state.API}/playlists`)
-    ]);
-    const favs = await favsRes.json();
-    const pls = await playlistsRes.json();
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      // CRITICAL PATH: only favorites + playlists block first paint. The
+      // sidebar's "Recent" section is not visible above the fold on mobile
+      // and is harmless if it populates a few hundred ms later — defer it.
+      const [favsRes, playlistsRes] = await Promise.all([
+        fetch(`${state.API}/favorites`),
+        fetch(`${state.API}/playlists`)
+      ]);
+      const favs = await favsRes.json();
+      const pls = await playlistsRes.json();
 
-    state.setUserFavorites(new Set(favs.map((f) => f.id)));
-    state.setUserPlaylists(pls);
+      state.setUserFavorites(new Set(favs.map((f) => f.id)));
+      state.setUserPlaylists(pls);
 
-    sync.setSyncHandlers({
-      renderSidebarPlaylists,
-      refreshRecentActivity
-    });
-    sync.startHeartbeatSync();
+      offlineStore.saveLibrarySnapshot('favorites', favs);
+      offlineStore.saveLibrarySnapshot('playlists', pls);
 
-    // Lazy: kick recent-activity off after the boot promise resolves so it
-    // doesn't compete with the home view's own /api/* fan-out.
-    setTimeout(() => {
-      fetch(`${state.API}/recent-activity`)
-        .then((r) => (r.ok ? r.json() : { playlists: [], radios: [] }))
-        .then((recents) => {
-          state.setRecentPlaylists(Array.isArray(recents.playlists) ? recents.playlists : []);
-          state.setRecentRadios(Array.isArray(recents.radios) ? recents.radios : []);
-          state.setRecentMixes(Array.isArray(recents.mixes) ? recents.mixes : []);
-          renderSidebarRecents();
-        })
-        .catch((e) => console.error('Recent activity (deferred) failed:', e));
-    }, 0);
+      sync.setSyncHandlers({
+        renderSidebarPlaylists,
+        refreshRecentActivity
+      });
+      sync.startHeartbeatSync();
+
+      // Lazy: kick recent-activity off after the boot promise resolves so it
+      // doesn't compete with the home view's own /api/* fan-out.
+      setTimeout(() => {
+        fetch(`${state.API}/recent-activity`)
+          .then((r) => (r.ok ? r.json() : { playlists: [], radios: [] }))
+          .then((recents) => {
+            state.setRecentPlaylists(Array.isArray(recents.playlists) ? recents.playlists : []);
+            state.setRecentRadios(Array.isArray(recents.radios) ? recents.radios : []);
+            state.setRecentMixes(Array.isArray(recents.mixes) ? recents.mixes : []);
+            offlineStore.saveLibrarySnapshot('recent_activity', recents);
+            renderSidebarRecents();
+          })
+          .catch((e) => console.error('Recent activity (deferred) failed:', e));
+      }, 0);
+    } else {
+      const [favs, pls, recents] = await Promise.all([
+        offlineStore.getLibrarySnapshot('favorites'),
+        offlineStore.getLibrarySnapshot('playlists'),
+        offlineStore.getLibrarySnapshot('recent_activity')
+      ]);
+
+      if (favs && Array.isArray(favs)) state.setUserFavorites(new Set(favs.map((f) => f.id)));
+      if (pls && Array.isArray(pls)) state.setUserPlaylists(pls);
+      if (recents) {
+        state.setRecentPlaylists(Array.isArray(recents.playlists) ? recents.playlists : []);
+        state.setRecentRadios(Array.isArray(recents.radios) ? recents.radios : []);
+        state.setRecentMixes(Array.isArray(recents.mixes) ? recents.mixes : []);
+      }
+      renderSidebarPlaylists();
+      renderSidebarRecents();
+    }
   } catch (e) {
     console.error('Failed to load user data:', e);
+    const [favs, pls] = await Promise.all([
+      offlineStore.getLibrarySnapshot('favorites'),
+      offlineStore.getLibrarySnapshot('playlists')
+    ]);
+    if (favs && Array.isArray(favs)) state.setUserFavorites(new Set(favs.map((f) => f.id)));
+    if (pls && Array.isArray(pls)) state.setUserPlaylists(pls);
+    renderSidebarPlaylists();
   }
 }
 
@@ -2343,4 +2426,204 @@ export async function startSmartRadio(artist, title) {
   state.setContextIndex(0);
   player.playTrack(queue[0]);
   ui.showToast(`Radio: ${queue.length} tracks queued`, 'success');
+}
+
+// === OFFLINE DOWNLOADS VIEW =================================================
+
+export async function renderOfflineDownloads(container) {
+  let tracks = [];
+  let storage = { bytesUsed: 0, trackCount: 0 };
+  try {
+    [tracks, storage] = await Promise.all([offlineStore.listOfflineTracks(), offlineStore.getStorageUsage()]);
+  } catch (e) {
+    console.error('[OFFLINE] Load error:', e);
+  }
+
+  state.setCurrentViewList(tracks);
+
+  const trackCount = tracks.length;
+  const mbUsed = (storage.bytesUsed / (1024 * 1024)).toFixed(1);
+  const subtitle = `${trackCount} ${trackCount === 1 ? 'song' : 'songs'} · ${mbUsed} MB stored on device`;
+
+  let quotaBarHtml = '';
+  if (storage.quotaBytes) {
+    const quotaMB = (storage.quotaBytes / (1024 * 1024)).toFixed(0);
+    const pct = storage.usagePercent || 0;
+    quotaBarHtml = `
+      <div class="offline-storage-bar-bg">
+        <div class="offline-storage-bar-fill" style="width: ${Math.min(100, pct)}%"></div>
+      </div>
+      <div class="offline-storage-meta">${mbUsed} MB used of ~${quotaMB} MB browser quota (${pct}%)</div>`;
+  }
+
+  container.innerHTML = `
+    <div class="playlist-header-section">
+        <div class="playlist-cover-large playlist-cover-offline">
+            <i data-lucide="cloud-off"></i>
+        </div>
+        <div class="playlist-info">
+            <p class="playlist-type">Offline Storage</p>
+            <div class="playlist-title-row">
+                <h1 class="playlist-title">Offline Downloads</h1>
+            </div>
+            <p class="playlist-stats">${subtitle}</p>
+            <div class="playlist-actions">
+                ${
+                  trackCount > 0
+                    ? `
+                <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="Play All">
+                    <i data-lucide="play" width="20" height="20"></i>
+                    <span class="playlist-btn-label">Play All</span>
+                </button>
+                <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="Shuffle">
+                    <i data-lucide="shuffle" width="20" height="20"></i>
+                    <span class="playlist-btn-label">Shuffle</span>
+                </button>`
+                    : ''
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="offline-storage-card">
+      <div class="offline-storage-header">
+        <span class="offline-storage-title"><i data-lucide="hard-drive"></i> Device Storage</span>
+        <span class="offline-storage-meta">${trackCount} tracks</span>
+      </div>
+      ${quotaBarHtml}
+      <div class="offline-storage-actions">
+        <p class="offline-disclaimer">
+          Tracks are stored locally in your browser/app private database for offline playback.
+        </p>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity"></i> Check Readiness</button>
+          ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2"></i> Clear Downloads</button>` : ''}
+        </div>
+      </div>
+    </div>
+
+    ${
+      trackCount > 0
+        ? `<div class="track-list">${tracks.map((t, i) => createTrackRow({ ...t, is_local: true, is_offline: true, db_id: t.id }, i)).join('')}</div>`
+        : `<div class="empty-state glass-panel">
+            <i data-lucide="cloud-off" class="empty-icon"></i>
+            <p>No offline downloads yet.<br>Use the "Make Available Offline" option on any track or playlist while online.</p>
+         </div>`
+    }
+  `;
+  if (window.lucide) lucide.createIcons();
+}
+
+export async function downloadOfflineTrackAction(encodedData) {
+  try {
+    const item = JSON.parse(decodeURIComponent(atob(encodedData)));
+    ui.showToast(`Downloading "${item.title || 'track'}" for offline playback...`, 'info');
+    await offlineStore.downloadTrack(item);
+    ui.showToast(`Downloaded "${item.title || 'track'}"!`, 'success');
+
+    // Update any offline badges in visible track rows
+    document.querySelectorAll(`.track-row`).forEach((row) => {
+      const idx = row.dataset.idx;
+      if (idx !== undefined && state.currentViewList?.[idx]?.db_id === item.db_id) {
+        const titleEl = row.querySelector('.track-name-sm');
+        if (titleEl && !titleEl.querySelector('.track-offline-badge')) {
+          titleEl.insertAdjacentHTML(
+            'beforeend',
+            '<span class="track-offline-badge" title="Available offline"><i data-lucide="check-circle" width="13" height="13"></i></span>'
+          );
+        }
+      }
+    });
+    if (window.lucide) lucide.createIcons();
+  } catch (err) {
+    console.error('[OFFLINE] Download error:', err);
+    ui.showToast(`Failed to download: ${err.message}`, 'error');
+  }
+}
+
+export async function deleteOfflineTrackAction(trackId) {
+  try {
+    await offlineStore.deleteOfflineTrack(trackId);
+    ui.showToast('Removed from offline storage');
+    if (state.currentViewName === 'offline' || state.currentViewName === 'downloads_offline') {
+      const container = document.getElementById('view-container');
+      if (container) await renderOfflineDownloads(container);
+    }
+  } catch (err) {
+    ui.showToast(`Failed to remove: ${err.message}`, 'error');
+  }
+}
+
+export function showClearOfflineConfirmModal() {
+  const html = `<div class="modal-overlay" onclick="closeModal()">
+        <div class="modal" onclick="event.stopPropagation()">
+            <h2 style="margin-bottom: 16px;"><i data-lucide="trash-2"></i> Clear Offline Downloads</h2>
+            <p style="color: var(--text-sub); margin-bottom: 24px;">
+                Are you sure you want to remove all offline downloaded tracks from this device? This will free up storage immediately.
+            </p>
+            <div class="modal-actions">
+                <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
+                <button class="modal-btn-danger" onclick="clearAllOfflineData()">Clear All</button>
+            </div>
+        </div>
+    </div>`;
+  document.getElementById('modal-container').innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+export async function clearAllOfflineData() {
+  ui.closeModal();
+  try {
+    await offlineStore.clearOfflineData();
+    ui.showToast('All offline downloads cleared', 'success');
+    if (state.currentViewName === 'offline' || state.currentViewName === 'downloads_offline') {
+      const container = document.getElementById('view-container');
+      if (container) await renderOfflineDownloads(container);
+    }
+  } catch (err) {
+    ui.showToast(`Failed to clear offline storage: ${err.message}`, 'error');
+  }
+}
+
+export async function checkOfflineReadinessAction() {
+  const info = await offlineStore.checkOfflineReadiness();
+  const mb = (info.storageInfo.bytesUsed / (1024 * 1024)).toFixed(1);
+  const quota = info.storageInfo.quotaBytes
+    ? `${(info.storageInfo.quotaBytes / (1024 * 1024)).toFixed(0)} MB`
+    : 'Browser managed';
+  const html = `<div class="modal-overlay" onclick="closeModal()">
+        <div class="modal modal-md" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2><i data-lucide="shield-check"></i> Offline Readiness</h2>
+                <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; font-size:0.9rem;">
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+                    <span>IndexedDB Storage</span>
+                    <strong style="color:${info.hasIndexedDB ? '#4ade80' : '#f87171'}">${info.hasIndexedDB ? 'Available' : 'Unsupported'}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+                    <span>Service Worker (App Shell)</span>
+                    <strong style="color:${info.hasServiceWorker ? '#4ade80' : '#f87171'}">${info.hasServiceWorker ? 'Active' : 'Unsupported'}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+                    <span>Blob Audio Playback</span>
+                    <strong style="color:${info.hasBlobPlayback ? '#4ade80' : '#f87171'}">${info.hasBlobPlayback ? 'Supported' : 'Unsupported'}</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
+                    <span>Downloaded Tracks</span>
+                    <strong>${info.storageInfo.trackCount} tracks (${mb} MB)</strong>
+                </div>
+                <div style="display:flex; justify-content:space-between; padding-bottom:8px;">
+                    <span>Storage Quota</span>
+                    <strong>${quota}</strong>
+                </div>
+                <div class="modal-actions" style="margin-top:16px;">
+                    <button class="btn-primary" onclick="closeModal()">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+  document.getElementById('modal-container').innerHTML = html;
+  if (window.lucide) lucide.createIcons();
 }

@@ -7,13 +7,21 @@ import * as state from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
 import * as player from './player.js';
+import * as offlineStore from './offline_store.js';
 
 // === RENDER PLAYLIST VIEW ===
 
 export async function renderPlaylist(container, playlistId) {
   let data = {};
   try {
-    data = await (await fetch(`${state.API}/playlists/${playlistId}`)).json();
+    if (navigator.onLine) {
+      data = await (await fetch(`${state.API}/playlists/${playlistId}`)).json();
+      if (data && !data.error) {
+        offlineStore.saveLibrarySnapshot(`playlist_${playlistId}`, data);
+      }
+    } else {
+      data = (await offlineStore.getLibrarySnapshot(`playlist_${playlistId}`)) || {};
+    }
     if (data?.error) {
       container.innerHTML = `<div class="empty-state glass-panel"><p>${ui.escHtml(data.error)}</p></div>`;
       return;
@@ -24,7 +32,15 @@ export async function renderPlaylist(container, playlistId) {
       id: t.track_id || t.id
     }));
     state.setCurrentViewList(tracks);
-  } catch (e) {}
+  } catch (e) {
+    data = (await offlineStore.getLibrarySnapshot(`playlist_${playlistId}`)) || {};
+    const tracks = (data.tracks || []).map((t) => ({
+      ...t,
+      db_id: t.track_id || t.id,
+      id: t.track_id || t.id
+    }));
+    state.setCurrentViewList(tracks);
+  }
 
   const thumb = data.thumbnail || '/static/img/default_cover.png';
   const hasThumb = data.thumbnail && !data.thumbnail.includes('default');
@@ -153,6 +169,9 @@ export async function renderPlaylist(container, playlistId) {
                     </button>
                     <button onclick="playPlaylistShuffle()" class="btn-icon-pill" title="Shuffle" aria-label="Shuffle">
                         <i data-lucide="shuffle" width="18" height="18"></i>
+                    </button>
+                    <button onclick="downloadPlaylistOffline(${playlistId})" class="btn-icon-pill" title="Download for Offline" aria-label="Download for Offline">
+                        <i data-lucide="download-cloud" width="18" height="18"></i>
                     </button>
                     `
                         : ''
@@ -905,6 +924,21 @@ export async function createPlaylist(trackIdToAdd = null) {
     ui.showToast('Enter a name', 'error');
     return;
   }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const tempId = -Math.floor(Date.now() / 1000);
+    const pl = { id: tempId, name, track_count: 0, is_owner: true, is_editable: true, is_public: false };
+    const playlists = [...state.userPlaylists, pl];
+    state.setUserPlaylists(playlists);
+    await offlineStore.queueAction('create_playlist', { name });
+    await offlineStore.saveLibrarySnapshot('playlists', playlists);
+    if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
+    ui.closeModal();
+    ui.showToast('Playlist created (offline)', 'success');
+    if (trackIdToAdd) await addToPlaylist(tempId, trackIdToAdd);
+    return;
+  }
+
   try {
     const res = await fetch(`${state.API}/playlists`, {
       method: 'POST',
@@ -915,6 +949,7 @@ export async function createPlaylist(trackIdToAdd = null) {
     if (res.ok) {
       const playlists = [...state.userPlaylists, pl];
       state.setUserPlaylists(playlists);
+      offlineStore.saveLibrarySnapshot('playlists', playlists);
       // Push the new playlist into recent-activity so it shows up in
       // the sidebar immediately. Without this, the sidebar (which only
       // renders state.recentPlaylists) ignores the new entry until the
@@ -938,6 +973,20 @@ export async function createPlaylist(trackIdToAdd = null) {
 }
 
 export async function addToPlaylist(playlistId, trackId) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const next = state.userPlaylists.map((p) => {
+      if (p.id !== playlistId) return p;
+      return { ...p, track_count: (Number(p.track_count) || 0) + 1 };
+    });
+    state.setUserPlaylists(next);
+    await offlineStore.queueAction('add_to_playlist', { playlistId, trackId });
+    await offlineStore.saveLibrarySnapshot('playlists', next);
+    ui.closeModal();
+    closeAddToPlaylistFlyout();
+    ui.showToast('Added to playlist (queued for sync)', 'info');
+    return;
+  }
+
   try {
     const res = await fetch(`${state.API}/playlists/${playlistId}/add`, {
       method: 'POST',
@@ -959,6 +1008,7 @@ export async function addToPlaylist(playlistId, trackId) {
         return { ...p, track_count: newCount };
       });
       state.setUserPlaylists(next);
+      offlineStore.saveLibrarySnapshot('playlists', next);
       // Close whichever surface is open: the full modal (mobile) or
       // the floating flyout (desktop right-click). Both can't be open
       // at once, so calling both is safe and idempotent.
@@ -976,8 +1026,36 @@ export async function addToPlaylist(playlistId, trackId) {
       ui.showToast(err.error || 'Failed', 'error');
     }
   } catch (e) {
-    ui.showToast('Failed', 'error');
+    await offlineStore.queueAction('add_to_playlist', { playlistId, trackId });
+    ui.showToast('Added to playlist (offline)', 'info');
   }
+}
+
+export async function downloadPlaylistOffline(playlistId) {
+  const tracks = state.currentViewList || [];
+  const localTracks = tracks.filter((t) => t.is_local && (t.db_id || t.id));
+  if (!localTracks.length) {
+    ui.showToast('No downloadable tracks in this playlist', 'info');
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    ui.showToast('Cannot download while offline', 'error');
+    return;
+  }
+
+  ui.showToast(`Starting offline download for ${localTracks.length} tracks...`, 'info');
+  let successCount = 0;
+  for (const t of localTracks) {
+    try {
+      await offlineStore.downloadTrack(t);
+      successCount++;
+    } catch (e) {
+      console.warn('[OFFLINE] Failed to download playlist track:', t.title, e);
+    }
+  }
+  ui.showToast(`Downloaded ${successCount} of ${localTracks.length} tracks for offline use!`, 'success');
+  if (window.lucide) lucide.createIcons();
 }
 
 /** Undo callback for the add-to-playlist action toast. Re-removes the
@@ -1014,6 +1092,19 @@ export function showRemoveFromPlaylistModal(playlistId, trackId, trackTitle) {
 
 export async function removeFromPlaylist(playlistId, trackId) {
   ui.closeModal();
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const next = state.userPlaylists.map((p) => {
+      if (p.id !== playlistId) return p;
+      return { ...p, track_count: Math.max(0, (Number(p.track_count) || 1) - 1) };
+    });
+    state.setUserPlaylists(next);
+    await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId });
+    await offlineStore.saveLibrarySnapshot('playlists', next);
+    if (window.loadView) window.loadView('playlist', playlistId);
+    ui.showToast('Removed from playlist (queued for sync)', 'info');
+    return;
+  }
+
   try {
     const res = await fetch(`${state.API}/playlists/${playlistId}/remove/${trackId}`, { method: 'DELETE' });
     if (res.ok) {
@@ -1021,31 +1112,59 @@ export async function removeFromPlaylist(playlistId, trackId) {
       ui.showToast('Removed from playlist', 'success');
     }
   } catch (e) {
-    ui.showToast('Failed to remove', 'error');
+    await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId });
+    ui.showToast('Removed from playlist (offline)', 'info');
   }
 }
 
 export async function deletePlaylist(playlistId) {
   ui.closeModal();
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const playlists = state.userPlaylists.filter((p) => p.id !== playlistId);
+    state.setUserPlaylists(playlists);
+    await offlineStore.queueAction('delete_playlist', { playlistId });
+    await offlineStore.saveLibrarySnapshot('playlists', playlists);
+    if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
+    if (window.loadView) window.loadView('home');
+    ui.showToast('Playlist deleted (queued for sync)', 'info');
+    return;
+  }
+
   try {
     const res = await fetch(`${state.API}/playlists/${playlistId}`, { method: 'DELETE' });
     if (res.ok) {
       await fetch(`${state.API}/recent-activity/playlist/${playlistId}`, { method: 'DELETE' }).catch(() => null);
       const playlists = state.userPlaylists.filter((p) => p.id !== playlistId);
       state.setUserPlaylists(playlists);
+      offlineStore.saveLibrarySnapshot('playlists', playlists);
       if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
       if (window.refreshRecentActivity) window.refreshRecentActivity();
       if (window.loadView) window.loadView('home');
       ui.showToast('Playlist deleted', 'success');
     }
   } catch (e) {
-    ui.showToast('Failed', 'error');
+    await offlineStore.queueAction('delete_playlist', { playlistId });
+    const playlists = state.userPlaylists.filter((p) => p.id !== playlistId);
+    state.setUserPlaylists(playlists);
+    if (window.loadView) window.loadView('home');
+    ui.showToast('Playlist deleted (offline)', 'info');
   }
 }
 
 export async function editPlaylistName(id, newName) {
   ui.closeModal();
   if (!newName || newName.trim() === '') return;
+
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    const titleEl = document.getElementById(`playlist-title-${id}`);
+    if (titleEl) titleEl.textContent = newName.trim();
+    const next = state.userPlaylists.map((p) => (p.id === id ? { ...p, name: newName.trim() } : p));
+    state.setUserPlaylists(next);
+    await offlineStore.queueAction('edit_playlist', { playlistId: id, name: newName.trim() });
+    await offlineStore.saveLibrarySnapshot('playlists', next);
+    ui.showToast('Playlist renamed (queued for sync)', 'info');
+    return;
+  }
 
   try {
     const res = await fetch(`${state.API}/playlists/${id}`, {
@@ -1068,8 +1187,8 @@ export async function editPlaylistName(id, newName) {
       ui.showToast(error.error || 'Failed to rename playlist', 'error');
     }
   } catch (e) {
-    console.error(e);
-    ui.showToast('Error renaming playlist', 'error');
+    await offlineStore.queueAction('edit_playlist', { playlistId: id, name: newName.trim() });
+    ui.showToast('Playlist renamed (offline)', 'info');
   }
 }
 

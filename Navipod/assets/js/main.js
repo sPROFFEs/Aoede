@@ -16,6 +16,7 @@ import * as playlists from './modules/playlists.js';
 import * as downloads from './modules/downloads.js';
 import * as views from './modules/views.js';
 import * as library from './modules/library.js';
+import * as offlineStore from './modules/offline_store.js';
 // admin.js is dynamically imported below for is_admin users only.
 // Saves ~24 KB on every non-admin page load.
 import * as lyrics from './modules/lyrics.js';
@@ -100,10 +101,29 @@ function initKeyboardShortcuts() {
 
 function initOfflineAwareness() {
   window.addEventListener('offline', () => {
-    ui.showToast('You are offline — streaming and downloads will not work.', 'error');
+    ui.showToast('You are offline — downloaded tracks are available.', 'info');
+    document.querySelectorAll('.track-row').forEach((row) => {
+      const idx = row.dataset.idx;
+      if (idx !== undefined && state.currentViewList?.[idx]) {
+        const item = state.currentViewList[idx];
+        const isOfflineReady = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
+        if (!isOfflineReady && !item.is_offline) {
+          row.classList.add('offline-disabled');
+        }
+      }
+    });
   });
-  window.addEventListener('online', () => {
-    ui.showToast('Back online.', 'success');
+  window.addEventListener('online', async () => {
+    ui.showToast('Back online — syncing changes.', 'success');
+    document.querySelectorAll('.track-row.offline-disabled').forEach((row) => {
+      row.classList.remove('offline-disabled');
+    });
+    try {
+      await offlineStore.flushPendingActions();
+      await views.loadUserData();
+    } catch (e) {
+      console.warn('[OFFLINE] Online sync error:', e);
+    }
   });
 }
 
@@ -181,12 +201,23 @@ window.addToPlaylistCurrent = playlists.addToPlaylistCurrent;
 window.showAddToPlaylistFromPlayer = playlists.showAddToPlaylistFromPlayer;
 window.playPlaylistInOrder = playlists.playPlaylistInOrder;
 window.playPlaylistShuffle = playlists.playPlaylistShuffle;
+window.downloadPlaylistOffline = playlists.downloadPlaylistOffline;
 window.showRemoveFromPlaylistModal = playlists.showRemoveFromPlaylistModal;
 window.openPlaylistCoverUpload = playlists.openPlaylistCoverUpload;
 window.handlePlaylistCoverUpload = playlists.handlePlaylistCoverUpload;
 window.showPlaylistCoverTrackModal = playlists.showPlaylistCoverTrackModal;
 window.setPlaylistCoverFromTrack = playlists.setPlaylistCoverFromTrack;
 window.resetPlaylistCover = playlists.resetPlaylistCover;
+
+// Offline Storage
+window.downloadOfflineTrack = offlineStore.downloadTrack;
+window.downloadOfflineTrackAction = views.downloadOfflineTrackAction;
+window.deleteOfflineTrackAction = views.deleteOfflineTrackAction;
+window.clearOfflineData = offlineStore.clearOfflineData;
+window.clearAllOfflineData = views.clearAllOfflineData;
+window.showClearOfflineConfirmModal = views.showClearOfflineConfirmModal;
+window.checkOfflineReadinessAction = views.checkOfflineReadinessAction;
+window.renderOfflineDownloads = views.renderOfflineDownloads;
 
 // Library
 window.switchLibraryKind = library.switchLibraryKind;
@@ -322,6 +353,8 @@ window.onYouTubeIframeAPIReady = () => {
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[MAIN] Navipod ES6 Modules Initialized');
+
+  await offlineStore.initOfflineStore();
 
   initUserMenu();
   initKeyboardShortcuts();

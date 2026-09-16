@@ -4,6 +4,7 @@
  */
 
 import * as state from './state.js';
+import * as offlineStore from './offline_store.js';
 import * as sync from './sync.js';
 
 // NOTE: loadUserData lives in views.js — it owns the canonical sidebar/recent
@@ -506,6 +507,10 @@ export async function saveWrappedTopSongsPlaylist(year) {
 }
 
 export function recordListenEvent(payload) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    offlineStore.queueAction('listen_progress', payload);
+    return;
+  }
   try {
     const body = JSON.stringify(payload);
     fetch(`${state.API}/activity/listen`, {
@@ -513,9 +518,12 @@ export function recordListenEvent(payload) {
       headers: { 'Content-Type': 'application/json' },
       body,
       keepalive: true
-    }).catch(() => {});
+    }).catch(() => {
+      offlineStore.queueAction('listen_progress', payload);
+    });
   } catch (e) {
     console.error('[ACTIVITY] Listen tracking error:', e);
+    offlineStore.queueAction('listen_progress', payload);
   }
 }
 

@@ -4,6 +4,7 @@
 
 import * as state from './state.js';
 import * as ui from './ui.js';
+import * as offlineStore from './offline_store.js';
 
 const HEARTBEAT_MS = 30000;
 let handlers = {
@@ -63,7 +64,10 @@ export async function requestSyncRefresh() {
 }
 
 export async function checkSyncState() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   try {
+    await offlineStore.flushPendingActions();
+
     const res = await fetch(`${state.API}/sync-state`);
     if (!res.ok) return;
 
@@ -76,7 +80,9 @@ export async function checkSyncState() {
 
       const plsRes = await fetch(`${state.API}/playlists`);
       if (plsRes.ok) {
-        state.setUserPlaylists(await plsRes.json());
+        const playlists = await plsRes.json();
+        state.setUserPlaylists(playlists);
+        offlineStore.saveLibrarySnapshot('playlists', playlists);
         if (handlers.renderSidebarPlaylists) handlers.renderSidebarPlaylists();
         else if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
         if (handlers.refreshRecentActivity) await handlers.refreshRecentActivity();

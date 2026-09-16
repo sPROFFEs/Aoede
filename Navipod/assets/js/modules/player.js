@@ -7,6 +7,7 @@ import * as state from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
 import * as audioEngine from './audio_engine.js';
+import * as offlineStore from './offline_store.js';
 
 // Background playback lock references
 let _webLockRelease = null; // resolves the navigator.locks promise
@@ -16,6 +17,7 @@ let _activeListenSession = null;
 let _sessionPersistInterval = null;
 let _remoteQueueSaveTimer = null;
 let _trackTransitionInFlight = false;
+let _currentBlobUrl = null; // Stored object URL for offline Blob playback
 // Stall recovery: tracks how many times we've reloaded the stream
 // for the current track. Reset to 0 on successful 'playing' event.
 let _stallRecoveryAttempts = 0;
@@ -554,7 +556,25 @@ export async function restorePlaybackSession() {
     syncTransportControlButtons();
     document.title = `${snapshot.currentTrack.title || 'Navipod'} - Navipod`;
 
-    state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const hasOffline = await offlineStore.isTrackAvailableOffline(snapshot.currentTrack.db_id);
+
+    if (hasOffline) {
+      try {
+        const blob = await offlineStore.getOfflineAudioBlob(snapshot.currentTrack.db_id);
+        if (blob) {
+          if (_currentBlobUrl) URL.revokeObjectURL(_currentBlobUrl);
+          _currentBlobUrl = URL.createObjectURL(blob);
+          state.audio.src = _currentBlobUrl;
+        } else {
+          state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
+        }
+      } catch {
+        state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
+      }
+    } else if (!isOffline) {
+      state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
+    }
     state.audio.load();
 
     const resumeTime = clampResumeTime(snapshot.currentTime, snapshot.duration);
@@ -764,7 +784,7 @@ export function updatePlayerUIForPreview(track) {
 
 // === MAIN PLAY TRACK FUNCTION ===
 
-export function playTrack(track, options = {}) {
+export async function playTrack(track, options = {}) {
   if (!track) return;
   if (_partyController?.isActive?.() && !options.party) {
     ui.showToast('Leave the party room before starting private playback', 'error');
@@ -821,13 +841,69 @@ export function playTrack(track, options = {}) {
     // handled in 'ended'/'play') and arms _repeatOnePending if repeat-
     // one is active.
     applyPlaybackModes();
-    const newSrc = `/api/stream/${track.db_id}`;
-    const srcChanged = !state.audio.src.endsWith(newSrc);
-    state.audio.src = newSrc;
-    if (!srcChanged && state.audio.currentTime > 0) {
-      state.audio.currentTime = 0;
-      state.audio._endHandled = false;
-      state.audio._fadeOutStarted = false;
+
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    const hasOffline = await offlineStore.isTrackAvailableOffline(track.db_id);
+
+    if (hasOffline || isOffline) {
+      if (hasOffline) {
+        try {
+          const blob = await offlineStore.getOfflineAudioBlob(track.db_id);
+          if (blob) {
+            if (_currentBlobUrl) {
+              URL.revokeObjectURL(_currentBlobUrl);
+              _currentBlobUrl = null;
+            }
+            _currentBlobUrl = URL.createObjectURL(blob);
+            state.audio.src = _currentBlobUrl;
+          } else {
+            await offlineStore.deleteOfflineTrack(track.db_id);
+            if (isOffline) {
+              _trackTransitionInFlight = false;
+              ui.showToast('Offline audio file missing. Please re-download.', 'error');
+              state.setIsPlaying(false);
+              ui.updatePlayButton();
+              return;
+            } else {
+              if (_currentBlobUrl) {
+                URL.revokeObjectURL(_currentBlobUrl);
+                _currentBlobUrl = null;
+              }
+              state.audio.src = `/api/stream/${track.db_id}`;
+            }
+          }
+        } catch (err) {
+          console.warn('[PLAYER] Error loading offline blob:', err);
+          if (isOffline) {
+            _trackTransitionInFlight = false;
+            ui.showToast('Failed to load offline track.', 'error');
+            state.setIsPlaying(false);
+            ui.updatePlayButton();
+            return;
+          } else {
+            state.audio.src = `/api/stream/${track.db_id}`;
+          }
+        }
+      } else {
+        _trackTransitionInFlight = false;
+        ui.showToast('This track is not downloaded for offline use.', 'error');
+        state.setIsPlaying(false);
+        ui.updatePlayButton();
+        return;
+      }
+    } else {
+      if (_currentBlobUrl) {
+        URL.revokeObjectURL(_currentBlobUrl);
+        _currentBlobUrl = null;
+      }
+      const newSrc = `/api/stream/${track.db_id}`;
+      const srcChanged = !state.audio.src.endsWith(newSrc);
+      state.audio.src = newSrc;
+      if (!srcChanged && state.audio.currentTime > 0) {
+        state.audio.currentTime = 0;
+        state.audio._endHandled = false;
+        state.audio._fadeOutStarted = false;
+      }
     }
     if (options.autoplay === false) {
       _trackTransitionInFlight = false;
@@ -1194,6 +1270,8 @@ function _resolveNextTrackAfterCurrent() {
 
 function _prefetchTrack(track) {
   if (!track?.db_id) return;
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (offlineStore.isTrackAvailableOfflineSync(track.db_id)) return;
 
   // Don't re-prefetch the same track or the currently-playing one.
   if (_prefetchedTrackId === track.db_id) return;

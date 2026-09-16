@@ -210,6 +210,11 @@
     color: #fff;
 }
 
+.sidebar-cover-offline {
+    background: linear-gradient(135deg, #059669 0%, #0284c7 100%);
+    color: #fff;
+}
+
 .sidebar-cover-mix {
     background: linear-gradient(135deg, #14b8a6 0%, #0e7490 100%);
     color: #fff;

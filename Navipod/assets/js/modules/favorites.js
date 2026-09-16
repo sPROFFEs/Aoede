@@ -6,6 +6,7 @@
 import * as state from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
+import * as offlineStore from './offline_store.js';
 
 // === TOGGLE FAVORITE FROM CURRENT TRACK ===
 
@@ -70,6 +71,13 @@ export async function toggleFavorite(trackId, btn) {
   if (btn) updateElement(btn, !isLiked);
   if (window.lucide) lucide.createIcons();
 
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    // Offline: queue deferred action
+    await offlineStore.queueAction('toggle_favorite', { trackId, liked: !isLiked });
+    ui.showToast(!isLiked ? 'Saved to Liked Songs (offline)' : 'Removed from Liked Songs (offline)', 'info');
+    return;
+  }
+
   try {
     let res;
     if (!isLiked) {
@@ -113,11 +121,9 @@ export async function toggleFavorite(trackId, btn) {
     if (window.lucide) lucide.createIcons();
   } catch (e) {
     console.error('Toggle error:', e);
-    // Revert
-    if (isLiked) state.userFavorites.add(trackId);
-    else state.userFavorites.delete(trackId);
-    updateElement(btn, isLiked);
-    ui.showToast('Failed to update ' + e.message, 'error');
+    // Queue offline action if network error
+    await offlineStore.queueAction('toggle_favorite', { trackId, liked: !isLiked });
+    ui.showToast('Queued change for offline sync', 'info');
   }
 
   // Visual removal in favorites view
@@ -142,12 +148,18 @@ export async function toggleFavorite(trackId, btn) {
 export async function renderFavorites(container) {
   let favs = [];
   try {
-    favs = await (await fetch(`${state.API}/favorites`)).json();
-    favs = Array.isArray(favs) ? favs : [];
-    state.setCurrentViewList(favs);
+    if (navigator.onLine) {
+      favs = await (await fetch(`${state.API}/favorites`)).json();
+      favs = Array.isArray(favs) ? favs : [];
+      offlineStore.saveLibrarySnapshot('favorites', favs);
+    } else {
+      favs = (await offlineStore.getLibrarySnapshot('favorites')) || [];
+    }
   } catch (e) {
-    favs = [];
+    favs = (await offlineStore.getLibrarySnapshot('favorites')) || [];
   }
+  favs = Array.isArray(favs) ? favs : [];
+  state.setCurrentViewList(favs);
 
   const trackCount = favs.length;
   const subtitle = trackCount === 1 ? '1 song' : `${trackCount} songs`;

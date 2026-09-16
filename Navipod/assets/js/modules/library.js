@@ -3,6 +3,7 @@
 import * as api from './api.js';
 import * as state from './state.js';
 import * as ui from './ui.js';
+import * as offlineStore from './offline_store.js';
 
 let activeKind = 'playlists';
 let smartEditingId = null;
@@ -57,7 +58,7 @@ function shell(content, browsing = false, total = 0, hasMore = false) {
         </div>
       </header>
       <div class="library-filters">
-        ${['playlists', 'artists', 'albums', 'genres'].map((kind) => `<button class="library-filter${kind === activeKind ? ' active' : ''}" onclick="switchLibraryKind('${kind}')">${kind[0].toUpperCase()}${kind.slice(1)}</button>`).join('')}
+        ${['playlists', 'offline', 'artists', 'albums', 'genres'].map((kind) => `<button class="library-filter${kind === activeKind ? ' active' : ''}" onclick="switchLibraryKind('${kind}')">${kind === 'offline' ? 'Offline' : kind[0].toUpperCase() + kind.slice(1)}</button>`).join('')}
       </div>
       ${browsing ? `<div class="library-sort"><input id="library-facet-query" class="modal-input" value="${ui.escHtml(facetQuery)}" placeholder="Search ${activeKind}" onkeyup="if(event.key==='Enter') reloadLibraryFacets()"><select id="library-facet-sort" class="modal-input" onchange="reloadLibraryFacets()"><option value="name"${facetSort === 'name' ? ' selected' : ''}>Name</option><option value="count"${facetSort === 'count' ? ' selected' : ''}>Most songs</option></select><button class="library-icon-btn" onclick="reloadLibraryFacets()" title="Search"><i data-lucide="search"></i></button></div>` : ''}
       ${content}
@@ -73,16 +74,32 @@ export async function renderLibrary(container, kind = activeKind) {
   }
   activeKind = kind;
   try {
+    if (kind === 'offline') {
+      window.loadView('offline');
+      return;
+    }
     if (kind === 'playlists') {
-      const playlists = await api.fetchPlaylists();
-      state.setUserPlaylists(playlists);
+      let playlists = [];
+      if (navigator.onLine) {
+        playlists = await api.fetchPlaylists();
+        state.setUserPlaylists(playlists);
+        offlineStore.saveLibrarySnapshot('playlists', playlists);
+      } else {
+        playlists = (await offlineStore.getLibrarySnapshot('playlists')) || [];
+      }
       container.innerHTML = shell(
         playlists.length
           ? `<div class="library-list">${playlists.map(playlistRow).join('')}</div>`
           : '<div class="empty-state"><p>No playlists yet. Use + or create a smart playlist.</p></div>'
       );
     } else {
-      const page = await api.fetchLibraryFacets(kind, { q: facetQuery, sort: facetSort, limit: facetLimit });
+      let page = { items: [], total: 0, has_more: false };
+      if (navigator.onLine) {
+        page = await api.fetchLibraryFacets(kind, { q: facetQuery, sort: facetSort, limit: facetLimit });
+        offlineStore.saveLibrarySnapshot(`facets_${kind}`, page);
+      } else {
+        page = (await offlineStore.getLibrarySnapshot(`facets_${kind}`)) || { items: [], total: 0, has_more: false };
+      }
       const facets = page.items || [];
       container.innerHTML = shell(
         facets.length
@@ -95,7 +112,13 @@ export async function renderLibrary(container, kind = activeKind) {
     }
     ui.refreshIcons(container);
   } catch (error) {
-    container.innerHTML = '<div class="empty-state glass-panel"><p>Failed to load your library.</p></div>';
+    const cached = await offlineStore.getLibrarySnapshot('playlists');
+    if (cached && cached.length) {
+      container.innerHTML = shell(`<div class="library-list">${cached.map(playlistRow).join('')}</div>`);
+      ui.refreshIcons(container);
+    } else {
+      container.innerHTML = '<div class="empty-state glass-panel"><p>Failed to load your library.</p></div>';
+    }
     console.error('[LIBRARY]', error);
   }
 }
