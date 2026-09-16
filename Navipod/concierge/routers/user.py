@@ -335,37 +335,138 @@ async def change_password(
 # --- PROFILE PICTURE / AVATAR ---
 import hashlib
 import io
+import mimetypes
 import uuid
 
 from fastapi.responses import FileResponse, Response
-from PIL import Image
+from PIL import Image, ImageDraw, ImageOps
 
-# Allowed image types with magic bytes for security
+try:
+    import pillow_heif
+
+    pillow_heif.register_heif_opener()
+except ImportError:
+    pass
+
+# Prevent decompression bomb DOS attacks
+Image.MAX_IMAGE_PIXELS = 25_000_000
+
+# Allowed image extensions
+ALLOWED_IMAGE_EXTENSIONS = {
+    "jpg",
+    "jpeg",
+    "jpe",
+    "jfif",
+    "png",
+    "apng",
+    "webp",
+    "gif",
+    "bmp",
+    "dib",
+    "tif",
+    "tiff",
+    "avif",
+    "avifs",
+    "heic",
+    "heif",
+    "hif",
+    "ico",
+}
+
+# Allowed image content types
 ALLOWED_IMAGE_TYPES = {
-    "image/jpeg": [b"\xff\xd8\xff"],
-    "image/png": [b"\x89PNG"],
-    "image/webp": [b"RIFF", b"WEBP"],
-    "image/gif": [b"GIF87a", b"GIF89a"],
+    "image/jpeg",
+    "image/pjpeg",
+    "image/jpg",
+    "image/png",
+    "image/x-png",
+    "image/apng",
+    "image/webp",
+    "image/gif",
+    "image/bmp",
+    "image/x-bmp",
+    "image/x-ms-bmp",
+    "image/tiff",
+    "image/x-tiff",
+    "image/avif",
+    "image/avif-sequence",
+    "image/heic",
+    "image/heif",
+    "image/heic-sequence",
+    "image/heif-sequence",
+    "image/x-icon",
+    "image/vnd.microsoft.icon",
+    "image/ico",
+    "image/icon",
 }
 MAX_AVATAR_SIZE = 5 * 1024 * 1024  # 5MB max
 AVATAR_OUTPUT_SIZE = (256, 256)  # Resize to this for storage efficiency
 
 
-def validate_image_file(file_content: bytes, content_type: str) -> bool:
-    """Validate image using magic bytes (file signature)"""
-    if content_type not in ALLOWED_IMAGE_TYPES:
+def detect_image_format(content: bytes) -> str | None:
+    """Detect image format from file signature (magic bytes)."""
+    if len(content) < 4:
+        return None
+
+    # JPEG: FF D8 FF
+    if content.startswith(b"\xff\xd8\xff"):
+        return "jpeg"
+
+    # PNG: \x89PNG
+    if content.startswith(b"\x89PNG"):
+        return "png"
+
+    # GIF: GIF87a or GIF89a
+    if content.startswith(b"GIF87a") or content.startswith(b"GIF89a"):
+        return "gif"
+
+    # WebP: RIFF....WEBP
+    if len(content) >= 12 and content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        return "webp"
+
+    # BMP: BM
+    if content.startswith(b"BM"):
+        return "bmp"
+
+    # TIFF: II*\x00 (little-endian) or MM\x00* (big-endian)
+    if content.startswith(b"II*\x00") or content.startswith(b"MM\x00*"):
+        return "tiff"
+
+    # ICO: \x00\x00\x01\x00 (ICO) or \x00\x00\x02\x00 (CUR)
+    if content.startswith(b"\x00\x00\x01\x00") or content.startswith(b"\x00\x00\x02\x00"):
+        return "ico"
+
+    # AVIF / HEIF: ISOBMFF ftyp box at offset 4
+    if len(content) >= 12 and content[4:8] == b"ftyp":
+        brand = content[8:12].lower()
+        header_chunk = content[8 : min(len(content), 64)].lower()
+        if brand in (b"avif", b"avis") or b"avif" in header_chunk or b"avis" in header_chunk:
+            return "avif"
+        if brand in (b"heic", b"heix", b"hevc", b"heim", b"heis", b"mif1", b"msf1") or b"heic" in header_chunk:
+            return "heif"
+
+    return None
+
+
+def validate_image_file(file_content: bytes, content_type: str | None = None) -> bool:
+    """Validate image using magic bytes (file signature) and optional content-type."""
+    detected = detect_image_format(file_content)
+    if not detected:
         return False
 
-    magic_patterns = ALLOWED_IMAGE_TYPES[content_type]
-    for pattern in magic_patterns:
-        if file_content[: len(pattern)] == pattern:
-            return True
-    return False
+    if not content_type:
+        return True
+
+    normalized_type = content_type.lower().split(";")[0].strip()
+    if normalized_type in ("application/octet-stream", "image/*", ""):
+        return True
+
+    return normalized_type in ALLOWED_IMAGE_TYPES
 
 
 @router.post("/upload-avatar")
 async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """Secure avatar upload with exhaustive validation"""
+    """Secure avatar upload with exhaustive validation and enhanced format compatibility"""
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse("/login")
@@ -393,42 +494,28 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
         # Extension check
         filename = avatar_file.filename or ""
         ext = filename.lower().split(".")[-1] if "." in filename else ""
-        if ext not in ["jpg", "jpeg", "png", "webp", "gif"]:
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
             return templates.TemplateResponse(
                 "user_settings.html",
                 {
                     "request": request,
                     "user": user,
-                    "error": "Invalid file type. Allowed: JPG, PNG, WEBP, GIF",
+                    "error": "Invalid file type. Allowed: JPG, PNG, WEBP, GIF, BMP, TIFF, AVIF, HEIC, ICO",
                     "is_admin": user.is_admin,
                     "username": user.username,
                     "dl_settings": dl_settings,
                 },
             )
 
-        # Content-Type check
+        # Content-Type / Magic bytes validation
         content_type = avatar_file.content_type or ""
-        if content_type not in ALLOWED_IMAGE_TYPES:
-            return templates.TemplateResponse(
-                "user_settings.html",
-                {
-                    "request": request,
-                    "user": user,
-                    "error": "Invalid content type",
-                    "is_admin": user.is_admin,
-                    "username": user.username,
-                    "dl_settings": dl_settings,
-                },
-            )
-
-        # Magic bytes validation
         if not validate_image_file(content, content_type):
             return templates.TemplateResponse(
                 "user_settings.html",
                 {
                     "request": request,
                     "user": user,
-                    "error": "File content does not match declared type",
+                    "error": "File content does not match allowed image format",
                     "is_admin": user.is_admin,
                     "username": user.username,
                     "dl_settings": dl_settings,
@@ -437,30 +524,50 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
 
         # Process and resize image with Pillow (also validates it's a real image)
         try:
-            img = Image.open(io.BytesIO(content))
-            img = img.convert("RGB")  # Normalize to RGB
-            img.thumbnail(AVATAR_OUTPUT_SIZE, Image.Resampling.LANCZOS)
+            with Image.open(io.BytesIO(content)) as img:
+                # Correct EXIF orientation (e.g. mobile photo uploads)
+                img = ImageOps.exif_transpose(img) or img
 
-            # Generate unique filename
-            unique_id = uuid.uuid4().hex[:8]
-            avatar_filename = f"avatar_{user.id}_{unique_id}.webp"
+                # For multi-frame images (GIF, multi-page TIFF, animated WebP), use the first frame
+                if getattr(img, "is_animated", False):
+                    try:
+                        img.seek(0)
+                    except Exception:
+                        pass
 
-            # Save to user directory
-            user_dir = f"/saas-data/users/{user.username}"
-            os.makedirs(user_dir, exist_ok=True)
-            avatar_path = f"{user_dir}/{avatar_filename}"
+                # Preserve transparency when possible or normalize color space
+                if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+                    img = img.convert("RGBA")
+                elif img.mode == "CMYK":
+                    img = img.convert("RGB")
+                elif img.mode not in ("RGB", "RGBA"):
+                    img = img.convert("RGB")
 
-            # Remove old avatar if exists
-            if user.avatar_path and os.path.exists(user.avatar_path):
-                try:
-                    os.remove(user.avatar_path)
-                except OSError as e:
-                    logger.warning("Failed to remove previous avatar for user %s: %s", user.username, e)
+                # Center-crop & fit to square output size for clean profile avatar display
+                img = ImageOps.fit(img, AVATAR_OUTPUT_SIZE, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5))
+                img.load()
 
-            # Save as WebP for optimal size
-            img.save(avatar_path, "WEBP", quality=85)
+                # Generate unique filename
+                unique_id = uuid.uuid4().hex[:8]
+                avatar_filename = f"avatar_{user.id}_{unique_id}.webp"
 
-        except Exception:
+                # Save to user directory
+                user_dir = f"{settings.MUSIC_ROOT}/{user.username}"
+                os.makedirs(user_dir, exist_ok=True)
+                avatar_path = f"{user_dir}/{avatar_filename}"
+
+                # Remove old avatar if exists
+                if user.avatar_path and os.path.exists(user.avatar_path):
+                    try:
+                        os.remove(user.avatar_path)
+                    except OSError as e:
+                        logger.warning("Failed to remove previous avatar for user %s: %s", user.username, e)
+
+                # Save as WebP for optimal size and broad compatibility
+                img.save(avatar_path, "WEBP", quality=85, method=4)
+
+        except Exception as e:
+            logger.warning("Failed to process avatar image: %s", e)
             return templates.TemplateResponse(
                 "user_settings.html",
                 {
@@ -510,9 +617,10 @@ async def get_avatar(username: str, db: Session = Depends(get_db)):
     user = db.query(database.User).filter(database.User.username == username).first()
 
     if user and user.avatar_path and os.path.exists(user.avatar_path):
+        media_type, _ = mimetypes.guess_type(user.avatar_path)
         return FileResponse(
             user.avatar_path,
-            media_type="image/webp",
+            media_type=media_type or "image/webp",
             headers={"Cache-Control": "public, max-age=3600"},  # Cache 1 hour
         )
 
@@ -522,8 +630,6 @@ async def get_avatar(username: str, db: Session = Depends(get_db)):
         return FileResponse(default_avatar, media_type="image/webp")
 
     # Fallback: Generate a simple colored avatar
-    from PIL import Image, ImageDraw
-
     # Use username hash for consistent color
     color_hash = int(hashlib.md5(username.encode()).hexdigest()[:6], 16)
     r = (color_hash >> 16) & 0xFF
@@ -533,9 +639,14 @@ async def get_avatar(username: str, db: Session = Depends(get_db)):
     img = Image.new("RGB", (128, 128), (r, g, b))
     draw = ImageDraw.Draw(img)
 
-    # Draw first letter
+    # Draw first letter centered
     letter = username[0].upper() if username else "?"
-    draw.text((45, 30), letter, fill="white")
+    bbox = draw.textbbox((0, 0), letter)
+    text_w = bbox[2] - bbox[0]
+    text_h = bbox[3] - bbox[1]
+    x = (128 - text_w) / 2 - bbox[0]
+    y = (128 - text_h) / 2 - bbox[1]
+    draw.text((x, y), letter, fill="white")
 
     img_io = io.BytesIO()
     img.save(img_io, format="WEBP", quality=80)

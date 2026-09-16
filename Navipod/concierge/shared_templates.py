@@ -24,8 +24,14 @@ def _compute_static_version() -> str:
     return str(int(time.time()))
 
 
+from pathlib import Path
+
 # Instancia compartida de plantillas
-templates = Jinja2Templates(directory="templates")
+TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
+if not TEMPLATES_DIR.is_dir():
+    TEMPLATES_DIR = Path("templates")
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Expose static asset version as a Jinja2 global so every template can use
 # {{ static_v }} without any Python-side boilerplate.
 templates.env.globals["static_v"] = _compute_static_version()

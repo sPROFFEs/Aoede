@@ -43,7 +43,10 @@ def parse_spotify_html(html_text):
 
 class SpotifyService:
     def __init__(self):
-        os.makedirs(CACHE_DIR, exist_ok=True)
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+        except OSError:
+            pass
         # Usamos httpx con HTTP/2 habilitado para mejor rendimiento
         self.client = httpx.AsyncClient(timeout=10.0, http2=True)
 

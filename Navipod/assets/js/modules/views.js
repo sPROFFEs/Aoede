@@ -422,10 +422,13 @@ export function initSpaHistory() {
 
 document.body.addEventListener('htmx:afterSwap', (event) => {
   if (event.target?.id !== 'view-container') return;
-  const sidebarAvatar = document.querySelector('.user-menu .avatar-circle img');
-  if (sidebarAvatar && window.USER_DATA?.username) {
-    sidebarAvatar.src = `/user/avatar/${window.USER_DATA.username}?t=${Date.now()}`;
-  }
+  const username = window.USER_DATA?.username;
+  if (!username) return;
+  const timestamp = Date.now();
+  const avatarImgs = document.querySelectorAll('.user-menu .avatar-circle img, .m-topbar-avatar img');
+  avatarImgs.forEach((img) => {
+    img.src = `/user/avatar/${encodeURIComponent(username)}?t=${timestamp}`;
+  });
 });
 
 // === HOME VIEW ===

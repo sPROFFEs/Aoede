@@ -12,7 +12,10 @@ YT_CACHE_PATH = f"{CACHE_DIR}/youtube_trending.json"
 
 class YoutubeService:
     def __init__(self):
-        os.makedirs(CACHE_DIR, exist_ok=True)
+        try:
+            os.makedirs(CACHE_DIR, exist_ok=True)
+        except OSError:
+            pass
 
     async def get_trending_music(
         self,
