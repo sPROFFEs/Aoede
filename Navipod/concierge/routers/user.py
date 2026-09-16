@@ -655,3 +655,98 @@ async def get_avatar(username: str, db: Session = Depends(get_db)):
     return Response(
         content=img_io.getvalue(), media_type="image/webp", headers={"Cache-Control": "public, max-age=3600"}
     )
+
+
+@router.get("/profile/{username}")
+async def get_public_profile(username: str, request: Request, db: Session = Depends(get_db)):
+    """Serve public user profile with shared playlists, favorites, statistics, and avatar."""
+    current_user = get_current_user(request, db)
+    if not current_user:
+        return RedirectResponse("/login")
+
+    target_user = (
+        db.query(database.User)
+        .filter(
+            database.User.username == username,
+            database.User.is_active == True,
+            database.User.is_service_account == False,
+        )
+        .first()
+    )
+    if not target_user:
+        return {"error": "User not found"}
+
+    from routers.music.playlists import fetch_playlist_summaries
+
+    # 1. Public Playlists
+    public_playlists = fetch_playlist_summaries(
+        db,
+        viewer_id=current_user.id,
+        owner_id=target_user.id,
+        public_only=True if target_user.id != current_user.id else False,
+    )
+
+    # 2. Public Favorites
+    fav_rows = (
+        db.query(database.UserFavorite, database.Track)
+        .join(database.Track, database.UserFavorite.track_id == database.Track.id)
+        .filter(database.UserFavorite.user_id == target_user.id)
+        .order_by(database.UserFavorite.id.desc())
+        .limit(100)
+        .all()
+    )
+
+    favorites = [
+        {
+            "id": track.id,
+            "db_id": track.id,
+            "title": track.title or "Unknown Title",
+            "artist": track.artist or "Unknown Artist",
+            "album": track.album or "",
+            "duration": track.duration or 0,
+            "thumbnail": f"/api/cover/{track.id}" if track.id else "/static/img/default_cover.png",
+            "is_local": True,
+            "source": "local",
+        }
+        for _, track in fav_rows
+    ]
+
+    # 3. Listening statistics & top artists
+    import admin_statistics_service
+
+    rows, _ = admin_statistics_service._read_user_activity(target_user.username, None)
+    total_listens = sum(int(r.get("qualified_listens") or 0) for r in rows)
+    total_listening_seconds = sum(int(r.get("listening_seconds") or 0) for r in rows)
+
+    # Top artists from activity and favorites
+    artist_counts: dict[str, int] = {}
+    for r in rows:
+        track_id = int(r.get("track_id") or 0)
+        track = db.query(database.Track).filter(database.Track.id == track_id).first()
+        if track and track.artist:
+            artist_counts[track.artist] = artist_counts.get(track.artist, 0) + int(r.get("qualified_listens") or 1)
+
+    for _, track in fav_rows:
+        if track.artist and track.artist not in artist_counts:
+            artist_counts[track.artist] = 1
+
+    top_artists = [
+        {"artist": artist, "count": count}
+        for artist, count in sorted(artist_counts.items(), key=lambda x: x[1], reverse=True)[:10]
+    ]
+
+    return {
+        "username": target_user.username,
+        "is_admin": bool(target_user.is_admin),
+        "is_self": bool(target_user.id == current_user.id),
+        "avatar_url": f"/user/avatar/{target_user.username}",
+        "stats": {
+            "total_listens": total_listens,
+            "listening_minutes": round(total_listening_seconds / 60),
+            "favorites_count": len(fav_rows),
+            "public_playlists_count": len(public_playlists),
+            "top_artists": top_artists,
+        },
+        "public_playlists": public_playlists,
+        "favorites": favorites,
+    }

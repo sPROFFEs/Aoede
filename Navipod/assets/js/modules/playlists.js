@@ -51,7 +51,9 @@ export async function renderPlaylist(container, playlistId) {
   const isSmart = Boolean(data.is_smart);
   const isSyncedCopy = Boolean(data.source_playlist_id);
   const sourcePlaylistAvailable = Boolean(data.source_playlist_exists && data.source_playlist_public);
-  const ownerLabel = data.owner_username ? `By ${ui.escHtml(data.owner_username)}` : '';
+  const ownerLabel = data.owner_username
+    ? `By <a class="artist-link" onclick="loadView('profile', '${ui.escHtml(data.owner_username).replace(/'/g, "\\'")}')" style="cursor:pointer; font-weight:600;">${ui.escHtml(data.owner_username)}</a>`
+    : '';
   const sourceBadge = isSyncedCopy
     ? '<span class="source-badge musicbrainz" style="margin-left:8px;">Synced copy</span>'
     : '';

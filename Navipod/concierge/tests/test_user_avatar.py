@@ -11,6 +11,7 @@ from routers.user import (
     AVATAR_OUTPUT_SIZE,
     detect_image_format,
     get_avatar,
+    get_public_profile,
     upload_avatar,
     validate_image_file,
 )
@@ -274,3 +275,34 @@ async def test_get_avatar_fallback_and_existing(db_session, tmp_path):
     file_resp = await get_avatar("frank", db_session)
     assert file_resp.media_type == "image/webp"
     assert file_resp.path == str(avatar_file)
+
+
+@pytest.mark.anyio
+async def test_get_public_profile(db_session, monkeypatch):
+    user_a = database.User(id=10, username="user_a", hashed_password="pw", is_active=True)
+    user_b = database.User(id=11, username="user_b", hashed_password="pw", is_active=True)
+    db_session.add(user_a)
+    db_session.add(user_b)
+
+    # Add public playlist for user_b
+    pl = database.Playlist(id=100, name="Cool Beats", owner_id=user_b.id, is_public=True)
+    db_session.add(pl)
+
+    # Add favorite for user_b
+    tr = database.Track(id=200, title="Song 1", artist="Artist 1", duration=180, filepath="/fake/song.mp3")
+    db_session.add(tr)
+    fav = database.UserFavorite(id=300, user_id=user_b.id, track_id=tr.id)
+    db_session.add(fav)
+    db_session.commit()
+
+    monkeypatch.setattr("routers.user.get_current_user", lambda req, db: user_a)
+    request = Request({"type": "http", "method": "GET", "path": "/user/profile/user_b", "headers": []})
+
+    profile = await get_public_profile("user_b", request, db_session)
+    assert profile["username"] == "user_b"
+    assert profile["is_self"] is False
+    assert len(profile["public_playlists"]) == 1
+    assert profile["public_playlists"][0]["name"] == "Cool Beats"
+    assert len(profile["favorites"]) == 1
+    assert profile["favorites"][0]["title"] == "Song 1"
+    assert profile["stats"]["favorites_count"] == 1

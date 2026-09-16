@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 translations: Dict[str, Dict[str, str]] = {}
 
 DEFAULT_LANG = "en"
-SUPPORTED_LANGS = ["en"]
+SUPPORTED_LANGS = ["en", "es"]
 
 
 def load_translations(locales_dir: str = "locales"):

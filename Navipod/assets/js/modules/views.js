@@ -290,6 +290,7 @@ export async function loadView(view, param = null, options = {}) {
 
     if (view === 'home') await renderHome(container);
     else if (view === 'offline' || view === 'downloads_offline') await renderOfflineDownloads(container);
+    else if (view === 'profile') await renderProfile(container, param);
     else if (view === 'party') await party.renderPartyList(container);
     else if (view === 'party_room') await party.renderPartyRoom(container, Number(param));
     else if (view === 'library') await library.renderLibrary(container);
@@ -2740,5 +2741,125 @@ export async function checkOfflineReadinessAction() {
         </div>
     </div>`;
   document.getElementById('modal-container').innerHTML = html;
+  if (window.lucide) lucide.createIcons();
+}
+
+// === PUBLIC USER PROFILE VIEW ===============================================
+
+export async function renderProfile(container, username) {
+  if (!username) {
+    username = window.USER_DATA?.username || 'User';
+  }
+
+  const profile = await api.fetchUserProfile(username);
+  if (!profile || profile.error) {
+    container.innerHTML = `
+      <div class="empty-state glass-panel">
+        <i data-lucide="user-x" class="empty-icon"></i>
+        <p>User profile not found for "<strong>${ui.escHtml(username)}</strong>".</p>
+      </div>`;
+    if (window.lucide) lucide.createIcons();
+    return;
+  }
+
+  const stats = profile.stats || {};
+  const playlists = profile.public_playlists || [];
+  const favorites = profile.favorites || [];
+  const topArtists = stats.top_artists || [];
+  const avatarUrl = profile.avatar_url
+    ? `${profile.avatar_url}?t=${Date.now()}`
+    : `/user/avatar/${encodeURIComponent(username)}`;
+  const roleLabel = profile.is_admin ? 'Admin' : 'Member';
+
+  let playlistsHtml = '';
+  if (playlists.length > 0) {
+    playlistsHtml = `
+      <section class="shelf-section home-shelf">
+        <div class="shelf-header">
+          <h2 class="shelf-title">Public Playlists (${playlists.length})</h2>
+        </div>
+        <div class="library-cards-grid">
+          ${playlists.map(window.createPlaylistCard).join('')}
+        </div>
+      </section>`;
+  }
+
+  let favoritesHtml = '';
+  if (favorites.length > 0) {
+    state.setCurrentViewList(favorites);
+    favoritesHtml = `
+      <section class="shelf-section home-shelf">
+        <div class="shelf-header">
+          <h2 class="shelf-title">Favorite Songs (${favorites.length})</h2>
+          <button class="btn-secondary" onclick="playPlaylistInOrder()" title="Play favorites">
+            <i data-lucide="play" width="16" height="16"></i> Play All
+          </button>
+        </div>
+        <div class="track-list">
+          ${favorites.map((t, i) => createTrackRow(t, i)).join('')}
+        </div>
+      </section>`;
+  }
+
+  let topArtistsHtml = '';
+  if (topArtists.length > 0) {
+    topArtistsHtml = `
+      <section class="shelf-section home-shelf">
+        <div class="shelf-header">
+          <h2 class="shelf-title">Top Artists</h2>
+        </div>
+        <div class="artist-chips-row" style="display:flex; gap:10px; flex-wrap:wrap;">
+          ${topArtists
+            .map(
+              (a) => `
+            <button class="btn-secondary" onclick="loadView('artist', '${ui.escHtml(a.artist).replace(/'/g, "\\'")}')" style="display:inline-flex; align-items:center; gap:8px;">
+              <i data-lucide="user-round" width="14" height="14"></i>
+              <span>${ui.escHtml(a.artist)}</span>
+              <small style="opacity:0.65; margin-left:4px;">${a.count} plays</small>
+            </button>
+          `
+            )
+            .join('')}
+        </div>
+      </section>`;
+  }
+
+  container.innerHTML = `
+    <section class="home-overview library-theme" style="padding-bottom: 28px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+        <div class="profile-avatar-large" style="width:110px; height:110px; border-radius:50%; overflow:hidden; border:2px solid rgba(255,255,255,0.15); flex-shrink:0;">
+          <img src="${avatarUrl}" alt="${ui.escHtml(username)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+        </div>
+        <div style="flex:1; min-width:200px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+            <span class="hero-kicker" style="margin:0;">Profile</span>
+            <span class="status-badge finished" style="font-size:0.75rem; text-transform:uppercase;">${roleLabel}</span>
+          </div>
+          <h1 class="hero-greeting" style="font-size: clamp(2rem, 4vw, 3rem); margin: 4px 0 8px 0;">${ui.escHtml(username)}</h1>
+          <p class="hero-sub" style="color:var(--text-sub); margin:0;">
+            ${playlists.length} ${playlists.length === 1 ? 'playlist' : 'playlists'} · ${favorites.length} ${favorites.length === 1 ? 'favorite song' : 'favorite songs'} · ${stats.total_listens || 0} listens (${stats.listening_minutes || 0} mins)
+          </p>
+          ${
+            profile.is_self
+              ? `<div style="margin-top:14px;"><button class="btn-secondary" onclick="loadView('settings_user')"><i data-lucide="settings" width="16" height="16"></i> Edit Profile & Settings</button></div>`
+              : ''
+          }
+        </div>
+      </div>
+    </section>
+
+    ${playlistsHtml}
+    ${favoritesHtml}
+    ${topArtistsHtml}
+
+    ${
+      !playlists.length && !favorites.length && !topArtists.length
+        ? `<div class="empty-state glass-panel" style="margin-top:24px;">
+            <i data-lucide="music" class="empty-icon"></i>
+            <p>This user hasn't shared any public playlists or favorites yet.</p>
+           </div>`
+        : ''
+    }
+  `;
   if (window.lucide) lucide.createIcons();
 }

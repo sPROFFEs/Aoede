@@ -527,6 +527,16 @@ export function recordListenEvent(payload) {
   }
 }
 
+export async function fetchUserProfile(username) {
+  try {
+    const res = await fetch(`/user/profile/${encodeURIComponent(username)}`);
+    if (res.ok) return await res.json();
+  } catch (e) {
+    console.error('[PROFILE] Fetch error:', e);
+  }
+  return null;
+}
+
 export async function fetchRandomTrack() {
   try {
     const res = await fetch(`${state.API}/random-track`);

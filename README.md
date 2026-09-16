@@ -7,7 +7,7 @@
 **Your self-hosted music universe.**  
 One place for your library, discovery, shared listening and personal Navidrome instances.
 
-![Quality](https://github.com/sPROFFEs/Navipod/actions/workflows/quality.yml/badge.svg)![Version](https://img.shields.io/badge/version-1.1.0-1ed760)![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)![License](https://img.shields.io/badge/license-personal%20use%20only-555555)
+![Quality](https://github.com/sPROFFEs/Navipod/actions/workflows/quality.yml/badge.svg)![Version](https://img.shields.io/badge/version-1.1.1-1ed760)![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)![License](https://img.shields.io/badge/license-personal%20use%20only-555555)
 
 [**Get started**](#quick-start) · [Documentation](#documentation) · [Deployment](docs/DEPLOYMENT.md) · [Android APK](https://github.com/sPROFFEs/Navipod/releases)
 

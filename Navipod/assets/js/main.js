@@ -271,6 +271,7 @@ window.openAddToPlaylistFlyout = views.openAddToPlaylistFlyout;
 window.showContextMenu = views.showContextMenu;
 window.closeContextMenu = views.closeContextMenu;
 window.renderArtist = views.renderArtist;
+window.renderProfile = views.renderProfile;
 window.startSmartRadio = views.startSmartRadio;
 window.setCrossfadePending = views.setCrossfadePending;
 window.markPlaybackPrefsDirty = views.markPlaybackPrefsDirty;
