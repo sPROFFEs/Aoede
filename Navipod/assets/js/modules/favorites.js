@@ -146,18 +146,26 @@ export async function toggleFavorite(trackId, btn) {
 //   - No rename / delete / publish / share controls — favorites are managed
 //     per-track via the heart icon, never as a whole playlist.
 export async function renderFavorites(container) {
-  let favs = [];
+  let favs = null;
   try {
-    if (navigator.onLine) {
-      favs = await (await fetch(`${state.API}/favorites`)).json();
-      favs = Array.isArray(favs) ? favs : [];
-      offlineStore.saveLibrarySnapshot('favorites', favs);
-    } else {
-      favs = (await offlineStore.getLibrarySnapshot('favorites')) || [];
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      const res = await fetch(`${state.API}/favorites`);
+      if (res.ok) {
+        const json = await res.json();
+        if (Array.isArray(json)) {
+          favs = json;
+          offlineStore.saveLibrarySnapshot('favorites', favs);
+        }
+      }
     }
   } catch (e) {
-    favs = (await offlineStore.getLibrarySnapshot('favorites')) || [];
+    /* fallback to offline snapshot below */
   }
+
+  if (!favs || !Array.isArray(favs)) {
+    favs = await offlineStore.getLibrarySnapshot('favorites');
+  }
+
   favs = Array.isArray(favs) ? favs : [];
   state.setCurrentViewList(favs);
 

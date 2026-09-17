@@ -8,7 +8,7 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'navipod-shell-v2';
+const CACHE = 'navipod-shell-v3';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 

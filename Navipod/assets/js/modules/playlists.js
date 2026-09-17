@@ -12,35 +12,62 @@ import * as offlineStore from './offline_store.js';
 // === RENDER PLAYLIST VIEW ===
 
 export async function renderPlaylist(container, playlistId) {
-  let data = {};
+  let data = null;
+  const numId = Number(playlistId);
+
   try {
-    if (navigator.onLine) {
-      data = await (await fetch(`${state.API}/playlists/${playlistId}`)).json();
-      if (data && !data.error) {
-        offlineStore.saveLibrarySnapshot(`playlist_${playlistId}`, data);
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      const res = await fetch(`${state.API}/playlists/${numId}`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json && !json.error && !json.offline) {
+          data = json;
+          offlineStore.saveLibrarySnapshot(`playlist_${numId}`, data);
+        }
       }
-    } else {
-      data = (await offlineStore.getLibrarySnapshot(`playlist_${playlistId}`)) || {};
     }
-    if (data?.error) {
-      container.innerHTML = `<div class="empty-state glass-panel"><p>${ui.escHtml(data.error)}</p></div>`;
-      return;
-    }
-    const tracks = (data.tracks || []).map((t) => ({
-      ...t,
-      db_id: t.track_id || t.id,
-      id: t.track_id || t.id
-    }));
-    state.setCurrentViewList(tracks);
   } catch (e) {
-    data = (await offlineStore.getLibrarySnapshot(`playlist_${playlistId}`)) || {};
-    const tracks = (data.tracks || []).map((t) => ({
-      ...t,
-      db_id: t.track_id || t.id,
-      id: t.track_id || t.id
-    }));
-    state.setCurrentViewList(tracks);
+    /* fallback to offline snapshot below */
   }
+
+  // If online fetch did not return valid data or we are offline:
+  if (!data || data.error || data.offline) {
+    data = await offlineStore.getLibrarySnapshot(`playlist_${numId}`);
+
+    // If no full snapshot, check offline playlists manifest and offline tracks store
+    if (!data || !data.tracks || !data.tracks.length) {
+      const offlinePlaylists = await offlineStore.listOfflinePlaylists();
+      const matchedPl = offlinePlaylists.find((p) => Number(p.id) === numId);
+      const allOfflineTracks = await offlineStore.listOfflineTracks();
+      const plTracks = allOfflineTracks.filter((t) => t.playlist_ids && t.playlist_ids.includes(numId));
+
+      if (matchedPl || plTracks.length > 0) {
+        data = {
+          id: numId,
+          name: matchedPl?.name || plTracks[0]?.playlist_names?.[numId] || 'Offline Playlist',
+          thumbnail: matchedPl?.thumbnail || '',
+          tracks: plTracks,
+          is_public: false,
+          is_owner: true,
+          is_editable: false
+        };
+      }
+    }
+  }
+
+  if (!data || (data.error && (!data.tracks || !data.tracks.length))) {
+    container.innerHTML = `<div class="empty-state glass-panel"><i data-lucide="list-music" class="empty-icon"></i><p>${ui.escHtml(data?.error || 'Playlist not available offline. Download it while connected to play offline.')}</p></div>`;
+    ui.refreshIcons(container);
+    return;
+  }
+
+  const tracks = (data.tracks || []).map((t) => ({
+    ...t,
+    db_id: t.track_id || t.id || t.db_id,
+    id: t.track_id || t.id || t.db_id,
+    is_local: true
+  }));
+  state.setCurrentViewList(tracks);
 
   const thumb = data.thumbnail || '/static/img/default_cover.png';
   const hasThumb = data.thumbnail && !data.thumbnail.includes('default');
