@@ -99,8 +99,30 @@ function initKeyboardShortcuts() {
 
 // === OFFLINE AWARENESS ===
 
+function updateOfflineUIState(isOffline) {
+  if (isOffline) {
+    document.body.dataset.offline = 'true';
+    if (!document.getElementById('offline-mode-indicator')) {
+      const banner = document.createElement('div');
+      banner.id = 'offline-mode-indicator';
+      banner.className = 'offline-mode-indicator';
+      banner.innerHTML = `<i data-lucide="cloud-off" width="14" height="14"></i> <span>Offline Mode — Playing from device storage</span>`;
+      document.body.prepend(banner);
+      ui.refreshIcons(banner);
+    }
+  } else {
+    document.body.removeAttribute('data-offline');
+    document.getElementById('offline-mode-indicator')?.remove();
+  }
+}
+
 function initOfflineAwareness() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    updateOfflineUIState(true);
+  }
+
   window.addEventListener('offline', () => {
+    updateOfflineUIState(true);
     ui.showToast('You are offline — downloaded tracks are available.', 'info');
     document.querySelectorAll('.track-row').forEach((row) => {
       const idx = row.dataset.idx;
@@ -114,6 +136,7 @@ function initOfflineAwareness() {
     });
   });
   window.addEventListener('online', async () => {
+    updateOfflineUIState(false);
     ui.showToast('Back online — syncing changes.', 'success');
     document.querySelectorAll('.track-row.offline-disabled').forEach((row) => {
       row.classList.remove('offline-disabled');
@@ -396,17 +419,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // (a non-blocking inline <script> that runs before this deferred module).
   // We are the *only* caller of loadView on page load — the template no longer
   // calls it a second time, eliminating the double-render (fix Q-10).
-  const _serverView = window.NAVIPOD_INITIAL_VIEW ?? 'home';
-  const _serverParam = window.NAVIPOD_INITIAL_PARAM ?? null;
+  const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const _serverView = isDeviceOffline ? 'offline' : (window.NAVIPOD_INITIAL_VIEW ?? 'home');
+  const _serverParam = isDeviceOffline ? null : (window.NAVIPOD_INITIAL_PARAM ?? null);
 
   if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
-    if (restoredSession?.view && restoredSession.view !== 'home') {
+    if (isDeviceOffline) {
+      views.loadView('offline', null, { replaceHistory: true });
+    } else if (restoredSession?.view && restoredSession.view !== 'home') {
       views.loadView(restoredSession.view, restoredSession.param ?? null, { replaceHistory: true });
     } else {
       views.loadView(_serverView, _serverParam, { replaceHistory: true });
     }
   } else if (window.location.pathname === '/portal') {
-    if (restoredSession?.view && restoredSession.view !== 'home') {
+    if (isDeviceOffline) {
+      views.loadView('offline', null, { replaceHistory: true });
+    } else if (restoredSession?.view && restoredSession.view !== 'home') {
       views.loadView(restoredSession.view, restoredSession.param ?? null, { replaceHistory: true });
     } else {
       views.loadView(_serverView, _serverParam, { replaceHistory: true });

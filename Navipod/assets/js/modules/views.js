@@ -2589,7 +2589,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
       </div>
     </div>
 
-    <div class="library-filters" style="margin-bottom: 20px;">
+    <div class="library-filters" style="margin-bottom: 16px;">
       <button class="library-filter ${activeTab === 'all' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'all')">
         All Tracks (${trackCount})
       </button>
@@ -2601,8 +2601,32 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
       </button>
     </div>
 
-    ${playlistsHtml}
-    ${tracksHtml}
+    ${
+      trackCount > 0 || offlinePlaylists.length > 0
+        ? `<div class="offline-search-bar">
+            <i data-lucide="search" width="16" height="16" style="color:var(--text-sub);"></i>
+            <input id="offline-filter-input" placeholder="Search downloaded tracks or playlists..." oninput="
+              const q = this.value.trim().toLowerCase();
+              document.querySelectorAll('#offline-tracks-container .track-row').forEach(row => {
+                const title = (row.querySelector('.track-name-sm')?.textContent || '').toLowerCase();
+                const artist = (row.querySelector('.track-artist-sm')?.textContent || '').toLowerCase();
+                row.style.display = (title.includes(q) || artist.includes(q)) ? '' : 'none';
+              });
+              document.querySelectorAll('.offline-playlist-card').forEach(card => {
+                const name = (card.querySelector('.offline-playlist-card-name')?.textContent || '').toLowerCase();
+                card.style.display = name.includes(q) ? '' : 'none';
+              });
+            ">
+          </div>`
+        : ''
+    }
+
+    <div id="offline-playlists-container">
+      ${playlistsHtml}
+    </div>
+    <div id="offline-tracks-container">
+      ${tracksHtml}
+    </div>
 
     ${
       trackCount === 0 && offlinePlaylists.length === 0

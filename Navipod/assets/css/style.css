@@ -3805,4 +3805,80 @@ body {
     font-size: 0.86rem;
 }
 
+/* Offline Mode Global Banner */
+.offline-mode-indicator {
+    background: linear-gradient(90deg, #065f46 0%, #0369a1 100%);
+    color: #ecfdf5;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 6px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.02em;
+    z-index: 1000;
+    position: sticky;
+    top: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.offline-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface-2, #222);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 999px;
+    padding: 8px 16px;
+    margin: 12px 0 18px 0;
+}
+.offline-search-bar input {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: none;
+    color: #fff;
+    font-size: 0.88rem;
+    font-family: inherit;
+}
+.offline-search-bar input::placeholder {
+    color: var(--text-sub, #888);
+}
+
+@media (max-width: 768px) {
+    .offline-playlists-grid {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        margin-bottom: 20px !important;
+    }
+    .offline-playlist-card {
+        flex-direction: row !important;
+        align-items: center !important;
+        padding: 8px 12px !important;
+        gap: 12px !important;
+    }
+    .offline-playlist-card-cover {
+        width: 50px !important;
+        height: 50px !important;
+        flex-shrink: 0 !important;
+        border-radius: 6px !important;
+    }
+    .offline-playlist-card-info {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+    .offline-playlist-card-actions {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+        border-top: 0 !important;
+        flex-shrink: 0 !important;
+    }
+    .offline-playlist-card-actions .btn-secondary,
+    .offline-playlist-card-actions .btn-danger-outline {
+        display: none !important;
+    }
+}
+
 
