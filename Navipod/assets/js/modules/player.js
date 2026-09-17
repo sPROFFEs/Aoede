@@ -462,11 +462,18 @@ function updateMediaSessionMetadata(track) {
     console.warn('[BG-PLAY] Failed to set MediaSession metadata:', e);
   }
 
-  if (Number.isFinite(state.audio.duration) && state.audio.duration > 0) {
+  updateMediaSessionPositionState();
+}
+
+export function updateMediaSessionPositionState() {
+  if (!('mediaSession' in navigator) || !navigator.mediaSession?.setPositionState) return;
+  const dur = Number(state.audio.duration);
+  const cur = Number(state.audio.currentTime);
+  if (Number.isFinite(dur) && dur > 0 && Number.isFinite(cur) && cur >= 0) {
     try {
       navigator.mediaSession.setPositionState({
-        duration: state.audio.duration,
-        position: Math.min(state.audio.currentTime || 0, state.audio.duration),
+        duration: Math.max(0.1, dur),
+        position: Math.min(Math.max(0, cur), dur),
         playbackRate: state.audio.playbackRate || 1
       });
     } catch (e) {
@@ -489,7 +496,7 @@ function syncTransportControlButtons() {
       state.repeatMode === 'one' ? `<i data-lucide="repeat-1"></i>` : `<i data-lucide="repeat"></i>`;
   }
 
-  lucide.createIcons();
+  ui.refreshIcons();
 }
 
 // Update both footer and fullscreen repeat buttons after a mode change.
@@ -502,7 +509,7 @@ function _updateRepeatButton() {
       state.repeatMode === 'one' ? `<i data-lucide="repeat-1"></i>` : `<i data-lucide="repeat"></i>`;
   }
   ui.updateFullscreenPlayButton();
-  lucide.createIcons();
+  ui.refreshIcons();
 }
 
 function clampResumeTime(timeSeconds, durationSeconds) {
@@ -714,7 +721,7 @@ export function updatePlayerUI(track) {
   _setArtistLabel(fsArtist, track.artist);
   if (fsCover) fsCover.src = track.thumbnail || '/static/img/default_cover.png';
 
-  lucide.createIcons();
+  ui.refreshIcons();
 }
 
 // Replace the artist label content with a clickable link that routes
@@ -843,7 +850,9 @@ export async function playTrack(track, options = {}) {
     applyPlaybackModes();
 
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    const hasOffline = await offlineStore.isTrackAvailableOffline(track.db_id);
+    const hasOffline =
+      offlineStore.isTrackAvailableOfflineSync(track.db_id) ||
+      (await offlineStore.isTrackAvailableOffline(track.db_id));
 
     if (hasOffline || isOffline) {
       if (hasOffline) {
@@ -1485,6 +1494,7 @@ export function setupPlayer() {
     persistPlaybackSession();
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = 'playing';
+      updateMediaSessionPositionState();
     }
   });
 
@@ -1505,7 +1515,20 @@ export function setupPlayer() {
     persistPlaybackSession();
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = 'paused';
+      updateMediaSessionPositionState();
     }
+  });
+
+  state.audio.addEventListener('loadedmetadata', () => {
+    updateMediaSessionPositionState();
+  });
+
+  state.audio.addEventListener('durationchange', () => {
+    updateMediaSessionPositionState();
+  });
+
+  state.audio.addEventListener('seeked', () => {
+    updateMediaSessionPositionState();
   });
 
   state.audio.addEventListener('ended', () => {

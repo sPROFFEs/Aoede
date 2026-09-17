@@ -51,7 +51,7 @@ export async function renderRadio(container) {
             </div>
             <div id="radio-saved-section"></div>
         </section>`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
 
   loadRadioPlaylists();
   executeRadioSearch();
@@ -103,7 +103,7 @@ export async function renderSavedRadios(container) {
           .join('')}
       </div>`
       : `<div class="empty-state glass-panel"><p>No saved radios yet. Save stations from the search results above.</p></div>`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
 }
 
 // === EDITORIAL PLAYLISTS ===
@@ -128,7 +128,7 @@ export async function loadRadioPlaylists() {
         `
       )
       .join('');
-    lucide.createIcons();
+    ui.refreshIcons(container);
   } catch (e) {
     container.innerHTML = '<p style="color:#666;">Could not load editorial playlists.</p>';
   }

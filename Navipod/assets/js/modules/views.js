@@ -357,7 +357,7 @@ export async function renderExternalView(container, url) {
       else container.innerHTML = text; // Last resort: raw unparsed text
     }
 
-    lucide.createIcons();
+    ui.refreshIcons(container);
 
     if (typeof htmx !== 'undefined') {
       htmx.process(container);
@@ -792,7 +792,7 @@ export async function renderWrapped(container, yearParam = null) {
                 </article>
             </div>
         </section>`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
 }
 
 // === SEARCH VIEW ===
@@ -829,7 +829,7 @@ export function renderSearch(container) {
             <div class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> Users</div>
         </div>
         <div id="search-results"></div>`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
   // Seed with the current topbar query (so refresh / direct navigation
   // still surface results that match what's typed up there).
   search.executeSearch(seedQuery);
@@ -1735,7 +1735,7 @@ export function renderSidebarRecents() {
     });
   });
 
-  lucide.createIcons();
+  ui.refreshIcons();
 }
 
 export function renderSidebarPlaylists() {
@@ -1886,7 +1886,7 @@ export function showSaveMixModal(mixKey, mixTitle) {
         </div>
     </div>`;
   document.getElementById('modal-container').innerHTML = html;
-  lucide.createIcons();
+  ui.refreshIcons(document.getElementById('modal-container'));
   document.getElementById('mix-save-name')?.focus();
 }
 
@@ -2039,7 +2039,7 @@ export async function renderDiscovery(container) {
                 <p>No discovery items right now.<br>Explore music in <strong>Search</strong> to build recommendations, then come back.</p>
             </div>
         </div>`;
-    lucide.createIcons();
+    ui.refreshIcons(container);
     return;
   }
 
@@ -2060,7 +2060,7 @@ export async function renderDiscovery(container) {
                 ${visible.map(_discoveryCard).join('')}
             </div>
         </div>`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
 }
 
 // ── Discovery handlers (window-exposed via main.js) ─────────────────
