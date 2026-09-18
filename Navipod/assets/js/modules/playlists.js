@@ -163,6 +163,21 @@ export async function renderPlaylist(container, playlistId) {
           <i data-lucide="refresh-cw" width="20" height="20"></i><span class="playlist-btn-label">Refresh</span>
         </button>`
       : '';
+  const downloadedInPlaylist = (data.tracks || []).filter((t) =>
+    offlineStore.isTrackAvailableOfflineSync(t.track_id || t.id || t.db_id)
+  );
+  const isFullyDownloaded = trackCount > 0 && downloadedInPlaylist.length === trackCount;
+  const isPartiallyDownloaded = downloadedInPlaylist.length > 0 && !isFullyDownloaded;
+
+  const offlineButton =
+    trackCount > 0
+      ? `
+        <button id="pl-offline-btn-${playlistId}" onclick="togglePlaylistOfflineDownload(${playlistId})" class="btn-secondary playlist-offline-btn ${isFullyDownloaded ? 'downloaded' : isPartiallyDownloaded ? 'partial' : ''}" title="${isFullyDownloaded ? 'Downloaded offline · Tap to manage' : 'Download playlist for offline listening'}">
+            <i data-lucide="${isFullyDownloaded ? 'check-circle' : 'arrow-down-circle'}" width="16" height="16"></i>
+            <span>${isFullyDownloaded ? 'Downloaded' : isPartiallyDownloaded ? `Download (${downloadedInPlaylist.length}/${trackCount})` : 'Download'}</span>
+        </button>`
+      : '';
+
   const deleteButton = isOwner
     ? `
         <button onclick="event.stopPropagation(); showDeletePlaylistModal(${playlistId}, document.getElementById('playlist-title-${playlistId}').textContent)" class="btn-danger-outline playlist-action-btn" title="Delete" aria-label="Delete">
@@ -199,9 +214,7 @@ export async function renderPlaylist(container, playlistId) {
                     <button onclick="playPlaylistShuffle()" class="btn-icon-pill" title="Shuffle" aria-label="Shuffle">
                         <i data-lucide="shuffle" width="18" height="18"></i>
                     </button>
-                    <button onclick="downloadPlaylistOffline(${playlistId})" class="btn-icon-pill" title="Download for Offline" aria-label="Download for Offline">
-                        <i data-lucide="download-cloud" width="18" height="18"></i>
-                    </button>
+                    ${offlineButton}
                     `
                         : ''
                     }
@@ -1068,17 +1081,37 @@ export async function addToPlaylist(playlistId, trackId) {
   }
 }
 
+export async function togglePlaylistOfflineDownload(playlistId) {
+  const numId = Number(playlistId);
+  const btn = document.getElementById(`pl-offline-btn-${playlistId}`);
+
+  if (btn && btn.classList.contains('downloaded')) {
+    const shouldRemove = confirm('Remove this playlist and its downloaded songs from offline storage?');
+    if (shouldRemove) {
+      await offlineStore.deleteOfflinePlaylist(numId, true);
+      ui.showToast('Removed offline playlist from device');
+      btn.className = 'btn-secondary playlist-offline-btn';
+      btn.innerHTML = `<i data-lucide="arrow-down-circle" width="16" height="16"></i><span>Download</span>`;
+      ui.refreshIcons(btn);
+    }
+    return;
+  }
+
+  await downloadPlaylistOffline(playlistId);
+}
+
 export async function downloadPlaylistOffline(playlistId) {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     ui.showToast('Cannot download while offline', 'error');
     return;
   }
 
+  const numId = Number(playlistId);
   let playlistData = null;
   let tracks = state.currentViewList || [];
 
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}`);
+    const res = await fetch(`${state.API}/playlists/${numId}`);
     if (res.ok) {
       playlistData = await res.json();
       if (playlistData && Array.isArray(playlistData.tracks) && playlistData.tracks.length > 0) {
@@ -1106,12 +1139,16 @@ export async function downloadPlaylistOffline(playlistId) {
     return;
   }
 
-  ui.showToast(`Starting offline download for ${localTracks.length} tracks in "${plName}"...`, 'info');
-  let successCount = 0;
+  const btn = document.getElementById(`pl-offline-btn-${playlistId}`);
+  if (btn) {
+    btn.className = 'btn-secondary playlist-offline-btn downloading';
+    btn.innerHTML = `<i data-lucide="loader-2" class="spin" width="16" height="16"></i><span>Starting...</span>`;
+    ui.refreshIcons(btn);
+  }
 
   // Save playlist snapshot in offline store
   await offlineStore.saveOfflinePlaylist({
-    id: playlistId,
+    id: numId,
     name: plName,
     thumbnail: playlistData?.thumbnail || '',
     tracks: localTracks,
@@ -1120,17 +1157,51 @@ export async function downloadPlaylistOffline(playlistId) {
     is_smart: playlistData?.is_smart ?? false
   });
 
-  for (const t of localTracks) {
+  let downloadedCount = 0;
+  const total = localTracks.length;
+
+  for (let i = 0; i < total; i++) {
+    const t = localTracks[i];
+    const isAlreadyOffline = offlineStore.isTrackAvailableOfflineSync(t.db_id);
+
+    if (isAlreadyOffline) {
+      downloadedCount++;
+      if (btn) {
+        const span = btn.querySelector('span');
+        if (span) span.textContent = `Downloading (${downloadedCount}/${total})`;
+      }
+      continue;
+    }
+
     try {
-      await offlineStore.downloadTrack(t, null, { playlistId, playlistName: plName, isSingle: false });
-      successCount++;
+      if (btn) {
+        const span = btn.querySelector('span');
+        if (span) span.textContent = `Downloading (${downloadedCount + 1}/${total})`;
+      }
+      await offlineStore.downloadTrack(t, null, { playlistId: numId, playlistName: plName, isSingle: false });
+      downloadedCount++;
     } catch (e) {
-      console.warn('[OFFLINE] Failed to download playlist track:', t.title, e);
+      console.warn('[OFFLINE] Interrupted during playlist download:', t.title, e);
+      if (!navigator.onLine) {
+        ui.showToast(`Download paused: connection lost (${downloadedCount}/${total} saved). Tap to resume.`, 'info');
+        if (btn) {
+          btn.className = 'btn-secondary playlist-offline-btn partial';
+          btn.innerHTML = `<i data-lucide="arrow-down-circle" width="16" height="16"></i><span>Resume (${downloadedCount}/${total})</span>`;
+          ui.refreshIcons(btn);
+        }
+        return;
+      }
     }
   }
 
-  ui.showToast(`Downloaded ${successCount} of ${localTracks.length} tracks from "${plName}"!`, 'success');
-  if (window.lucide) lucide.createIcons();
+  if (btn) {
+    btn.className = 'btn-secondary playlist-offline-btn downloaded';
+    btn.innerHTML = `<i data-lucide="check-circle" width="16" height="16"></i><span>Downloaded</span>`;
+    ui.refreshIcons(btn);
+  }
+
+  ui.showToast(`Downloaded all ${downloadedCount} tracks from "${plName}"!`, 'success');
+  ui.refreshIcons();
 }
 
 /** Undo callback for the add-to-playlist action toast. Re-removes the

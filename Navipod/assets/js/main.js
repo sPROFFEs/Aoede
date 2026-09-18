@@ -225,6 +225,7 @@ window.showAddToPlaylistFromPlayer = playlists.showAddToPlaylistFromPlayer;
 window.playPlaylistInOrder = playlists.playPlaylistInOrder;
 window.playPlaylistShuffle = playlists.playPlaylistShuffle;
 window.downloadPlaylistOffline = playlists.downloadPlaylistOffline;
+window.togglePlaylistOfflineDownload = playlists.togglePlaylistOfflineDownload;
 window.showRemoveFromPlaylistModal = playlists.showRemoveFromPlaylistModal;
 window.openPlaylistCoverUpload = playlists.openPlaylistCoverUpload;
 window.handlePlaylistCoverUpload = playlists.handlePlaylistCoverUpload;
