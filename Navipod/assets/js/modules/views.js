@@ -564,8 +564,8 @@ export async function renderHome(container) {
   let html = `<section class="home-overview">
       ${ui.homeTabsBar('all')}
       <div class="hero-section">
-          <div class="hero-kicker">Your library, tuned for right now</div>
-          <h1 class="hero-greeting">Good ${ui.getGreeting()}, <span class="hero-username">${username}</span></h1>
+          <div class="hero-kicker">${ui.t('home.hero_kicker', 'Your library, tuned for right now')}</div>
+          <h1 class="hero-greeting">${ui.getGreeting()}, <span class="hero-username">${username}</span></h1>
       </div>
       ${quickPicks}
     </section>`;
@@ -580,7 +580,7 @@ export async function renderHome(container) {
     html += `
             <section class="shelf-section home-shelf">
                 <div class="shelf-header">
-                    <h2 class="shelf-title">Your Mixes</h2>
+                    <h2 class="shelf-title">${ui.t('home.your_mixes', 'Your Mixes')}</h2>
                 </div>
                 <div class="grid-shelf home-rail" tabindex="0" aria-label="Your Mixes">${mixes.map(createMixCard).join('')}</div>
             </section>`;
@@ -599,7 +599,7 @@ export async function renderHome(container) {
   } else if (!quickPicks && !mixes?.length) {
     html += `<div class="empty-state glass-panel">
             <i data-lucide="music" class="empty-icon"></i>
-            <p>Welcome! Explore the <strong>Search</strong> tab to find music.</p>
+            <p>${ui.t('home.welcome_text', 'Welcome! Explore the Search tab to find music.')}</p>
         </div>`;
   }
 
@@ -813,20 +813,20 @@ export function renderSearch(container) {
                 type="text"
                 id="m-search-input"
                 class="m-search-pill-input"
-                placeholder="Artists, songs, or playlists"
+                placeholder="${ui.t('search.placeholder', 'Artists, songs, or playlists')}"
                 autocomplete="off"
                 spellcheck="false"
                 value="${ui.escHtml(seedQuery)}"
                 oninput="handleTopbarSearch(this.value)">
         </div>
         <div class="source-chips">
-            <div class="chip active" onclick="setSource(this, 'all')">All</div>
-            <div class="chip spotify" onclick="setSource(this, 'spotify')">Spotify</div>
-            <div class="chip youtube" onclick="setSource(this, 'youtube')">YouTube</div>
-            <div class="chip lastfm" onclick="setSource(this, 'lastfm')">Last.fm</div>
-            <div class="chip musicbrainz" onclick="setSource(this, 'musicbrainz')">MusicBrainz</div>
-            <div class="chip" onclick="setSource(this, 'local')">Local</div>
-            <div class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> Users</div>
+            <div class="chip active" onclick="setSource(this, 'all')">${ui.t('search.chip_all', 'All')}</div>
+            <div class="chip spotify" onclick="setSource(this, 'spotify')">${ui.t('search.chip_spotify', 'Spotify')}</div>
+            <div class="chip youtube" onclick="setSource(this, 'youtube')">${ui.t('search.chip_youtube', 'YouTube')}</div>
+            <div class="chip lastfm" onclick="setSource(this, 'lastfm')">${ui.t('search.chip_lastfm', 'Last.fm')}</div>
+            <div class="chip musicbrainz" onclick="setSource(this, 'musicbrainz')">${ui.t('search.chip_musicbrainz', 'MusicBrainz')}</div>
+            <div class="chip" onclick="setSource(this, 'local')">${ui.t('search.chip_local', 'Local')}</div>
+            <div class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> ${ui.t('search.chip_users', 'Users')}</div>
         </div>
         <div id="search-results"></div>`;
   ui.refreshIcons(container);
@@ -863,24 +863,24 @@ export async function renderMix(container, mixKey) {
                 <div class="playlist-title-row">
                     <h1 class="playlist-title">${ui.escHtml(mix.title || 'Mix')}</h1>
                 </div>
-                <p class="playlist-stats">${mix.track_count || tracks.length} songs · ${ui.escHtml(mixMeta.summary || 'Built from your local library')}</p>
+                <p class="playlist-stats">${mix.track_count || tracks.length} ${ui.t('common.songs', 'songs')} · ${ui.escHtml(mixMeta.summary || 'Built from your local library')}</p>
                 <div class="playlist-actions">
                     ${
                       tracks.length > 0
                         ? `
-                    <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="Play" aria-label="Play">
+                    <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.t('player.play', 'Play')}" aria-label="${ui.t('player.play', 'Play')}">
                         <i data-lucide="play" width="20" height="20"></i>
-                        <span class="playlist-btn-label">Play</span>
+                        <span class="playlist-btn-label">${ui.t('player.play', 'Play')}</span>
                     </button>
-                    <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="Shuffle" aria-label="Shuffle">
+                    <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.t('player.shuffle', 'Shuffle')}" aria-label="${ui.t('player.shuffle', 'Shuffle')}">
                         <i data-lucide="shuffle" width="20" height="20"></i>
-                        <span class="playlist-btn-label">Shuffle</span>
+                        <span class="playlist-btn-label">${ui.t('player.shuffle', 'Shuffle')}</span>
                     </button>`
                         : ''
                     }
-                    <button onclick="showSaveMixModal('${ui.escHtml(mix.key).replace(/'/g, "\\'")}', '${ui.escHtml(mix.title || 'Mix').replace(/'/g, "\\'")}')" class="btn-secondary-lg playlist-action-btn" title="Save as playlist" aria-label="Save as playlist">
+                    <button onclick="showSaveMixModal('${ui.escHtml(mix.key).replace(/'/g, "\\'")}', '${ui.escHtml(mix.title || 'Mix').replace(/'/g, "\\'")}')" class="btn-secondary-lg playlist-action-btn" title="${ui.t('player.save_as_playlist', 'Save as playlist')}" aria-label="${ui.t('player.save_as_playlist', 'Save as playlist')}">
                         <i data-lucide="save" width="20" height="20"></i>
-                        <span class="playlist-btn-label">Save as Playlist</span>
+                        <span class="playlist-btn-label">${ui.t('player.save_as_playlist', 'Save as Playlist')}</span>
                     </button>
                 </div>
             </div>
@@ -1224,18 +1224,25 @@ export function showTrackActionsSheet(encodedData, playlistId) {
   if (item.is_local) {
     actions.push(`
       <button class="tas-action-btn" onclick="addToQueue('${encodedData}'); closeTrackActionsSheet()">
-        <i data-lucide="list-plus"></i><span>Add to Queue</span>
+        <i data-lucide="list-plus"></i><span>${ui.t('player.add_to_queue', 'Add to Queue')}</span>
       </button>`);
+
+    if (party.controller.isActive() && party.controller.canAddSongs()) {
+      actions.push(`
+        <button class="tas-action-btn" onclick="party.controller.addTrack(${item.db_id || item.id}); closeTrackActionsSheet()">
+          <i data-lucide="radio-tower"></i><span>${ui.t('party.add_to_party_queue', 'Add to Party Queue')}</span>
+        </button>`);
+    }
 
     if (offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id)) {
       actions.push(`
         <button class="tas-action-btn danger" onclick="deleteOfflineTrackAction(${item.db_id || item.id}); closeTrackActionsSheet()">
-          <i data-lucide="trash-2"></i><span>Remove from Offline</span>
+          <i data-lucide="trash-2"></i><span>${ui.t('player.remove_offline', 'Remove from Offline')}</span>
         </button>`);
     } else {
       actions.push(`
         <button class="tas-action-btn" onclick="downloadOfflineTrackAction('${encodedData}'); closeTrackActionsSheet()">
-          <i data-lucide="download-cloud"></i><span>Make Available Offline</span>
+          <i data-lucide="download-cloud"></i><span>${ui.t('player.make_offline', 'Make Available Offline')}</span>
         </button>`);
     }
   }
@@ -1350,14 +1357,19 @@ export function showContextMenu(encodedData, playlistId, x, y) {
   }
   if (item.is_local) {
     actions.push(`<div class="ctx-item" onclick="addToQueue('${encodedData}'); closeContextMenu()">
-      <i data-lucide="list-plus"></i><span>Add to Queue</span></div>`);
+      <i data-lucide="list-plus"></i><span>${ui.t('player.add_to_queue', 'Add to Queue')}</span></div>`);
+
+    if (party.controller.isActive() && party.controller.canAddSongs()) {
+      actions.push(`<div class="ctx-item" onclick="party.controller.addTrack(${item.db_id || item.id}); closeContextMenu()">
+        <i data-lucide="radio-tower"></i><span>${ui.t('party.add_to_party_queue', 'Add to Party Queue')}</span></div>`);
+    }
 
     if (offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id)) {
       actions.push(`<div class="ctx-item danger" onclick="deleteOfflineTrackAction(${item.db_id || item.id}); closeContextMenu()">
-        <i data-lucide="trash-2"></i><span>Remove from Offline</span></div>`);
+        <i data-lucide="trash-2"></i><span>${ui.t('player.remove_offline', 'Remove from Offline')}</span></div>`);
     } else {
       actions.push(`<div class="ctx-item" onclick="downloadOfflineTrackAction('${encodedData}'); closeContextMenu()">
-        <i data-lucide="download-cloud"></i><span>Make Available Offline</span></div>`);
+        <i data-lucide="download-cloud"></i><span>${ui.t('player.make_offline', 'Make Available Offline')}</span></div>`);
     }
   }
   if (canAddToPlaylist) {
@@ -2028,15 +2040,15 @@ export async function renderDiscovery(container) {
         <section class="home-overview discovery-theme">
             ${ui.homeTabsBar('discovery')}
             <div class="hero-section">
-                <div class="hero-kicker">New Music Audition</div>
-                <h1 class="hero-greeting">Discover Feed</h1>
-                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Tracks recommended for you with instant 30-second previews.</p>
+                <div class="hero-kicker">${ui.t('discover.hero_kicker', 'New Music Audition')}</div>
+                <h1 class="hero-greeting">${ui.t('discover.title', 'Discover Feed')}</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('discover.subtitle', 'Tracks recommended for you with instant 30-second previews.')}</p>
             </div>
         </section>
         <div class="discovery-shell" style="margin-top: 20px;">
             <div class="empty-state glass-panel">
                 <i data-lucide="compass" class="empty-icon"></i>
-                <p>No discovery items right now.<br>Explore music in <strong>Search</strong> to build recommendations, then come back.</p>
+                <p>${ui.t('discover.empty', 'No discovery items right now. Explore music in Search to build recommendations, then come back.')}</p>
             </div>
         </div>`;
     ui.refreshIcons(container);
@@ -2050,9 +2062,9 @@ export async function renderDiscovery(container) {
         <section class="home-overview discovery-theme">
             ${ui.homeTabsBar('discovery')}
             <div class="hero-section">
-                <div class="hero-kicker">New Music Audition</div>
-                <h1 class="hero-greeting">Discover Feed</h1>
-                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${visible.length} recommended tracks · tap ▶ to audition</p>
+                <div class="hero-kicker">${ui.t('discover.hero_kicker', 'New Music Audition')}</div>
+                <h1 class="hero-greeting">${ui.t('discover.title', 'Discover Feed')}</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${visible.length} ${ui.t('common.songs', 'songs')} · tap ▶ to audition</p>
             </div>
         </section>
         <div class="discovery-shell" style="margin-top: 20px;">
@@ -2549,22 +2561,22 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
             <i data-lucide="cloud-off"></i>
         </div>
         <div class="playlist-info">
-            <p class="playlist-type">Offline Storage</p>
+            <p class="playlist-type">${ui.t('offline.device_storage', 'Offline Storage')}</p>
             <div class="playlist-title-row">
-                <h1 class="playlist-title">Offline Downloads</h1>
+                <h1 class="playlist-title">${ui.t('offline.title', 'Offline Downloads')}</h1>
             </div>
             <p class="playlist-stats">${subtitle}</p>
             <div class="playlist-actions">
                 ${
                   trackCount > 0
                     ? `
-                <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="Play All">
+                <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.t('player.play_all', 'Play All')}">
                     <i data-lucide="play" width="20" height="20"></i>
-                    <span class="playlist-btn-label">Play All</span>
+                    <span class="playlist-btn-label">${ui.t('player.play_all', 'Play All')}</span>
                 </button>
-                <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="Shuffle">
+                <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.t('player.shuffle', 'Shuffle')}">
                     <i data-lucide="shuffle" width="20" height="20"></i>
-                    <span class="playlist-btn-label">Shuffle</span>
+                    <span class="playlist-btn-label">${ui.t('player.shuffle', 'Shuffle')}</span>
                 </button>`
                     : ''
                 }
@@ -2574,30 +2586,30 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
 
     <div class="offline-storage-card">
       <div class="offline-storage-header">
-        <span class="offline-storage-title"><i data-lucide="hard-drive"></i> Device Storage</span>
-        <span class="offline-storage-meta">${trackCount} tracks · ${offlinePlaylists.length} playlists</span>
+        <span class="offline-storage-title"><i data-lucide="hard-drive"></i> ${ui.t('offline.device_storage', 'Device Storage')}</span>
+        <span class="offline-storage-meta">${trackCount} ${ui.t('common.songs', 'tracks')} · ${offlinePlaylists.length} ${ui.t('library.playlists', 'playlists')}</span>
       </div>
       ${quotaBarHtml}
       <div class="offline-storage-actions">
         <p class="offline-disclaimer">
-          Tracks are stored locally in your browser/app private database for offline playback.
+          ${ui.t('help.offline.desc', 'Tracks are stored locally in your browser/app private database for offline playback.')}
         </p>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity" width="16" height="16"></i> Check Readiness</button>
-          ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2" width="16" height="16"></i> Clear All Downloads</button>` : ''}
+          <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity" width="16" height="16"></i> ${ui.t('offline.check_readiness', 'Check Readiness')}</button>
+          ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2" width="16" height="16"></i> ${ui.t('offline.clear_all', 'Clear All Downloads')}</button>` : ''}
         </div>
       </div>
     </div>
 
     <div class="library-filters" style="margin-bottom: 16px;">
       <button class="library-filter ${activeTab === 'all' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'all')">
-        All Tracks (${trackCount})
+        ${ui.t('offline.all_tracks', 'All Tracks')} (${trackCount})
       </button>
       <button class="library-filter ${activeTab === 'playlists' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'playlists')">
-        Playlists (${offlinePlaylists.length})
+        ${ui.t('offline.playlists', 'Playlists')} (${offlinePlaylists.length})
       </button>
       <button class="library-filter ${activeTab === 'singles' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'singles')">
-        Individual Songs (${offlineSingles.length})
+        ${ui.t('offline.singles', 'Individual Songs')} (${offlineSingles.length})
       </button>
     </div>
 
@@ -2605,7 +2617,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
       trackCount > 0 || offlinePlaylists.length > 0
         ? `<div class="offline-search-bar">
             <i data-lucide="search" width="16" height="16" style="color:var(--text-sub);"></i>
-            <input id="offline-filter-input" placeholder="Search downloaded tracks or playlists..." oninput="
+            <input id="offline-filter-input" placeholder="${ui.t('offline.search_placeholder', 'Search downloaded tracks or playlists...')}" oninput="
               const q = this.value.trim().toLowerCase();
               document.querySelectorAll('#offline-tracks-container .track-row').forEach(row => {
                 const title = (row.querySelector('.track-name-sm')?.textContent || '').toLowerCase();
@@ -2632,7 +2644,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
       trackCount === 0 && offlinePlaylists.length === 0
         ? `<div class="empty-state glass-panel">
             <i data-lucide="cloud-off" class="empty-icon"></i>
-            <p>No offline downloads yet.<br>Use the "Make Available Offline" option on any track or "Download for Offline" on playlists while online.</p>
+            <p>${ui.t('offline.empty', "No offline downloads yet.<br>Use the 'Make Available Offline' option on any track or 'Download for Offline' on playlists while online.")}</p>
          </div>`
         : ''
     }
@@ -2696,13 +2708,13 @@ export async function deleteOfflineTrackAction(trackId) {
 export function showClearOfflineConfirmModal() {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal" onclick="event.stopPropagation()">
-            <h2 style="margin-bottom: 16px;"><i data-lucide="trash-2"></i> Clear Offline Downloads</h2>
+            <h2 style="margin-bottom: 16px;"><i data-lucide="trash-2"></i> ${ui.t('offline.clear_all', 'Clear All Downloads')}</h2>
             <p style="color: var(--text-sub); margin-bottom: 24px;">
-                Are you sure you want to remove all offline downloaded tracks from this device? This will free up storage immediately.
+                ${ui.t('library.delete_folder_confirm', 'Are you sure you want to remove all offline downloaded tracks from this device? This will free up storage immediately.')}
             </p>
             <div class="modal-actions">
-                <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn-danger" onclick="clearAllOfflineData()">Clear All</button>
+                <button class="modal-btn-cancel" onclick="closeModal()">${ui.t('common.cancel', 'Cancel')}</button>
+                <button class="modal-btn-danger" onclick="clearAllOfflineData()">${ui.t('offline.clear_all', 'Clear All')}</button>
             </div>
         </div>
     </div>`;
@@ -2733,7 +2745,7 @@ export async function checkOfflineReadinessAction() {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal modal-md" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2><i data-lucide="shield-check"></i> Offline Readiness</h2>
+                <h2><i data-lucide="shield-check"></i> ${ui.t('offline.check_readiness', 'Offline Readiness')}</h2>
                 <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body" style="display:flex; flex-direction:column; gap:12px; font-size:0.9rem;">
@@ -2750,18 +2762,18 @@ export async function checkOfflineReadinessAction() {
                     <strong style="color:${info.hasBlobPlayback ? '#4ade80' : '#f87171'}">${info.hasBlobPlayback ? 'Supported' : 'Unsupported'}</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:8px;">
-                    <span>Downloaded Tracks</span>
-                    <strong>${info.storageInfo.trackCount} tracks (${mb} MB)</strong>
+                    <span>${ui.t('offline.all_tracks', 'Downloaded Tracks')}</span>
+                    <strong>${info.storageInfo.trackCount} ${ui.t('common.songs', 'tracks')} (${mb} MB)</strong>
                 </div>
                 <div style="display:flex; justify-content:space-between; padding-bottom:8px;">
-                    <span>Browser Storage Quota</span>
+                    <span>${ui.t('offline.device_storage', 'Browser Storage Quota')}</span>
                     <strong>${quota}</strong>
                 </div>
                 <p style="font-size:0.78rem; color:var(--text-sub); margin-top:4px;">
-                    Browser storage quota is allocated dynamically by your browser/device per origin.
+                    ${ui.t('help.offline.desc', 'Browser storage quota is allocated dynamically by your browser/device per origin.')}
                 </p>
                 <div class="modal-actions" style="margin-top:16px;">
-                    <button class="btn-primary" onclick="closeModal()">OK</button>
+                    <button class="btn-primary" onclick="closeModal()">${ui.t('common.close', 'OK')}</button>
                 </div>
             </div>
         </div>
@@ -2853,7 +2865,7 @@ export async function renderProfile(container, username) {
   container.innerHTML = `
     <section class="home-overview library-theme" style="padding-bottom: 24px;">
       <button class="library-back" onclick="history.back()" style="margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--text-sub); cursor:pointer; font-size:0.88rem;">
-        <i data-lucide="arrow-left" width="16" height="16"></i> Back
+        <i data-lucide="arrow-left" width="16" height="16"></i> ${ui.t('common.back', 'Back')}
       </button>
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
         <div class="profile-avatar-large" style="width:116px; height:116px; border-radius:50%; overflow:hidden; border:2px solid rgba(255,255,255,0.18); flex-shrink:0; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
@@ -2861,21 +2873,21 @@ export async function renderProfile(container, username) {
         </div>
         <div style="flex:1; min-width:220px;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
-            <span class="hero-kicker" style="margin:0;">Profile</span>
-            <span class="status-badge finished" style="font-size:0.75rem; text-transform:uppercase;">${roleLabel}</span>
+            <span class="hero-kicker" style="margin:0;">${ui.t('profile.profile', 'Profile')}</span>
+            <span class="status-badge finished" style="font-size:0.75rem; text-transform:uppercase;">${profile.is_admin ? ui.t('common.admin', 'Admin') : ui.t('common.member', 'Member')}</span>
           </div>
           <h1 class="hero-greeting" style="font-size: clamp(2rem, 4vw, 3rem); margin: 4px 0 10px 0;">${ui.escHtml(username)}</h1>
           
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
-            <div class="user-stat-chip"><i data-lucide="list-music" width="14" height="14"></i> <strong>${playlists.length}</strong> Playlists</div>
-            <div class="user-stat-chip"><i data-lucide="heart" width="14" height="14"></i> <strong>${favorites.length}</strong> Favorites</div>
-            <div class="user-stat-chip"><i data-lucide="headphones" width="14" height="14"></i> <strong>${stats.total_listens || 0}</strong> Listens</div>
+            <div class="user-stat-chip"><i data-lucide="list-music" width="14" height="14"></i> <strong>${playlists.length}</strong> ${ui.t('library.playlists', 'Playlists')}</div>
+            <div class="user-stat-chip"><i data-lucide="heart" width="14" height="14"></i> <strong>${favorites.length}</strong> ${ui.t('menu.liked', 'Favorites')}</div>
+            <div class="user-stat-chip"><i data-lucide="headphones" width="14" height="14"></i> <strong>${stats.total_listens || 0}</strong> ${ui.t('common.plays', 'Listens')}</div>
             <div class="user-stat-chip"><i data-lucide="clock" width="14" height="14"></i> <strong>${stats.listening_minutes || 0}</strong> Mins</div>
           </div>
 
           ${
             profile.is_self
-              ? `<div style="margin-top:16px;"><button class="btn-secondary" onclick="loadView('settings_user')"><i data-lucide="settings" width="16" height="16"></i> Edit Profile & Settings</button></div>`
+              ? `<div style="margin-top:16px;"><button class="btn-secondary" onclick="loadView('settings_user')"><i data-lucide="settings" width="16" height="16"></i> ${ui.t('profile.edit_settings', 'Edit Profile & Settings')}</button></div>`
               : ''
           }
         </div>
@@ -2890,12 +2902,12 @@ export async function renderProfile(container, username) {
       !playlists.length && !favorites.length && !topArtists.length
         ? `<div class="empty-state glass-panel" style="margin-top:24px;">
             <i data-lucide="music" class="empty-icon"></i>
-            <p>This user hasn't shared any public playlists or favorites yet.</p>
+            <p>${ui.t('profile.empty', "This user hasn't shared any public playlists or favorites yet.")}</p>
            </div>`
         : ''
     }
   `;
-  if (window.lucide) lucide.createIcons();
+  ui.refreshIcons(container);
 }
 
 // === SERVER COMMUNITY / USERS VIEW ==========================================
@@ -2916,10 +2928,10 @@ export async function renderCommunity(container) {
         </div>
         <div class="user-profile-card-name">
           <span>${ui.escHtml(u.username)}</span>
-          ${u.is_admin ? '<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">Admin</span>' : ''}
+          ${u.is_admin ? `<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">${ui.t('common.admin', 'Admin')}</span>` : ''}
         </div>
         <div class="user-profile-card-meta">
-          ${u.public_playlists_count} playlists · ${u.favorites_count} favorites · ${u.total_listens} listens
+          ${u.public_playlists_count} ${ui.t('library.playlists', 'playlists')} · ${u.favorites_count} ${ui.t('menu.liked', 'favorites')} · ${u.total_listens} ${ui.t('common.plays', 'listens')}
         </div>
       </div>`;
   }
@@ -2928,17 +2940,17 @@ export async function renderCommunity(container) {
     <section class="home-overview public-theme">
       ${ui.homeTabsBar('community')}
       <div class="hero-section">
-        <div class="hero-kicker">Server Network & Members</div>
-        <h1 class="hero-greeting">Community Profiles</h1>
-        <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Explore listener profiles on this Navipod server. Discover their shared playlists, favorites, and music taste.</p>
+        <div class="hero-kicker">${ui.t('community.hero_kicker', 'Server Network & Members')}</div>
+        <h1 class="hero-greeting">${ui.t('community.title', 'Community Profiles')}</h1>
+        <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('community.subtitle', 'Explore listener profiles on this Navipod server. Discover their shared playlists, favorites, and music taste.')}</p>
       </div>
     </section>
 
     <section class="shelf-section home-shelf">
       <div class="shelf-header" style="margin-bottom:16px;">
-        <h2 class="shelf-title">Server Members (${users.length})</h2>
+        <h2 class="shelf-title">${ui.t('community.server_members', 'Server Members')} (${users.length})</h2>
         <div style="min-width:200px; max-width:320px;">
-          <input id="community-search-input" class="modal-input" placeholder="Filter by username..." style="padding:7px 14px; font-size:0.85rem;" oninput="
+          <input id="community-search-input" class="modal-input" placeholder="${ui.t('community.filter_placeholder', 'Filter by username...')}" style="padding:7px 14px; font-size:0.85rem;" oninput="
             const query = this.value.trim().toLowerCase();
             const cards = document.querySelectorAll('.user-cards-grid .user-profile-card');
             cards.forEach(card => {
@@ -2953,5 +2965,5 @@ export async function renderCommunity(container) {
       </div>
     </section>
   `;
-  if (window.lucide) lucide.createIcons();
+  ui.refreshIcons(container);
 }

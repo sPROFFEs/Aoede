@@ -15,31 +15,31 @@ export async function renderRadio(container) {
         <section class="home-overview radios-theme">
             ${ui.homeTabsBar('discover_radios')}
             <div class="hero-section">
-                <div class="hero-kicker">Live Worldwide Broadcasts</div>
-                <h1 class="hero-greeting">Discover Radios</h1>
-                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Dial: <span id="radio-dial" class="text-accent" style="font-weight:600; color:var(--primary);">${state.currentRadioHub.toUpperCase()}</span> · Explore radio stations and live broadcasts around the world.</p>
+                <div class="hero-kicker">${ui.t('radios.hero_kicker', 'Live Worldwide Broadcasts')}</div>
+                <h1 class="hero-greeting">${ui.t('radios.title', 'Discover Radios')}</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('radio.header.dial', 'Dial')}: <span id="radio-dial" class="text-accent" style="font-weight:600; color:var(--primary);">${state.currentRadioHub.toUpperCase()}</span> · ${ui.t('radios.subtitle', 'Explore radio stations and live broadcasts around the world.')}</p>
             </div>
         </section>
 
         <section class="shelf-section home-shelf">
             <div class="shelf-header">
-                <h2 class="shelf-title radio-shelf-title">Editorial Playlists</h2>
+                <h2 class="shelf-title radio-shelf-title">${ui.t('radios.editorial', 'Editorial Playlists')}</h2>
             </div>
             <div id="radio-playlists" class="grid-shelf home-rail" tabindex="0"></div>
         </section>
 
         <section class="shelf-section home-shelf">
             <div class="shelf-header">
-                <h2 class="shelf-title radio-shelf-title">Search Stations</h2>
+                <h2 class="shelf-title radio-shelf-title">${ui.t('radios.search_stations', 'Search Stations')}</h2>
             </div>
             <div class="search-bar-row radio-search-bar" style="margin-bottom: 20px;">
                 <div class="search-input-wrapper glass-panel" style="margin:0; flex:1;">
                     <i data-lucide="radio" class="search-icon"></i>
-                    <input type="text" id="radio-search-input" placeholder="Search city or station..." value="${state.currentRadioHub}" onkeyup="if(event.key==='Enter') executeRadioSearch()">
+                    <input type="text" id="radio-search-input" placeholder="${ui.t('radios.search_placeholder', 'Search city or station...')}" value="${state.currentRadioHub}" onkeyup="if(event.key==='Enter') executeRadioSearch()">
                 </div>
                 <button onclick="executeRadioSearch()" class="btn-primary radio-search-btn">
                     <i data-lucide="search"></i>
-                    <span>Search</span>
+                    <span>${ui.t('radio.search.button', 'Search')}</span>
                 </button>
             </div>
             <div id="radio-results"></div>
@@ -47,7 +47,7 @@ export async function renderRadio(container) {
 
         <section class="shelf-section home-shelf" style="margin-top: 32px;">
             <div class="shelf-header">
-                <h2 class="shelf-title radio-shelf-title">Your Saved Radios</h2>
+                <h2 class="shelf-title radio-shelf-title">${ui.t('radios.saved_stations', 'Your Saved Radios')}</h2>
             </div>
             <div id="radio-saved-section"></div>
         </section>`;

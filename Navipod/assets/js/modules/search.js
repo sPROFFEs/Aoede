@@ -73,10 +73,10 @@ function userProfileCard(u) {
       </div>
       <div class="user-profile-card-name">
         <span>${ui.escHtml(u.username)}</span>
-        ${u.is_admin ? '<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">Admin</span>' : ''}
+        ${u.is_admin ? `<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">${ui.t('common.admin', 'Admin')}</span>` : ''}
       </div>
       <div class="user-profile-card-meta">
-        ${u.public_playlists_count} playlists · ${u.favorites_count} favorites · ${u.total_listens} listens
+        ${u.public_playlists_count} ${ui.t('library.playlists', 'playlists')} · ${u.favorites_count} ${ui.t('menu.liked', 'favorites')} · ${u.total_listens} ${ui.t('common.plays', 'listens')}
       </div>
     </div>`;
 }
@@ -110,7 +110,7 @@ export async function executeSearch(query) {
       if (!filtered.length) {
         renderResults(
           results,
-          `<div class="empty-state glass-panel"><i data-lucide="user-x" class="empty-icon"></i><p>No server users found matching "${ui.escHtml(query)}".</p></div>`
+          `<div class="empty-state glass-panel"><i data-lucide="user-x" class="empty-icon"></i><p>${ui.t('search.no_results', 'No server users found matching')} "${ui.escHtml(query)}".</p></div>`
         );
       } else {
         renderResults(
@@ -118,7 +118,7 @@ export async function executeSearch(query) {
           `
           <div class="shelf-section" style="margin-top: 12px;">
             <div class="shelf-header">
-              <h2 class="shelf-title">Server Community Profiles (${filtered.length})</h2>
+              <h2 class="shelf-title">${ui.t('search.server_profiles', 'Server Community Profiles')} (${filtered.length})</h2>
             </div>
             <div class="user-cards-grid">
               ${filtered.map(userProfileCard).join('')}
@@ -129,7 +129,10 @@ export async function executeSearch(query) {
       if (window.lucide?.createIcons) lucide.createIcons();
     } catch (e) {
       if (e.name !== 'AbortError') {
-        renderResults(results, `<div class="empty-state" style="color:#e74c3c;">Failed to load users.</div>`);
+        renderResults(
+          results,
+          `<div class="empty-state" style="color:#e74c3c;">${ui.t('library.error', 'Failed to load users.')}</div>`
+        );
       }
     } finally {
       if (state.searchAbortController === controller) {
@@ -145,7 +148,7 @@ export async function executeSearch(query) {
     results.classList.remove('search-results-fetching');
     renderResults(
       results,
-      '<div class="empty-state"><p>Type to search your library, federated peers, server users, and remote sources.</p></div>'
+      `<div class="empty-state"><p>${ui.t('search.empty_help', 'Type to search your library, federated peers, server users, and remote sources.')}</p></div>`
     );
     state.setCurrentViewList([]);
     return;
@@ -187,7 +190,7 @@ export async function executeSearch(query) {
       usersSectionHtml = `
         <div class="shelf-section" style="margin-bottom: 24px;">
           <div class="shelf-header">
-            <h2 class="shelf-title">Matching Profiles</h2>
+            <h2 class="shelf-title">${ui.t('search.matching_profiles', 'Matching Profiles')}</h2>
           </div>
           <div class="user-cards-grid" style="margin-top: 10px;">
             ${matchingUsers.slice(0, 4).map(userProfileCard).join('')}
@@ -199,12 +202,12 @@ export async function executeSearch(query) {
       if (matchingUsers.length > 0) {
         renderResults(
           results,
-          `${usersSectionHtml}<div class="empty-state"><p>No matching audio tracks found.</p></div>`
+          `${usersSectionHtml}<div class="empty-state"><p>${ui.t('search.no_tracks', 'No matching audio tracks found.')}</p></div>`
         );
       } else {
         renderResults(
           results,
-          '<div class="empty-state"><p>No results found in your library or remote sources.</p></div>'
+          `<div class="empty-state"><p>${ui.t('search.no_results', 'No results found in your library or remote sources.')}</p></div>`
         );
       }
       state.setCurrentViewList([]);
@@ -215,7 +218,7 @@ export async function executeSearch(query) {
     state.setCurrentViewList(data);
     renderResults(
       results,
-      `${usersSectionHtml}<div class="track-list"><div class="track-row header"><div class="track-num">#</div><div>Title</div><div>Source</div><div></div><div></div></div>${data.map((item, i) => (window.createTrackRow ? window.createTrackRow(item, i) : '')).join('')}</div>`
+      `${usersSectionHtml}<div class="track-list"><div class="track-row header"><div class="track-num">${ui.t('search.col_number', '#')}</div><div>${ui.t('search.col_title', 'Title')}</div><div>${ui.t('search.col_source', 'Source')}</div><div></div><div></div></div>${data.map((item, i) => (window.createTrackRow ? window.createTrackRow(item, i) : '')).join('')}</div>`
     );
     if (window.lucide?.createIcons) lucide.createIcons();
   } catch (e) {

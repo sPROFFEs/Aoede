@@ -81,12 +81,12 @@ export async function renderPartyList(container) {
       ${ui.homeTabsBar('party')}
       <div class="hero-section" style="display:flex; justify-content:space-between; align-items:flex-end; gap:20px; flex-wrap:wrap;">
         <div>
-          <div class="hero-kicker">Listen together in real time</div>
-          <h1 class="hero-greeting">Party Rooms</h1>
-          <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Join a shared queue and stay on the same beat with everyone in the room.</p>
+          <div class="hero-kicker">${ui.t('party.hero_kicker', 'Listen together in real time')}</div>
+          <h1 class="hero-greeting">${ui.t('party.title', 'Party Rooms')}</h1>
+          <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('party.subtitle', 'Join a shared queue and stay on the same beat with everyone in the room.')}</p>
         </div>
         <button class="btn-primary party-create-btn" onclick="showCreatePartyModal()" ${owned ? 'disabled title="Delete your existing room first"' : ''}>
-          <i data-lucide="plus" width="18" height="18"></i> Create Room
+          <i data-lucide="plus" width="18" height="18"></i> ${ui.t('party.create_room', 'Create Room')}
         </button>
       </div>
     </section>
@@ -97,10 +97,10 @@ export async function renderPartyList(container) {
     }
     <div class="shelf-section home-shelf">
       <div class="shelf-header">
-        <h2 class="shelf-title">Live Listening Rooms</h2>
+        <h2 class="shelf-title">${ui.t('party.live_rooms', 'Live Listening Rooms')}</h2>
       </div>
       <div class="party-room-list">
-        ${rooms.length ? rooms.map((room) => roomCard(room)).join('') : `<div class="empty-state glass-panel"><i data-lucide="radio-tower" class="empty-icon"></i><p>No party rooms active right now.<br>Start the first one and invite listeners!</p></div>`}
+        ${rooms.length ? rooms.map((room) => roomCard(room)).join('') : `<div class="empty-state glass-panel"><i data-lucide="radio-tower" class="empty-icon"></i><p>${ui.t('party.empty', 'No party rooms active right now. Start the first one and invite listeners!')}</p></div>`}
       </div>
     </div>`;
   ui.refreshIcons(container);
@@ -111,8 +111,8 @@ export function showCreateModal() {
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
       <form class="modal-box party-create-modal" onsubmit="createPartyRoom(event)">
-        <div class="modal-header"><h2>Create a party room</h2><button type="button" class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
-        <label class="party-field"><span>Room name</span><input id="party-room-name" maxlength="80" placeholder="${ui.escHtml(window.USER_DATA?.username || 'My')}’s Party"></label>
+        <div class="modal-header"><h2>${ui.t('party.create_room', 'Create party room')}</h2><button type="button" class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+        <label class="party-field"><span>${ui.t('party.room_name', 'Room name')}</span><input id="party-room-name" maxlength="80" placeholder="${ui.escHtml(window.USER_DATA?.username || 'My')}’s ${ui.t('party.room_name_placeholder', 'Party')}"></label>
         <label class="party-field"><span>User limit</span><select id="party-room-limit">${Array.from(
           { length: 14 },
           (_, i) => i + 2
@@ -123,7 +123,7 @@ export function showCreateModal() {
           .map((playlist) => `<option value="${playlist.id}">${ui.escHtml(playlist.name)}</option>`)
           .join('')}</select></label>
         <label class="party-check"><input id="party-guests-queue" type="checkbox" checked><span><strong>Let guests add songs</strong><small>You still control playback and can remove songs.</small></span></label>
-        <button class="btn-primary party-submit" type="submit">Create and open room</button>
+        <button class="btn-primary party-submit" type="submit">${ui.t('party.create_room', 'Create and open room')}</button>
       </form>
     </div>`;
   ui.refreshIcons(document.getElementById('modal-container'));
@@ -301,10 +301,10 @@ function paintRoom(container) {
       <aside class="party-side-column">
         ${
           room.can_add_songs
-            ? `<div class="party-add-panel glass-panel"><h2>Add songs</h2><p>Search tracks already in this Navipod library.</p><div class="party-search"><input id="party-track-search" placeholder="Song or artist" oninput="searchPartyTracks(this.value)"><i data-lucide="search"></i></div><div id="party-search-results" class="party-search-results"></div></div>`
+            ? `<div class="party-add-panel glass-panel"><h2>${ui.t('party.add_songs', 'Add songs')}</h2><p>${ui.t('party.add_songs_desc', 'Search tracks already in this Navipod library.')}</p><div class="party-search"><input id="party-track-search" placeholder="${ui.t('party.search_placeholder', 'Song or artist')}" oninput="searchPartyTracks(this.value)"><i data-lucide="search"></i></div><div id="party-search-results" class="party-search-results"></div></div>`
             : `<div class="party-locked-panel glass-panel"><i data-lucide="lock"></i><h3>Host-managed queue</h3><p>${ui.escHtml(room.owner_username)} has disabled guest additions.</p></div>`
         }
-        ${room.is_owner ? `<button class="party-delete-btn" onclick="deletePartyRoom()"><i data-lucide="trash-2"></i> Delete room</button>` : ''}
+        ${room.is_owner ? `<button class="party-delete-btn" onclick="deletePartyRoom()"><i data-lucide="trash-2"></i> ${ui.t('common.delete', 'Delete room')}</button>` : ''}
       </aside>
     </section>`;
   ui.refreshIcons(container);
@@ -473,6 +473,8 @@ function restorePersonalPlayback() {
 
 export const controller = {
   isActive: () => Boolean(activeRoom),
+  canAddSongs: () => Boolean(activeRoom && (activeRoom.is_owner || activeRoom.can_add_songs)),
+  addTrack,
   control,
   togglePlayback,
   seekTo,

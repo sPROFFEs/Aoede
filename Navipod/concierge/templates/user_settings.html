@@ -455,8 +455,8 @@
             </form>
             <div class="user-settings-title">
                 <h1>{{ user.username }}</h1>
-                <div class="user-settings-role">{% if user.is_admin %}Admin{% else %}User{% endif %}</div>
-                <p>Account security, metadata providers, and YouTube authentication for this user profile.</p>
+                <div class="user-settings-role">{% if user.is_admin %}{{ _('common.admin') }}{% else %}{{ _('common.member') }}{% endif %}</div>
+                <p>{{ _('settings.security_subtitle') }}</p>
             </div>
         </div>
     </section>
@@ -478,25 +478,25 @@
     <div class="user-settings-grid">
         <section class="user-settings-panel">
             <div class="user-settings-panel-header">
-                <h2><i data-lucide="lock" width="18" height="18"></i>Security</h2>
-                <p>Update the account password used for the web session and administrative actions.</p>
+                <h2><i data-lucide="lock" width="18" height="18"></i>{{ _('settings.section.security') }}</h2>
+                <p>{{ _('settings.security_desc') }}</p>
             </div>
             <div class="user-settings-panel-body">
                 <form hx-post="/user/change-password" hx-target="#view-container" class="user-settings-form">
                     <div class="user-settings-field">
-                        <label>Current Password</label>
+                        <label>{{ _('settings.current_password') }}</label>
                         <input type="password" name="current_password" required class="user-settings-input">
                     </div>
                     <div class="user-settings-field">
-                        <label>New Password</label>
+                        <label>{{ _('settings.new_password') }}</label>
                         <input type="password" name="new_password" required class="user-settings-input">
                     </div>
                     <div class="user-settings-field">
-                        <label>Confirm Password</label>
+                        <label>{{ _('settings.confirm_password') }}</label>
                         <input type="password" name="confirm_password" required class="user-settings-input">
                     </div>
                     <div class="user-settings-actions">
-                        <button type="submit" class="user-settings-button">Update Password</button>
+                        <button type="submit" class="user-settings-button">{{ _('settings.save_button') }}</button>
                     </div>
                 </form>
             </div>
@@ -504,8 +504,8 @@
 
         <section class="user-settings-panel">
             <div class="user-settings-panel-header">
-                <h2><i data-lucide="globe" width="18" height="18"></i>Language / Idioma / Sprache</h2>
-                <p>Choose your preferred interface language for Navipod.</p>
+                <h2><i data-lucide="globe" width="18" height="18"></i>{{ _('settings.language_section') }}</h2>
+                <p>{{ _('settings.language_desc') }}</p>
             </div>
             <div class="user-settings-panel-body">
                 <div style="display:flex; gap:12px; flex-wrap:wrap;">
@@ -524,8 +524,8 @@
 
         <section class="user-settings-panel">
             <div class="user-settings-panel-header">
-                <h2><i data-lucide="database" width="18" height="18"></i>Data Sources</h2>
-                <p>Provide your own credentials and define the metadata fallback order used by the downloader.</p>
+                <h2><i data-lucide="database" width="18" height="18"></i>{{ _('settings.data_sources') }}</h2>
+                <p>{{ _('settings.data_sources_desc') }}</p>
             </div>
             <div class="user-settings-panel-body">
                 <form hx-post="/user/update-api-keys" hx-target="#view-container" class="user-settings-form">

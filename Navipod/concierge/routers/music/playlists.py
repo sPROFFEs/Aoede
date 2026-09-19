@@ -44,6 +44,7 @@ def _smart_rule_summary(raw_rules: str | None) -> str | None:
 
 class CreatePlaylistRequest(PydanticBaseModel):
     name: str
+    track_ids: list[int] | None = None
 
 
 class PlaylistUpdateRequest(PydanticBaseModel):
@@ -459,7 +460,27 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
     db.commit()
     db.refresh(playlist)
 
-    # Generate empty M3U
+    # If initial track_ids were provided (e.g. from existing playlist or favorites)
+    if req.track_ids:
+        # Validate track ownership or existence in user's library
+        unique_ids = []
+        for tid in req.track_ids:
+            if isinstance(tid, int) and tid not in unique_ids:
+                unique_ids.append(tid)
+
+        valid_tracks = (
+            db.query(database.Track).filter(database.Track.id.in_(unique_ids), database.Track.user_id == user.id).all()
+        )
+        valid_track_ids = {t.id for t in valid_tracks}
+        pos = 1
+        for tid in unique_ids:
+            if tid in valid_track_ids:
+                item = database.PlaylistItem(playlist_id=playlist.id, track_id=tid, position=pos)
+                db.add(item)
+                pos += 1
+        db.commit()
+
+    # Generate M3U
     generate_m3u_for_playlist(db, playlist, user.username)
 
     # Trigger Sync

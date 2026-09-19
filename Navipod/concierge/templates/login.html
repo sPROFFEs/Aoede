@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Navipod - Login</title>
+    <title>{{ _('app.title') }} - {{ _('login.title') }}</title>
     <!-- Preconnect -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -380,8 +380,8 @@
             <div class="brand-section">
                 <img src="/assets/icon.png?v={{ static_v }}" alt="Navipod" class="brand-icon"
                     onerror="this.src='/static/img/default_cover.png'">
-                <h1 class="app-title">Log in to Navipod</h1>
-                <p class="app-subtitle">Your private music library, ready when you are.</p>
+                <h1 class="app-title">{{ _('login.title') if _ else 'Log in to Navipod' }}</h1>
+                <p class="app-subtitle">{{ _('login.subtitle') if _ else 'Your private music library, ready when you are.' }}</p>
             </div>
 
             {% if error %}
@@ -393,47 +393,47 @@
 
             <form action="/login" method="post" class="login-form">
                 <div class="input-group">
-                    <label for="username" class="input-label">Username</label>
+                    <label for="username" class="input-label">{{ _('login.username') }}</label>
                     <div class="input-wrapper">
-                        <input type="text" id="username" name="username" class="login-input" placeholder="Username"
+                        <input type="text" id="username" name="username" class="login-input" placeholder="{{ _('login.username_placeholder') }}"
                             required autocomplete="username">
                     </div>
                 </div>
 
                 <div class="input-group">
-                    <label for="password" class="input-label">Password</label>
+                    <label for="password" class="input-label">{{ _('login.password') }}</label>
                     <div class="input-wrapper">
-                        <input type="password" id="password" name="password" class="login-input" placeholder="Password"
+                        <input type="password" id="password" name="password" class="login-input" placeholder="{{ _('login.password_placeholder') }}"
                             required autocomplete="current-password">
                     </div>
                 </div>
 
                 <label class="remember-row" for="remember_me">
                     <input type="checkbox" id="remember_me" name="remember_me" value="true">
-                    <span><strong>Remember me on this device</strong>Keeps you signed in without saving your password.</span>
+                    <span><strong>{{ _('login.remember_me') }}</strong>{{ _('login.remember_me_sub') }}</span>
                 </label>
 
                 <input type="hidden" name="next" value="{{ next }}">
 
                 <button type="submit" class="btn-login-pro">
-                    <span>Log in</span>
+                    <span>{{ _('login.button') }}</span>
                 </button>
             </form>
 
             <div class="login-footer-pro">
-                <p>Private music cloud</p>
+                <p>{{ _('login.footer') }}</p>
             </div>
         </div>
     </div>
     <!-- PWA Install Banner -->
-    <div id="pwa-banner" class="pwa-banner" role="banner" aria-label="Install Navipod">
+    <div id="pwa-banner" class="pwa-banner" role="banner" aria-label="{{ _('login.pwa_title') }}">
         <img src="/assets/icon.png?v={{ static_v }}" class="pwa-banner-icon" alt="Navipod">
         <div class="pwa-banner-body">
-            <strong>Install Navipod</strong>
-            <span id="pwa-banner-hint">Add to your home screen for the full app experience</span>
+            <strong>{{ _('login.pwa_title') }}</strong>
+            <span id="pwa-banner-hint">{{ _('login.pwa_hint') }}</span>
         </div>
         <div class="pwa-banner-actions">
-            <button id="pwa-install-btn" class="pwa-install-btn">Install</button>
+            <button id="pwa-install-btn" class="pwa-install-btn">{{ _('login.pwa_button') }}</button>
             <button id="pwa-dismiss-btn" class="pwa-dismiss-btn" aria-label="Dismiss">&#x2715;</button>
         </div>
     </div>

@@ -73,6 +73,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png?v={{ static_v }}">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png?v={{ static_v }}">
     <link rel="shortcut icon" href="/assets/favicon.ico?v={{ static_v }}">
+    <script>
+        window.__I18N__ = {{ get_all_translations() | tojson if get_all_translations is defined else "{}" }};
+        window.__CURRENT_LANG__ = {{ current_lang() | tojson if current_lang is defined else "'en'" }};
+    </script>
     <script src="/assets/vendor/lucide.min.js?v={{ static_v }}"></script>
     <script src="/assets/vendor/htmx.min.js?v={{ static_v }}"></script>
     <script defer src="https://unpkg.com/lucide@0.468.0"></script>
@@ -92,9 +96,9 @@
                  mode and acts as a secondary affordance (also clickable). -->
             <div class="sidebar-head">
                 <button class="sidebar-toggle" id="sidebar-toggle"
-                        onclick="toggleSidebarMode()" title="Your Library">
+                        onclick="toggleSidebarMode()" title="{{ _('menu.library') if _ else 'Your Library' }}">
                     <i data-lucide="library"></i>
-                    <span class="sidebar-toggle-label">Your Library</span>
+                    <span class="sidebar-toggle-label">{{ _('menu.library') if _ else 'Your Library' }}</span>
                 </button>
             </div>
 
@@ -104,25 +108,25 @@
             <nav class="sidebar-list" id="sidebar-list">
                 <a class="sidebar-item sidebar-item-favorites"
                    onclick="loadView('favorites')"
-                   title="Liked Songs">
+                   title="{{ _('menu.liked') if _ else 'Liked Songs' }}">
                     <div class="sidebar-cover sidebar-cover-favorites">
                         <i data-lucide="heart"></i>
                     </div>
                     <div class="sidebar-meta">
-                        <div class="sidebar-name">Liked Songs</div>
-                        <div class="sidebar-sub">Playlist</div>
+                        <div class="sidebar-name">{{ _('menu.liked') if _ else 'Liked Songs' }}</div>
+                        <div class="sidebar-sub">{{ _('library.playlists') if _ else 'Playlist' }}</div>
                     </div>
                 </a>
 
                 <a class="sidebar-item sidebar-item-offline"
                    onclick="loadView('offline')"
-                   title="Offline Downloads">
+                   title="{{ _('offline.title') if _ else 'Offline Downloads' }}">
                     <div class="sidebar-cover sidebar-cover-offline">
                         <i data-lucide="cloud-off"></i>
                     </div>
                     <div class="sidebar-meta">
-                        <div class="sidebar-name">Offline Downloads</div>
-                        <div class="sidebar-sub" id="sidebar-offline-sub">Device Storage</div>
+                        <div class="sidebar-name">{{ _('offline.title') if _ else 'Offline Downloads' }}</div>
+                        <div class="sidebar-sub" id="sidebar-offline-sub">{{ _('offline.device_storage') if _ else 'Device Storage' }}</div>
                     </div>
                 </a>
 
@@ -133,7 +137,7 @@
 
             <div class="quota-widget">
                 <div class="quota-label">
-                    <span>Global Pool</span>
+                    <span>{{ _('header.global_pool') if _ else 'Global Pool' }}</span>
                     <span>{{ pool.percent }}%</span>
                 </div>
                 <div class="quota-bar-bg">
@@ -161,7 +165,7 @@
                 </div>
 
                 <div class="top-bar-center">
-                    <button class="topbar-home-btn" onclick="loadView('home')" title="Home">
+                    <button class="topbar-home-btn" onclick="loadView('home')" title="{{ _('menu.home') if _ else 'Home' }}">
                         <i data-lucide="home"></i>
                     </button>
                     <div class="topbar-search">
@@ -170,7 +174,7 @@
                             type="text"
                             id="topbar-search-input"
                             class="topbar-search-input"
-                            placeholder="What do you want to play?"
+                            placeholder="{{ _('header.search_placeholder') if _ else 'What do you want to play?' }}"
                             autocomplete="off"
                             spellcheck="false"
                             oninput="handleTopbarSearch(this.value)"
@@ -178,30 +182,30 @@
                         <span class="topbar-search-divider"></span>
                         <button class="topbar-search-library"
                                 onclick="loadView('library')"
-                                title="Library">
+                                title="{{ _('menu.library') if _ else 'Library' }}">
                             <i data-lucide="library"></i>
                         </button>
                     </div>
                 </div>
 
                 <div class="header-actions">
-                    <button class="btn-icon-circle" onclick="openDownloadsModal()" style="position: relative;">
+                    <button class="btn-icon-circle" onclick="openDownloadsModal()" style="position: relative;" title="{{ _('header.downloads') if _ else 'Downloads' }}">
                         <i data-lucide="download-cloud"></i>
                         <span id="download-badge" class="badge-count" style="display: none;">0</span>
                     </button>
-                    <button class="btn-icon-circle" onclick="openDeleteResponsesModal()" style="position: relative;" title="Delete request responses">
+                    <button class="btn-icon-circle" onclick="openDeleteResponsesModal()" style="position: relative;" title="{{ _('header.delete_responses') if _ else 'Delete request responses' }}">
                         <i data-lucide="messages-square"></i>
                         <span id="delete-responses-badge" class="badge-count" style="display: none;">0</span>
                     </button>
 
                     {% if is_admin %}
-                    <button class="btn-icon-circle" onclick="loadView('settings_admin')" title="Admin Settings">
+                    <button class="btn-icon-circle" onclick="loadView('settings_admin')" title="{{ _('header.admin_settings') if _ else 'Admin Settings' }}">
                         <i data-lucide="settings"></i>
                     </button>
                     {% endif %}
 
                     <a href="https://navipod.{{ domain }}/{{ username }}" target="_blank"
-                        class="btn-icon-circle brand-btn" title="Open Navidrome Player">
+                        class="btn-icon-circle brand-btn" title="{{ _('header.open_navidrome') if _ else 'Open Navidrome Player' }}">
                         <img src="/assets/img/navidrome.png" alt="ND"
                             style="width: 20px; height: 20px; object-fit: contain;">
                     </a>
@@ -220,18 +224,18 @@
                             <div class="user-menu-list">
                                 <button type="button" class="user-menu-item" onclick="event.preventDefault(); document.getElementById('user-menu')?.removeAttribute('open'); loadView('profile', '{{ username }}');">
                                     <i data-lucide="user"></i>
-                                    <span>Public Profile</span>
+                                    <span>{{ _('header.public_profile') if _ else 'Public Profile' }}</span>
                                 </button>
                                 <button type="button" class="user-menu-item" onclick="event.preventDefault(); document.getElementById('user-menu')?.removeAttribute('open'); loadView('settings_user');">
                                     <i data-lucide="settings"></i>
-                                    <span>Settings</span>
+                                    <span>{{ _('header.settings') if _ else 'Settings' }}</span>
                                 </button>
                                 <button type="button" class="user-menu-item" onclick="event.preventDefault(); document.getElementById('user-menu')?.removeAttribute('open'); loadView('help');">
                                     <i data-lucide="help-circle"></i>
                                     <span>{{ _('menu.help') if _ else 'Help' }}</span>
                                 </button>
                                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:6px 0; padding:6px 8px;">
-                                    <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-sub); letter-spacing:0.04em; margin-bottom:6px; padding-left:4px;">Language</div>
+                                    <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-sub); letter-spacing:0.04em; margin-bottom:6px; padding-left:4px;">{{ _('header.language') if _ else 'Language' }}</div>
                                     <div style="display:flex; gap:6px;">
                                         <a href="/user/set-language?lang=en" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; flex:1; text-align:center; text-decoration:none; {% if current_lang() == 'en' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700;{% endif %}">EN</a>
                                         <a href="/user/set-language?lang=es" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; flex:1; text-align:center; text-decoration:none; {% if current_lang() == 'es' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700;{% endif %}">ES</a>
@@ -241,7 +245,7 @@
                                 <form action="/logout" method="post" onsubmit="if (window.clearOfflineData) window.clearOfflineData();">
                                     <button type="submit" class="user-menu-action user-menu-action-danger">
                                         <i data-lucide="log-out"></i>
-                                        <span>Log out</span>
+                                        <span>{{ _('header.logout') if _ else 'Log out' }}</span>
                                     </button>
                                 </form>
                             </div>
@@ -290,19 +294,19 @@
         <nav class="m-bottom-nav" id="m-bottom-nav">
             <button class="m-nav-item" data-view="home" onclick="loadView('home')">
                 <i data-lucide="home"></i>
-                <span>Home</span>
+                <span>{{ _('menu.home') if _ else 'Home' }}</span>
             </button>
             <button class="m-nav-item" data-view="search" onclick="loadView('search')">
                 <i data-lucide="search"></i>
-                <span>Search</span>
+                <span>{{ _('menu.search') if _ else 'Search' }}</span>
             </button>
             <button class="m-nav-item" data-view="discovery" onclick="loadView('discovery')">
                 <i data-lucide="compass"></i>
-                <span>Discover</span>
+                <span>{{ _('tabs.discover') if _ else 'Discover' }}</span>
             </button>
             <button class="m-nav-item" data-view="library" onclick="loadView('library')">
                 <i data-lucide="library"></i>
-                <span>Your Library</span>
+                <span>{{ _('menu.library') if _ else 'Your Library' }}</span>
             </button>
         </nav>
 
@@ -311,18 +315,18 @@
                 <img id="player-cover" src="/static/img/default_cover.png" alt="Cover"
                     data-fullscreen-player-trigger style="cursor: pointer;">
                 <div class="track-info" data-fullscreen-player-trigger>
-                    <div id="player-title" class="track-title">Not Playing</div>
-                    <div id="player-artist" class="track-artist">Select a track</div>
+                    <div id="player-title" class="track-title">{{ _('player.not_playing') if _ else 'Not Playing' }}</div>
+                    <div id="player-artist" class="track-artist">{{ _('player.select_track') if _ else 'Select a track' }}</div>
                 </div>
                 <button class="icon-btn-sm" id="player-like-btn" onclick="toggleFavoriteCurrent()"><i
                         data-lucide="heart"></i></button>
                 <button class="icon-btn-sm" id="player-add-btn" onclick="addToPlaylistCurrent()"
-                    title="Add to Playlist"><i data-lucide="plus-circle"></i></button>
+                    title="{{ _('player.add_to_playlist') if _ else 'Add to Playlist' }}"><i data-lucide="plus-circle"></i></button>
             </div>
 
             <div class="player-center">
                 <div class="player-controls">
-                    <button class="control-btn" onclick="toggleShuffle()" id="btn-shuffle"><i
+                    <button class="control-btn" onclick="toggleShuffle()" id="btn-shuffle" title="{{ _('player.shuffle') if _ else 'Shuffle' }}"><i
                             data-lucide="shuffle"></i></button>
                     <button class="control-btn" onclick="playPrev()"><i data-lucide="skip-back"></i></button>
                     <button class="control-btn play-main" id="play-pause-btn" aria-label="Play" title="Play">
@@ -344,8 +348,8 @@
 
             <div class="player-right">
                 <button class="icon-btn-sm lyrics-toggle-btn" onclick="toggleLyricsPanel()" id="btn-lyrics"
-                        title="Lyrics"><i data-lucide="mic-vocal"></i></button>
-                <button class="icon-btn-sm" onclick="toggleQueue()" id="btn-queue" title="Queue"><i
+                        title="{{ _('player.lyrics') if _ else 'Lyrics' }}"><i data-lucide="mic-vocal"></i></button>
+                <button class="icon-btn-sm" onclick="toggleQueue()" id="btn-queue" title="{{ _('player.queue') if _ else 'Queue' }}"><i
                         data-lucide="list-music"></i></button>
                 <button class="icon-btn-sm" onclick="toggleMute()" id="btn-volume-icon"><i
                         data-lucide="volume-2"></i></button>
@@ -360,16 +364,16 @@
         <div id="fullscreen-player" class="fullscreen-player">
             <div class="fs-background"></div>
             <div class="fs-content">
-                <button class="fs-minimize" onclick="toggleFullscreenPlayer()" title="Minimize">
+                <button class="fs-minimize" onclick="toggleFullscreenPlayer()" title="{{ _('player.minimize') if _ else 'Minimize' }}">
                     <i data-lucide="chevron-down"></i>
                 </button>
                 <img id="fs-cover" class="fs-cover" src="/static/img/default_cover.png" alt="Cover">
                 <div class="fs-info">
-                    <div id="fs-title" class="fs-title">Not Playing</div>
-                    <div id="fs-artist" class="fs-artist">Select a track</div>
+                    <div id="fs-title" class="fs-title">{{ _('player.not_playing') if _ else 'Not Playing' }}</div>
+                    <div id="fs-artist" class="fs-artist">{{ _('player.select_track') if _ else 'Select a track' }}</div>
                 </div>
                 <div class="fs-controls">
-                    <button class="control-btn" onclick="toggleShuffle()" id="fs-btn-shuffle"><i
+                    <button class="control-btn" onclick="toggleShuffle()" id="fs-btn-shuffle" title="{{ _('player.shuffle') if _ else 'Shuffle' }}"><i
                             data-lucide="shuffle"></i></button>
                     <button class="control-btn" onclick="playPrev()"><i data-lucide="skip-back"></i></button>
                     <button class="control-btn fs-play-main" id="fs-play-pause-btn" aria-label="Play" title="Play"
@@ -391,19 +395,19 @@
                 <!-- Action buttons for mobile -->
                 <div class="fs-actions">
                     <button class="fs-action-btn" id="fs-btn-favorite" onclick="toggleFavoriteFromPlayer()"
-                        title="Favorite">
+                        title="{{ _('player.favorite') if _ else 'Favorite' }}">
                         <i data-lucide="heart"></i>
                     </button>
-                    <button class="fs-action-btn" onclick="showAddToPlaylistFromPlayer()" title="Add to Playlist">
+                    <button class="fs-action-btn" onclick="showAddToPlaylistFromPlayer()" title="{{ _('player.add_to_playlist') if _ else 'Add to Playlist' }}">
                         <i data-lucide="list-plus"></i>
                     </button>
-                    <button class="fs-action-btn lyrics-toggle-btn" onclick="toggleLyricsPanel()" title="Lyrics">
+                    <button class="fs-action-btn lyrics-toggle-btn" onclick="toggleLyricsPanel()" title="{{ _('player.lyrics') if _ else 'Lyrics' }}">
                         <i data-lucide="mic-vocal"></i>
                     </button>
-                    <button class="fs-action-btn" onclick="toggleQueue()" title="Queue">
+                    <button class="fs-action-btn" onclick="toggleQueue()" title="{{ _('player.queue') if _ else 'Queue' }}">
                         <i data-lucide="list-music"></i>
                     </button>
-                    <button class="fs-action-btn" id="fs-btn-sleep" onclick="cycleSleepTimer()" title="Sleep timer">
+                    <button class="fs-action-btn" id="fs-btn-sleep" onclick="cycleSleepTimer()" title="{{ _('player.sleep_timer') if _ else 'Sleep timer' }}">
                         <i data-lucide="timer"></i>
                     </button>
                 </div>
@@ -436,9 +440,9 @@
     <!-- QUEUE SIDE PANEL -->
     <div id="queue-panel" class="queue-panel">
         <div class="queue-header">
-            <h3>Play Queue</h3>
+            <h3>{{ _('player.queue') if _ else 'Play Queue' }}</h3>
             <div style="flex:1;"></div>
-            <button class="icon-btn-sm" onclick="addToQueueCurrent()" title="Add Current to Queue"
+            <button class="icon-btn-sm" onclick="addToQueueCurrent()" title="{{ _('player.add_to_queue') if _ else 'Add Current to Queue' }}"
                 style="margin-right:8px;"><i data-lucide="list-plus"></i></button>
             <button class="icon-btn-sm" onclick="toggleQueue()"><i data-lucide="x"></i></button>
         </div>
@@ -454,14 +458,14 @@
     <div id="downloads-modal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h2 class="modal-title">Downloads Manager</h2>
+                <h2 class="modal-title">{{ _('downloads.modal_title') if _ else 'Downloads Manager' }}</h2>
                 <button onclick="closeDownloadsModal()" class="modal-close"><i data-lucide="x"></i></button>
             </div>
 
             <div style="display:flex; gap:12px; margin-bottom:24px; align-items: flex-start;">
-                <input type="text" id="dl-modal-url" class="modal-input" placeholder="Paste YouTube/Spotify URL..."
+                <input type="text" id="dl-modal-url" class="modal-input" placeholder="{{ _('downloads.modal_placeholder') if _ else 'Paste YouTube/Spotify URL...' }}"
                     style="margin-bottom:0;">
-                <button onclick="handleModalDownload()" class="modal-btn-primary">Download</button>
+                <button onclick="handleModalDownload()" class="modal-btn-primary">{{ _('downloads.modal_download_btn') if _ else 'Download' }}</button>
             </div>
 
             <div id="jobs-list" class="downloads-container">
@@ -474,7 +478,7 @@
     <div id="delete-responses-modal" class="modal-overlay hidden">
         <div class="modal">
             <div class="modal-header">
-                <h2 class="modal-title">Delete Request Responses</h2>
+                <h2 class="modal-title">{{ _('downloads.delete_responses_title') if _ else 'Delete Request Responses' }}</h2>
                 <button onclick="closeDeleteResponsesModal()" class="modal-close"><i data-lucide="x"></i></button>
             </div>
             <div id="delete-responses-list" class="downloads-container">

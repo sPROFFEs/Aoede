@@ -48,32 +48,32 @@ function shell(content, browsing = false, total = 0, hasMore = false) {
       <section class="home-overview library-theme">
         <div class="library-head" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:16px;">
           <div>
-            <div class="hero-kicker">Your personal music collection</div>
-            <h1 class="hero-greeting">Your Library</h1>
-            <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Browse your playlists, artists, albums, genres, and device downloads.</p>
+            <div class="hero-kicker">${ui.t('library.hero_kicker', 'Your personal music collection')}</div>
+            <h1 class="hero-greeting">${ui.t('library.title', 'Your Library')}</h1>
+            <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('library.hero_sub', 'Browse your playlists, artists, albums, genres, and device downloads.')}</p>
           </div>
           <div class="library-actions-row" style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-            <button class="btn-secondary" onclick="showCreateSmartPlaylistModal()" title="New smart playlist">
-              <i data-lucide="sparkles" width="16" height="16"></i> Smart Playlist
+            <button class="btn-secondary" onclick="showCreateSmartPlaylistModal()" title="${ui.t('library.smart_playlist', 'Smart Playlist')}">
+              <i data-lucide="sparkles" width="16" height="16"></i> ${ui.t('library.smart_playlist', 'Smart Playlist')}
             </button>
-            <button class="btn-primary" onclick="showCreatePlaylistModal()" title="New playlist">
-              <i data-lucide="plus" width="16" height="16"></i> New Playlist
+            <button class="btn-primary" onclick="showCreatePlaylistModal()" title="${ui.t('library.new_playlist', 'New Playlist')}">
+              <i data-lucide="plus" width="16" height="16"></i> ${ui.t('library.new_playlist', 'New Playlist')}
             </button>
           </div>
         </div>
       </section>
 
       <div class="library-filters" style="margin: 16px 0 16px 0;">
-        <button class="library-filter ${activeKind === 'playlists' ? 'active' : ''}" onclick="switchLibraryKind('playlists')">Playlists</button>
-        <button class="library-filter ${activeKind === 'artists' ? 'active' : ''}" onclick="switchLibraryKind('artists')">Artists</button>
-        <button class="library-filter ${activeKind === 'albums' ? 'active' : ''}" onclick="switchLibraryKind('albums')">Albums</button>
-        <button class="library-filter ${activeKind === 'genres' ? 'active' : ''}" onclick="switchLibraryKind('genres')">Genres</button>
-        <button class="library-filter" onclick="loadView('offline')" title="Offline Downloads"><i data-lucide="cloud-off" width="14" height="14" style="margin-right:4px;"></i> Offline</button>
+        <button class="library-filter ${activeKind === 'playlists' ? 'active' : ''}" onclick="switchLibraryKind('playlists')">${ui.t('library.playlists', 'Playlists')}</button>
+        <button class="library-filter ${activeKind === 'artists' ? 'active' : ''}" onclick="switchLibraryKind('artists')">${ui.t('library.artists', 'Artists')}</button>
+        <button class="library-filter ${activeKind === 'albums' ? 'active' : ''}" onclick="switchLibraryKind('albums')">${ui.t('library.albums', 'Albums')}</button>
+        <button class="library-filter ${activeKind === 'genres' ? 'active' : ''}" onclick="switchLibraryKind('genres')">${ui.t('library.genres', 'Genres')}</button>
+        <button class="library-filter" onclick="loadView('offline')" title="${ui.t('offline.title', 'Offline Downloads')}"><i data-lucide="cloud-off" width="14" height="14" style="margin-right:4px;"></i> ${ui.t('library.offline', 'Offline')}</button>
       </div>
 
-      ${browsing ? `<div class="library-sort"><input id="library-facet-query" class="modal-input" value="${ui.escHtml(facetQuery)}" placeholder="Search ${activeKind}" onkeyup="if(event.key==='Enter') reloadLibraryFacets()"><select id="library-facet-sort" class="modal-input" onchange="reloadLibraryFacets()"><option value="name"${facetSort === 'name' ? ' selected' : ''}>Name</option><option value="count"${facetSort === 'count' ? ' selected' : ''}>Most songs</option></select><button class="library-icon-btn" onclick="reloadLibraryFacets()" title="Search"><i data-lucide="search"></i></button></div>` : ''}
+      ${browsing ? `<div class="library-sort"><input id="library-facet-query" class="modal-input" value="${ui.escHtml(facetQuery)}" placeholder="${ui.t('library.filter_placeholder', 'Filter...')}" onkeyup="if(event.key==='Enter') reloadLibraryFacets()"><select id="library-facet-sort" class="modal-input" onchange="reloadLibraryFacets()"><option value="name"${facetSort === 'name' ? ' selected' : ''}>${ui.t('library.sort_name', 'Sort by Name')}</option><option value="count"${facetSort === 'count' ? ' selected' : ''}>${ui.t('library.sort_count', 'Sort by Most Songs')}</option></select><button class="library-icon-btn" onclick="reloadLibraryFacets()" title="Search"><i data-lucide="search"></i></button></div>` : ''}
       ${content}
-      ${browsing ? `<p class="library-facet-count" style="margin-top:20px;">Showing ${Math.min(facetLimit, total)} of ${total}</p>${hasMore ? '<button class="btn-secondary" style="margin-top:10px;" onclick="loadMoreLibraryFacets()">Load more</button>' : ''}` : ''}
+      ${browsing ? `<p class="library-facet-count" style="margin-top:20px;">Showing ${Math.min(facetLimit, total)} of ${total}</p>${hasMore ? `<button class="btn-secondary" style="margin-top:10px;" onclick="loadMoreLibraryFacets()">${ui.t('library.refresh_button', 'Load more')}</button>` : ''}` : ''}
     </section>`;
 }
 
@@ -199,24 +199,24 @@ function showSmartPlaylistModal(data = null) {
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
       <div class="modal smart-playlist-modal">
-        <h2>${editing ? 'Edit' : 'New'} smart playlist</h2>
+        <h2>${editing ? ui.t('common.save', 'Edit') : ui.t('library.create_smart_playlist_title', 'New smart playlist')}</h2>
         <p class="modal-subtitle">Preview the rules before saving. Matching songs also refresh when favorites change.</p>
-        <input id="smart-name" class="modal-input" maxlength="100" placeholder="Playlist name">
+        <input id="smart-name" class="modal-input" maxlength="100" placeholder="${ui.t('library.smart_playlist_name', 'Playlist name')}">
         <div class="smart-rule-grid">
-          <input id="smart-artist" class="modal-input" placeholder="Artist (optional)">
-          <input id="smart-album" class="modal-input" placeholder="Album (optional)">
-          <input id="smart-genre" class="modal-input" placeholder="Genre (optional)">
-          <input id="smart-year-min" class="modal-input" type="number" min="1000" max="9999" placeholder="Released after year">
-          <input id="smart-year-max" class="modal-input" type="number" min="1000" max="9999" placeholder="Released before year">
-          <input id="smart-days" class="modal-input" type="number" min="0" placeholder="Added in last N days">
-          <input id="smart-min-plays" class="modal-input" type="number" min="0" placeholder="Minimum play count">
-          <input id="smart-unplayed" class="modal-input" type="number" min="0" placeholder="Not played for N days">
+          <input id="smart-artist" class="modal-input" placeholder="${ui.t('library.smart_artist', 'Artist (optional)')}">
+          <input id="smart-album" class="modal-input" placeholder="${ui.t('library.smart_album', 'Album (optional)')}">
+          <input id="smart-genre" class="modal-input" placeholder="${ui.t('library.smart_genre', 'Genre (optional)')}">
+          <input id="smart-year-min" class="modal-input" type="number" min="1000" max="9999" placeholder="${ui.t('library.smart_year_min', 'Released after year')}">
+          <input id="smart-year-max" class="modal-input" type="number" min="1000" max="9999" placeholder="${ui.t('library.smart_year_max', 'Released before year')}">
+          <input id="smart-days" class="modal-input" type="number" min="0" placeholder="${ui.t('library.smart_days', 'Added in last N days')}">
+          <input id="smart-min-plays" class="modal-input" type="number" min="0" placeholder="${ui.t('library.smart_min_plays', 'Minimum play count')}">
+          <input id="smart-unplayed" class="modal-input" type="number" min="0" placeholder="${ui.t('library.smart_unplayed', 'Not played for N days')}">
           <input id="smart-limit" class="modal-input" type="number" min="1" max="500" value="50" aria-label="Maximum songs">
           <select id="smart-sort" class="modal-input"><option value="newest">Newest added</option><option value="artist">Artist</option><option value="album">Album</option><option value="most_played">Most played</option><option value="least_played">Least played</option></select>
-          <label class="smart-check"><input id="smart-favorites" type="checkbox"> Favorites only</label>
+          <label class="smart-check"><input id="smart-favorites" type="checkbox"> ${ui.t('menu.liked', 'Favorites only')}</label>
         </div>
         <div id="smart-preview" class="modal-subtitle" aria-live="polite"></div>
-        <div class="modal-actions"><button class="btn-secondary" onclick="previewSmartPlaylist()">Preview</button><button class="btn-secondary" onclick="closeModal()">Cancel</button><button class="btn-primary" onclick="saveSmartPlaylist()">${editing ? 'Save' : 'Create'}</button></div>
+        <div class="modal-actions"><button class="btn-secondary" onclick="previewSmartPlaylist()">Preview</button><button class="btn-secondary" onclick="closeModal()">${ui.t('common.cancel', 'Cancel')}</button><button class="btn-primary" onclick="saveSmartPlaylist()">${editing ? ui.t('common.save', 'Save') : ui.t('library.add_button', 'Create')}</button></div>
       </div>
     </div>`;
   if (data) {

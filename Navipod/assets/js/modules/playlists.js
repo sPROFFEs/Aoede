@@ -506,24 +506,24 @@ export async function renderPublicPlaylists(container) {
         <section class="home-overview public-theme">
             ${ui.homeTabsBar('public')}
             <div class="hero-section">
-                <div class="hero-kicker">Community & Sharing</div>
-                <h1 class="hero-greeting">Public Playlists</h1>
-                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">Browse read-only playlists shared by other users and create your own synced copy.</p>
+                <div class="hero-kicker">${ui.t('public.hero_kicker', 'Community & Sharing')}</div>
+                <h1 class="hero-greeting">${ui.t('public.title', 'Public Playlists')}</h1>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('public.subtitle', 'Browse read-only playlists shared by other users and create your own synced copy.')}</p>
             </div>
         </section>
         <section class="shelf-section home-shelf">
             <div class="shelf-header">
-                <h2 class="shelf-title">Shared Playlists</h2>
+                <h2 class="shelf-title">${ui.t('public.shared_playlists', 'Shared Playlists')}</h2>
             </div>
             ${
               fetchError
-                ? '<div class="empty-state glass-panel"><p>Failed to load public playlists.</p></div>'
+                ? `<div class="empty-state glass-panel"><p>${ui.t('library.error', 'Failed to load public playlists.')}</p></div>`
                 : publicPlaylists.length > 0
                   ? `<div class="grid-shelf playlist-mobile-list">${publicPlaylists.map(window.createPlaylistCard).join('')}</div>`
-                  : '<div class="empty-state glass-panel"><i data-lucide="globe" class="empty-icon"></i><p>No public playlists shared on this server yet.</p></div>'
+                  : `<div class="empty-state glass-panel"><i data-lucide="globe" class="empty-icon"></i><p>${ui.t('public.empty', 'No public playlists shared on this server yet.')}</p></div>`
             }
         </section>`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
 }
 
 // === PLAY PLAYLIST ===
@@ -913,20 +913,47 @@ export function closeAddToPlaylistFlyout() {
 }
 
 export function showCreatePlaylistModal(trackIdToAdd = null) {
+  const playlists = state.userPlaylists || [];
   const html = `<div class="modal-overlay" onclick="closeModal()">
-        <div class="modal modal-create" onclick="event.stopPropagation()">
+        <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 520px;">
             <div class="modal-header">
-                <h2><i data-lucide="folder-plus"></i> Create Playlist</h2>
+                <h2><i data-lucide="folder-plus"></i> ${ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
                 <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <label class="modal-label">Playlist Name</label>
-                <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" placeholder="My awesome playlist..." autofocus>
+                <label class="modal-label">${ui.t('library.smart_playlist_name', 'Playlist Name')}</label>
+                <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" placeholder="${ui.t('library.playlist_name_placeholder', 'My awesome playlist...')}" autofocus>
+
+                ${
+                  !trackIdToAdd
+                    ? `
+                <div style="margin-top: 16px;">
+                    <label class="modal-label">${ui.t('library.create_from_source', 'Import songs from (optional)')}</label>
+                    <select id="create-playlist-source" class="modal-input" onchange="handlePlaylistSourceChange(this.value)">
+                        <option value="">${ui.t('library.source_empty', 'Start with an empty playlist')}</option>
+                        <option value="favorites">${ui.t('library.source_favorites', 'Favorite Songs')} (${state.userFavorites.size})</option>
+                        ${playlists.map((p) => `<option value="${p.id}">${ui.escHtml(p.name)} (${p.track_count || 0})</option>`).join('')}
+                    </select>
+                </div>
+                <div id="create-playlist-songs-picker" style="display: none; margin-top: 12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+                        <span class="modal-label" style="margin:0;">${ui.t('library.source_select_songs', 'Select songs to include')}</span>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="toggleAllPlaylistSourcePicker(true)">${ui.t('library.select_all', 'Select All')}</button>
+                            <button type="button" class="btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="toggleAllPlaylistSourcePicker(false)">${ui.t('library.deselect_all', 'Deselect All')}</button>
+                        </div>
+                    </div>
+                    <div id="create-playlist-tracks-list" class="glass-panel" style="max-height: 200px; overflow-y: auto; padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        <!-- dynamic song rows -->
+                    </div>
+                </div>`
+                    : ''
+                }
             </div>
-            <div class="modal-actions">
-                <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
+            <div class="modal-actions" style="margin-top: 20px;">
+                <button class="modal-btn-cancel" onclick="closeModal()">${ui.t('common.cancel', 'Cancel')}</button>
                 <button class="modal-btn-primary" onclick="createPlaylist(${trackIdToAdd})">
-                    <i data-lucide="check"></i> Create
+                    <i data-lucide="check"></i> ${ui.t('library.add_button', 'Create')}
                 </button>
             </div>
         </div>
@@ -935,6 +962,61 @@ export function showCreatePlaylistModal(trackIdToAdd = null) {
   lucide.createIcons();
   document.getElementById('new-playlist-name')?.focus();
 }
+
+window.handlePlaylistSourceChange = async function (sourceVal) {
+  const picker = document.getElementById('create-playlist-songs-picker');
+  const list = document.getElementById('create-playlist-tracks-list');
+  if (!picker || !list) return;
+
+  if (!sourceVal) {
+    picker.style.display = 'none';
+    list.innerHTML = '';
+    return;
+  }
+
+  picker.style.display = 'block';
+  list.innerHTML = `<div style="text-align:center; padding:12px; color:var(--text-sub);">${ui.t('common.loading', 'Loading...')}</div>`;
+
+  let tracks = [];
+  try {
+    if (sourceVal === 'favorites') {
+      const res = await fetch(`${state.API}/favorites`);
+      if (res.ok) tracks = await res.json();
+    } else {
+      const res = await fetch(`${state.API}/playlists/${sourceVal}`);
+      if (res.ok) {
+        const data = await res.json();
+        tracks = data.tracks || [];
+      }
+    }
+  } catch (_) {
+    tracks = [];
+  }
+
+  if (!tracks || tracks.length === 0) {
+    list.innerHTML = `<div style="text-align:center; padding:12px; color:var(--text-sub);">${ui.t('library.no_results', 'No songs found in source.')}</div>`;
+    return;
+  }
+
+  list.innerHTML = tracks
+    .map(
+      (t) => `
+      <label style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer; background:rgba(255,255,255,0.03); font-size:0.85rem;">
+          <input type="checkbox" class="create-playlist-track-checkbox" value="${t.db_id || t.id}" checked style="accent-color:var(--primary); cursor:pointer;">
+          <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+              <strong>${ui.escHtml(t.title || 'Unknown')}</strong>
+              <span style="color:var(--text-sub);"> · ${ui.escHtml(t.artist || 'Unknown')}</span>
+          </span>
+      </label>`
+    )
+    .join('');
+};
+
+window.toggleAllPlaylistSourcePicker = function (select) {
+  document.querySelectorAll('.create-playlist-track-checkbox').forEach((cb) => {
+    cb.checked = select;
+  });
+};
 
 export function showDeletePlaylistModal(playlistId, playlistName) {
   const html = `<div class="modal-overlay" onclick="closeModal()">
@@ -975,17 +1057,28 @@ export async function createPlaylist(trackIdToAdd = null) {
     return;
   }
 
+  // Gather selected track IDs from the source picker if present
+  let trackIds = [];
+  if (trackIdToAdd) {
+    trackIds = [trackIdToAdd];
+  } else {
+    const checkboxes = document.querySelectorAll('.create-playlist-track-checkbox:checked');
+    checkboxes.forEach((cb) => {
+      const tid = Number(cb.value);
+      if (tid && !trackIds.includes(tid)) trackIds.push(tid);
+    });
+  }
+
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     const tempId = -Math.floor(Date.now() / 1000);
-    const pl = { id: tempId, name, track_count: 0, is_owner: true, is_editable: true, is_public: false };
+    const pl = { id: tempId, name, track_count: trackIds.length, is_owner: true, is_editable: true, is_public: false };
     const playlists = [...state.userPlaylists, pl];
     state.setUserPlaylists(playlists);
-    await offlineStore.queueAction('create_playlist', { name });
+    await offlineStore.queueAction('create_playlist', { name, track_ids: trackIds });
     await offlineStore.saveLibrarySnapshot('playlists', playlists);
     if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
     ui.closeModal();
     ui.showToast('Playlist created (offline)', 'success');
-    if (trackIdToAdd) await addToPlaylist(tempId, trackIdToAdd);
     return;
   }
 
@@ -993,27 +1086,19 @@ export async function createPlaylist(trackIdToAdd = null) {
     const res = await fetch(`${state.API}/playlists`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, track_ids: trackIds.length ? trackIds : undefined })
     });
     const pl = await res.json();
     if (res.ok) {
-      const playlists = [...state.userPlaylists, pl];
+      const plWithCount = { ...pl, track_count: trackIds.length };
+      const playlists = [...state.userPlaylists, plWithCount];
       state.setUserPlaylists(playlists);
       offlineStore.saveLibrarySnapshot('playlists', playlists);
-      // Push the new playlist into recent-activity so it shows up in
-      // the sidebar immediately. Without this, the sidebar (which only
-      // renders state.recentPlaylists) ignores the new entry until the
-      // user opens it via the playlist detail view — but the user can't
-      // open it because it isn't in the sidebar. trackRecentPlaylist
-      // POSTs to /api/recent-activity/playlist and then refetches
-      // /api/recent-activity, which re-renders the sidebar with the new
-      // playlist included.
       if (window.trackRecentPlaylist) await window.trackRecentPlaylist(pl.id);
       else if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
       ui.closeModal();
       ui.showToast('Playlist created!', 'success');
       if (state.currentViewName === 'library' && window.loadView) window.loadView('library');
-      if (trackIdToAdd) await addToPlaylist(pl.id, trackIdToAdd);
     } else {
       ui.showToast(pl.error || 'Failed to create playlist', 'error');
     }

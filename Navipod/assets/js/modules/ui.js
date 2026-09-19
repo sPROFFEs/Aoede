@@ -7,6 +7,13 @@ import * as state from './state.js';
 
 // === FORMATTERS ===
 
+export function t(key, fallback = '') {
+  if (typeof window !== 'undefined' && window.__I18N__ && window.__I18N__[key]) {
+    return window.__I18N__[key];
+  }
+  return fallback || key;
+}
+
 export function fmtTime(s) {
   if (!s || isNaN(s) || !isFinite(s)) return '0:00';
   const m = Math.floor(s / 60);
@@ -16,7 +23,9 @@ export function fmtTime(s) {
 
 export function getGreeting() {
   const h = new Date().getHours();
-  return h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
+  if (h < 12) return t('home.greeting_morning', 'morning');
+  if (h < 18) return t('home.greeting_afternoon', 'afternoon');
+  return t('home.greeting_evening', 'evening');
 }
 
 export function escHtml(str) {
@@ -50,12 +59,12 @@ export function refreshIcons(scope) {
  */
 export function homeTabsBar(activeTab) {
   const tabs = [
-    { key: 'all', label: 'All', view: 'home' },
-    { key: 'party', label: 'Party', view: 'party' },
-    { key: 'public', label: 'Public', view: 'public' },
-    { key: 'community', label: 'Community', view: 'community' },
-    { key: 'discovery', label: 'Discover', view: 'discovery' },
-    { key: 'discover_radios', label: 'Radios', view: 'discover_radios' }
+    { key: 'all', label: t('tabs.all', 'All'), view: 'home' },
+    { key: 'party', label: t('tabs.party', 'Party'), view: 'party' },
+    { key: 'public', label: t('tabs.public', 'Public'), view: 'public' },
+    { key: 'community', label: t('tabs.community', 'Community'), view: 'community' },
+    { key: 'discovery', label: t('tabs.discover', 'Discover'), view: 'discovery' },
+    { key: 'discover_radios', label: t('tabs.radios', 'Radios'), view: 'discover_radios' }
   ];
   return `
     <div class="home-tabs">

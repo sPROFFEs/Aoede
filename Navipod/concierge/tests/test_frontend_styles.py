@@ -85,10 +85,10 @@ def test_login_uses_minimal_accessible_form_without_changing_auth_contract():
     template_path = Path(__file__).resolve().parents[1] / "templates" / "login.html"
     template = template_path.read_text(encoding="utf-8")
 
-    assert '<h1 class="app-title">Log in to Navipod</h1>' in template
+    assert 'class="app-title"' in template
     assert '<form action="/login" method="post" class="login-form">' in template
-    assert '<label for="username" class="input-label">Username</label>' in template
-    assert '<label for="password" class="input-label">Password</label>' in template
+    assert '<label for="username" class="input-label">' in template
+    assert '<label for="password" class="input-label">' in template
     assert 'autocomplete="username"' in template
     assert 'autocomplete="current-password"' in template
     assert 'id="remember_me" name="remember_me" value="true"' in template
