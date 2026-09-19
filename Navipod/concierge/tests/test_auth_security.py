@@ -112,6 +112,40 @@ def test_cookie_authenticated_write_requires_same_origin():
     security.validate_same_origin(request_for("POST", token="token", origin="https://navipod.test"))
 
 
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
 @pytest.mark.parametrize("username", ["../admin", "a", "space user", "semi;colon"])
 def test_unsafe_usernames_are_rejected(username):
     assert not auth.is_valid_username(username)
+
+
+@pytest.mark.anyio
+async def test_change_password_emits_hx_redirect_and_clears_cookie(db_session, monkeypatch):
+    import routers.user as user_router
+
+    user = database.User(
+        id=50,
+        username="carol",
+        hashed_password=auth.get_password_hash("OldPassword123!"),
+        is_active=True,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    monkeypatch.setattr(user_router, "get_current_user", lambda req, db: user)
+    request = Request({"type": "http", "method": "POST", "path": "/user/change-password", "headers": []})
+
+    response = await user_router.change_password(
+        request=request,
+        current_password="OldPassword123!",
+        new_password="NewStrongPassword456!",
+        confirm_password="NewStrongPassword456!",
+        db=db_session,
+    )
+
+    assert response.status_code == 303
+    assert response.headers.get("hx-redirect") == "/login"
+    assert "access_token" in response.headers.get("set-cookie", "")

@@ -322,6 +322,7 @@ async def change_password(
     db.commit()
 
     response = RedirectResponse("/login", status_code=303)
+    response.headers["HX-Redirect"] = "/login"
     response.delete_cookie(
         "access_token",
         path="/",
