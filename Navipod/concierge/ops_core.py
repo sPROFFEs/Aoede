@@ -245,7 +245,8 @@ def _build_host_bind_compose_file():
     host_repo_root, host_app_root = _get_host_visible_compose_roots()
     host_concierge_root = _get_container_mount_source(Path("/app"))
     if not host_concierge_root and host_app_root:
-        host_concierge_root = host_app_root / "concierge"
+        host_concierge_root = (host_app_root / "concierge").resolve()
+
     compose_file = COMPOSE_PROJECT_ROOT / "docker-compose.yaml"
     if not host_repo_root or not host_app_root or not compose_file.exists():
         return None
@@ -262,9 +263,11 @@ def _build_host_bind_compose_file():
         if host_concierge_root and (normalized == "concierge" or normalized.startswith("concierge/")):
             relative = Path(normalized).relative_to("concierge")
             return (host_concierge_root / relative).as_posix()
-        if raw_path.startswith("../"):
+        if host_app_root and (raw_path.startswith("..") or normalized.startswith("..")):
             return (host_app_root / raw_path).resolve().as_posix()
-        return (host_app_root / raw_path).resolve().as_posix()
+        if host_app_root:
+            return (host_app_root / raw_path).resolve().as_posix()
+        return candidate.as_posix()
 
     def _rewrite_volume_entry(entry):
         if isinstance(entry, str):
@@ -297,12 +300,13 @@ def _build_host_bind_compose_file():
         if isinstance(volumes, list):
             service["volumes"] = [_rewrite_volume_entry(volume) for volume in volumes]
 
+    target_dir = str(COMPOSE_PROJECT_ROOT) if os.access(str(COMPOSE_PROJECT_ROOT), os.W_OK) else "/tmp"
     with tempfile.NamedTemporaryFile(
         mode="w",
         encoding="utf-8",
         suffix=".host-bind.yml",
         prefix="navipod-compose-",
-        dir=str(COMPOSE_PROJECT_ROOT),
+        dir=target_dir,
         delete=False,
     ) as tmp:
         yaml.safe_dump(compose_data, tmp, sort_keys=False)
