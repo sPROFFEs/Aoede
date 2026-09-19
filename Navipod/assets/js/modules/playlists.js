@@ -912,8 +912,15 @@ export function closeAddToPlaylistFlyout() {
   window.removeEventListener('scroll', _atpScrollGuard, true);
 }
 
-export function showCreatePlaylistModal(trackIdToAdd = null) {
-  const playlists = state.userPlaylists || [];
+let selectedImportTracks = []; // [{ id, title, artist, thumbnail }]
+
+export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') {
+  if (trackIdToAdd) {
+    selectedImportTracks = [];
+  }
+  const nameVal = existingName || document.getElementById('new-playlist-name')?.value || '';
+  const count = selectedImportTracks.length;
+
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 520px;">
             <div class="modal-header">
@@ -922,31 +929,46 @@ export function showCreatePlaylistModal(trackIdToAdd = null) {
             </div>
             <div class="modal-body">
                 <label class="modal-label">${ui.t('library.smart_playlist_name', 'Playlist Name')}</label>
-                <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" placeholder="${ui.t('library.playlist_name_placeholder', 'My awesome playlist...')}" autofocus>
+                <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" value="${ui.escHtml(nameVal)}" placeholder="${ui.t('library.playlist_name_placeholder', 'My awesome playlist...')}" autofocus>
 
                 ${
                   !trackIdToAdd
                     ? `
-                <div style="margin-top: 16px;">
-                    <label class="modal-label">${ui.t('library.create_from_source', 'Import songs from (optional)')}</label>
-                    <select id="create-playlist-source" class="modal-input" onchange="handlePlaylistSourceChange(this.value)">
-                        <option value="">${ui.t('library.source_empty', 'Start with an empty playlist')}</option>
-                        <option value="favorites">${ui.t('library.source_favorites', 'Favorite Songs')} (${state.userFavorites.size})</option>
-                        ${playlists.map((p) => `<option value="${p.id}">${ui.escHtml(p.name)} (${p.track_count || 0})</option>`).join('')}
-                    </select>
+                <div style="margin-top: 10px;">
+                    <button type="button" class="btn-secondary" style="width:100%; display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px;" onclick="openPlaylistSourceModal()">
+                        <i data-lucide="list-music"></i>
+                        <span>${ui.t('library.import_songs_btn', 'Import songs from playlist/favorites')}</span>
+                    </button>
                 </div>
-                <div id="create-playlist-songs-picker" style="display: none; margin-top: 12px;">
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
-                        <span class="modal-label" style="margin:0;">${ui.t('library.source_select_songs', 'Select songs to include')}</span>
-                        <div style="display:flex; gap:8px;">
-                            <button type="button" class="btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="toggleAllPlaylistSourcePicker(true)">${ui.t('library.select_all', 'Select All')}</button>
-                            <button type="button" class="btn-secondary" style="padding: 2px 8px; font-size: 0.75rem;" onclick="toggleAllPlaylistSourcePicker(false)">${ui.t('library.deselect_all', 'Deselect All')}</button>
-                        </div>
+
+                ${
+                  count > 0
+                    ? `
+                <div style="margin-top: 14px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 6px;">
+                        <span class="modal-label" style="margin:0;">${ui.t('library.source_selected_summary', 'Selected songs to include:')} (<strong>${count}</strong>)</span>
+                        <button type="button" class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="clearSelectedImportTracks()">${ui.t('common.delete', 'Clear')}</button>
                     </div>
-                    <div id="create-playlist-tracks-list" class="glass-panel" style="max-height: 200px; overflow-y: auto; padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px;">
-                        <!-- dynamic song rows -->
+                    <div class="glass-panel" style="max-height: 160px; overflow-y: auto; padding: 6px; border-radius: 8px; display: flex; flex-direction: column; gap: 4px;">
+                        ${selectedImportTracks
+                          .map(
+                            (t) => `
+                            <div style="display:flex; align-items:center; gap:8px; padding:4px 6px; background:rgba(255,255,255,0.03); border-radius:6px; font-size:0.82rem;">
+                                <img src="${t.thumbnail || '/static/img/default_cover.png'}" style="width:24px; height:24px; border-radius:4px; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+                                <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                                    <strong>${ui.escHtml(t.title || 'Unknown')}</strong>
+                                    <span style="color:var(--text-sub);"> · ${ui.escHtml(t.artist || 'Unknown')}</span>
+                                </span>
+                                <button type="button" class="btn-icon-circle" style="width:20px; height:20px;" onclick="removeSingleImportTrack(${t.id})">
+                                    <i data-lucide="x" style="width:12px; height:12px;"></i>
+                                </button>
+                            </div>`
+                          )
+                          .join('')}
                     </div>
                 </div>`
+                    : ''
+                }`
                     : ''
                 }
             </div>
@@ -963,59 +985,148 @@ export function showCreatePlaylistModal(trackIdToAdd = null) {
   document.getElementById('new-playlist-name')?.focus();
 }
 
-window.handlePlaylistSourceChange = async function (sourceVal) {
-  const picker = document.getElementById('create-playlist-songs-picker');
-  const list = document.getElementById('create-playlist-tracks-list');
-  if (!picker || !list) return;
+window.clearSelectedImportTracks = function () {
+  selectedImportTracks = [];
+  showCreatePlaylistModal(null);
+};
+
+window.removeSingleImportTrack = function (trackId) {
+  selectedImportTracks = selectedImportTracks.filter((t) => Number(t.id) !== Number(trackId));
+  showCreatePlaylistModal(null);
+};
+
+window.openPlaylistSourceModal = function () {
+  const currentName = document.getElementById('new-playlist-name')?.value || '';
+  const playlists = state.userPlaylists || [];
+
+  const html = `<div class="modal-overlay" onclick="closeModal()">
+        <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 580px; max-height: 85vh; display:flex; flex-direction:column;">
+            <div class="modal-header">
+                <h2><i data-lucide="list-music"></i> ${ui.t('library.select_source_title', 'Choose Songs to Import')}</h2>
+                <button class="modal-close" onclick="showCreatePlaylistModal(null, '${ui.escHtml(currentName).replace(/'/g, "\\'")}')"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body" style="overflow-y:auto; flex:1; padding-right:4px;">
+                <label class="modal-label">${ui.t('library.create_from_source', 'Source Collection')}</label>
+                <select id="modal-import-source-select" class="modal-input" onchange="loadSourceCollectionTracks(this.value)">
+                    <option value="">${ui.t('library.source_choose_btn', 'Choose source collection...')}</option>
+                    <option value="favorites">${ui.t('library.source_favorites', 'Favorite Songs')} (${state.userFavorites.size})</option>
+                    ${playlists.map((p) => `<option value="${p.id}">${ui.escHtml(p.name)} (${p.track_count || 0})</option>`).join('')}
+                </select>
+
+                <div id="modal-import-tracks-container" style="display:none; margin-top:12px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <span class="modal-label" style="margin:0;">${ui.t('library.source_select_songs', 'Select songs to include')}</span>
+                        <div style="display:flex; gap:8px;">
+                            <button type="button" class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="toggleAllImportPicker(true)">${ui.t('library.select_all', 'Select All')}</button>
+                            <button type="button" class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;" onclick="toggleAllImportPicker(false)">${ui.t('library.deselect_all', 'Deselect All')}</button>
+                        </div>
+                    </div>
+                    <div id="modal-import-tracks-list" class="glass-panel" style="max-height: 280px; overflow-y: auto; padding: 8px; border-radius: 8px; display: flex; flex-direction: column; gap: 6px;">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions" style="margin-top: 16px;">
+                <button class="modal-btn-cancel" onclick="showCreatePlaylistModal(null, '${ui.escHtml(currentName).replace(/'/g, "\\'")}')">${ui.t('common.cancel', 'Cancel')}</button>
+                <button class="modal-btn-primary" onclick="confirmImportSelectedTracks('${ui.escHtml(currentName).replace(/'/g, "\\'")}')">
+                    <i data-lucide="check"></i> ${ui.t('library.done', 'Done')}
+                </button>
+            </div>
+        </div>
+    </div>`;
+
+  document.getElementById('modal-container').innerHTML = html;
+  lucide.createIcons();
+};
+
+let loadedSourceTracks = [];
+
+window.loadSourceCollectionTracks = async function (sourceVal) {
+  const container = document.getElementById('modal-import-tracks-container');
+  const list = document.getElementById('modal-import-tracks-list');
+  if (!container || !list) return;
 
   if (!sourceVal) {
-    picker.style.display = 'none';
+    container.style.display = 'none';
     list.innerHTML = '';
+    loadedSourceTracks = [];
     return;
   }
 
-  picker.style.display = 'block';
-  list.innerHTML = `<div style="text-align:center; padding:12px; color:var(--text-sub);">${ui.t('common.loading', 'Loading...')}</div>`;
+  container.style.display = 'block';
+  list.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-sub);">${ui.t('common.loading', 'Loading...')}</div>`;
 
-  let tracks = [];
+  loadedSourceTracks = [];
   try {
     if (sourceVal === 'favorites') {
       const res = await fetch(`${state.API}/favorites`);
-      if (res.ok) tracks = await res.json();
+      if (res.ok) loadedSourceTracks = await res.json();
     } else {
       const res = await fetch(`${state.API}/playlists/${sourceVal}`);
       if (res.ok) {
         const data = await res.json();
-        tracks = data.tracks || [];
+        loadedSourceTracks = data.tracks || [];
       }
     }
   } catch (_) {
-    tracks = [];
+    loadedSourceTracks = [];
   }
 
-  if (!tracks || tracks.length === 0) {
-    list.innerHTML = `<div style="text-align:center; padding:12px; color:var(--text-sub);">${ui.t('library.no_results', 'No songs found in source.')}</div>`;
+  if (!loadedSourceTracks || loadedSourceTracks.length === 0) {
+    list.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-sub);">${ui.t('library.no_results', 'No songs found in this collection.')}</div>`;
     return;
   }
 
-  list.innerHTML = tracks
-    .map(
-      (t) => `
-      <label style="display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; cursor:pointer; background:rgba(255,255,255,0.03); font-size:0.85rem;">
-          <input type="checkbox" class="create-playlist-track-checkbox" value="${t.db_id || t.id}" checked style="accent-color:var(--primary); cursor:pointer;">
-          <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-              <strong>${ui.escHtml(t.title || 'Unknown')}</strong>
-              <span style="color:var(--text-sub);"> · ${ui.escHtml(t.artist || 'Unknown')}</span>
-          </span>
-      </label>`
-    )
+  const existingIds = new Set(selectedImportTracks.map((t) => Number(t.id)));
+
+  list.innerHTML = loadedSourceTracks
+    .map((t) => {
+      const id = t.db_id || t.id;
+      const isChecked = existingIds.has(Number(id)) || existingIds.size === 0;
+      const img = t.thumbnail || '/static/img/default_cover.png';
+      return `
+      <label style="display:flex; align-items:center; gap:10px; padding:8px; border-radius:6px; cursor:pointer; background:rgba(255,255,255,0.04); font-size:0.88rem; transition:background 0.15s;">
+          <input type="checkbox" class="import-track-checkbox" value="${id}" ${isChecked ? 'checked' : ''} style="accent-color:var(--primary); width:16px; height:16px; cursor:pointer;">
+          <img src="${img}" style="width:34px; height:34px; border-radius:4px; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+          <div style="flex:1; min-width:0;">
+              <div style="font-weight:600; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ui.escHtml(t.title || 'Unknown')}</div>
+              <div style="color:var(--text-sub); font-size:0.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ui.escHtml(t.artist || 'Unknown')} · ${ui.escHtml(t.album || '')}</div>
+          </div>
+      </label>`;
+    })
     .join('');
 };
 
-window.toggleAllPlaylistSourcePicker = function (select) {
-  document.querySelectorAll('.create-playlist-track-checkbox').forEach((cb) => {
+window.toggleAllImportPicker = function (select) {
+  document.querySelectorAll('.import-track-checkbox').forEach((cb) => {
     cb.checked = select;
   });
+};
+
+window.confirmImportSelectedTracks = function (playlistName) {
+  const checkedBoxes = document.querySelectorAll('.import-track-checkbox:checked');
+  const checkedIds = new Set(Array.from(checkedBoxes).map((cb) => Number(cb.value)));
+
+  const selectedFromLoaded = loadedSourceTracks
+    .filter((t) => checkedIds.has(Number(t.db_id || t.id)))
+    .map((t) => ({
+      id: t.db_id || t.id,
+      title: t.title,
+      artist: t.artist,
+      thumbnail: t.thumbnail
+    }));
+
+  if (selectedFromLoaded.length > 0) {
+    // Merge without duplicates
+    const combined = [...selectedImportTracks];
+    selectedFromLoaded.forEach((track) => {
+      if (!combined.some((item) => Number(item.id) === Number(track.id))) {
+        combined.push(track);
+      }
+    });
+    selectedImportTracks = combined;
+  }
+
+  showCreatePlaylistModal(null, playlistName);
 };
 
 export function showDeletePlaylistModal(playlistId, playlistName) {
@@ -1057,16 +1168,12 @@ export async function createPlaylist(trackIdToAdd = null) {
     return;
   }
 
-  // Gather selected track IDs from the source picker if present
+  // Gather selected track IDs
   let trackIds = [];
   if (trackIdToAdd) {
     trackIds = [trackIdToAdd];
-  } else {
-    const checkboxes = document.querySelectorAll('.create-playlist-track-checkbox:checked');
-    checkboxes.forEach((cb) => {
-      const tid = Number(cb.value);
-      if (tid && !trackIds.includes(tid)) trackIds.push(tid);
-    });
+  } else if (selectedImportTracks.length > 0) {
+    trackIds = selectedImportTracks.map((t) => Number(t.id)).filter(Boolean);
   }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -1077,6 +1184,7 @@ export async function createPlaylist(trackIdToAdd = null) {
     await offlineStore.queueAction('create_playlist', { name, track_ids: trackIds });
     await offlineStore.saveLibrarySnapshot('playlists', playlists);
     if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
+    selectedImportTracks = [];
     ui.closeModal();
     ui.showToast('Playlist created (offline)', 'success');
     return;
@@ -1096,6 +1204,7 @@ export async function createPlaylist(trackIdToAdd = null) {
       offlineStore.saveLibrarySnapshot('playlists', playlists);
       if (window.trackRecentPlaylist) await window.trackRecentPlaylist(pl.id);
       else if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
+      selectedImportTracks = [];
       ui.closeModal();
       ui.showToast('Playlist created!', 'success');
       if (state.currentViewName === 'library' && window.loadView) window.loadView('library');

@@ -1227,9 +1227,9 @@ export function showTrackActionsSheet(encodedData, playlistId) {
         <i data-lucide="list-plus"></i><span>${ui.t('player.add_to_queue', 'Add to Queue')}</span>
       </button>`);
 
-    if (party.controller.isActive() && party.controller.canAddSongs()) {
+    if (window.partyController?.isActive() && window.partyController?.canAddSongs()) {
       actions.push(`
-        <button class="tas-action-btn" onclick="party.controller.addTrack(${item.db_id || item.id}); closeTrackActionsSheet()">
+        <button class="tas-action-btn" onclick="window.addPartyTrack(${item.db_id || item.id}); closeTrackActionsSheet()">
           <i data-lucide="radio-tower"></i><span>${ui.t('party.add_to_party_queue', 'Add to Party Queue')}</span>
         </button>`);
     }
@@ -1359,8 +1359,8 @@ export function showContextMenu(encodedData, playlistId, x, y) {
     actions.push(`<div class="ctx-item" onclick="addToQueue('${encodedData}'); closeContextMenu()">
       <i data-lucide="list-plus"></i><span>${ui.t('player.add_to_queue', 'Add to Queue')}</span></div>`);
 
-    if (party.controller.isActive() && party.controller.canAddSongs()) {
-      actions.push(`<div class="ctx-item" onclick="party.controller.addTrack(${item.db_id || item.id}); closeContextMenu()">
+    if (window.partyController?.isActive() && window.partyController?.canAddSongs()) {
+      actions.push(`<div class="ctx-item" onclick="window.addPartyTrack(${item.db_id || item.id}); closeContextMenu()">
         <i data-lucide="radio-tower"></i><span>${ui.t('party.add_to_party_queue', 'Add to Party Queue')}</span></div>`);
     }
 

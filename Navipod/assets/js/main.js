@@ -303,6 +303,7 @@ window.markPlaybackPrefsDirty = views.markPlaybackPrefsDirty;
 window.savePlaybackPrefs = views.savePlaybackPrefs;
 
 // Party rooms
+window.partyController = party.controller;
 window.showCreatePartyModal = party.showCreateModal;
 window.createPartyRoom = party.createRoom;
 window.partyControl = party.control;

@@ -1882,18 +1882,31 @@ body {
 .modal-input {
     width: 100%;
     padding: 14px;
-    background: rgba(0, 0, 0, 0.3);
+    background: rgba(20, 22, 26, 0.95);
     border: 1px solid var(--glass-border);
     border-radius: 10px;
-    color: white;
+    color: var(--text-main, #fff);
     margin-bottom: 20px;
     font-size: 0.95rem;
     outline: none;
+    color-scheme: dark;
+}
+
+select.modal-input {
+    background: #181b20;
+    color: #fff;
+    cursor: pointer;
+}
+
+select.modal-input option {
+    background: #181b20;
+    color: #fff;
+    padding: 8px;
 }
 
 .modal-input:focus {
     border-color: var(--accent);
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(28, 31, 38, 0.95);
 }
 
 .modal-list {
