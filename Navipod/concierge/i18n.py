@@ -10,23 +10,29 @@ logger = logging.getLogger(__name__)
 translations: Dict[str, Dict[str, str]] = {}
 
 DEFAULT_LANG = "en"
-SUPPORTED_LANGS = ["en", "es"]
+SUPPORTED_LANGS = ["en", "es", "de"]
 
 
 def load_translations(locales_dir: str = "locales"):
     """Loads all JSON files from the locales directory."""
     global translations
-    if not os.path.exists(locales_dir):
-        logger.warning("Locales directory not found: %s", locales_dir)
+    path = locales_dir
+    if not os.path.isabs(path):
+        resolved = os.path.join(os.path.dirname(__file__), path)
+        if os.path.exists(resolved):
+            path = resolved
+
+    if not os.path.exists(path):
+        logger.warning("Locales directory not found: %s", path)
         return
 
-    for filename in os.listdir(locales_dir):
+    for filename in os.listdir(path):
         if filename.endswith(".json"):
             lang_code = filename.split(".")[0]
             if lang_code not in SUPPORTED_LANGS:
                 continue
             try:
-                with open(os.path.join(locales_dir, filename), "r", encoding="utf-8") as f:
+                with open(os.path.join(path, filename), "r", encoding="utf-8") as f:
                     translations[lang_code] = json.load(f)
                 logger.info("Loaded %s translations", lang_code)
             except Exception as e:

@@ -195,7 +195,7 @@ def test_service_worker_clones_fresh_assets_before_async_cache_open():
 def test_admin_download_manager_renders_worker_and_provider_states():
     templates_root = Path(__file__).resolve().parents[1] / "templates"
     environment = Environment(loader=FileSystemLoader(templates_root))
-    environment.globals.update(static_v="test", _=lambda value: value)
+    environment.globals.update(static_v="test", _=lambda value: value, current_lang=lambda: "en")
     request = type("Request", (), {"query_params": {}})()
 
     rendered = environment.get_template("admin_downloads.html").render(
@@ -232,7 +232,7 @@ def test_admin_download_manager_renders_worker_and_provider_states():
 def test_system_monitor_renders_during_old_handler_new_template_update_window():
     templates_root = Path(__file__).resolve().parents[1] / "templates"
     environment = Environment(loader=FileSystemLoader(templates_root))
-    environment.globals.update(static_v="test", _=lambda value: value)
+    environment.globals.update(static_v="test", _=lambda value: value, current_lang=lambda: "en")
     ram = type("Ram", (), {"percent": 2, "used": 1024**3, "total": 2 * 1024**3})()
     request = type("Request", (), {"query_params": {"msg": "Update applied successfully"}})()
 

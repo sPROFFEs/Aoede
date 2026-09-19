@@ -45,7 +45,15 @@ class RequestContextMiddleware:
             return
 
         request = Request(scope, receive=receive)
-        language = request.cookies.get("lang", "es")
+        language = request.cookies.get("lang")
+        if not language:
+            accept_lang = (request.headers.get("accept-language") or "").lower()
+            if "de" in accept_lang:
+                language = "de"
+            elif "es" in accept_lang:
+                language = "es"
+            else:
+                language = self.default_language
         if language not in self.supported_languages:
             language = self.default_language
         token = self.language_context.set(language)

@@ -504,6 +504,26 @@
 
         <section class="user-settings-panel">
             <div class="user-settings-panel-header">
+                <h2><i data-lucide="globe" width="18" height="18"></i>Language / Idioma / Sprache</h2>
+                <p>Choose your preferred interface language for Navipod.</p>
+            </div>
+            <div class="user-settings-panel-body">
+                <div style="display:flex; gap:12px; flex-wrap:wrap;">
+                    <a href="/user/set-language?lang=en" class="btn-secondary" style="padding:8px 20px; text-decoration:none; {% if current_lang() == 'en' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700; color:var(--primary);{% endif %}">
+                        <i data-lucide="check" width="16" height="16" style="{% if current_lang() != 'en' %}display:none;{% endif %}"></i> English
+                    </a>
+                    <a href="/user/set-language?lang=es" class="btn-secondary" style="padding:8px 20px; text-decoration:none; {% if current_lang() == 'es' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700; color:var(--primary);{% endif %}">
+                        <i data-lucide="check" width="16" height="16" style="{% if current_lang() != 'es' %}display:none;{% endif %}"></i> Español
+                    </a>
+                    <a href="/user/set-language?lang=de" class="btn-secondary" style="padding:8px 20px; text-decoration:none; {% if current_lang() == 'de' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700; color:var(--primary);{% endif %}">
+                        <i data-lucide="check" width="16" height="16" style="{% if current_lang() != 'de' %}display:none;{% endif %}"></i> Deutsch
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="user-settings-panel">
+            <div class="user-settings-panel-header">
                 <h2><i data-lucide="database" width="18" height="18"></i>Data Sources</h2>
                 <p>Provide your own credentials and define the metadata fallback order used by the downloader.</p>
             </div>

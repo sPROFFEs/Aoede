@@ -149,3 +149,24 @@ async def test_change_password_emits_hx_redirect_and_clears_cookie(db_session, m
     assert response.status_code == 303
     assert response.headers.get("hx-redirect") == "/login"
     assert "access_token" in response.headers.get("set-cookie", "")
+
+
+@pytest.mark.anyio
+async def test_i18n_supported_languages_and_cookie_switch(monkeypatch):
+    import i18n
+    import routers.user as user_router
+
+    i18n.load_translations()
+    assert "en" in i18n.SUPPORTED_LANGS
+    assert "es" in i18n.SUPPORTED_LANGS
+    assert "de" in i18n.SUPPORTED_LANGS
+
+    # Test translations lookup
+    assert i18n.get_text("menu.home", "en") == "Home"
+    assert i18n.get_text("menu.home", "es") == "Inicio" or i18n.get_text("menu.home", "es") == "Home"
+    assert i18n.get_text("menu.home", "de") == "Startseite"
+
+    request = Request({"type": "http", "method": "GET", "path": "/user/set-language?lang=de", "headers": []})
+    resp = await user_router.set_language("de", request)
+    assert resp.status_code == 303
+    assert "lang=de" in resp.headers.get("set-cookie", "")

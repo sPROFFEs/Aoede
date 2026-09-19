@@ -107,6 +107,7 @@ def get_text_context(key: str):
 
 templates.env.globals["_"] = get_text_context
 templates.env.globals["domain"] = settings.DOMAIN
+templates.env.globals["current_lang"] = lambda: current_lang.get()
 
 INSECURE_DEFAULT_SECRET_KEY = "unsafe-default-secret-key-change-me-in-production"
 

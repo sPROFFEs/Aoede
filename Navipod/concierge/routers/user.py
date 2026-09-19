@@ -612,6 +612,26 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
         )
 
 
+@router.get("/set-language")
+@router.post("/set-language")
+async def set_language(lang: str, request: Request):
+    """Set preferred user language in a cookie."""
+    import i18n
+
+    if lang not in i18n.SUPPORTED_LANGS:
+        lang = i18n.DEFAULT_LANG
+    referer = request.headers.get("referer") or "/portal"
+    response = RedirectResponse(referer, status_code=303)
+    response.set_cookie(
+        "lang",
+        lang,
+        max_age=365 * 24 * 60 * 60,
+        path="/",
+        samesite="lax",
+    )
+    return response
+
+
 @router.get("/avatar/{username}")
 async def get_avatar(username: str, db: Session = Depends(get_db)):
     """Serve user avatar or default"""

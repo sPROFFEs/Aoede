@@ -230,6 +230,14 @@
                                     <i data-lucide="help-circle"></i>
                                     <span>{{ _('menu.help') if _ else 'Help' }}</span>
                                 </button>
+                                <div style="border-top:1px solid rgba(255,255,255,0.08); margin:6px 0; padding:6px 8px;">
+                                    <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-sub); letter-spacing:0.04em; margin-bottom:6px; padding-left:4px;">Language</div>
+                                    <div style="display:flex; gap:6px;">
+                                        <a href="/user/set-language?lang=en" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; flex:1; text-align:center; text-decoration:none; {% if current_lang() == 'en' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700;{% endif %}">EN</a>
+                                        <a href="/user/set-language?lang=es" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; flex:1; text-align:center; text-decoration:none; {% if current_lang() == 'es' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700;{% endif %}">ES</a>
+                                        <a href="/user/set-language?lang=de" class="btn-secondary" style="padding:4px 8px; font-size:0.75rem; flex:1; text-align:center; text-decoration:none; {% if current_lang() == 'de' %}background:rgba(255,255,255,0.22); border-color:var(--primary); font-weight:700;{% endif %}">DE</a>
+                                    </div>
+                                </div>
                                 <form action="/logout" method="post" onsubmit="if (window.clearOfflineData) window.clearOfflineData();">
                                     <button type="submit" class="user-menu-action user-menu-action-danger">
                                         <i data-lucide="log-out"></i>

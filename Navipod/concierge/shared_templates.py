@@ -31,7 +31,12 @@ TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 if not TEMPLATES_DIR.is_dir():
     TEMPLATES_DIR = Path("templates")
 
+import i18n
+
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 # Expose static asset version as a Jinja2 global so every template can use
 # {{ static_v }} without any Python-side boilerplate.
 templates.env.globals["static_v"] = _compute_static_version()
+templates.env.globals["_"] = lambda key: i18n.get_text(key)
+templates.env.globals["current_lang"] = lambda: "en"
+templates.env.globals["domain"] = "localhost"
