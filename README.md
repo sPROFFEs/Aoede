@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="Navipod/assets/icon.png" alt="Aoede" width="180">
+  <img src="Aoede/assets/icon.png" alt="Aoede" width="180">
 </p>
 
 # Aoede

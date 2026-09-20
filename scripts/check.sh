@@ -12,18 +12,18 @@ if [[ -z "${VIRTUAL_ENV:-}" && -x "$PROJECT_ROOT/.venv/bin/python" ]]; then
 fi
 PYTHON_BIN="${PYTHON_BIN:-python}"
 
-"$PYTHON_BIN" -m compileall -q Navipod/concierge Navipod/downloader-worker
+"$PYTHON_BIN" -m compileall -q Aoede/concierge Aoede/downloader-worker
 "$PYTHON_BIN" -m pytest \
-  --cov=Navipod/concierge \
-  --cov=Navipod/downloader-worker \
+  --cov=Aoede/concierge \
+  --cov=Aoede/downloader-worker \
   --cov-report=term-missing:skip-covered \
   --cov-fail-under=19
-"$PYTHON_BIN" -m vulture Navipod/concierge Navipod/downloader-worker \
+"$PYTHON_BIN" -m vulture Aoede/concierge Aoede/downloader-worker \
   --min-confidence 100 \
   --exclude '*/tests/*,*/test_*.py'
 
 if command -v shellcheck >/dev/null 2>&1; then
-  shellcheck Navipod/concierge/entrypoint.sh Navipod/downloader-worker/entrypoint.sh Navipod/setup.sh scripts/check.sh
+  shellcheck Aoede/concierge/entrypoint.sh Aoede/downloader-worker/entrypoint.sh Aoede/setup.sh scripts/check.sh
 elif [[ "${CI:-}" == "true" || "${CHECK_REQUIRE_SHELLCHECK:-0}" == "1" ]]; then
   echo "shellcheck is required in CI. Install it before running the quality check." >&2
   exit 1

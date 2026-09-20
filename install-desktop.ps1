@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Repo = "sPROFFEs/Aoede"
-$Tag = "v1.2.0-wrappers"
+$Tag = "v1.2.0"
 $InstallDir = "$env:LOCALAPPDATA\Aoede"
 $PackageName = "aoede-win-x64.tar.gz"
 

@@ -6,7 +6,7 @@ export default [
   },
   js.configs.recommended,
   {
-    files: ["Navipod/assets/js/**/*.js"],
+    files: ["Aoede/assets/js/**/*.js"],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: "module",

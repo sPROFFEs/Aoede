@@ -2,7 +2,7 @@
 set -e
 
 REPO="sPROFFEs/Aoede"
-TAG="v1.2.0-wrappers"
+TAG="v1.2.0"
 
 echo "🎵 Installing Aoede Desktop App ($TAG)..."
 
@@ -37,7 +37,7 @@ EOF
         chmod +x "$BIN_DIR/aoede"
 
         echo "🖼️  Installing App Icon..."
-        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Navipod/assets/icon.png" -o "$ICON_DIR/aoede.png" 2>/dev/null || true
+        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Aoede/assets/icon.png" -o "$ICON_DIR/aoede.png" 2>/dev/null || true
         
         echo "📝 Creating Desktop entry..."
         cat <<EOF > "$DESKTOP_DIR/aoede.desktop"
@@ -71,7 +71,7 @@ EOF
         cp "$TEMP_DIR/resources.neu" "$APP_PATH/Contents/MacOS/resources.neu"
         chmod +x "$APP_PATH/Contents/MacOS/aoede"
 
-        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Navipod/assets/icon.png" -o "$APP_PATH/Contents/Resources/appIcon.png" 2>/dev/null || true
+        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Aoede/assets/icon.png" -o "$APP_PATH/Contents/Resources/appIcon.png" 2>/dev/null || true
 
         cat <<EOF > "$APP_PATH/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>

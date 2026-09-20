@@ -82,7 +82,7 @@ def test_auth_browser_proxy_supports_cookie_and_legacy_query_handoff():
 
 def test_updater_rebuilds_worker_for_worker_changes_and_keeps_updater_alive():
     selected, deferred = update_service._select_services_for_update(
-        ["Navipod/downloader-worker/worker.py", "Navipod/concierge/downloader_worker_client.py"]
+        ["Aoede/downloader-worker/worker.py", "Aoede/concierge/downloader_worker_client.py"]
     )
 
     assert selected == ["concierge", "downloader"]
@@ -90,7 +90,7 @@ def test_updater_rebuilds_worker_for_worker_changes_and_keeps_updater_alive():
 
 
 def test_regular_frontend_change_does_not_recreate_worker():
-    selected, deferred = update_service._select_services_for_update(["Navipod/assets/css/style.css"])
+    selected, deferred = update_service._select_services_for_update(["Aoede/assets/css/style.css"])
 
     assert selected == []
     assert deferred == ["updater"]
@@ -99,11 +99,11 @@ def test_regular_frontend_change_does_not_recreate_worker():
 def test_frontend_change_with_python_tests_does_not_recreate_services():
     selected, deferred = update_service._select_services_for_update(
         [
-            "Navipod/assets/css/ui_home.css",
-            "Navipod/assets/js/modules/party.js",
-            "Navipod/assets/js/modules/views.js",
-            "Navipod/concierge/templates/login.html",
-            "Navipod/concierge/tests/test_frontend_styles.py",
+            "Aoede/assets/css/ui_home.css",
+            "Aoede/assets/js/modules/party.js",
+            "Aoede/assets/js/modules/views.js",
+            "Aoede/concierge/templates/login.html",
+            "Aoede/concierge/tests/test_frontend_styles.py",
         ]
     )
 
@@ -112,7 +112,7 @@ def test_frontend_change_with_python_tests_does_not_recreate_services():
 
 
 def test_concierge_runtime_python_change_recreates_concierge():
-    selected, deferred = update_service._select_services_for_update(["Navipod/concierge/routers/admin.py"])
+    selected, deferred = update_service._select_services_for_update(["Aoede/concierge/routers/admin.py"])
 
     assert selected == ["concierge"]
     assert deferred == ["updater"]
@@ -239,14 +239,14 @@ def test_compose_update_forces_runtime_recreation_for_bind_mounted_source():
 
 
 def test_bind_mounted_runtime_changes_do_not_trigger_image_rebuild():
-    changed_files = ["Navipod/nginx.conf", "Navipod/concierge/auth_browser.py"]
+    changed_files = ["Aoede/nginx.conf", "Aoede/concierge/auth_browser.py"]
 
     assert update_service.ops.should_rebuild_for_changed_files(changed_files) is False
     assert update_service.ops.matched_rebuild_targets(changed_files) == []
 
 
 def test_worker_image_changes_still_trigger_image_rebuild():
-    changed_files = ["Navipod/downloader-worker/Dockerfile", "Navipod/downloader-worker/worker.py"]
+    changed_files = ["Aoede/downloader-worker/Dockerfile", "Aoede/downloader-worker/worker.py"]
 
     assert update_service.ops.should_rebuild_for_changed_files(changed_files) is True
     assert update_service.ops.matched_rebuild_targets(changed_files) == [
