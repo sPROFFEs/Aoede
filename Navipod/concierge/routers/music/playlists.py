@@ -567,39 +567,46 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
-    playlist = database.Playlist(name=playlist_name, owner_id=user.id, is_collaborative=req.is_collaborative)
-    db.add(playlist)
-    db.commit()
-    db.refresh(playlist)
-
-    # If initial track_ids were provided (e.g. from existing playlist or favorites)
-    if req.track_ids:
-        # Validate track ownership or existence in user's library
-        unique_ids = []
-        for tid in req.track_ids:
-            if isinstance(tid, int) and tid not in unique_ids:
-                unique_ids.append(tid)
-
-        valid_tracks = (
-            db.query(database.Track).filter(database.Track.id.in_(unique_ids), database.Track.user_id == user.id).all()
-        )
-        valid_track_ids = {t.id for t in valid_tracks}
-        pos = 1
-        for tid in unique_ids:
-            if tid in valid_track_ids:
-                item = database.PlaylistItem(playlist_id=playlist.id, track_id=tid, position=pos)
-                db.add(item)
-                pos += 1
+    try:
+        playlist = database.Playlist(name=playlist_name, owner_id=user.id, is_collaborative=req.is_collaborative)
+        db.add(playlist)
         db.commit()
+        db.refresh(playlist)
 
-    # Generate M3U
-    generate_m3u_for_playlist(db, playlist, user.username)
+        # If initial track_ids were provided (e.g. from existing playlist or favorites)
+        if req.track_ids:
+            # Validate track ownership or existence in user's library
+            unique_ids = []
+            for tid in req.track_ids:
+                if isinstance(tid, int) and tid not in unique_ids:
+                    unique_ids.append(tid)
 
-    # Trigger Sync
-    schedule_playlist_sync(db, user)
-    schedule_navidrome_sync(user.id, user.username, delay_seconds=2.0)
+            valid_tracks = (
+                db.query(database.Track)
+                .filter(database.Track.id.in_(unique_ids), database.Track.user_id == user.id)
+                .all()
+            )
+            valid_track_ids = {t.id for t in valid_tracks}
+            pos = 1
+            for tid in unique_ids:
+                if tid in valid_track_ids:
+                    item = database.PlaylistItem(playlist_id=playlist.id, track_id=tid, position=pos)
+                    db.add(item)
+                    pos += 1
+            db.commit()
 
-    return JSONResponse(serialize_playlist_summary(db, playlist, user.id))
+        # Generate M3U
+        generate_m3u_for_playlist(db, playlist, user.username)
+
+        # Trigger Sync
+        schedule_playlist_sync(db, user)
+        schedule_navidrome_sync(user.id, user.username, delay_seconds=2.0)
+
+        return JSONResponse(serialize_playlist_summary(db, playlist, user.id))
+    except Exception as exc:
+        db.rollback()
+        logger.exception("Failed to create playlist '%s': %s", playlist_name, exc)
+        return JSONResponse({"error": "Failed to create playlist. Please try again."}, status_code=500)
 
 
 @router.post("/api/playlists/{playlist_id}/public")

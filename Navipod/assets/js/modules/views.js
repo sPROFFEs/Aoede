@@ -2863,7 +2863,7 @@ export async function renderProfile(container, username) {
   }
 
   container.innerHTML = `
-    <section class="home-overview library-theme" style="padding-bottom: 24px;">
+    <section class="home-overview library-theme user-profile-shell" style="padding-bottom: 24px;">
       <button class="library-back" onclick="history.back()" style="margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--text-sub); cursor:pointer; font-size:0.88rem;">
         <i data-lucide="arrow-left" width="16" height="16"></i> ${ui.t('common.back', 'Back')}
       </button>

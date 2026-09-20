@@ -209,9 +209,13 @@
 #view-container > .party-owner-notice,
 #view-container > .party-autoplay-banner,
 #view-container > .party-room-list,
-#view-container > .party-layout {
-    margin-left: 16px;
-    margin-right: 16px;
+#view-container > .party-layout,
+#view-container > .home-overview,
+.user-profile-shell,
+.user-profile-header,
+.profile-hero-section {
+    padding-left: 16px;
+    padding-right: 16px;
 }
 
 /* Party banners are full-width on desktop. Inside the zero-padding mobile
@@ -785,7 +789,7 @@ body, .main-view, .view-content { background: #121212 !important; }
 body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { display: none; }
 .home-overview > .hero-section { display: none; }
-.home-overview { padding: 0 !important; background: transparent; margin-bottom: 24px; }
+.home-overview { padding: 0 16px !important; background: transparent; margin-bottom: 24px; box-sizing: border-box; }
 .home-overview::before { display: none; }
 .home-tab.active { background: var(--primary); color: #101010; }
 .home-overview .quick-picks-grid { margin: 0 16px 26px; }

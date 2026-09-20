@@ -54,16 +54,73 @@ async function collaboratorsRequest(playlistId, method = 'GET', userId = null) {
   return data;
 }
 
+let cachedServerUsers = [];
+
 export async function showCollaboratorsModal(playlistId) {
   try {
-    const data = await collaboratorsRequest(playlistId);
+    const [data, usersList] = await Promise.all([
+      collaboratorsRequest(playlistId),
+      api.fetchUsersList().catch(() => [])
+    ]);
+    cachedServerUsers = usersList || [];
+
+    const existingMemberNames = new Set(data.members.map((m) => m.username.toLowerCase()));
+    const currentUser = (window.USER_DATA?.username || '').toLowerCase();
+    const availableUsers = cachedServerUsers.filter(
+      (u) => !existingMemberNames.has(u.username.toLowerCase()) && u.username.toLowerCase() !== currentUser
+    );
+
     document.getElementById('modal-container').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="collaborators-title">
+        <div class="modal modal-create" role="dialog" aria-modal="true" aria-labelledby="collaborators-title" style="max-width:520px; max-height:85vh; display:flex; flex-direction:column;">
           <div class="modal-header"><h2 id="collaborators-title">Collaborators</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
-          <p class="modal-subtitle">Invite someone on this Navipod server. They can add, remove, and reorder songs. You control sharing and deletion.</p>
-          ${data.is_owner ? `<form onsubmit="event.preventDefault(); updateCollaborator(${playlistId}, 'POST')"><label class="modal-label" for="collaborator-username">Username</label><div class="collaborator-form"><input id="collaborator-username" class="modal-input" maxlength="100" required autocomplete="off" placeholder="Enter a username"><button class="btn-primary" type="submit">Invite</button></div></form>` : ''}
-          <div class="collaborator-list">${data.members.length ? data.members.map((member) => `<div class="collaborator-row"><span>${ui.escHtml(member.username)}</span>${data.is_owner ? `<button class="btn-secondary" onclick="updateCollaborator(${playlistId}, 'DELETE', ${Number(member.id)})" aria-label="Remove ${ui.escHtml(member.username)}">Remove</button>` : ''}</div>`).join('') : '<p class="modal-subtitle">No collaborators yet.</p>'}</div>
+          <p class="modal-subtitle" style="margin-bottom:14px;">Invite someone on this Navipod server. They can add, remove, and reorder songs. You control sharing and deletion.</p>
+          
+          ${
+            data.is_owner
+              ? `
+          <div style="margin-bottom: 16px;">
+            <label class="modal-label" for="collaborator-username">Add Collaborator</label>
+            <div class="collaborator-form" style="position:relative;">
+              <input id="collaborator-username" class="modal-input" maxlength="100" autocomplete="off" placeholder="Search user to invite..." style="margin-bottom:0;" oninput="filterCollaboratorUsers(this.value, ${playlistId})">
+              <button class="btn-primary" type="button" onclick="submitInviteCollaborator(${playlistId})">Invite</button>
+            </div>
+            <div id="collab-user-suggestions" class="glass-panel" style="margin-top:8px; max-height:160px; overflow-y:auto; border-radius:8px; padding:6px; display:${availableUsers.length ? 'flex' : 'none'}; flex-direction:column; gap:4px;">
+              ${availableUsers
+                .map(
+                  (u) => `
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escHtml(u.username).replace(/'/g, "\\'")}', ${playlistId})">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    <img src="${u.avatar_url}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+                    <span><strong>${ui.escHtml(u.username)}</strong></span>
+                  </div>
+                  <span class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;">Select</span>
+                </div>`
+                )
+                .join('')}
+            </div>
+          </div>`
+              : ''
+          }
+
+          <div style="flex:1; overflow-y:auto;">
+            <span class="modal-label">Current Members (${data.members.length})</span>
+            <div class="collaborator-list" style="display:flex; flex-direction:column; gap:6px;">
+              ${
+                data.members.length
+                  ? data.members
+                      .map(
+                        (member) => `
+                <div class="collaborator-row" style="display:flex; align-items:center; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.03); border-radius:6px;">
+                  <span><strong>${ui.escHtml(member.username)}</strong></span>
+                  ${data.is_owner ? `<button class="btn-secondary" onclick="updateCollaborator(${playlistId}, 'DELETE', ${Number(member.id)})" aria-label="Remove ${ui.escHtml(member.username)}">Remove</button>` : ''}
+                </div>`
+                      )
+                      .join('')
+                  : '<p class="modal-subtitle">No collaborators yet.</p>'
+              }
+            </div>
+          </div>
         </div>
       </div>`;
     ui.refreshIcons(document.getElementById('modal-container'));
@@ -72,6 +129,48 @@ export async function showCollaboratorsModal(playlistId) {
     ui.showToast(error.message, 'error');
   }
 }
+
+window.filterCollaboratorUsers = function (query, playlistId) {
+  const suggestions = document.getElementById('collab-user-suggestions');
+  if (!suggestions) return;
+  const q = (query || '').trim().toLowerCase();
+  const filtered = cachedServerUsers.filter((u) => u.username.toLowerCase().includes(q));
+
+  if (!filtered.length) {
+    suggestions.style.display = 'none';
+    suggestions.innerHTML = '';
+    return;
+  }
+
+  suggestions.style.display = 'flex';
+  suggestions.innerHTML = filtered
+    .map(
+      (u) => `
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escHtml(u.username).replace(/'/g, "\\'")}', ${playlistId})">
+      <div style="display:flex; align-items:center; gap:8px;">
+        <img src="${u.avatar_url}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+        <span><strong>${ui.escHtml(u.username)}</strong></span>
+      </div>
+      <span class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;">Select</span>
+    </div>`
+    )
+    .join('');
+};
+
+window.selectCollabUser = function (username, playlistId) {
+  const input = document.getElementById('collaborator-username');
+  if (input) input.value = username;
+  if (typeof window.submitInviteCollaborator === 'function') {
+    window.submitInviteCollaborator(playlistId);
+  }
+};
+
+window.submitInviteCollaborator = async function (playlistId) {
+  const input = document.getElementById('collaborator-username');
+  const val = input?.value?.trim();
+  if (!val) return;
+  await updateCollaborator(playlistId, 'POST');
+};
 
 export async function updateCollaborator(playlistId, method, userId = null) {
   try {
