@@ -16,10 +16,12 @@ def _resolve_database_url() -> str:
     if configured:
         return configured
 
+    # Inside containers, persistent data is mounted at /saas-data.
+    if Path("/saas-data").exists():
+        db_path = Path("/saas-data") / "concierge.db"
+        return f"sqlite:///{db_path.as_posix()}"
+
     host_root = Path(settings.HOST_DATA_ROOT)
-    # Keep backward-compatible container default when HOST_DATA_ROOT is not mounted.
-    if not host_root.exists() and Path("/saas-data").exists():
-        host_root = Path("/saas-data")
     db_path = host_root.resolve() / "concierge.db"
     return f"sqlite:///{db_path.as_posix()}"
 
