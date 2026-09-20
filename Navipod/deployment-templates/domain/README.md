@@ -1,6 +1,6 @@
 # Domain + Let's Encrypt deployment template
 
-For a public Navipod with your own DNS name and a real Let's Encrypt
+For a public Aoede with your own DNS name and a real Let's Encrypt
 certificate served by nginx. The Cloudflare Tunnel is removed; you publish
 directly via DNS + ports 80/443.
 
@@ -45,8 +45,8 @@ docker compose down 2>/dev/null || true
 # Issue cert with certbot listening on :80 directly
 docker run --rm \
     -p 80:80 \
-    -v navipod_certbot_etc:/etc/letsencrypt \
-    -v navipod_certbot_www:/var/www/certbot \
+    -v aoede_certbot_etc:/etc/letsencrypt \
+    -v aoede_certbot_www:/var/www/certbot \
     certbot/certbot certonly --standalone \
         --non-interactive --agree-tos \
         --email "<your-email>" \
@@ -87,7 +87,7 @@ restarts. Two ways to handle that:
 
 ```cron
 # crontab -e
-0 4 * * *  cd /path/to/Navipod && /usr/bin/docker compose exec nginx nginx -s reload
+0 4 * * *  cd /path/to/Aoede && /usr/bin/docker compose exec nginx nginx -s reload
 ```
 
 Once a day at 04:00. Lets Encrypt certs renew at 60 days (out of 90 valid),
@@ -117,7 +117,7 @@ nano .env                                  # set TUNNEL_TOKEN, remove ACME_EMAIL
 docker compose up -d
 
 # Optional: free the Let's Encrypt volumes
-docker volume rm navipod_certbot_etc navipod_certbot_www
+docker volume rm aoede_certbot_etc aoede_certbot_www
 ```
 
 ## Troubleshooting

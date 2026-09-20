@@ -119,7 +119,7 @@ def test_concierge_runtime_python_change_recreates_concierge():
 
 
 def test_compose_change_keeps_tunnel_running():
-    selected, deferred = update_service._select_services_for_update(["Navipod/docker-compose.yaml"])
+    selected, deferred = update_service._select_services_for_update(["Aoede/docker-compose.yaml"])
 
     assert selected == ["concierge", "downloader", "nginx"]
     assert "tunnel" not in selected
@@ -134,8 +134,8 @@ def test_tunnel_uses_dynamic_network_address():
 
 def test_host_bind_compose_uses_inspected_concierge_mount_and_preserves_named_volumes(monkeypatch):
     repo_root = PROJECT_ROOT.parent
-    host_repo_root = Path("/srv/navipod")
-    host_concierge_root = host_repo_root / "Navipod" / "concierge"
+    host_repo_root = Path("/srv/aoede")
+    host_concierge_root = host_repo_root / "Aoede" / "concierge"
 
     monkeypatch.setattr(update_service.ops, "REPO_ROOT", repo_root)
     monkeypatch.setattr(update_service.ops, "COMPOSE_PROJECT_ROOT", PROJECT_ROOT)
@@ -163,7 +163,7 @@ def test_host_bind_compose_uses_inspected_concierge_mount_and_preserves_named_vo
 
 def test_mount_discovery_falls_back_to_current_container_id_when_configured_name_is_stale(monkeypatch):
     inspect_targets = []
-    monkeypatch.setenv("SELF_CONTAINER_NAME", "navipod_updater")
+    monkeypatch.setenv("SELF_CONTAINER_NAME", "aoede_updater")
     monkeypatch.setenv("HOSTNAME", "runtime-container-id")
 
     def fake_run(args, **_kwargs):
@@ -172,7 +172,7 @@ def test_mount_discovery_falls_back_to_current_container_id_when_configured_name
             return subprocess.CompletedProcess(
                 args,
                 0,
-                stdout='[{"Type":"bind","Source":"/srv/navipod","Destination":"/workspace"}]\n',
+                stdout='[{"Type":"bind","Source":"/srv/aoede","Destination":"/workspace"}]\n',
                 stderr="",
             )
         return subprocess.CompletedProcess(args, 1, stdout="", stderr="No such container")
@@ -181,12 +181,12 @@ def test_mount_discovery_falls_back_to_current_container_id_when_configured_name
 
     source = update_service.ops._get_container_mount_source(Path("/workspace"))
 
-    assert source == Path("/srv/navipod")
-    assert inspect_targets == ["navipod_updater", "runtime-container-id"]
+    assert source == Path("/srv/aoede")
+    assert inspect_targets == ["aoede_updater", "runtime-container-id"]
 
 
 def test_container_compose_recreate_fails_closed_when_host_mounts_cannot_be_resolved(monkeypatch):
-    monkeypatch.setenv("SELF_CONTAINER_NAME", "navipod_updater")
+    monkeypatch.setenv("SELF_CONTAINER_NAME", "aoede_updater")
     monkeypatch.setattr(update_service.ops, "_build_host_bind_compose_file", lambda: None)
 
     with pytest.raises(RuntimeError, match="refusing an unsafe Compose recreate"):
@@ -203,8 +203,7 @@ def test_stale_compose_container_cleanup_uses_service_label(monkeypatch):
                 args,
                 0,
                 stdout=(
-                    "abc123\tnavipod-tunnel-1\tExited (1)\ttunnel\n"
-                    "def456\tnavipod-concierge-1\tUp 1 minute\tconcierge\n"
+                    "abc123\taoede-tunnel-1\tExited (1)\ttunnel\ndef456\taoede-concierge-1\tUp 1 minute\tconcierge\n"
                 ),
                 stderr="",
             )
@@ -214,7 +213,7 @@ def test_stale_compose_container_cleanup_uses_service_label(monkeypatch):
 
     removed = update_service.ops.cleanup_stale_recreate_containers(["tunnel", "concierge"])
 
-    assert removed == ["navipod-tunnel-1"]
+    assert removed == ["aoede-tunnel-1"]
     assert ["rm", "-f", "abc123"] in calls
 
 

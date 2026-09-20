@@ -10,7 +10,7 @@ Use:
 https://your-domain/<username>
 ```
 
-Use the same Navipod username and password for the connection.
+Use the same Aoede username and password for the connection.
 
 ## Compatible clients
 
@@ -27,8 +27,8 @@ If a client offers a choice between modern and legacy authentication and cannot 
 
 1. Install your preferred Subsonic client.
 2. Add a server.
-3. Enter the Navipod user URL.
-4. Enter the same credentials you use for Navipod.
+3. Enter the Aoede user URL.
+4. Enter the same credentials you use for Aoede.
 5. Test the connection.
 
 ## HTTPS recommendation

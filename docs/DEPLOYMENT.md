@@ -1,6 +1,6 @@
 # Deployment
 
-Navipod supports three deployment modes. The default repository files are configured for Cloudflare Tunnel.
+Aoede supports three deployment modes. The default repository files are configured for Cloudflare Tunnel.
 
 | Mode | Public access | TLS | Use when |
 |---|---:|---|---|
@@ -10,18 +10,18 @@ Navipod supports three deployment modes. The default repository files are config
 
 ## How deployment modes are switched
 
-Project tooling and the in-app updater expect the standard live filenames inside `Navipod/`:
+Project tooling and the in-app updater expect the standard live filenames inside `Aoede/`:
 
 ```text
-Navipod/docker-compose.yaml
-Navipod/nginx.conf
-Navipod/.env
+Aoede/docker-compose.yaml
+Aoede/nginx.conf
+Aoede/.env
 ```
 
 The alternative deployment modes therefore replace those files instead of using Compose overlays. Templates live in:
 
 ```text
-Navipod/deployment-templates/
+Aoede/deployment-templates/
 ├── internal/
 │   ├── README.md
 │   ├── docker-compose.yaml
@@ -40,8 +40,8 @@ The Cloudflare mode is already present at the standard filenames in a fresh clon
 ## 1. Cloudflare Tunnel — default
 
 ```bash
-git clone https://github.com/sPROFFEs/Navipod
-cd Navipod/Navipod
+git clone https://github.com/sPROFFEs/Aoede
+cd Aoede/Aoede
 cp .env.example .env
 nano .env   # set SECRET_KEY, TUNNEL_TOKEN and DOMAIN
 chmod +x setup.sh && ./setup.sh
@@ -66,7 +66,7 @@ Browser sessions are session cookies by default. Selecting **Remember me** creat
 Use this only on a trusted LAN or behind a VPN such as WireGuard or Tailscale.
 
 ```bash
-cd Navipod/Navipod
+cd Aoede/Aoede
 cp deployment-templates/internal/docker-compose.yaml docker-compose.yaml
 cp deployment-templates/internal/.env.example .env
 nano .env
@@ -98,14 +98,14 @@ If login loops back to the login page, verify `COOKIE_SECURE=false` and restart 
 Use this mode when you have:
 
 1. A registered domain.
-2. A DNS A record pointing the Navipod hostname to the host's public IP.
+2. A DNS A record pointing the Aoede hostname to the host's public IP.
 3. Ports **80** and **443** forwarded to the host.
 4. No conflicting service already bound to those ports.
 
 ### Copy the domain template
 
 ```bash
-cd Navipod/Navipod
+cd Aoede/Aoede
 cp deployment-templates/domain/docker-compose.yaml docker-compose.yaml
 cp deployment-templates/domain/nginx.conf nginx.conf
 cp deployment-templates/domain/.env.example .env
@@ -116,7 +116,7 @@ Set the required values, including:
 
 ```dotenv
 SECRET_KEY=...
-DOMAIN=navipod.example.com
+DOMAIN=aoede.example.com
 ACME_EMAIL=you@example.com
 ALLOWED_HOSTS=...
 COOKIE_SECURE=true
@@ -133,8 +133,8 @@ docker compose down 2>/dev/null || true
 
 docker run --rm \
   -p 80:80 \
-  -v navipod_certbot_etc:/etc/letsencrypt \
-  -v navipod_certbot_www:/var/www/certbot \
+  -v aoede_certbot_etc:/etc/letsencrypt \
+  -v aoede_certbot_www:/var/www/certbot \
   certbot/certbot certonly --standalone \
     --non-interactive --agree-tos \
     --email "<your-email>" \
@@ -150,7 +150,7 @@ The template also documents a webroot option when nginx is already running.
 The Certbot service checks for renewal every 12 hours. Nginx still needs to reload to start serving a renewed certificate. A host cron entry can do that once a day:
 
 ```cron
-0 4 * * * cd /path/to/Navipod && /usr/bin/docker compose exec nginx nginx -s reload
+0 4 * * * cd /path/to/Aoede && /usr/bin/docker compose exec nginx nginx -s reload
 ```
 
 After you have confirmed successful renewals, you can consider enabling HSTS in the domain nginx configuration.

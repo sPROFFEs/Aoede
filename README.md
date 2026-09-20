@@ -1,26 +1,26 @@
 <p align="center">
-  <img src="Navipod/assets/icon.png" alt="Navipod" width="180">
+  <img src="Navipod/assets/icon.png" alt="Aoede" width="180">
 </p>
 
-# Navipod
+# Aoede
 
 **Your self-hosted music universe.**  
 One place for your library, discovery, shared listening and personal Navidrome instances.
 
-![Quality](https://github.com/sPROFFEs/Navipod/actions/workflows/quality.yml/badge.svg)![Version](https://img.shields.io/badge/version-1.1.1-1ed760)![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)![License](https://img.shields.io/badge/license-personal%20use%20only-555555)
+![Quality](https://github.com/sPROFFEs/Aoede/actions/workflows/quality.yml/badge.svg)![Version](https://img.shields.io/badge/version-1.1.1-1ed760)![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)![License](https://img.shields.io/badge/license-personal%20use%20only-555555)
 
-[**Get started**](#quick-start) · [Desktop App](#desktop-apps) · [Android APK](https://github.com/sPROFFEs/Navipod/releases) · [Documentation](#documentation) · [Deployment](docs/DEPLOYMENT.md)
+[**Get started**](#quick-start) · [Desktop App](#desktop-apps) · [Android APK](https://github.com/sPROFFEs/Aoede/releases) · [Documentation](#documentation) · [Deployment](docs/DEPLOYMENT.md)
 
 <img width="3400" height="2048" alt="image" src="https://github.com/user-attachments/assets/6a96a9a3-881b-4881-af96-324baa46afc1" />
 
-Navipod is a personal, self-hosted music platform built around isolated **Navidrome instances per user**, a central **FastAPI concierge**, an isolated **downloader worker**, and a shared music pool. It brings your local library together with discovery from **YouTube, Spotify, Last.fm and MusicBrainz**, while keeping the server under your control.
+Aoede is a personal, self-hosted music platform built around isolated **Navidrome instances per user**, a central **FastAPI concierge**, an isolated **downloader worker**, and a shared music pool. It brings your local library together with discovery from **YouTube, Spotify, Last.fm and MusicBrainz**, while keeping the server under your control.
 
 > \[!IMPORTANT\]  
-> Navipod is licensed for **private, personal, non-commercial use only**. It is not an open-source license. See [LICENSE](LICENSE) for the binding terms.
+> Aoede is licensed for **private, personal, non-commercial use only**. It is not an open-source license. See [LICENSE](LICENSE) for the binding terms.
 
-## Why Navipod?
+## Why Aoede?
 
-<div class="joplin-table-wrapper"><table style="min-width: 50px"><tbody><tr><td colspan="1" rowspan="1"><h3 data-id="nglscjldgfgs" id="nglscjldgfgs">🎧 Search beyond your library</h3><p data-id="uwgwmprvgphw">Search local music and remote providers from one interface, preview results, download tracks and enrich metadata without jumping between services.</p></td><td colspan="1" rowspan="1"><h3 data-id="csqfuhvbbphn" id="csqfuhvbbphn">👤 Isolated multi-user streaming</h3><p data-id="mznrunftvyag">Each user gets an isolated Navidrome container while Navipod handles orchestration, shared storage and the surrounding experience.</p></td></tr><tr><td colspan="1" rowspan="1"><h3 data-id="qnyylvhddoah" id="qnyylvhddoah">🎉 Party Rooms</h3><p data-id="wrzmsxaiwdwy">Create synchronized listening rooms with a shared queue, host controls, playlist seeding and optional guest additions from the local library.</p></td><td colspan="1" rowspan="1"><h3 data-id="pnhkgcsyxxjv" id="pnhkgcsyxxjv">🧠 Personal mixes</h3><p data-id="uobqoavdeegy">Repeat, Deep Cuts, Favorites and Rediscovery mixes sit alongside recommendations and smart playlists that react to your library.</p></td></tr><tr><td colspan="1" rowspan="1"><h3 data-id="jmqytkxyvxio" id="jmqytkxyvxio">📱 Web, Android &amp; Subsonic</h3><p data-id="mecveitxkuhc">Use the web app, the native Android wrapper, or connect compatible Subsonic clients such as Amperfy, Tempo and Symfonium.</p></td><td colspan="1" rowspan="1"><h3 data-id="uqervmhthzaz" id="uqervmhthzaz">🛠️ Built-in operations</h3><p data-id="bqfthbdtrofh">Admin tools cover users, library health, metadata rescans, rotating backups, monitoring and in-app updates.</p></td></tr></tbody></table></div>
+<div class="joplin-table-wrapper"><table style="min-width: 50px"><tbody><tr><td colspan="1" rowspan="1"><h3 data-id="nglscjldgfgs" id="nglscjldgfgs">🎧 Search beyond your library</h3><p data-id="uwgwmprvgphw">Search local music and remote providers from one interface, preview results, download tracks and enrich metadata without jumping between services.</p></td><td colspan="1" rowspan="1"><h3 data-id="csqfuhvbbphn" id="csqfuhvbbphn">👤 Isolated multi-user streaming</h3><p data-id="mznrunftvyag">Each user gets an isolated Navidrome container while Aoede handles orchestration, shared storage and the surrounding experience.</p></td></tr><tr><td colspan="1" rowspan="1"><h3 data-id="qnyylvhddoah" id="qnyylvhddoah">🎉 Party Rooms</h3><p data-id="wrzmsxaiwdwy">Create synchronized listening rooms with a shared queue, host controls, playlist seeding and optional guest additions from the local library.</p></td><td colspan="1" rowspan="1"><h3 data-id="pnhkgcsyxxjv" id="pnhkgcsyxxjv">🧠 Personal mixes</h3><p data-id="uobqoavdeegy">Repeat, Deep Cuts, Favorites and Rediscovery mixes sit alongside recommendations and smart playlists that react to your library.</p></td></tr><tr><td colspan="1" rowspan="1"><h3 data-id="jmqytkxyvxio" id="jmqytkxyvxio">📱 Web, Android &amp; Subsonic</h3><p data-id="mecveitxkuhc">Use the web app, the native Android wrapper, or connect compatible Subsonic clients such as Amperfy, Tempo and Symfonium.</p></td><td colspan="1" rowspan="1"><h3 data-id="uqervmhthzaz" id="uqervmhthzaz">🛠️ Built-in operations</h3><p data-id="bqfthbdtrofh">Admin tools cover users, library health, metadata rescans, rotating backups, monitoring and in-app updates.</p></td></tr></tbody></table></div>
 
 ## See it in action
 
@@ -29,7 +29,7 @@ Navipod is a personal, self-hosted music platform built around isolated **Navidr
     <td width="50%" align="center">
       <img
         src="https://github.com/user-attachments/assets/ed3afb15-256a-46a1-a2b9-04fe12ceeb9a"
-        alt="Navipod Public playlists"
+        alt="Aoede Public playlists"
         width="100%"
       />
       <br />
@@ -40,7 +40,7 @@ Navipod is a personal, self-hosted music platform built around isolated **Navidr
     <td width="50%" align="center">
       <img
         src="https://github.com/user-attachments/assets/a959fca3-2fda-4284-9e5d-dbff12346550"
-        alt="Navipod Search"
+        alt="Aoede Search"
         width="100%"
       />
       <br />
@@ -53,7 +53,7 @@ Navipod is a personal, self-hosted music platform built around isolated **Navidr
     <td width="50%" align="center">
       <img
         src="https://github.com/user-attachments/assets/a8cd6892-bafe-4e4d-8323-8a914fc6a0fb"
-        alt="Navipod Party Room"
+        alt="Aoede Party Room"
         width="100%"
       />
       <br />
@@ -64,7 +64,7 @@ Navipod is a personal, self-hosted music platform built around isolated **Navidr
     <td width="50%" align="center">
       <img
         src="https://github.com/user-attachments/assets/a868bc54-0ba3-4781-bcfb-db9e1f8c335b"
-        alt="Navipod Mobile"
+        alt="Aoede Mobile"
         width="220"
       />
       <br />
@@ -92,19 +92,19 @@ Navipod is a personal, self-hosted music platform built around isolated **Navidr
 
 ## Desktop Apps
 
-Install the standalone Navipod desktop wrapper on Windows, Linux, or macOS with a single command:
+Install the standalone Aoede desktop wrapper on Windows, Linux, or macOS with a single command:
 
 #### 🐧 Linux & 🍏 macOS (Terminal)
 ```bash
-curl -fsSL https://raw.githubusercontent.com/sPROFFEs/Navipod/main/install-desktop.sh | bash
+curl -fsSL https://raw.githubusercontent.com/sPROFFEs/Aoede/main/install-desktop.sh | bash
 ```
 
 #### 🪟 Windows (PowerShell)
 ```powershell
-irm https://raw.githubusercontent.com/sPROFFEs/Navipod/main/install-desktop.ps1 | iex
+irm https://raw.githubusercontent.com/sPROFFEs/Aoede/main/install-desktop.ps1 | iex
 ```
 
-*Standalone portable binaries are also available directly on the [Releases](https://github.com/sPROFFEs/Navipod/releases) page.*
+*Standalone portable binaries are also available directly on the [Releases](https://github.com/sPROFFEs/Aoede/releases) page.*
 
 ## How it works
 
@@ -117,7 +117,7 @@ flowchart LR
     F --> U2[Navidrome · User B]
     F --> UX[Navidrome · User N]
     F --> P[(Shared music pool)]
-    F --> D[(Navipod data / DB / backups)]
+    F --> D[(Aoede data / DB / backups)]
     F --> R[Spotify / YouTube / Last.fm / MusicBrainz]
     W --> R
 ```
@@ -137,8 +137,8 @@ The standard Docker stack contains the **concierge**, **isolated downloader**, *
 ### Default deployment: Cloudflare Tunnel
 
 ```bash
-git clone https://github.com/sPROFFEs/Navipod
-cd Navipod/Navipod
+git clone https://github.com/sPROFFEs/Aoede
+cd Aoede/Aoede
 cp .env.example .env
 nano .env   # set SECRET_KEY, TUNNEL_TOKEN and DOMAIN
 chmod +x setup.sh && ./setup.sh
@@ -164,18 +164,18 @@ Everything beyond the quick start lives in the documentation.
 
 | Guide                                      | Description                                                               |
 | ------------------------------------------ | ------------------------------------------------------------------------- |
-| [Installation](docs/INSTALLATION.md)       | Install Navipod and prepare the host environment.                         |
+| [Installation](docs/INSTALLATION.md)       | Install Aoede and prepare the host environment.                         |
 | [Deployment](docs/DEPLOYMENT.md)           | Deploy with Cloudflare Tunnel, LAN access, or your own domain.            |
-| [Configuration](docs/CONFIGURATION.md)     | Configure Navipod, providers, environment variables, and runtime options. |
+| [Configuration](docs/CONFIGURATION.md)     | Configure Aoede, providers, environment variables, and runtime options. |
 | [User Guide](docs/USER-GUIDE.md)           | Learn the main workflows and everyday features.                           |
 | [Party Rooms](docs/PARTY-ROOMS.md)         | Create shared rooms with synchronized playback and queues.                |
 | [Importing Music](docs/IMPORTING-MUSIC.md) | Import and organize an existing music library.                            |
-| [Android](docs/ANDROID.md)                 | Set up and use the Navipod Android application.                           |
-| [Subsonic](docs/SUBSONIC.md)               | Connect compatible Subsonic clients to Navipod.                           |
+| [Android](docs/ANDROID.md)                 | Set up and use the Aoede Android application.                           |
+| [Subsonic](docs/SUBSONIC.md)               | Connect compatible Subsonic clients to Aoede.                           |
 | [Administration](docs/ADMINISTRATION.md)   | Manage users, libraries, updates, and maintenance tasks.                  |
-| [Backup & Restore](docs/BACKUP-RESTORE.md) | Back up Navipod data and restore an installation.                         |
+| [Backup & Restore](docs/BACKUP-RESTORE.md) | Back up Aoede data and restore an installation.                         |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Diagnose common installation, playback, and connectivity issues.          |
-| [Architecture](docs/ARCHITECTURE.md)       | Understand Navipod's services, containers, storage, and data flow.        |
+| [Architecture](docs/ARCHITECTURE.md)       | Understand Aoede's services, containers, storage, and data flow.        |
 | [Security](docs/SECURITY.md)               | Security considerations and recommended deployment practices.             |
 
 > Looking for the full documentation index? See **[docs/README.md](docs/README.md)**.
@@ -192,13 +192,13 @@ Everything beyond the quick start lives in the documentation.
 ## Repository layout
 
 ```text
-Navipod/
+Aoede/
 ├── README.md
 ├── LICENSE
 ├── docs/
 ├── .github/
 │   └── assets/
-└── Navipod/
+└── Aoede/
     ├── assets/
     ├── concierge/
     ├── deployment-templates/
@@ -210,6 +210,6 @@ Navipod/
 
 ## License
 
-Navipod uses a custom **Personal Use Only** license. Private, personal, non-commercial use and modification are allowed. Commercial use, redistribution, sublicensing and offering Navipod as a hosted service are prohibited without prior written permission.
+Aoede uses a custom **Personal Use Only** license. Private, personal, non-commercial use and modification are allowed. Commercial use, redistribution, sublicensing and offering Aoede as a hosted service are prohibited without prior written permission.
 
 Read the complete [LICENSE](LICENSE) before deploying or modifying the project.

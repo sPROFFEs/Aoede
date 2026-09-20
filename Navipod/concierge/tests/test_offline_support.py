@@ -8,7 +8,7 @@ def test_service_worker_offline_support_and_caching_contract():
     content = sw_path.read_text(encoding="utf-8")
 
     # Versioned cache
-    assert "navipod-shell-" in content
+    assert "aoede-shell-" in content
 
     # Precached core assets
     assert "'/portal'" in content

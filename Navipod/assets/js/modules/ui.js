@@ -174,7 +174,7 @@ export function closeModal() {
   document.getElementById('modal-container').innerHTML = '';
   modalReturnFocus?.focus();
   modalReturnFocus = null;
-  document.dispatchEvent(new Event('navipod:modalclosed'));
+  document.dispatchEvent(new Event('aoede:modalclosed'));
 }
 
 // === VOLUME MUTE TOGGLE ===
@@ -182,8 +182,8 @@ export function closeModal() {
 let savedVolume = 0.7;
 
 function _persistVolumeIfWired() {
-  if (typeof window.navipodOnVolumeChange === 'function') {
-    window.navipodOnVolumeChange(state.audio.volume);
+  if (typeof window.aoedeOnVolumeChange === 'function') {
+    window.aoedeOnVolumeChange(state.audio.volume);
   }
 }
 

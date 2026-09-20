@@ -1,6 +1,6 @@
 # Administration
 
-Administrative tools are exposed from the Navipod settings/monitoring areas for admin accounts.
+Administrative tools are exposed from the Aoede settings/monitoring areas for admin accounts.
 
 ## Admin areas
 
@@ -45,7 +45,7 @@ Review the track and reason carefully: approval affects the shared pool, not jus
 
 Open `Admin → Download Manager` to inspect the isolated downloader, switch between automatic, worker-only and legacy modes, and inspect SpotiFLAC lossless-provider sessions.
 
-SpotiFLAC binds verification to the network and browser context that starts the challenge. The Download Manager can open a short-lived noVNC browser running inside the downloader worker, so verification and grant exchange use the worker's network. The session is single-admin, expires automatically, and is stopped when the administrator closes it. Navipod never asks for TIDAL, Qobuz, Deezer or Amazon credentials.
+SpotiFLAC binds verification to the network and browser context that starts the challenge. The Download Manager can open a short-lived noVNC browser running inside the downloader worker, so verification and grant exchange use the worker's network. The session is single-admin, expires automatically, and is stopped when the administrator closes it. Aoede never asks for TIDAL, Qobuz, Deezer or Amazon credentials.
 
 The default **Automatic** policy tries the isolated worker first and retains the Concierge downloader as a compatibility fallback. **Isolated worker only** disables that fallback; **Legacy Concierge only** bypasses the isolated worker.
 
@@ -54,7 +54,7 @@ A lossless provider is attempted only while its signed session is connected and 
 1. Select **Connect** for the provider.
 2. Open its verification browser.
 3. Complete the challenge in the embedded browser. The browser may turn black or close after successful verification.
-4. Select **Check verification** in Navipod to exchange and store the signed grant.
+4. Select **Check verification** in Aoede to exchange and store the signed grant.
 5. Confirm that the provider status changes to **Connected**.
 
 The worker checks connected sessions every 15 minutes and invokes the provider's normal signed refresh before expiry, even when no downloads are running. The status label updates when the page is loaded, manually refreshed, or verification completes; it is not a second-by-second validity probe. A provider can revoke a session early, so a download failure may be the first signal between refreshes. Use **Disconnect** to remove a stored session.
@@ -62,7 +62,7 @@ The worker checks connected sessions every 15 minutes and invokes the provider's
 After pulling a version that changes the downloader image, rebuild it as part of the normal update:
 
 ```bash
-cd Navipod
+cd Aoede
 docker compose up -d --build downloader concierge
 ```
 
@@ -71,16 +71,16 @@ docker compose up -d --build downloader concierge
 If setup did not create the first admin, run this from the directory containing `docker-compose.yaml`:
 
 ```bash
-read -r -p "Admin username: " NAVIPOD_ADMIN_USERNAME
-read -r -s -p "Admin password: " NAVIPOD_ADMIN_PASSWORD; printf '\n'
-export NAVIPOD_ADMIN_USERNAME NAVIPOD_ADMIN_PASSWORD
+read -r -p "Admin username: " AOEDE_ADMIN_USERNAME
+read -r -s -p "Admin password: " AOEDE_ADMIN_PASSWORD; printf '\n'
+export AOEDE_ADMIN_USERNAME AOEDE_ADMIN_PASSWORD
 
 docker compose exec -T \
-  -e NAVIPOD_ADMIN_USERNAME \
-  -e NAVIPOD_ADMIN_PASSWORD \
+  -e AOEDE_ADMIN_USERNAME \
+  -e AOEDE_ADMIN_PASSWORD \
   concierge python create_admin.py
 
-unset NAVIPOD_ADMIN_USERNAME NAVIPOD_ADMIN_PASSWORD
+unset AOEDE_ADMIN_USERNAME AOEDE_ADMIN_PASSWORD
 ```
 
 The password is read without terminal echo and passed through the environment rather than as a visible command-line argument.
@@ -116,7 +116,7 @@ From the repository:
 
 ```bash
 git pull
-cd Navipod
+cd Aoede
 docker compose up -d --build
 ```
 
@@ -124,15 +124,15 @@ If you use a copied deployment template, pay attention to merge conflicts in the
 
 ## Federation (beta)
 
-Federation lets two Navipod servers search and stream from one another without copying the remote catalog locally. It is off until an administrator configures it.
+Federation lets two Aoede servers search and stream from one another without copying the remote catalog locally. It is off until an administrator configures it.
 
-To allow another server to access this one, issue a named federation token and give it securely to the remote administrator. To consume a remote catalog, add its Navipod URL and the token it issued to you, then run a sync. Connections can be disabled, resynchronized or removed, and issued tokens can be revoked.
+To allow another server to access this one, issue a named federation token and give it securely to the remote administrator. To consume a remote catalog, add its Aoede URL and the token it issued to you, then run a sync. Connections can be disabled, resynchronized or removed, and issued tokens can be revoked.
 
 Only federate with administrators you trust. Use HTTPS, transmit tokens through a private channel, and revoke a token when the relationship ends.
 
 ## Backups
 
-Navipod provides rotating application backup slots and also benefits from a host-level backup of the complete data root and `.env`.
+Aoede provides rotating application backup slots and also benefits from a host-level backup of the complete data root and `.env`.
 
 See [Backup & Restore](BACKUP-RESTORE.md).
 

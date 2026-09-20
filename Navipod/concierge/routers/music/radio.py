@@ -6,10 +6,10 @@ import logging
 
 import httpx
 import manager
+from aoede_config import settings
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from http_client import http_client
-from navipod_config import settings
 from shared_templates import templates
 from sqlalchemy.orm import Session
 
@@ -34,7 +34,7 @@ async def fetch_saved_radios_for_user(user):
         "u": user.username,
         "p": settings.NAVIDROME_INTERNAL_PASSWORD,
         "v": "1.16.1",
-        "c": "navipod-concierge",
+        "c": "aoede-concierge",
         "f": "json",
     }
     headers = {"x-navidrome-user": user.username}
@@ -197,7 +197,7 @@ async def inject_radio(
         # Subsonic API parameters (v1.16.1)
         params = {
             "v": "1.16.1",
-            "c": "navipod-concierge",
+            "c": "aoede-concierge",
             "f": "json",
             "streamUrl": real_stream_url,
             "name": name,
@@ -265,7 +265,7 @@ async def delete_saved_radio(radio_id: str, request: Request, db: Session = Depe
             "u": user.username,
             "p": settings.NAVIDROME_INTERNAL_PASSWORD,
             "v": "1.16.1",
-            "c": "navipod-concierge",
+            "c": "aoede-concierge",
             "f": "json",
             "id": radio_id,
         }

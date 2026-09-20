@@ -4,7 +4,7 @@ Status: all reviewed P1 and P2 items are complete as of 2026-09-01.
 
 ## P1 — completed
 
-- [x] Bound storage cleanup to stale Navipod-owned residue, preserve active users/jobs, and run it outside the request.
+- [x] Bound storage cleanup to stale Aoede-owned residue, preserve active users/jobs, and run it outside the request.
 - [x] Close per-user and Wrapped SQLite connections after every transaction.
 - [x] Move blocking image conversion, database-heavy pages, streaming setup, and DNS validation off the async event loop.
 - [x] Prevent concurrent admin-statistics and personalized-mix requests from rebuilding the same cache.

@@ -24,7 +24,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 from urllib.request import urlopen
 
-logger = logging.getLogger("navipod.auth_browser")
+logger = logging.getLogger("aoede.auth_browser")
 
 
 @dataclass
@@ -233,7 +233,7 @@ class AuthBrowserManager:
                 raise RuntimeError(f"could not clear stale Chromium profile lock: {name}") from exc
 
     def _spawn(self, name: str, command: list[str], *, env: dict[str, str] | None = None) -> BrowserProcess:
-        log_path = Path("/tmp") / f"navipod-auth-browser-{secrets.token_hex(6)}-{name}.log"
+        log_path = Path("/tmp") / f"aoede-auth-browser-{secrets.token_hex(6)}-{name}.log"
         log_stream = log_path.open("w", encoding="utf-8")
         process = subprocess.Popen(
             command,

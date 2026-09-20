@@ -3,7 +3,7 @@ Periodic memory audit.
 
 Appends one CSV row per tick to /workspace/ram_audit.log so the host
 can read it at the repo root (the docker-compose mounts `..:/workspace`
-which lands at the Navipod repo root). The file is purely additive —
+which lands at the Aoede repo root). The file is purely additive —
 it just grows over time — so you can `tail` / `awk` it after a week
 and see whether RSS climbed and *what* climbed alongside it.
 

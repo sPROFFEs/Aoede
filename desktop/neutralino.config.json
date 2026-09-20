@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/neutralinojs/neutralinojs/main/schemas/neutralino.config.schema.json",
-  "applicationId": "com.navipod.desktop",
+  "applicationId": "com.aoede.desktop",
   "version": "1.2.0",
   "defaultMode": "window",
   "port": 0,
@@ -22,7 +22,7 @@
   ],
   "modes": {
     "window": {
-      "title": "Navipod",
+      "title": "Aoede",
       "width": 1200,
       "height": 800,
       "minWidth": 420,
@@ -40,7 +40,7 @@
     }
   },
   "cli": {
-    "binaryName": "navipod",
+    "binaryName": "aoede",
     "resourcesPath": "/resources/",
     "extensionsPath": "/extensions/",
     "clientLibrary": "/resources/js/neutralino.js",

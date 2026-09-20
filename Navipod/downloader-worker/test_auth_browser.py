@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import pytest
 
-SPEC = importlib.util.spec_from_file_location("navipod_auth_browser", Path(__file__).with_name("auth_browser.py"))
+SPEC = importlib.util.spec_from_file_location("aoede_auth_browser", Path(__file__).with_name("auth_browser.py"))
 module = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
-sys.modules["navipod_auth_browser"] = module
+sys.modules["aoede_auth_browser"] = module
 SPEC.loader.exec_module(module)
 
 

@@ -22,7 +22,7 @@ function initUpdateToast() {
       const data = await response.json();
       if (!data.update_available || !data.remote_full_commit) return true;
 
-      const dismissKey = `navipod-dismissed-update:${data.remote_full_commit}`;
+      const dismissKey = `aoede-dismissed-update:${data.remote_full_commit}`;
       if (localStorage.getItem(dismissKey) === '1') return false;
 
       const versionLabel = data.remote_version || data.remote_release_version || data.remote_commit || 'unknown';

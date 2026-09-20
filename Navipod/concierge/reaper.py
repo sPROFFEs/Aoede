@@ -85,8 +85,8 @@ def reap_idle_containers():
                         # Obtener IP para chequear streaming
                         networks = container.attrs["NetworkSettings"]["Networks"]
                         ip_address = None
-                        if "navipod-global" in networks:
-                            ip_address = networks["navipod-global"]["IPAddress"]
+                        if "aoede-global" in networks:
+                            ip_address = networks["aoede-global"]["IPAddress"]
                         elif networks:
                             ip_address = list(networks.values())[0]["IPAddress"]
 

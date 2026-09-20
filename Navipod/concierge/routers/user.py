@@ -6,10 +6,10 @@ import shutil
 import auth
 import database
 import spotify_service
+from aoede_config import settings
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from fastapi.responses import RedirectResponse
 from lastfm_service import lastfm_service
-from navipod_config import settings
 from secrets_store import ENC_PREFIX
 from shared_templates import templates
 from sqlalchemy.orm import Session

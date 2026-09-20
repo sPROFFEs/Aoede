@@ -1,4 +1,4 @@
-"""Bounded cleanup for Navipod-owned download residue."""
+"""Bounded cleanup for Aoede-owned download residue."""
 
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ def purge_stale_storage(
     minimum_age_seconds: int = DEFAULT_MINIMUM_AGE_SECONDS,
     now_timestamp: float | None = None,
 ) -> dict[str, int]:
-    """Remove old Navipod residue without touching global temp or active users."""
+    """Remove old Aoede residue without touching global temp or active users."""
     cutoff = (now_timestamp if now_timestamp is not None else time.time()) - max(60, minimum_age_seconds)
     protected = {name for name in (protected_usernames or set()) if name}
     protected_staging = {name for name in (protected_staging_names or set()) if name}

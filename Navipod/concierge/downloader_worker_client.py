@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 import httpx
-from navipod_config import settings
+from aoede_config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -296,8 +296,8 @@ def _cancel_and_confirm(client: httpx.Client, worker_job_id: str) -> bool:
     return False
 
 
-def download_with_worker(manager, url: str, destination: str, navipod_job_id: int) -> dict:
-    worker_job_id = f"navipod-{navipod_job_id}-{uuid.uuid4().hex[:12]}"
+def download_with_worker(manager, url: str, destination: str, aoede_job_id: int) -> dict:
+    worker_job_id = f"aoede-{aoede_job_id}-{uuid.uuid4().hex[:12]}"
     user_settings = manager.settings
     payload = {
         "job_id": worker_job_id,
@@ -330,7 +330,7 @@ def download_with_worker(manager, url: str, destination: str, navipod_job_id: in
                 message = str(last_payload.get("message") or "Downloading in worker")
                 current_log = (message, progress)
                 if current_log != last_log:
-                    manager._log(navipod_job_id, message, progress)
+                    manager._log(aoede_job_id, message, progress)
                     last_log = current_log
                 if last_payload.get("status") in TERMINAL_WORKER_STATUSES:
                     terminal = True

@@ -30,7 +30,7 @@ from http_client import http_client
 logger = logging.getLogger(__name__)
 
 LRCLIB_BASE = "https://lrclib.net/api"
-USER_AGENT = "Navipod/0.1 (https://github.com/navipod) lyrics-fetcher"
+USER_AGENT = "Aoede/0.1 (https://github.com/aoede) lyrics-fetcher"
 
 LYRICS_HIT_TTL = 30 * 24 * 3600  # 30 days
 LYRICS_MISS_TTL = 24 * 3600  # 1 day — give lrclib a chance to add it

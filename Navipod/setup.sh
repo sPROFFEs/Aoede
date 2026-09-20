@@ -1,15 +1,15 @@
 #!/bin/bash
 
-# Navipod Setup Script
+# Aoede Setup Script
 # --------------------
 
-echo "Starting Navipod setup..."
+echo "Starting Aoede setup..."
 
 # --- CONFIGURATION ---
 DATA_ROOT="/opt/saas-data"
 IMPORT_STAGE="$DATA_ROOT/import_stage"
 CONFIG_ROOT="$DATA_ROOT/config"
-CONFIG_ENV="$CONFIG_ROOT/navipod.env"
+CONFIG_ENV="$CONFIG_ROOT/aoede.env"
 
 # 0. Check Dependencies
 echo "Checking dependencies..."
@@ -95,21 +95,21 @@ if [[ "$CREATE_ADMIN" == "y" || "$CREATE_ADMIN" == "Y" ]]; then
 
     echo "Creating admin user in database..."
 
-    export NAVIPOD_ADMIN_USERNAME="$ADMIN_USER"
-    export NAVIPOD_ADMIN_PASSWORD="$ADMIN_PASS"
+    export AOEDE_ADMIN_USERNAME="$ADMIN_USER"
+    export AOEDE_ADMIN_PASSWORD="$ADMIN_PASS"
 
     docker compose --env-file "$CONFIG_ENV" exec -T \
-        -e NAVIPOD_ADMIN_USERNAME \
-        -e NAVIPOD_ADMIN_PASSWORD \
+        -e AOEDE_ADMIN_USERNAME \
+        -e AOEDE_ADMIN_PASSWORD \
         concierge python create_admin.py
-    unset ADMIN_PASS NAVIPOD_ADMIN_USERNAME NAVIPOD_ADMIN_PASSWORD
+    unset ADMIN_PASS AOEDE_ADMIN_USERNAME AOEDE_ADMIN_PASSWORD
 fi
 
 # 5. Interactive: Import Music
 echo ""
 echo "------------------------------------------------"
 echo "MUSIC LIBRARY IMPORT"
-echo "Navipod can import your existing music library."
+echo "Aoede can import your existing music library."
 echo "Ideally, point to a folder structured like /Artist/Album/Song.mp3"
 read -r -p "Do you want to import music now? (y/n): " IMPORT_MUSIC
 
@@ -149,5 +149,5 @@ fi
 echo ""
 echo "------------------------------------------------"
 echo "Setup complete."
-echo "Access Navipod at http://localhost (or your configured domain)."
+echo "Access Aoede at http://localhost (or your configured domain)."
 echo "------------------------------------------------"

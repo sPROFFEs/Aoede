@@ -1,20 +1,20 @@
 $ErrorActionPreference = 'Stop'
 
-$Repo = "sPROFFEs/Navipod"
+$Repo = "sPROFFEs/Aoede"
 $Tag = "v1.2.0-wrappers"
-$InstallDir = "$env:LOCALAPPDATA\Navipod"
-$PackageName = "navipod-win-x64.tar.gz"
+$InstallDir = "$env:LOCALAPPDATA\Aoede"
+$PackageName = "aoede-win-x64.tar.gz"
 
 $DownloadUrl = "https://github.com/$Repo/releases/download/$Tag/$PackageName"
-$ExePath = "$InstallDir\navipod-win_x64.exe"
+$ExePath = "$InstallDir\aoede-win_x64.exe"
 
-Write-Host "🎵 Installing Navipod Desktop App ($Tag)..." -ForegroundColor Green
+Write-Host "🎵 Installing Aoede Desktop App ($Tag)..." -ForegroundColor Green
 
 if (!(Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
 }
 
-$TempArchive = "$env:TEMP\navipod-win-x64.tar.gz"
+$TempArchive = "$env:TEMP\aoede-win-x64.tar.gz"
 Write-Host "⬇️ Downloading $PackageName..."
 Invoke-WebRequest -Uri $DownloadUrl -OutFile $TempArchive
 
@@ -27,20 +27,20 @@ $WScriptShell = New-Object -ComObject WScript.Shell
 
 # Desktop shortcut
 $DesktopPath = [System.Environment]::GetFolderPath('Desktop')
-$Shortcut = $WScriptShell.CreateShortcut("$DesktopPath\Navipod.lnk")
+$Shortcut = $WScriptShell.CreateShortcut("$DesktopPath\Aoede.lnk")
 $Shortcut.TargetPath = $ExePath
 $Shortcut.WorkingDirectory = $InstallDir
-$Shortcut.Description = "Navipod Desktop Player"
+$Shortcut.Description = "Aoede Desktop Player"
 $Shortcut.Save()
 
 # Start Menu shortcut
 $StartMenuPath = [System.Environment]::GetFolderPath('StartMenu')
-$StartShortcut = $WScriptShell.CreateShortcut("$StartMenuPath\Programs\Navipod.lnk")
+$StartShortcut = $WScriptShell.CreateShortcut("$StartMenuPath\Programs\Aoede.lnk")
 $StartShortcut.TargetPath = $ExePath
 $StartShortcut.WorkingDirectory = $InstallDir
-$StartShortcut.Description = "Navipod Desktop Player"
+$StartShortcut.Description = "Aoede Desktop Player"
 $StartShortcut.Save()
 
 Write-Host ""
-Write-Host "✅ Navipod Desktop App installed successfully to $InstallDir" -ForegroundColor Green
-Write-Host "💡 Launch Navipod from your Desktop or Start Menu!" -ForegroundColor Yellow
+Write-Host "✅ Aoede Desktop App installed successfully to $InstallDir" -ForegroundColor Green
+Write-Host "💡 Launch Aoede from your Desktop or Start Menu!" -ForegroundColor Yellow

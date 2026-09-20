@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Navipod — Bulk Music Import
+# Aoede — Bulk Music Import
 # ───────────────────────────
 # Imports audio files from a host folder into the SHARED POOL only. Tracks
 # become available to every user of the instance via search / library views.
@@ -29,11 +29,11 @@ set -euo pipefail
 
 # ─── Locate the Compose project ──────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-COMPOSE_DIR="$SCRIPT_DIR/Navipod"
+COMPOSE_DIR="$SCRIPT_DIR/Aoede"
 
 if [[ ! -f "$COMPOSE_DIR/docker-compose.yaml" ]]; then
     echo "✗ docker-compose.yaml not found at $COMPOSE_DIR" >&2
-    echo "  Run this script from the Navipod repository root." >&2
+    echo "  Run this script from the Aoede repository root." >&2
     exit 1
 fi
 

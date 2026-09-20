@@ -12,7 +12,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from navipod_config import settings
+from aoede_config import settings
 
 
 def sync_playlists(db: Session):

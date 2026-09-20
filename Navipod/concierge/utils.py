@@ -4,7 +4,7 @@ import socket
 from pathlib import Path
 from urllib.parse import urlparse
 
-from navipod_config import settings
+from aoede_config import settings
 
 BASE_DOWNLOADS_DIR = Path(settings.MUSIC_ROOT).resolve()
 

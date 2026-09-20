@@ -20,14 +20,14 @@
  *                  boundaries when the user enables crossfade.
  *
  * Settings (localStorage)
- *   navipod.replaygain.enabled  — boolean, default false
- *   navipod.crossfade.seconds   — integer 0..12, default 0 (off)
+ *   aoede.replaygain.enabled  — boolean, default false
+ *   aoede.crossfade.seconds   — integer 0..12, default 0 (off)
  */
 
 import * as state from './state.js';
 
-const RG_KEY = 'navipod.replaygain.enabled';
-const XF_KEY = 'navipod.crossfade.seconds';
+const RG_KEY = 'aoede.replaygain.enabled';
+const XF_KEY = 'aoede.crossfade.seconds';
 
 let _ctx = null;
 let _source = null;

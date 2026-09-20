@@ -3,7 +3,7 @@
 Start with service state and concierge logs:
 
 ```bash
-cd Navipod/Navipod
+cd Aoede/Aoede
 docker compose ps
 docker compose logs -f concierge
 ```
@@ -46,7 +46,7 @@ Permission errors for `/downloads`, `.worker-token` or `.auth-browser` mean the 
 
 ## Provider verification fails
 
-Open **Admin → Download Manager** and start the provider's embedded verification browser. Complete the challenge there, then select **Check verification** in the Navipod modal. The embedded browser may close or show a black screen after the challenge succeeds; this is expected while the grant returns to the worker.
+Open **Admin → Download Manager** and start the provider's embedded verification browser. Complete the challenge there, then select **Check verification** in the Aoede modal. The embedded browser may close or show a black screen after the challenge succeeds; this is expected while the grant returns to the worker.
 
 If the challenge reports a network change, verification failure or Cloudflare Turnstile error:
 

@@ -1,11 +1,11 @@
 # Internal HTTP deployment template
 
-For LAN-only or VPN-only Navipod (Tailscale, WireGuard, home network behind a
+For LAN-only or VPN-only Aoede (Tailscale, WireGuard, home network behind a
 router). No DNS, no certificates, plain HTTP.
 
 ## When to use it
 
-- You don't want to expose Navipod to the public internet.
+- You don't want to expose Aoede to the public internet.
 - You can already reach the host from your phone / laptop over your private
   network.
 - You don't mind logging in over plain HTTP (because the network is trusted).

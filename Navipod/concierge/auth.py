@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import database
+from aoede_config import settings
 from fastapi import HTTPException, Request
 from jose import JWTError, jwt
-from navipod_config import settings
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 

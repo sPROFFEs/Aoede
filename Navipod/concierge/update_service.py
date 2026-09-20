@@ -39,7 +39,7 @@ ADMIN_LOCK_ZOMBIE_SECONDS = int(os.getenv("ADMIN_LOCK_ZOMBIE_SECONDS", "1800"))
 
 
 def get_internal_updater_token():
-    return hashlib.sha256(f"navipod-updater:{ops.settings.SECRET_KEY}".encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"aoede-updater:{ops.settings.SECRET_KEY}".encode("utf-8")).hexdigest()
 
 
 def _restart_updater_container() -> None:
@@ -399,7 +399,7 @@ def _get_update_details_via_fetch(local_full_commit: str, current: dict):
 
 def _get_worktree_dirty():
     status = _run_git(
-        ["status", "--porcelain", "--untracked-files=no", "--", ".", ":(exclude).env", ":(exclude)Navipod/.env"],
+        ["status", "--porcelain", "--untracked-files=no", "--", ".", ":(exclude).env", ":(exclude)Aoede/.env"],
         fallback="",
     )
     return bool(status and status.strip())
@@ -901,7 +901,7 @@ def run_apply_update_job_from_updater(job_id: int, triggered_by: str | None):
                     "--",
                     ".",
                     ":(exclude).env",
-                    ":(exclude)Navipod/.env",
+                    ":(exclude)Aoede/.env",
                 ],
                 fallback="",
             )

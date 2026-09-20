@@ -9,7 +9,7 @@ from typing import List, Optional
 
 import database
 import deletion_service
-from navipod_config import settings
+from aoede_config import settings
 from playlist_files import normalize_playlist_name, playlist_m3u_filename
 from sqlalchemy.orm import Session
 

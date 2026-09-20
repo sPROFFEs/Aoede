@@ -2,8 +2,8 @@ import base64
 import hashlib
 from functools import lru_cache
 
+from aoede_config import settings
 from cryptography.fernet import Fernet, InvalidToken
-from navipod_config import settings
 
 ENC_PREFIX = "enc:v1:"
 

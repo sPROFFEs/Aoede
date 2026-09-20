@@ -1,19 +1,19 @@
 # Configuration
 
-Navipod configuration is split between host-level environment variables and provider settings stored from the application UI.
+Aoede configuration is split between host-level environment variables and provider settings stored from the application UI.
 
 ## Environment file
 
 The default template is:
 
 ```text
-Navipod/.env.example
+Aoede/.env.example
 ```
 
 Create the live file with:
 
 ```bash
-cd Navipod/Navipod
+cd Aoede/Aoede
 cp .env.example .env
 ```
 
@@ -39,8 +39,8 @@ Never commit the resulting `.env`.
 | `POOL_STATUS_CACHE_TTL_SECONDS` | `60` | Shared-pool status cache TTL. |
 | `BACKUP_ROOT` | `/saas-data/backups` | Backup path inside the concierge container. |
 | `APP_SOURCE_ROOT` | `/workspace` | Application source path inside the concierge container. |
-| `COMPOSE_ENV_FILE` | `/saas-data/config/navipod.env` | Compose environment path used by update/setup workflows. |
-| `RUNTIME_ENV_FILE` | `/run/navipod/.env` | Runtime environment path used by backup/restore. |
+| `COMPOSE_ENV_FILE` | `/saas-data/config/aoede.env` | Compose environment path used by update/setup workflows. |
+| `RUNTIME_ENV_FILE` | `/run/aoede/.env` | Runtime environment path used by backup/restore. |
 | `BACKUP_SCHEDULER_POLL_SECONDS` | `60` | Admin backup scheduler polling interval. |
 | `UPDATE_SOURCE_REPO_URL` | official GitHub repo | Repository checked for application updates. |
 | `UPDATE_SOURCE_BRANCH` | `main` | Update source branch. |
@@ -78,7 +78,7 @@ Do not commit this cookie file or include it in screenshots.
 
 ### Spotify
 
-Create a Spotify developer application and enter its Client ID and Client Secret in Navipod. Spotify is used for discovery, metadata enrichment and download fallback behavior supported by the application.
+Create a Spotify developer application and enter its Client ID and Client Secret in Aoede. Spotify is used for discovery, metadata enrichment and download fallback behavior supported by the application.
 
 ### Last.fm
 

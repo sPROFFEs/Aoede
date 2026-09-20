@@ -8,10 +8,10 @@ import os
 
 import database
 import manager
+from aoede_config import settings
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from http_client import http_client
-from navipod_config import settings
 from playlist_files import playlist_m3u_filename
 from sqlalchemy.orm import Session, joinedload
 
@@ -74,7 +74,7 @@ async def sync_favorite_to_navidrome(user, track, is_starred: bool):
             "u": user.username,
             "p": settings.NAVIDROME_INTERNAL_PASSWORD,
             "v": "1.16.1",
-            "c": "navipod-concierge",
+            "c": "aoede-concierge",
             "f": "json",
         }
         headers = {"x-navidrome-user": user.username}
@@ -131,7 +131,7 @@ async def sync_favorite_to_navidrome(user, track, is_starred: bool):
 async def sync_navidrome_to_local(db: Session, user):
     """
     Two-way sync: Pull Starred tracks and Playlists from Navidrome
-    and update local Navipod database.
+    and update local Aoede database.
     """
     try:
         target_ip = manager.get_or_spawn_container(user.username)
@@ -139,7 +139,7 @@ async def sync_navidrome_to_local(db: Session, user):
             "u": user.username,
             "p": settings.NAVIDROME_INTERNAL_PASSWORD,
             "v": "1.16.1",
-            "c": "navipod-concierge",
+            "c": "aoede-concierge",
             "f": "json",
         }
         headers = {"x-navidrome-user": user.username}

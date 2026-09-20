@@ -3,8 +3,8 @@ import logging
 import time
 from urllib.parse import urlparse
 
+from aoede_config import settings
 from fastapi import HTTPException, Request
-from navipod_config import settings
 
 logger = logging.getLogger("security")
 UNSAFE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}

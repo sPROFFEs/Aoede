@@ -3,7 +3,7 @@ from pathlib import Path
 
 import database
 import pytest
-from navipod_config import settings
+from aoede_config import settings
 from PIL import Image
 from routers.user import (
     ALLOWED_IMAGE_EXTENSIONS,

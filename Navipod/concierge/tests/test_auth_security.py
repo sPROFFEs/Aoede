@@ -11,16 +11,16 @@ from fastapi import HTTPException
 from starlette.requests import Request
 
 AUTH_BROWSER_SPEC = importlib.util.spec_from_file_location(
-    "navipod_concierge_auth_browser",
+    "aoede_concierge_auth_browser",
     Path(__file__).resolve().parents[1] / "auth_browser.py",
 )
 auth_browser = importlib.util.module_from_spec(AUTH_BROWSER_SPEC)
 assert AUTH_BROWSER_SPEC and AUTH_BROWSER_SPEC.loader
-sys.modules["navipod_concierge_auth_browser"] = auth_browser
+sys.modules["aoede_concierge_auth_browser"] = auth_browser
 AUTH_BROWSER_SPEC.loader.exec_module(auth_browser)
 
 
-def request_for(method="GET", *, token=None, host="navipod.test", origin=None):
+def request_for(method="GET", *, token=None, host="aoede.test", origin=None):
     headers = [(b"host", host.encode())]
     if token:
         headers.append((b"cookie", f"access_token={token}".encode()))
@@ -109,7 +109,7 @@ def test_cookie_authenticated_write_requires_same_origin():
         security.validate_same_origin(request_for("POST", token="token", origin="https://attacker.example"))
     assert exc.value.status_code == 403
 
-    security.validate_same_origin(request_for("POST", token="token", origin="https://navipod.test"))
+    security.validate_same_origin(request_for("POST", token="token", origin="https://aoede.test"))
 
 
 @pytest.fixture

@@ -7,8 +7,8 @@ import database
 
 
 def main() -> None:
-    username = os.environ.get("NAVIPOD_ADMIN_USERNAME", "").strip()
-    password = os.environ.get("NAVIPOD_ADMIN_PASSWORD", "")
+    username = os.environ.get("AOEDE_ADMIN_USERNAME", "").strip()
+    password = os.environ.get("AOEDE_ADMIN_PASSWORD", "")
     if not auth.is_valid_username(username):
         raise SystemExit("Invalid admin username")
     if not auth.is_password_strong(password):

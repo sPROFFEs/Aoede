@@ -1,6 +1,6 @@
 # Architecture
 
-Navipod is a Docker-based control layer around per-user Navidrome instances, shared music storage and external discovery providers.
+Aoede is a Docker-based control layer around per-user Navidrome instances, shared music storage and external discovery providers.
 
 ## High-level view
 
@@ -11,7 +11,7 @@ flowchart TB
     Concierge[FastAPI concierge]
     Downloader[Isolated downloader worker]
     Tunnel[Optional Cloudflare Tunnel]
-    Data[(Persistent Navipod data)]
+    Data[(Persistent Aoede data)]
     Pool[(Shared music pool)]
     Staging[(Download staging)]
     Providers[Spotify / YouTube / Last.fm / MusicBrainz]
@@ -36,17 +36,17 @@ flowchart TB
 
 ## Standard Compose services
 
-The shipping `Navipod/docker-compose.yaml` documents these main services:
+The shipping `Aoede/docker-compose.yaml` documents these main services:
 
 ### `concierge`
 
-FastAPI backend and orchestration layer. It manages the Navipod application experience and coordinates per-user Navidrome instances, shared data, provider integrations and admin operations.
+FastAPI backend and orchestration layer. It manages the Aoede application experience and coordinates per-user Navidrome instances, shared data, provider integrations and admin operations.
 
 ### `downloader`
 
 Private FastAPI worker that owns the current yt-dlp, spotDL and SpotiFLAC runtimes. Concierge authenticates to it with a token stored in the shared download-staging volume. Download output is staged there and copied into the library only after a job completes successfully.
 
-SpotiFLAC signed sessions live in the worker-only `downloader-state` volume; provider credentials are never collected by Navipod. A worker heartbeat checks existing sessions every 15 minutes and triggers the upstream signed-session refresh when due. Per-provider locks prevent refresh, session changes and active downloads from rotating the same session concurrently. When manual verification is required, Concierge starts a single short-lived Chromium/Xvfb/x11vnc/websockify stack inside the worker; the administrator reaches it only through the authenticated noVNC proxy. VNC ports are never published to the host, and the persistent browser profile is isolated in `auth-browser-state`.
+SpotiFLAC signed sessions live in the worker-only `downloader-state` volume; provider credentials are never collected by Aoede. A worker heartbeat checks existing sessions every 15 minutes and triggers the upstream signed-session refresh when due. Per-provider locks prevent refresh, session changes and active downloads from rotating the same session concurrently. When manual verification is required, Concierge starts a single short-lived Chromium/Xvfb/x11vnc/websockify stack inside the worker; the administrator reaches it only through the authenticated noVNC proxy. VNC ports are never published to the host, and the persistent browser profile is isolated in `auth-browser-state`.
 
 ### `nginx`
 
@@ -60,7 +60,7 @@ Alternative deployment templates can change how traffic reaches nginx while pres
 
 ## Per-user Navidrome
 
-Navipod's multi-user model isolates user music-server instances rather than treating all users as accounts inside one shared Navidrome process. The concierge is responsible for orchestrating those user containers and connecting the surrounding Navipod experience to them.
+Aoede's multi-user model isolates user music-server instances rather than treating all users as accounts inside one shared Navidrome process. The concierge is responsible for orchestrating those user containers and connecting the surrounding Aoede experience to them.
 
 ## Shared music pool
 
@@ -70,7 +70,7 @@ The project documents duplicate detection based on source/hash/fingerprint infor
 
 ## Provider integrations
 
-Navipod can integrate with:
+Aoede can integrate with:
 
 - YouTube;
 - Spotify;
@@ -99,7 +99,7 @@ Client
   ↓
 nginx
   ↓
-Navipod concierge / routed user service
+Aoede concierge / routed user service
   ↓
 Navidrome, shared storage or remote provider
 ```

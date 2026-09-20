@@ -9,7 +9,7 @@ class MusicBrainzService:
     def __init__(self):
         self.client = httpx.AsyncClient(
             timeout=10.0,
-            headers={"User-Agent": "Navipod/1.0 (metadata resolver)"},
+            headers={"User-Agent": "Aoede/1.0 (metadata resolver)"},
         )
 
     async def search_recordings(self, query: str, limit: int = 10) -> List[Dict]:

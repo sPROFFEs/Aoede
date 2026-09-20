@@ -30,14 +30,14 @@ let _partyScheduledStartTimer = null;
 let _partyScheduledStartKey = null;
 let _partyReadyKey = null;
 
-const PLAYBACK_SESSION_KEY = 'navipod.playback.session.v1';
+const PLAYBACK_SESSION_KEY = 'aoede.playback.session.v1';
 const PLAYBACK_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const PLAYBACK_AUTO_RESUME_MAX_AGE_MS = 30 * 60 * 1000;
 const PLAYBACK_PROGRESS_SAVE_INTERVAL_MS = 10000;
 const PLAYBACK_REMOTE_SAVE_DEBOUNCE_MS = 1500;
 const TRACKING_SCHEMA_VERSION = 1;
 
-const VOLUME_LOCAL_KEY = 'navipod.playback.volume';
+const VOLUME_LOCAL_KEY = 'aoede.playback.volume';
 const VOLUME_REMOTE_SAVE_DEBOUNCE_MS = 800;
 const DEFAULT_VOLUME = 0.7;
 let _volumeSaveTimer = null;
@@ -160,7 +160,7 @@ async function acquirePlaybackLock() {
 
   try {
     if ('locks' in navigator) {
-      navigator.locks.request('navipod-playback', { mode: 'exclusive' }, () => {
+      navigator.locks.request('aoede-playback', { mode: 'exclusive' }, () => {
         return new Promise((resolve) => {
           _webLockRelease = resolve;
         });
@@ -561,7 +561,7 @@ export async function restorePlaybackSession() {
     updatePlayerUI(snapshot.currentTrack);
     applyPlaybackModes();
     syncTransportControlButtons();
-    document.title = `${snapshot.currentTrack.title || 'Navipod'} - Navipod`;
+    document.title = `${snapshot.currentTrack.title || 'Aoede'} - Aoede`;
 
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
     const hasOffline = await offlineStore.isTrackAvailableOffline(snapshot.currentTrack.db_id);
@@ -837,7 +837,7 @@ export async function playTrack(track, options = {}) {
       navigator.mediaSession.playbackState = 'playing';
     }
     updateMediaSessionMetadata(track);
-    document.title = `${track.title} - Navipod`;
+    document.title = `${track.title} - Aoede`;
 
     // Assigning src triggers the load automatically — explicit load() resets
     // the resource selection algorithm and on backgrounded tabs can drop the
@@ -966,7 +966,7 @@ export async function playTrack(track, options = {}) {
 
 // === FEDERATED PLAYBACK ====================================================
 //
-// Plays a track that lives on a remote Navipod peer. The actual audio
+// Plays a track that lives on a remote Aoede peer. The actual audio
 // is proxied through /api/federation/proxy/{instance_id}/stream/{remote_id}
 // — that endpoint:
 //   - returns 503 with a Retry-After if the peer is offline (so the
@@ -1440,7 +1440,7 @@ export function setupPlayer() {
 
   // Wire ui.js volume changes (mute toggle, keyboard nudge) into the
   // persistence path without creating a circular import.
-  window.navipodOnVolumeChange = persistVolume;
+  window.aoedeOnVolumeChange = persistVolume;
 
   // ── Mini-player tap-to-expand ──────────────────────────────────
   // Desktop: only the cover/track information opens the fullscreen

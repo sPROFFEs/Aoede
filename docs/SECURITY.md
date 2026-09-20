@@ -1,12 +1,12 @@
 # Security
 
-Navipod is self-hosted software that orchestrates containers and stores credentials for optional external providers. Treat the host and its configuration as privileged infrastructure.
+Aoede is self-hosted software that orchestrates containers and stores credentials for optional external providers. Treat the host and its configuration as privileged infrastructure.
 
 ## Secrets
 
 Never commit or publicly share:
 
-- `Navipod/.env`;
+- `Aoede/.env`;
 - `SECRET_KEY`;
 - Cloudflare tunnel tokens;
 - Spotify client secrets;
@@ -23,7 +23,7 @@ Set a long random value before production use.
 openssl rand -hex 48
 ```
 
-Navipod uses this key for authentication-related signing and encryption of stored provider credentials. Keep a secure copy with your backup/recovery material.
+Aoede uses this key for authentication-related signing and encryption of stored provider credentials. Keep a secure copy with your backup/recovery material.
 
 ## Sessions
 
@@ -46,7 +46,7 @@ The concierge needs Docker control for user-container orchestration. A mounted D
 Recommendations:
 
 - restrict host shell access;
-- restrict Navipod admin access;
+- restrict Aoede admin access;
 - keep the host patched;
 - avoid running unrelated untrusted workloads on the same Docker daemon;
 - review Compose changes before deploying them.
@@ -74,4 +74,4 @@ Before publishing a screenshot or log, remove:
 
 ## License note
 
-Security guidance does not change the project's license. Navipod is licensed for private, personal, non-commercial use only. Read the root [LICENSE](../LICENSE) for binding terms.
+Security guidance does not change the project's license. Aoede is licensed for private, personal, non-commercial use only. Read the root [LICENSE](../LICENSE) for binding terms.

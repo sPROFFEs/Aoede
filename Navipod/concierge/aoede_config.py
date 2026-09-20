@@ -28,8 +28,8 @@ class Settings(BaseSettings):
     HOST_DATA_ROOT: str = "/opt/saas-data"
     BACKUP_ROOT: str = "/saas-data/backups"
     APP_SOURCE_ROOT: str = "/workspace"
-    COMPOSE_ENV_FILE: str = "/saas-data/config/navipod.env"
-    RUNTIME_ENV_FILE: str = "/run/navipod/.env"
+    COMPOSE_ENV_FILE: str = "/saas-data/config/aoede.env"
+    RUNTIME_ENV_FILE: str = "/run/aoede/.env"
     CONCURRENT_DOWNLOADS: int = 3
     DOWNLOADER_WORKER_URL: str = "http://downloader:8081"
     DOWNLOADER_WORKER_TOKEN_FILE: str = "/saas-data/download-staging/.worker-token"
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     TRUST_PROXY_HEADERS: bool = False
     TRUSTED_PROXY_IPS: str = "127.0.0.1,::1"
     BACKUP_SCHEDULER_POLL_SECONDS: int = 60
-    UPDATE_SOURCE_REPO_URL: str = "https://github.com/sPROFFEs/Navipod"
+    UPDATE_SOURCE_REPO_URL: str = "https://github.com/sPROFFEs/Aoede"
     UPDATE_SOURCE_BRANCH: str = "main"
     UPDATE_MANAGED_SERVICES: str = "concierge"
     NAVIDROME_REVERSE_PROXY_WHITELIST: str = "127.0.0.1/32,172.16.0.0/12"

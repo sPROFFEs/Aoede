@@ -10,7 +10,7 @@ def _set_age(path, seconds_ago):
     os.utime(path, (timestamp, timestamp))
 
 
-def test_storage_cleanup_removes_only_stale_navipod_residue(tmp_path):
+def test_storage_cleanup_removes_only_stale_aoede_residue(tmp_path):
     staging = tmp_path / "staging" / "jobs"
     users = tmp_path / "users"
     stale_job = staging / "old-job"

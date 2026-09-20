@@ -24,9 +24,9 @@ import psutil
 import storage_maintenance
 import track_identity
 import wrapped_service
+from aoede_config import settings
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from navipod_config import settings
 from pydantic import BaseModel, Field
 from sqlalchemy import text
 from sqlalchemy.orm import Session, aliased
@@ -785,7 +785,7 @@ def _run_storage_purge_job(job_id: int):
         operations_service.update_admin_job_progress(
             job_id,
             status="running",
-            message="Scanning stale Navipod download residue",
+            message="Scanning stale Aoede download residue",
             phase="scan",
             progress=10,
         )
@@ -833,7 +833,7 @@ def _run_storage_purge_job(job_id: int):
 
 @router.post("/system/purge-storage")
 def purge_storage(background_tasks: BackgroundTasks, admin: database.User = Depends(get_current_admin)):
-    """Queue bounded cleanup of stale Navipod-owned download residue."""
+    """Queue bounded cleanup of stale Aoede-owned download residue."""
     job_id = operations_service.create_admin_job(
         "storage_cleanup",
         admin.username,

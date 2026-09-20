@@ -5,7 +5,7 @@
  * for desktop browsers, mobile Safari (iOS PWA), Android Chrome, and WebView wrapper.
  */
 
-const DB_NAME = 'navipod_offline_db';
+const DB_NAME = 'aoede_offline_db';
 const DB_VERSION = 1;
 const APP_VERSION = '1.0';
 
@@ -294,7 +294,7 @@ export async function downloadTrack(track, onProgress = null, options = {}) {
     }
 
     window.dispatchEvent(
-      new CustomEvent('navipod:offline-changed', {
+      new CustomEvent('aoede:offline-changed', {
         detail: { type: 'added', trackId, track: finalRecord.metadata }
       })
     );
@@ -401,7 +401,7 @@ export async function saveOfflinePlaylist(playlist) {
   await saveLibrarySnapshot('offline_playlists_manifest', manifest);
 
   window.dispatchEvent(
-    new CustomEvent('navipod:offline-changed', {
+    new CustomEvent('aoede:offline-changed', {
       detail: { type: 'playlist-added', playlistId: numId }
     })
   );
@@ -445,7 +445,7 @@ export async function deleteOfflinePlaylist(playlistId, deleteTracks = false) {
   }
 
   window.dispatchEvent(
-    new CustomEvent('navipod:offline-changed', {
+    new CustomEvent('aoede:offline-changed', {
       detail: { type: 'playlist-removed', playlistId: numId }
     })
   );
@@ -479,7 +479,7 @@ export async function deleteOfflineTrack(trackId) {
   _offlineTrackIdSet.delete(numId);
 
   window.dispatchEvent(
-    new CustomEvent('navipod:offline-changed', {
+    new CustomEvent('aoede:offline-changed', {
       detail: { type: 'removed', trackId: numId }
     })
   );
@@ -557,7 +557,7 @@ export async function clearOfflineData() {
   _offlineTrackIdSet.clear();
 
   window.dispatchEvent(
-    new CustomEvent('navipod:offline-changed', {
+    new CustomEvent('aoede:offline-changed', {
       detail: { type: 'cleared' }
     })
   );

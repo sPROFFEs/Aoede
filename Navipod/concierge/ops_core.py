@@ -13,18 +13,18 @@ from zoneinfo import ZoneInfo
 
 import database
 import yaml
-from navipod_config import settings
+from aoede_config import settings
 from sqlalchemy import text
 
 
 def _detect_compose_project_root(repo_root: Path) -> Path:
     direct = repo_root / "docker-compose.yaml"
-    nested = repo_root / "Navipod" / "docker-compose.yaml"
+    nested = repo_root / "Aoede" / "docker-compose.yaml"
     if direct.exists():
         return repo_root
     if nested.exists():
-        return repo_root / "Navipod"
-    return repo_root / "Navipod"
+        return repo_root / "Aoede"
+    return repo_root / "Aoede"
 
 
 DB_FILE_PATH = "/saas-data/concierge.db"
@@ -33,10 +33,10 @@ COMPOSE_PROJECT_ROOT = _detect_compose_project_root(REPO_ROOT)
 ENV_FILE_PATH = settings.RUNTIME_ENV_FILE
 COMPOSE_ENV_FILE = settings.COMPOSE_ENV_FILE
 BACKUP_ROOT = Path(settings.BACKUP_ROOT)
-CURRENT_BACKUP_NAME = "navipod-backup-current.zip"
-PREVIOUS_BACKUP_NAME = "navipod-backup-previous.zip"
+CURRENT_BACKUP_NAME = "aoede-backup-current.zip"
+PREVIOUS_BACKUP_NAME = "aoede-backup-previous.zip"
 GLOBAL_OPERATION_LOCK = "admin-global-operation"
-UPDATE_TRACKING_REMOTE = "refs/remotes/navipod-update/tracked"
+UPDATE_TRACKING_REMOTE = "refs/remotes/aoede-update/tracked"
 REBUILD_REQUIRED_PATHS = {
     "docker-compose.yaml",
     "concierge/Dockerfile",
@@ -225,7 +225,7 @@ def _get_host_visible_compose_roots():
     if not host_repo_root and host_concierge_root:
         if host_concierge_root.name == "concierge":
             host_app_root = host_concierge_root.parent
-            host_repo_root = host_app_root.parent if (host_app_root.parent / "Navipod").exists() else host_app_root
+            host_repo_root = host_app_root.parent if (host_app_root.parent / "Aoede").exists() else host_app_root
             return host_repo_root, host_app_root
         host_app_root = host_concierge_root.parent
         host_repo_root = host_app_root.parent
@@ -305,7 +305,7 @@ def _build_host_bind_compose_file():
         mode="w",
         encoding="utf-8",
         suffix=".host-bind.yml",
-        prefix="navipod-compose-",
+        prefix="aoede-compose-",
         dir=target_dir,
         delete=False,
     ) as tmp:

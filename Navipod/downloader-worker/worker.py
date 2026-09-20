@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("navipod.downloader_worker")
+logger = logging.getLogger("aoede.downloader_worker")
 
 DOWNLOAD_ROOT = Path(os.getenv("DOWNLOAD_ROOT", "/downloads")).resolve()
 TOKEN_FILE = DOWNLOAD_ROOT / ".worker-token"
@@ -162,7 +162,7 @@ class JobState:
             }
 
 
-app = FastAPI(title="Navipod Downloader Worker", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="Aoede Downloader Worker", docs_url=None, redoc_url=None, openapi_url=None)
 jobs: dict[str, JobState] = {}
 jobs_lock = threading.RLock()
 executor = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("CONCURRENT_DOWNLOADS", "3"))))
@@ -297,13 +297,13 @@ def _verification_result_page(message: str, *, success: bool, status_code: int =
     title = "Verification complete" if success else "Verification failed"
     color = "#1ed760" if success else "#ff5c5c"
     body = (
-        "You can return to Navipod and select Check verification."
+        "You can return to Aoede and select Check verification."
         if success
-        else "Return to Navipod and start a new verification session."
+        else "Return to Aoede and start a new verification session."
     )
     return HTMLResponse(
         "<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' "
-        "content='width=device-width,initial-scale=1'><title>Navipod provider verification</title>"
+        "content='width=device-width,initial-scale=1'><title>Aoede provider verification</title>"
         "<style>body{margin:0;background:#101215;color:#f5f7fa;font:16px system-ui;display:grid;"
         "min-height:100vh;place-items:center}.card{max-width:34rem;padding:2rem;border:1px solid #343942;"
         "border-radius:1rem;background:#181b20}h1{color:"

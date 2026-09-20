@@ -1,4 +1,4 @@
-# Navipod Documentation
+# Aoede Documentation
 
 This directory contains the detailed guides that were intentionally moved out of the root README. The root page should stay a fast product overview; this directory is where operational detail lives.
 
@@ -6,7 +6,7 @@ This directory contains the detailed guides that were intentionally moved out of
 
 | I want to… | Read |
 |---|---|
-| Install Navipod for the first time | [Installation](INSTALLATION.md) |
+| Install Aoede for the first time | [Installation](INSTALLATION.md) |
 | Decide how to expose it | [Deployment](DEPLOYMENT.md) |
 | Configure environment variables and providers | [Configuration](CONFIGURATION.md) |
 | Learn the interface | [User Guide](USER-GUIDE.md) |

@@ -386,7 +386,7 @@ window.onYouTubeIframeAPIReady = () => {
 
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', async () => {
-  console.log('[MAIN] Navipod ES6 Modules Initialized');
+  console.log('[MAIN] Aoede ES6 Modules Initialized');
 
   await offlineStore.initOfflineStore();
 
@@ -423,13 +423,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load initial view
   // Load initial view only if we are on the root/portal path.
-  // window.NAVIPOD_INITIAL_VIEW / NAVIPOD_INITIAL_PARAM are set by app_shell.html
+  // window.AOEDE_INITIAL_VIEW / AOEDE_INITIAL_PARAM are set by app_shell.html
   // (a non-blocking inline <script> that runs before this deferred module).
   // We are the *only* caller of loadView on page load — the template no longer
   // calls it a second time, eliminating the double-render (fix Q-10).
   const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-  const _serverView = isDeviceOffline ? 'offline' : (window.NAVIPOD_INITIAL_VIEW ?? 'home');
-  const _serverParam = isDeviceOffline ? null : (window.NAVIPOD_INITIAL_PARAM ?? null);
+  const _serverView = isDeviceOffline ? 'offline' : (window.AOEDE_INITIAL_VIEW ?? 'home');
+  const _serverParam = isDeviceOffline ? null : (window.AOEDE_INITIAL_PARAM ?? null);
 
   if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
     if (isDeviceOffline) {

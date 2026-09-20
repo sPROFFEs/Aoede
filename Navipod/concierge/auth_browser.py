@@ -41,7 +41,7 @@ class AdminBrowserSession:
 
 _lock = threading.RLock()
 _sessions: dict[str, AdminBrowserSession] = {}
-COOKIE_NAME = "navipod_auth_browser"
+COOKIE_NAME = "aoede_auth_browser"
 
 
 def encode_cookie(session_id: str, token: str) -> str:

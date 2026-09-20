@@ -35,8 +35,8 @@ export function stopHeartbeatSync() {
 }
 
 export function initHeartbeatLifecycle() {
-  if (window.__navipodHeartbeatLifecycleBound) return;
-  window.__navipodHeartbeatLifecycleBound = true;
+  if (window.__aoedeHeartbeatLifecycleBound) return;
+  window.__aoedeHeartbeatLifecycleBound = true;
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') {

@@ -19,7 +19,7 @@ import source_registry
 import track_identity
 import utils
 import yt_dlp
-from navipod_config import settings
+from aoede_config import settings
 from sqlalchemy.orm import Session
 
 # Límite global de descargas simultáneas (ej. 3)
@@ -677,7 +677,7 @@ class DownloadManager:
         return self._handle_ytdlp_robust(job.input_url, temp_dir, job_id)
 
     # ── FEDERATION DIRECT ─────────────────────────────────────────────────
-    # Fetch a track that lives on a peer Navipod via the existing
+    # Fetch a track that lives on a peer Aoede via the existing
     # /api/federation/stream/{remote_id} endpoint (token-authenticated).
     # We skip yt-dlp entirely because the file is already known and
     # tagged on the peer — searching YouTube would resolve a DIFFERENT
@@ -729,7 +729,7 @@ class DownloadManager:
         )
 
         upstream_url = inst.base_url.rstrip("/") + f"/api/federation/stream/{remote_id}"
-        upstream_headers = {"User-Agent": "Navipod-Federation/1.0"}
+        upstream_headers = {"User-Agent": "Aoede-Federation/1.0"}
         if inst.api_token:
             upstream_headers["Authorization"] = f"Bearer {inst.api_token}"
 

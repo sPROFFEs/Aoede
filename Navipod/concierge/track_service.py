@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 import database
 import track_identity
-from navipod_config import settings
+from aoede_config import settings
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)

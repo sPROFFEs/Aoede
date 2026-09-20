@@ -10,10 +10,10 @@ import auth
 import database
 import manager
 import utils
+from aoede_config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from http_client import http_client
-from navipod_config import settings
 from PIL import Image
 from shared_templates import templates
 from sqlalchemy.orm import Session

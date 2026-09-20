@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from pydantic import ValidationError
 
 WORKER_PATH = Path(__file__).with_name("worker.py")
-SPEC = importlib.util.spec_from_file_location("navipod_downloader_worker", WORKER_PATH)
+SPEC = importlib.util.spec_from_file_location("aoede_downloader_worker", WORKER_PATH)
 worker = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(worker)

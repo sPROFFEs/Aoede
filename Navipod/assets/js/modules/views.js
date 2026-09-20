@@ -115,8 +115,8 @@ function initUserSettingsView(container) {
 let _prefsState = null;
 
 function initPlaybackPrefs(shell) {
-  const RG_KEY = 'navipod.replaygain.enabled';
-  const XF_KEY = 'navipod.crossfade.seconds';
+  const RG_KEY = 'aoede.replaygain.enabled';
+  const XF_KEY = 'aoede.crossfade.seconds';
   const ALLOWED_XF = [0, 2, 4, 6, 8];
 
   const rgEl = shell.querySelector('#pref-replaygain');
@@ -217,7 +217,7 @@ function _canTrackSpaHistory(view) {
 
 function _pushSpaHistory(view, param = null, replace = false) {
   if (!_canTrackSpaHistory(view)) return;
-  const statePayload = { navipodView: view, navipodParam: param };
+  const statePayload = { aoedeView: view, aoedeParam: param };
   if (replace) {
     window.history.replaceState(statePayload, '');
   } else {
@@ -405,13 +405,13 @@ export async function renderExternalView(container, url) {
 }
 
 export function initSpaHistory() {
-  if (window.__navipodSpaHistoryBound) return;
-  window.__navipodSpaHistoryBound = true;
+  if (window.__aoedeSpaHistoryBound) return;
+  window.__aoedeSpaHistoryBound = true;
 
   window.addEventListener('popstate', (event) => {
     const historyState = event.state;
-    if (historyState?.navipodView) {
-      loadView(historyState.navipodView, historyState.navipodParam ?? null, { pushHistory: false });
+    if (historyState?.aoedeView) {
+      loadView(historyState.aoedeView, historyState.aoedeParam ?? null, { pushHistory: false });
       return;
     }
     if (
@@ -616,7 +616,7 @@ function createWrappedHomeCard(wrapped) {
   return `
         <section class="wrapped-home-card">
             <div>
-                <h2>Navipod Wrapped ${year}</h2>
+                <h2>Aoede Wrapped ${year}</h2>
                 <p>${listenedTime} listened · Top artist: ${ui.escHtml(topArtist)}</p>
                 ${topSong ? `<p class="wrapped-home-sub">#1 song: ${ui.escHtml(topSong.title)} — ${ui.escHtml(topSong.artist)}</p>` : ''}
             </div>
@@ -732,7 +732,7 @@ export async function renderWrapped(container, yearParam = null) {
         <section class="wrapped-shell wrapped-enter">
             <div class="wrapped-summary">
                 <div>
-                    <h1>Navipod Wrapped ${ui.escHtml(String(wrapped.year))}</h1>
+                    <h1>Aoede Wrapped ${ui.escHtml(String(wrapped.year))}</h1>
                     <p>${listenedTime} listened · ${wrapped.event_count || 0} tracked listens</p>
                 </div>
                 <div class="wrapped-actions">
@@ -776,7 +776,7 @@ export async function renderWrapped(container, yearParam = null) {
                         : '<p>No artist data yet.</p>'
                     }
                     <div class="wrapped-message">
-                        <h2>${ui.escHtml(wrapped.artist_clip?.title || 'A message from Navipod')}</h2>
+                        <h2>${ui.escHtml(wrapped.artist_clip?.title || 'A message from Aoede')}</h2>
                         <p>${ui.escHtml(wrapped.artist_clip?.message || '')}</p>
                     </div>
                 </article>
@@ -1960,7 +1960,7 @@ export const checkSyncState = sync.checkSyncState;
 // On mobile this is a dedicated bottom-nav tab; on desktop reachable
 // via loadView('discovery').
 
-const DISCOVERY_DISMISSED_KEY = 'navipod_discovery_dismissed';
+const DISCOVERY_DISMISSED_KEY = 'aoede_discovery_dismissed';
 const DISCOVERY_DISMISSED_CAP = 200;
 
 function _discoveryKey(item) {
@@ -2942,7 +2942,7 @@ export async function renderCommunity(container) {
       <div class="hero-section">
         <div class="hero-kicker">${ui.t('community.hero_kicker', 'Server Network & Members')}</div>
         <h1 class="hero-greeting">${ui.t('community.title', 'Community Profiles')}</h1>
-        <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('community.subtitle', 'Explore listener profiles on this Navipod server. Discover their shared playlists, favorites, and music taste.')}</p>
+        <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('community.subtitle', 'Explore listener profiles on this Aoede server. Discover their shared playlists, favorites, and music taste.')}</p>
       </div>
     </section>
 

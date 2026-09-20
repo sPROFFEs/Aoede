@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "praimate_skills": {
+      "command": [
+        "/usr/local/bin/praimate-gui",
+        "-mcp-skills",
+        "http://127.0.0.1:39789/skills/",
+        "-mcp-token",
+        "ef3583ad55ce45d609cc113c7654d62fe8afab9420862d16"
+      ],
+      "enabled": true,
+      "type": "local"
+    }
+  }
+}

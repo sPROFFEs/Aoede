@@ -24,6 +24,7 @@ import security
 import spotify_service
 import track_identity
 import wrapped_service
+from aoede_config import settings
 from fastapi import Depends, FastAPI, Form, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -31,7 +32,6 @@ from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from http_client import http_client  # Moved to top level to avoid shutdown re-import issues
 from limiter import limiter
-from navipod_config import settings
 from request_middleware import RequestContextMiddleware
 from routers import admin, user
 from routers.music import router as music_router
@@ -42,7 +42,7 @@ from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
 logging.basicConfig(
-    level=os.getenv("NAVIPOD_LOG_LEVEL", "INFO").upper(),
+    level=os.getenv("AOEDE_LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -116,14 +116,13 @@ def _assert_secure_runtime_settings() -> None:
     secret = (settings.SECRET_KEY or "").strip()
     if not secret or secret == INSECURE_DEFAULT_SECRET_KEY or len(secret) < 32:
         raise RuntimeError(
-            "Insecure SECRET_KEY detected. Configure a strong SECRET_KEY in environment before starting Navipod."
+            "Insecure SECRET_KEY detected. Configure a strong SECRET_KEY in environment before starting Aoede."
         )
     # Warn (don't hard-fail — existing deployments must keep booting) when
     # the concierge↔Navidrome internal password is still the shipped default.
     if (settings.NAVIDROME_INTERNAL_PASSWORD or "").strip() == "enc:000000":
         logger.critical(
-            "NAVIDROME_INTERNAL_PASSWORD is still the shipped default. "
-            "Set a strong value via the env file (navipod.env)."
+            "NAVIDROME_INTERNAL_PASSWORD is still the shipped default. Set a strong value via the env file (aoede.env)."
         )
 
 

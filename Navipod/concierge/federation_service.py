@@ -79,7 +79,7 @@ def _norm(s: Optional[str]) -> str:
 
 
 def _client(token: Optional[str]) -> httpx.AsyncClient:
-    headers = {"User-Agent": "Navipod-Federation/1.0"}
+    headers = {"User-Agent": "Aoede-Federation/1.0"}
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return httpx.AsyncClient(

@@ -3,7 +3,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from navipod_config import settings
+from aoede_config import settings
 from secrets_store import decrypt_secret, encrypt_secret
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text, create_engine, event
 from sqlalchemy.orm import declarative_base, relationship, sessionmaker
@@ -42,14 +42,14 @@ def _ensure_sqlite_parent_dir(database_url: str) -> None:
         if parent.exists():
             return
         if "pytest" in sys.modules:
-            fallback = Path(tempfile.gettempdir()) / "navipod-test-db"
+            fallback = Path(tempfile.gettempdir()) / "aoede-test-db"
             fallback.mkdir(parents=True, exist_ok=True)
             globals()["SQLALCHEMY_DATABASE_URL"] = f"sqlite:///{(fallback / 'concierge.db').as_posix()}"
         return
     except OSError:
         # Local tests often run outside container mounts (/saas-data, /opt/saas-data).
         if "pytest" in sys.modules:
-            fallback = Path(tempfile.gettempdir()) / "navipod-test-db"
+            fallback = Path(tempfile.gettempdir()) / "aoede-test-db"
             fallback.mkdir(parents=True, exist_ok=True)
             globals()["SQLALCHEMY_DATABASE_URL"] = f"sqlite:///{(fallback / 'concierge.db').as_posix()}"
         return
@@ -98,7 +98,7 @@ class User(Base):
     # Service accounts authenticate ONLY via federation tokens — they
     # cannot log in through the web form, do not appear in regular user
     # lists, and cannot own playlists or favorites. Used by remote
-    # Navipod instances to read this instance's federated catalog.
+    # Aoede instances to read this instance's federated catalog.
     is_service_account = Column(Boolean, default=False, nullable=False)
 
     download_settings = relationship(
@@ -431,7 +431,7 @@ class UserFavorite(Base):
 
 # === Federation =============================================================
 #
-# A FederatedInstance is a remote Navipod we trust enough to mirror its
+# A FederatedInstance is a remote Aoede we trust enough to mirror its
 # catalog. The tokens (encrypted) are written by an admin and used by
 # the sync worker / stream proxy. Status is a lightweight enum we
 # update from the health checker:

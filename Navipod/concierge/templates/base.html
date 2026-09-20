@@ -69,7 +69,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Navipod">
+    <meta name="apple-mobile-web-app-title" content="Aoede">
     <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png?v={{ static_v }}">
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png?v={{ static_v }}">
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png?v={{ static_v }}">
@@ -205,7 +205,7 @@
                     </button>
                     {% endif %}
 
-                    <a href="https://navipod.{{ domain }}/{{ username }}" target="_blank"
+                    <a href="https://aoede.{{ domain }}/{{ username }}" target="_blank"
                         class="btn-icon-circle brand-btn" title="{{ _('header.open_navidrome') if _ else 'Open Navidrome Player' }}">
                         <img src="/assets/img/navidrome.png" alt="ND"
                             style="width: 20px; height: 20px; object-fit: contain;">
@@ -509,7 +509,7 @@
          * attribute so the CSS variable --sidebar-width can pick it up and
          * the layout grid re-sizes the column. Persists across reloads via
          * localStorage. */
-        const SIDEBAR_MODE_KEY = 'navipod_sidebar_mode';
+        const SIDEBAR_MODE_KEY = 'aoede_sidebar_mode';
         function applySidebarMode(mode) {
             const m = mode === 'expanded' ? 'expanded' : 'collapsed';
             document.documentElement.setAttribute('data-sidebar-mode', m);
@@ -549,7 +549,7 @@
             document.body.dataset.mobileView = view;
             const title = document.getElementById('m-topbar-title');
             const titles = { home: 'Home', search: 'Search', library: 'Your library', playlist: 'Playlist', favorites: 'Liked Songs', discovery: 'Discover', offline: 'Downloads' };
-            if (title) title.textContent = titles[view] || 'Navipod';
+            if (title) title.textContent = titles[view] || 'Aoede';
             const nav = document.getElementById('m-bottom-nav');
             if (!nav) return;
             const homeViews      = new Set(['home', 'party', 'party_room', 'public', 'discover_radios', 'mix']);

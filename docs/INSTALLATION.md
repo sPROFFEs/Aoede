@@ -1,6 +1,6 @@
 # Installation
 
-This guide covers a first Navipod installation using the default Cloudflare Tunnel deployment. If you want LAN-only access or direct Let's Encrypt TLS, read [Deployment](DEPLOYMENT.md) first.
+This guide covers a first Aoede installation using the default Cloudflare Tunnel deployment. If you want LAN-only access or direct Let's Encrypt TLS, read [Deployment](DEPLOYMENT.md) first.
 
 ## Requirements
 
@@ -16,11 +16,11 @@ Persistent application data is stored under `/opt/saas-data` by default.
 ## 1. Clone the repository
 
 ```bash
-git clone https://github.com/sPROFFEs/Navipod
-cd Navipod/Navipod
+git clone https://github.com/sPROFFEs/Aoede
+cd Aoede/Aoede
 ```
 
-The repository root contains documentation and helper files. The actual application stack lives inside the nested `Navipod/` directory.
+The repository root contains documentation and helper files. The actual application stack lives inside the nested `Aoede/` directory.
 
 ## 2. Create the environment file
 
@@ -33,12 +33,12 @@ For the default Cloudflare Tunnel deployment, set at minimum:
 
 ```dotenv
 SECRET_KEY=replace_with_a_long_random_secret
-DOMAIN=navipod.example.com
+DOMAIN=aoede.example.com
 TUNNEL_TOKEN=your_cloudflare_tunnel_token
 COOKIE_SECURE=true
 ```
 
-Do not rotate `SECRET_KEY` casually after provider credentials have been saved: Navipod uses it for authentication-related signing and encryption of stored provider secrets.
+Do not rotate `SECRET_KEY` casually after provider credentials have been saved: Aoede uses it for authentication-related signing and encryption of stored provider secrets.
 
 See [Configuration](CONFIGURATION.md) for the full environment reference.
 
@@ -51,7 +51,7 @@ chmod +x setup.sh
 
 The setup flow checks Docker, creates the persistent data directory, builds the stack, and can optionally create the first admin user and import an existing music library.
 
-## 4. Open Navipod
+## 4. Open Aoede
 
 Open the URL configured for your deployment and sign in with the admin account created during setup.
 
@@ -77,7 +77,7 @@ From the repository root:
 ./import_music.sh /path/to/your/music
 ```
 
-Add `--enrich` to fill missing artwork and metadata with the providers configured in Navipod.
+Add `--enrich` to fill missing artwork and metadata with the providers configured in Aoede.
 
 Read [Importing Music](IMPORTING-MUSIC.md) before running this against a large collection because the importer moves source audio files into the shared pool.
 

@@ -184,8 +184,8 @@
   function setupWrappedMediaSession() {
     if (!('mediaSession' in navigator)) return;
     navigator.mediaSession.metadata = new MediaMetadata({
-      title: `Navipod Wrapped ${state.year}`,
-      artist: state.username || 'Navipod',
+      title: `Aoede Wrapped ${state.year}`,
+      artist: state.username || 'Aoede',
       album: 'Wrapped'
     });
     ['play', 'pause'].forEach((action) => {
@@ -356,7 +356,7 @@
   }
 
   function renderIntro() {
-    const word = 'NAVIPOD';
+    const word = 'AOEDE';
     const letters = word
       .split('')
       .map((ch, i) => {
@@ -376,7 +376,7 @@
           ${introHelper(3)}
         </div>
       </div>
-      <div class="story-intro-word" aria-label="Navipod">${letters}</div>`;
+      <div class="story-intro-word" aria-label="Aoede">${letters}</div>`;
     root.appendChild(intro);
     state.introAudio.play().catch(showSoundPrompt);
     window.setTimeout(() => {
@@ -744,7 +744,7 @@
 
     return [
       {
-        kicker: `Navipod Wrapped ${wrapped.year}`,
+        kicker: `Aoede Wrapped ${wrapped.year}`,
         title: `<span class="story-user-intro"><img src="${avatarUrl(state.username)}" alt="">${esc(state.username || 'Your year')}</span>`,
         copy: 'A fast pass through what actually played, repeated and survived the year.',
         className: 'story-slide-intro'
@@ -837,7 +837,7 @@
         className: 'story-slide-list'
       },
       {
-        kicker: wrapped.artist_clip?.title || 'A message from Navipod',
+        kicker: wrapped.artist_clip?.title || 'A message from Aoede',
         title: 'For the record',
         copy: wrapped.artist_clip?.message || '',
         className: 'story-slide-copy'
@@ -1051,7 +1051,7 @@
       }
       const payload = await res.json();
       window.location.href = `/wrapped/${state.year}`;
-      window.sessionStorage.setItem('navipod:lastSavedWrappedPlaylist', String(payload.id || ''));
+      window.sessionStorage.setItem('aoede:lastSavedWrappedPlaylist', String(payload.id || ''));
     });
   }
 

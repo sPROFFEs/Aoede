@@ -6,7 +6,7 @@ from datetime import timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo, available_timezones
 
-from navipod_config import settings
+from aoede_config import settings
 
 REPO_ROOT = Path(settings.APP_SOURCE_ROOT)
 VERSION_FILE = REPO_ROOT / "VERSION"

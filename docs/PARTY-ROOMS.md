@@ -1,6 +1,6 @@
 # Party Rooms
 
-Party Rooms let multiple authenticated Navipod users listen to a shared queue with synchronized playback.
+Party Rooms let multiple authenticated Aoede users listen to a shared queue with synchronized playback.
 
 ## Discovering rooms
 
@@ -30,11 +30,11 @@ Each user can own one room at a time. Delete the existing room before creating a
 
 Select a room from the Party list or Home shelf.
 
-While connected, Navipod temporarily switches the player from your personal queue to the room's shared track and server-owned playback clock. Playback events such as play/pause, seek, track changes, media controls and reconnects are synchronized around the room state.
+While connected, Aoede temporarily switches the player from your personal queue to the room's shared track and server-owned playback clock. Playback events such as play/pause, seek, track changes, media controls and reconnects are synchronized around the room state.
 
 If the browser blocks autoplay, use the on-screen **Tap to start listening** prompt.
 
-When you leave, Navipod restores the personal playback context that was active before joining, including the personal track/queue and playback settings handled by the client.
+When you leave, Aoede restores the personal playback context that was active before joining, including the personal track/queue and playback settings handled by the client.
 
 ## Host and guest permissions
 
@@ -55,7 +55,7 @@ When you leave, Navipod restores the personal playback context that was active b
 - A short disconnect grace period prevents a refresh or brief network interruption from immediately stopping the room.
 - Multiple tabs from the same account count as one listener.
 - A room queue supports up to **500 songs**.
-- Party search is limited to music already stored in the shared Navipod library; it does not initiate remote searches/downloads.
+- Party search is limited to music already stored in the shared Aoede library; it does not initiate remote searches/downloads.
 - Party endpoints require an authenticated regular user; service accounts and anonymous requests are rejected.
 
 ## Good screenshot for the README

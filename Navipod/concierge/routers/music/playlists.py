@@ -13,10 +13,10 @@ import database
 import deletion_service
 import library_service
 import manager
+from aoede_config import settings
 from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from http_client import http_client
-from navipod_config import settings
 from PIL import Image
 from playlist_files import normalize_playlist_name, playlist_m3u_filename
 from pydantic import BaseModel as PydanticBaseModel
@@ -429,7 +429,7 @@ def schedule_playlist_sync(db, user, playlist_id=None, force_now=False):
 
             target_ip = manager.get_or_spawn_container(user.username)
             url = f"http://{target_ip}:4533/{user.username}/rest/startScan"
-            params = {"u": user.username, "p": "enc:000000", "v": "1.16.1", "c": "navipod-concierge", "f": "json"}
+            params = {"u": user.username, "p": "enc:000000", "v": "1.16.1", "c": "aoede-concierge", "f": "json"}
             headers = {"x-navidrome-user": user.username}
             await http_client.get(url, params=params, headers=headers, timeout=10.0)
             action_type = "immediate" if force_now else "batched"
@@ -450,7 +450,7 @@ async def clean_remote_playlist(username: str, playlist_name: str):
     try:
         target_ip = manager.get_or_spawn_container(username)
         base_url = f"http://{target_ip}:4533/{username}/rest"
-        auth_params = {"u": username, "p": "enc:000000", "v": "1.16.1", "c": "navipod-concierge", "f": "json"}
+        auth_params = {"u": username, "p": "enc:000000", "v": "1.16.1", "c": "aoede-concierge", "f": "json"}
         headers = {"x-navidrome-user": username}
 
         resp = await http_client.get(f"{base_url}/getPlaylists", params=auth_params, headers=headers, timeout=3.0)

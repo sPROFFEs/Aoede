@@ -39,12 +39,12 @@ Dismissed recommendations are remembered by that browser. Downloaded music becom
 
 Search can combine results from:
 
-- the local Navipod/Navidrome library;
+- the local Aoede/Navidrome library;
 - Spotify;
 - YouTube;
 - Last.fm;
 - MusicBrainz;
-- connected Navipod federation peers, when enabled by an administrator.
+- connected Aoede federation peers, when enabled by an administrator.
 
 Use the source filters to narrow the results. Local tracks can be played immediately. Remote tracks can be previewed or downloaded when the source supports it.
 
@@ -58,7 +58,7 @@ queued → processing → completed
 
 A job can move to **Failed** from any active stage; its details explain the error and whether a fallback was attempted.
 
-Navipod reuses matching content already in the shared pool when possible, so two users do not need separate copies of the same track.
+Aoede reuses matching content already in the shared pool when possible, so two users do not need separate copies of the same track.
 
 ## Browse the library
 
@@ -77,11 +77,11 @@ The **Public** Home tab lists playlists shared by users on the same server. You 
 
 ## Collaborative playlists
 
-Choose **Create → Collaborative playlist** on mobile, or use **New Playlist** in the Library to open the same creation menu. After naming the playlist, invite an existing user by their exact Navipod username. You can also open **Collaborators** on any ordinary playlist you own to invite users later.
+Choose **Create → Collaborative playlist** on mobile, or use **New Playlist** in the Library to open the same creation menu. After naming the playlist, invite an existing user by their exact Aoede username. You can also open **Collaborators** on any ordinary playlist you own to invite users later.
 
 Invited users see the shared playlist in their Library and in the Add to Playlist picker. They can add, remove, and reorder songs. On a phone, tap a song's reorder handle and choose **Move up** or **Move down**; desktop drag-and-drop is also supported. Changes appear for other users through the normal refresh cycle (up to 30 seconds while the app is visible). A stale reorder is rejected and the latest playlist is reloaded.
 
-The owner alone can rename, publish, change the cover, delete the playlist, or manage collaborators. Collaborators can leave using **Leave playlist**. Removing a collaborator immediately revokes editing access; public playlists remain viewable. Public visibility does not grant editing rights. Invitations require a connection, and smart playlists and synced copies cannot accept collaborators. Collaborative edits update the owner's Navidrome export; collaboration itself is managed in the Navipod webapp.
+The owner alone can rename, publish, change the cover, delete the playlist, or manage collaborators. Collaborators can leave using **Leave playlist**. Removing a collaborator immediately revokes editing access; public playlists remain viewable. Public visibility does not grant editing rights. Invitations require a connection, and smart playlists and synced copies cannot accept collaborators. Collaborative edits update the owner's Navidrome export; collaboration itself is managed in the Aoede webapp.
 
 ## Smart playlists
 
@@ -113,11 +113,11 @@ Repeat cycles through off, queue repeat and repeat-current-track. The sleep time
 
 Open the queue to drag tracks into a new order or remove them. Manually queued tracks play before the remaining album, playlist or other playback context.
 
-Navipod saves the personal queue, current context, position, shuffle/repeat state and volume for your account. It can restore that state in another session or browser, but this is not live cross-device control: if multiple devices play at once, the latest saved state wins. Party Room playback is kept separate from personal playback state.
+Aoede saves the personal queue, current context, position, shuffle/repeat state and volume for your account. It can restore that state in another session or browser, but this is not live cross-device control: if multiple devices play at once, the latest saved state wins. Party Room playback is kept separate from personal playback state.
 
 ### Lyrics
 
-Open the lyrics panel from the player. When synchronized lyrics are available, the current line follows playback; plain lyrics are shown otherwise. Lyrics are retrieved through the Navipod backend and cached for later use.
+Open the lyrics panel from the player. When synchronized lyrics are available, the current line follows playback; plain lyrics are shown otherwise. Lyrics are retrieved through the Aoede backend and cached for later use.
 
 ### Per-device playback preferences
 
@@ -141,7 +141,7 @@ Wrapped depends on completed listening events, so current playback may not appea
 
 ## Party Rooms
 
-Party Rooms let multiple Navipod users listen to one synchronized queue. The room host controls playback, while guests follow the shared room state. A room may optionally allow guests to add songs.
+Party Rooms let multiple Aoede users listen to one synchronized queue. The room host controls playback, while guests follow the shared room state. A room may optionally allow guests to add songs.
 
 Read [Party Rooms](PARTY-ROOMS.md) for creation limits, permissions and synchronization behavior.
 
@@ -165,13 +165,13 @@ Settings let you:
 
 Treat provider secrets and YouTube cookies as credentials. Do not share them or commit them to the repository.
 
-If **Remember me** is selected at login, Navipod stores a signed, HTTP-only session cookie rather than saving the password in the browser. The session duration is controlled by the server administrator.
+If **Remember me** is selected at login, Aoede stores a signed, HTTP-only session cookie rather than saving the password in the browser. The session duration is controlled by the server administrator.
 
 ## Mobile listening
 
 You have two main options:
 
-- install the Navipod Android APK — see [Android](ANDROID.md);
+- install the Aoede Android APK — see [Android](ANDROID.md);
 - connect a compatible Subsonic client to your user endpoint — see [Subsonic](SUBSONIC.md).
 
 ## Need help?

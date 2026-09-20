@@ -378,9 +378,9 @@
     <div class="login-wrapper">
         <div class="login-card">
             <div class="brand-section">
-                <img src="/assets/icon.png?v={{ static_v }}" alt="Navipod" class="brand-icon"
+                <img src="/assets/icon.png?v={{ static_v }}" alt="Aoede" class="brand-icon"
                     onerror="this.src='/static/img/default_cover.png'">
-                <h1 class="app-title">{{ _('login.title') if _ else 'Log in to Navipod' }}</h1>
+                <h1 class="app-title">{{ _('login.title') if _ else 'Log in to Aoede' }}</h1>
                 <p class="app-subtitle">{{ _('login.subtitle') if _ else 'Your private music library, ready when you are.' }}</p>
             </div>
 
@@ -427,7 +427,7 @@
     </div>
     <!-- PWA Install Banner -->
     <div id="pwa-banner" class="pwa-banner" role="banner" aria-label="{{ _('login.pwa_title') }}">
-        <img src="/assets/icon.png?v={{ static_v }}" class="pwa-banner-icon" alt="Navipod">
+        <img src="/assets/icon.png?v={{ static_v }}" class="pwa-banner-icon" alt="Aoede">
         <div class="pwa-banner-body">
             <strong>{{ _('login.pwa_title') }}</strong>
             <span id="pwa-banner-hint">{{ _('login.pwa_hint') }}</span>
@@ -440,7 +440,7 @@
 
     <script>
     (function () {
-        var DISMISS_KEY = 'navipod_pwa_dismissed';
+        var DISMISS_KEY = 'aoede_pwa_dismissed';
         var banner      = document.getElementById('pwa-banner');
         var installBtn  = document.getElementById('pwa-install-btn');
         var dismissBtn  = document.getElementById('pwa-dismiss-btn');

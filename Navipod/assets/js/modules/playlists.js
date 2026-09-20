@@ -11,7 +11,7 @@ import * as offlineStore from './offline_store.js';
 
 let playlistRevision = null;
 let creatingCollaborative = false;
-document.addEventListener('navipod:modalclosed', () => {
+document.addEventListener('aoede:modalclosed', () => {
   creatingCollaborative = false;
 });
 
@@ -74,7 +74,7 @@ export async function showCollaboratorsModal(playlistId) {
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal modal-create" role="dialog" aria-modal="true" aria-labelledby="collaborators-title" style="max-width:520px; max-height:85vh; display:flex; flex-direction:column;">
           <div class="modal-header"><h2 id="collaborators-title">Collaborators</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
-          <p class="modal-subtitle" style="margin-bottom:14px;">Invite someone on this Navipod server. They can add, remove, and reorder songs. You control sharing and deletion.</p>
+          <p class="modal-subtitle" style="margin-bottom:14px;">Invite someone on this Aoede server. They can add, remove, and reorder songs. You control sharing and deletion.</p>
           
           ${
             data.is_owner

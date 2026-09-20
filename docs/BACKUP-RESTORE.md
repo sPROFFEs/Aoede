@@ -1,6 +1,6 @@
 # Backup & Restore
 
-A reliable Navipod backup should protect both persistent application data and the deployment secrets/configuration needed to interpret that data.
+A reliable Aoede backup should protect both persistent application data and the deployment secrets/configuration needed to interpret that data.
 
 ## In-app rotating backups
 
@@ -17,15 +17,15 @@ At minimum, preserve:
 
 ```text
 /opt/saas-data/
-/path/to/repo/Navipod/.env
+/path/to/repo/Aoede/.env
 ```
 
 Example archive command:
 
 ```bash
-sudo tar -czf navipod-backup.tar.gz \
+sudo tar -czf aoede-backup.tar.gz \
   /opt/saas-data \
-  /path/to/repo/Navipod/.env
+  /path/to/repo/Aoede/.env
 ```
 
 If you changed `HOST_DATA_ROOT`, back up that configured path instead of `/opt/saas-data`.
@@ -50,7 +50,7 @@ A conservative host-level restore flow is:
 Example:
 
 ```bash
-cd /path/to/repo/Navipod
+cd /path/to/repo/Aoede
 docker compose down
 
 # restore /opt/saas-data and .env from your backup
@@ -73,7 +73,7 @@ Only apply permission changes when they match the user/group expectations of you
 ## Recommended policy
 
 - Keep more than one host-level backup generation.
-- Store at least one copy away from the Navipod host.
+- Store at least one copy away from the Aoede host.
 - Test a restore before you need it.
 - Back up before upgrades, deployment-mode changes or large imports.
 - Do not store unencrypted backups in public cloud buckets or shared folders.

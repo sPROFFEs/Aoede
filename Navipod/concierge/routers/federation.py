@@ -80,7 +80,7 @@ def _spawn(coro):
 # will issue authenticated GETs against it (forwarding the bearer token
 # to the URL). Without a guard, `http://127.0.0.1:6379/`, AWS metadata
 # (`http://169.254.169.254/...`), or other internal hosts could be
-# probed via Navipod, leaking the federation token to those services.
+# probed via Aoede, leaking the federation token to those services.
 #
 # We resolve the URL's host to one or more IPs and block any of:
 #   - loopback (127/8, ::1)
@@ -227,7 +227,7 @@ def _verify_federation_token(
         # (cloudflared, nginx with the right headers). In a direct-
         # exposure setup any client can spoof it and pollute the audit
         # trail. Gate on the existing TRUST_PROXY_HEADERS setting.
-        from navipod_config import settings as _settings
+        from aoede_config import settings as _settings
 
         ip = None
         if getattr(_settings, "TRUST_PROXY_HEADERS", False):
@@ -612,7 +612,7 @@ async def federation_proxy_stream(
 
     # Forward Range header to preserve seeking.
     upstream_headers = {
-        "User-Agent": "Navipod-Federation/1.0",
+        "User-Agent": "Aoede-Federation/1.0",
     }
     if inst.api_token:
         upstream_headers["Authorization"] = f"Bearer {inst.api_token}"

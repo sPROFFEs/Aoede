@@ -4,9 +4,9 @@ The new root README is already wired to these filenames. Replace the placeholder
 
 ## Visual rules
 
-Use the real Navipod UI. The strongest README is one that looks like the product people will actually run.
+Use the real Aoede UI. The strongest README is one that looks like the product people will actually run.
 
-- Prefer dark mode / the normal Navipod visual identity.
+- Prefer dark mode / the normal Aoede visual identity.
 - Capture at 100% browser zoom unless a crop specifically needs more density.
 - Use realistic album artwork and enough content to make the interface feel alive.
 - Avoid test data such as `foo`, `test123`, empty shelves or error banners.
@@ -15,7 +15,7 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 - Crop cleanly to the app; small browser chrome is fine for the hero if it helps communicate "web app".
 - Export to WebP at roughly 80–88 quality to keep the repository light.
 
-## 1. Hero — `.github/assets/navipod-hero.webp`
+## 1. Hero — `.github/assets/aoede-hero.webp`
 
 **Purpose:** the first visual impression of the project.
 
@@ -29,7 +29,7 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 
 ```html
 <p align="center">
-  <img src=".github/assets/navipod-hero.webp" alt="Navipod interface preview" width="100%">
+  <img src=".github/assets/aoede-hero.webp" alt="Aoede interface preview" width="100%">
 </p>
 ```
 
@@ -44,7 +44,7 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 **README snippet:**
 
 ```html
-<img src=".github/assets/screenshot-home.webp" alt="Navipod home with mixes and recommendations">
+<img src=".github/assets/screenshot-home.webp" alt="Aoede home with mixes and recommendations">
 ```
 
 ## 3. Search — `.github/assets/screenshot-search.webp`
@@ -60,7 +60,7 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 **README snippet:**
 
 ```html
-<img src=".github/assets/screenshot-search.webp" alt="Navipod multi-source search">
+<img src=".github/assets/screenshot-search.webp" alt="Aoede multi-source search">
 ```
 
 ## 4. Party — `.github/assets/screenshot-party.webp`
@@ -76,12 +76,12 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 **README snippet:**
 
 ```html
-<img src=".github/assets/screenshot-party.webp" alt="Navipod Party Room">
+<img src=".github/assets/screenshot-party.webp" alt="Aoede Party Room">
 ```
 
 ## 5. Mobile — `.github/assets/screenshot-mobile.webp`
 
-**Purpose:** show that Navipod is usable away from the desktop.
+**Purpose:** show that Aoede is usable away from the desktop.
 
 **Recommended source:** portrait capture from the Android app, ideally 1080×2160 or similar.
 
@@ -90,7 +90,7 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 **README snippet:**
 
 ```html
-<img src=".github/assets/screenshot-mobile.webp" alt="Navipod on Android">
+<img src=".github/assets/screenshot-mobile.webp" alt="Aoede on Android">
 ```
 
 ## 6. Admin — `.github/assets/screenshot-admin.webp` *(optional)*
@@ -105,7 +105,7 @@ Use the real Navipod UI. The strongest README is one that looks like the product
 
 ```html
 <p align="center">
-  <img src=".github/assets/screenshot-admin.webp" alt="Navipod administration and system monitor" width="90%">
+  <img src=".github/assets/screenshot-admin.webp" alt="Aoede administration and system monitor" width="90%">
 </p>
 ```
 
@@ -117,18 +117,18 @@ The root README already contains this block:
 <table>
 <tr>
 <td width="50%">
-  <img src=".github/assets/screenshot-home.webp" alt="Navipod home with mixes and recommendations">
+  <img src=".github/assets/screenshot-home.webp" alt="Aoede home with mixes and recommendations">
 </td>
 <td width="50%">
-  <img src=".github/assets/screenshot-search.webp" alt="Navipod multi-source search">
+  <img src=".github/assets/screenshot-search.webp" alt="Aoede multi-source search">
 </td>
 </tr>
 <tr>
 <td width="50%">
-  <img src=".github/assets/screenshot-party.webp" alt="Navipod Party Room">
+  <img src=".github/assets/screenshot-party.webp" alt="Aoede Party Room">
 </td>
 <td width="50%">
-  <img src=".github/assets/screenshot-mobile.webp" alt="Navipod on Android">
+  <img src=".github/assets/screenshot-mobile.webp" alt="Aoede on Android">
 </td>
 </tr>
 </table>
@@ -140,11 +140,11 @@ After taking the captures:
 
 ```bash
 # Example from the repository root
-cp ~/Pictures/navipod-hero.webp .github/assets/navipod-hero.webp
-cp ~/Pictures/navipod-home.webp .github/assets/screenshot-home.webp
-cp ~/Pictures/navipod-search.webp .github/assets/screenshot-search.webp
-cp ~/Pictures/navipod-party.webp .github/assets/screenshot-party.webp
-cp ~/Pictures/navipod-mobile.webp .github/assets/screenshot-mobile.webp
+cp ~/Pictures/aoede-hero.webp .github/assets/aoede-hero.webp
+cp ~/Pictures/aoede-home.webp .github/assets/screenshot-home.webp
+cp ~/Pictures/aoede-search.webp .github/assets/screenshot-search.webp
+cp ~/Pictures/aoede-party.webp .github/assets/screenshot-party.webp
+cp ~/Pictures/aoede-mobile.webp .github/assets/screenshot-mobile.webp
 ```
 
 Then preview the README on GitHub or in your editor before committing.
@@ -158,4 +158,4 @@ Then preview the README on GitHub or in your editor before committing.
 5. Mobile
 6. Admin *(optional)*
 
-The first three do most of the work of explaining why Navipod is different.
+The first three do most of the work of explaining why Aoede is different.

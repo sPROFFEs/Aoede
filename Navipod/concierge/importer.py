@@ -1,5 +1,5 @@
 """
-Bulk music importer for Navipod.
+Bulk music importer for Aoede.
 
 Walks a folder recursively, moves audio files into the shared pool, registers
 each track in the DB with metadata extracted via mutagen, saves embedded
@@ -454,7 +454,7 @@ def run(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Bulk import audio files into the Navipod shared pool.")
+    parser = argparse.ArgumentParser(description="Bulk import audio files into the Aoede shared pool.")
     parser.add_argument("--source", required=True, help="folder to scan recursively")
     parser.add_argument(
         "--enrich", action="store_true", help="call remote APIs to download missing covers and warm metadata cache"

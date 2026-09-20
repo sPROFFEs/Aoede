@@ -1,14 +1,14 @@
 /**
- * sw.js — Navipod Service Worker
+ * sw.js — Aoede Service Worker
  *
  * Full offline application shell and caching coordinator.
  *  - Precaches the versioned application shell (HTML, CSS, JS, icons, manifest).
- *  - Serves navigation fallback when offline so Navipod launches instantly in airplane mode.
+ *  - Serves navigation fallback when offline so Aoede launches instantly in airplane mode.
  *  - Leaves audio streams and large downloads to IndexedDB storage.
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'navipod-shell-v3';
+const CACHE = 'aoede-shell-v3';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
@@ -154,7 +154,7 @@ self.addEventListener('fetch', (event) => {
           const portalShell = await caches.match('/portal');
           if (portalShell) return portalShell;
           return new Response(
-            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Navipod Offline</title></head><body style="background:#121212;color:#fff;font-family:sans-serif;text-align:center;padding:40px;"><h1>Navipod Offline</h1><p>You are offline. Open Navipod while connected to sync the offline app shell.</p></body></html>',
+            '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Aoede Offline</title></head><body style="background:#121212;color:#fff;font-family:sans-serif;text-align:center;padding:40px;"><h1>Aoede Offline</h1><p>You are offline. Open Aoede while connected to sync the offline app shell.</p></body></html>',
             { headers: { 'Content-Type': 'text/html' } }
           );
         })

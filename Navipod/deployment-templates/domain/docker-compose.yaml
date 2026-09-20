@@ -1,5 +1,5 @@
 # =============================================================================
-# Navipod — DOMAIN + Let's Encrypt deployment template
+# Aoede — DOMAIN + Let's Encrypt deployment template
 # =============================================================================
 #
 # This is a STANDALONE replacement for the default docker-compose.yaml.
@@ -21,7 +21,7 @@
 
 networks:
   navidrome-net:
-    name: navipod-global
+    name: aoede-global
     driver: bridge
     ipam:
       config:
@@ -30,7 +30,7 @@ networks:
 services:
   downloader:
     build: ./downloader-worker
-    container_name: navipod_downloader
+    container_name: aoede_downloader
     user: root
     restart: unless-stopped
     volumes:
@@ -81,7 +81,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/saas-data:/saas-data
       - ..:/workspace
-      - /opt/saas-data/config/navipod.env:/run/navipod/.env
+      - /opt/saas-data/config/aoede.env:/run/aoede/.env
       - ./concierge/templates:/app/templates
       - ./concierge:/app
       - ./assets:/app/assets
@@ -98,8 +98,8 @@ services:
       - IDLE_THRESHOLD_MINUTES=${IDLE_THRESHOLD_MINUTES:-30}
       - HOST_DATA_ROOT=${HOST_DATA_ROOT:-/opt/saas-data}
       - APP_SOURCE_ROOT=${APP_SOURCE_ROOT:-/workspace}
-      - COMPOSE_ENV_FILE=${COMPOSE_ENV_FILE:-/saas-data/config/navipod.env}
-      - RUNTIME_ENV_FILE=${RUNTIME_ENV_FILE:-/run/navipod/.env}
+      - COMPOSE_ENV_FILE=${COMPOSE_ENV_FILE:-/saas-data/config/aoede.env}
+      - RUNTIME_ENV_FILE=${RUNTIME_ENV_FILE:-/run/aoede/.env}
       - NAVIDROME_IMAGE=${NAVIDROME_IMAGE:-deluan/navidrome:latest}
       - CONCURRENT_DOWNLOADS=${CONCURRENT_DOWNLOADS:-3}
       - DOWNLOADER_WORKER_URL=${DOWNLOADER_WORKER_URL:-http://downloader:8081}
@@ -108,7 +108,7 @@ services:
       - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - BACKUP_ROOT=${BACKUP_ROOT:-/saas-data/backups}
       - BACKUP_SCHEDULER_POLL_SECONDS=${BACKUP_SCHEDULER_POLL_SECONDS:-60}
-      - UPDATE_SOURCE_REPO_URL=${UPDATE_SOURCE_REPO_URL:-https://github.com/sPROFFEs/Navipod}
+      - UPDATE_SOURCE_REPO_URL=${UPDATE_SOURCE_REPO_URL:-https://github.com/sPROFFEs/Aoede}
       - UPDATE_SOURCE_BRANCH=${UPDATE_SOURCE_BRANCH:-main}
       - UPDATE_MANAGED_SERVICES=${UPDATE_MANAGED_SERVICES:-concierge}
       - SELF_CONTAINER_NAME=concierge
@@ -130,14 +130,14 @@ services:
     build:
       context: ./concierge
       dockerfile: Dockerfile.updater
-    container_name: navipod_updater
+    container_name: aoede_updater
     user: root
     restart: unless-stopped
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - /opt/saas-data:/saas-data
       - ..:/workspace
-      - /opt/saas-data/config/navipod.env:/run/navipod/.env
+      - /opt/saas-data/config/aoede.env:/run/aoede/.env
       - ./concierge:/app
     environment:
       - SECRET_KEY=${SECRET_KEY}
@@ -152,17 +152,17 @@ services:
       - IDLE_THRESHOLD_MINUTES=${IDLE_THRESHOLD_MINUTES:-30}
       - HOST_DATA_ROOT=${HOST_DATA_ROOT:-/opt/saas-data}
       - APP_SOURCE_ROOT=${APP_SOURCE_ROOT:-/workspace}
-      - COMPOSE_ENV_FILE=${COMPOSE_ENV_FILE:-/saas-data/config/navipod.env}
-      - RUNTIME_ENV_FILE=${RUNTIME_ENV_FILE:-/run/navipod/.env}
+      - COMPOSE_ENV_FILE=${COMPOSE_ENV_FILE:-/saas-data/config/aoede.env}
+      - RUNTIME_ENV_FILE=${RUNTIME_ENV_FILE:-/run/aoede/.env}
       - NAVIDROME_IMAGE=${NAVIDROME_IMAGE:-deluan/navidrome:latest}
       - CONCURRENT_DOWNLOADS=${CONCURRENT_DOWNLOADS:-3}
       - COOKIE_SECURE=${COOKIE_SECURE:-true}
       - BACKUP_ROOT=${BACKUP_ROOT:-/saas-data/backups}
       - BACKUP_SCHEDULER_POLL_SECONDS=${BACKUP_SCHEDULER_POLL_SECONDS:-60}
-      - UPDATE_SOURCE_REPO_URL=${UPDATE_SOURCE_REPO_URL:-https://github.com/sPROFFEs/Navipod}
+      - UPDATE_SOURCE_REPO_URL=${UPDATE_SOURCE_REPO_URL:-https://github.com/sPROFFEs/Aoede}
       - UPDATE_SOURCE_BRANCH=${UPDATE_SOURCE_BRANCH:-main}
       - UPDATE_MANAGED_SERVICES=${UPDATE_MANAGED_SERVICES:-concierge}
-      - SELF_CONTAINER_NAME=navipod_updater
+      - SELF_CONTAINER_NAME=aoede_updater
       - KEEP_ROOT=true
     command: ["uvicorn", "updater_api:app", "--host", "0.0.0.0", "--port", "8090"]
     networks:
@@ -171,7 +171,7 @@ services:
 
   nginx:
     image: nginx:latest
-    container_name: navipod_nginx
+    container_name: aoede_nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -196,7 +196,7 @@ services:
 
   certbot:
     image: certbot/certbot
-    container_name: navipod_certbot
+    container_name: aoede_certbot
     restart: unless-stopped
     volumes:
       - certbot-etc:/etc/letsencrypt
@@ -218,10 +218,10 @@ volumes:
   # Persistent volumes for Let's Encrypt state. Survive rebuilds so
   # renewals don't have to start from scratch.
   certbot-etc:
-    name: navipod_certbot_etc
+    name: aoede_certbot_etc
   certbot-www:
-    name: navipod_certbot_www
+    name: aoede_certbot_www
   downloader-state:
-    name: navipod_downloader_state
+    name: aoede_downloader_state
   auth-browser-state:
-    name: navipod_auth_browser_state
+    name: aoede_auth_browser_state

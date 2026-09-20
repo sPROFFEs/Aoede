@@ -203,7 +203,7 @@ def _normalize_backup_permissions_with_docker() -> bool:
 def _backup_artifacts_accessible() -> bool:
     if not os.access(ops.BACKUP_ROOT, os.R_OK | os.W_OK | os.X_OK):
         return False
-    for backup_file in ops.BACKUP_ROOT.glob("navipod-backup-*.zip"):
+    for backup_file in ops.BACKUP_ROOT.glob("aoede-backup-*.zip"):
         if not os.access(backup_file, os.R_OK | os.W_OK):
             return False
     return True
@@ -213,7 +213,7 @@ def _normalize_backup_permissions() -> None:
     ops.ensure_runtime_dirs()
     try:
         ops.BACKUP_ROOT.chmod(0o775)
-        for backup_file in ops.BACKUP_ROOT.glob("navipod-backup-*.zip"):
+        for backup_file in ops.BACKUP_ROOT.glob("aoede-backup-*.zip"):
             _set_backup_file_permissions(backup_file)
     except OSError as e:
         logger.warning("Backup permission normalization needs Docker fallback: %s", e)
@@ -358,7 +358,7 @@ def run_restore_job(job_id: int, slot: str, triggered_by: str | None):
             return
 
         update_admin_job(job_id, status="running", message=f"Restoring {slot} backup")
-        extract_dir = Path(tempfile.mkdtemp(prefix="navipod-restore-", dir=ops.BACKUP_ROOT))
+        extract_dir = Path(tempfile.mkdtemp(prefix="aoede-restore-", dir=ops.BACKUP_ROOT))
         with zipfile.ZipFile(artifact.file_path, "r") as zf:
             zf.extractall(extract_dir)
 

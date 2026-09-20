@@ -77,10 +77,10 @@
 /* View transition: fade + subtle slide-up for new content.
  * Applied by loadView() via the .view-entering class. */
 .view-content > * {
-  animation: navipod-view-enter var(--dur) var(--ease) both;
+  animation: aoede-view-enter var(--dur) var(--ease) both;
 }
 
-@keyframes navipod-view-enter {
+@keyframes aoede-view-enter {
   from {
     opacity: 0;
     transform: translateY(8px);

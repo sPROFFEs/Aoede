@@ -727,7 +727,7 @@ def _build_user_summary_from_rows(
         "top_genres": [],
         "top_artist_sprint": sprint_payload,
         "artist_clip": {
-            "title": "A message from Navipod",
+            "title": "A message from Aoede",
             "message": get_wrapped_settings(db)["artist_clip_message"],
         },
         "data_quality": {

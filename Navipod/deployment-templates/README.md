@@ -2,7 +2,7 @@
 
 Drop-in replacements for the live `docker-compose.yaml`, `nginx.conf`, and
 `.env` in the parent directory. Pick the template that matches how you want
-to expose Navipod, copy the files in, edit `.env`, and bring it up.
+to expose Aoede, copy the files in, edit `.env`, and bring it up.
 
 | Mode | Use when | Files to copy |
 | ---- | -------- | ------------- |
