@@ -41,6 +41,9 @@ ENV/
 .env
 .env.*
 !.env.example
+/Aoede/.env
+/Aoede/.env.*
+!/Aoede/.env.example
 /Navipod/.env
 /Navipod/.env.*
 !/Navipod/.env.example
@@ -70,13 +73,13 @@ node_modules/
 # Project-specific generated data
 /opt/
 /saas-data/
-Navipod/concierge/__pycache__/
-Navipod/concierge/tests/__pycache__/
-Navipod/concierge/locales/*.mo
-Navipod/**/__pycache__/
-Navipod/**/*.pyc
-Navipod/**/*.pyo
-Navipod/**/*.pyd
+Aoede/concierge/__pycache__/
+Aoede/concierge/tests/__pycache__/
+Aoede/concierge/locales/*.mo
+Aoede/**/__pycache__/
+Aoede/**/*.pyc
+Aoede/**/*.pyo
+Aoede/**/*.pyd
 
 # Local docs / scratch files that should not ship.
 # Anything inside docs/ is ignored EXCEPT the deployment guide, which
