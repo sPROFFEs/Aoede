@@ -42,12 +42,10 @@
 <br>
 
 <p align="center">
-  <img
-    src=".github/assets/aoede-hero.webp"
-    alt="Aoede music platform"
-    width="100%"
-  >
+  <img width="1198" height="770" alt="image" src="https://github.com/user-attachments/assets/8019775e-240e-4485-a073-39d8b7b3ed69" alt="Aoede music platform"
+    width="100%" />
 </p>
+
 
 <br>
 
@@ -167,7 +165,7 @@ Users, downloads, library maintenance, backups, monitoring, statistics and appli
 
 <p align="center">
   <img
-    src=".github/assets/screenshot-search.webp"
+    src="https://github.com/user-attachments/assets/f69d7266-d103-4ea5-904b-553ce78e09ac"
     alt="Aoede multi-source music search"
     width="95%"
   >
@@ -183,7 +181,7 @@ Filter by source, preview remote results and bring new music directly into your 
 
 <p align="center">
   <img
-    src=".github/assets/screenshot-downloads.webp"
+    src="https://github.com/user-attachments/assets/df417be2-5fad-4339-80e5-25111024e60f"
     alt="Aoede Download Manager"
     width="95%"
   >
@@ -205,7 +203,7 @@ Failed jobs can be retried without leaving the interface.
 
 <p align="center">
   <img
-    src=".github/assets/screenshot-playlists.webp"
+    src="https://github.com/user-attachments/assets/d17a3f7f-d0a5-4ebd-b9a6-f53102dff6da"
     alt="Aoede shared and collaborative playlists"
     width="95%"
   >
@@ -228,7 +226,7 @@ Playlist owners retain control over publishing, artwork, collaborators and delet
 
 <p align="center">
   <img
-    src=".github/assets/screenshot-party.webp"
+    src="https://github.com/user-attachments/assets/ff4a93ba-43ef-462b-badb-bae8a42d6933"
     alt="Aoede Party Room"
     width="95%"
   >
@@ -239,40 +237,6 @@ Create a room, queue music and listen with other Aoede users using one synchroni
 Hosts control playback while guests follow automatically.
 
 Rooms support shared queues, playlist seeding and optional guest additions.
-
----
-
-<table>
-<tr>
-<td width="67%">
-
-### Personal music experience
-
-<img
-  src=".github/assets/screenshot-home.webp"
-  alt="Aoede home with recommendations and personal mixes"
-  width="100%"
->
-
-Home adapts to your library and listening history with recommendations, playlists and personal mixes.
-
-</td>
-
-<td width="33%" align="center">
-
-### Mobile
-
-<img
-  src=".github/assets/screenshot-mobile.webp"
-  alt="Aoede Android application"
-  width="260"
->
-
-Use Aoede away from the desktop with background playback and Android media controls.
-
-</td>
-</tr>
-</table>
 
 ---
 
