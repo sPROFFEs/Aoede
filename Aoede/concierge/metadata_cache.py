@@ -128,9 +128,12 @@ def _get_conn() -> Iterator[sqlite3.Connection | None]:
         conn = None
         try:
             conn = sqlite3.connect(CACHE_DB_PATH, timeout=CACHE_BUSY_TIMEOUT_MS / 1000)
-            conn.execute(f"PRAGMA busy_timeout = {CACHE_BUSY_TIMEOUT_MS}")
-            conn.execute("PRAGMA journal_mode = WAL")
-            conn.execute("PRAGMA synchronous = NORMAL")
+            try:
+                conn.execute(f"PRAGMA busy_timeout = {CACHE_BUSY_TIMEOUT_MS}")
+                conn.execute("PRAGMA journal_mode = WAL")
+                conn.execute("PRAGMA synchronous = NORMAL")
+            except (sqlite3.OperationalError, sqlite3.DatabaseError, OSError):
+                pass
             _migrate_schema(conn)
             yield conn
             return

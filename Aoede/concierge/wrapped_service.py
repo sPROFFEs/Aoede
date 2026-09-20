@@ -200,12 +200,15 @@ def get_wrapped_summary_db_path() -> Path:
 
 
 def _connect_summary() -> sqlite3.Connection:
-    path = get_wrapped_summary_db_path()
-    conn = sqlite3.connect(str(path))
+    summary_path = get_wrapped_summary_db_path()
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(summary_path, timeout=10.0)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    conn.execute("PRAGMA busy_timeout=10000")
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA busy_timeout=5000")
+    except (sqlite3.OperationalError, sqlite3.DatabaseError, OSError):
+        pass
     return conn
 
 
