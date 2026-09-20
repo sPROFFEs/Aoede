@@ -2,7 +2,7 @@
 set -e
 
 REPO="sPROFFEs/Aoede"
-TAG="v1.2.0"
+TAG="v1.2.1"
 
 echo "🎵 Installing Aoede Desktop App ($TAG)..."
 
@@ -73,7 +73,24 @@ EOF
         cp "$TEMP_DIR/resources.neu" "$APP_PATH/Contents/Resources/resources.neu"
         chmod +x "$APP_PATH/Contents/MacOS/aoede"
 
-        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Aoede/assets/icon.png" -o "$APP_PATH/Contents/Resources/appIcon.png" 2>/dev/null || true
+        ICON_SOURCE="$APP_PATH/Contents/Resources/appIcon.png"
+        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Aoede/assets/icon.png" -o "$ICON_SOURCE"
+
+        # Finder and the Dock use an ICNS file for the bundle icon.  Registering
+        # the source PNG directly can make the icon render at the wrong scale.
+        ICONSET_DIR="$TEMP_DIR/Aoede.iconset"
+        mkdir -p "$ICONSET_DIR"
+        sips -z 16 16 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
+        sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null
+        sips -z 32 32 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_32x32.png" >/dev/null
+        sips -z 64 64 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_32x32@2x.png" >/dev/null
+        sips -z 128 128 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_128x128.png" >/dev/null
+        sips -z 256 256 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
+        sips -z 256 256 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null
+        sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
+        sips -z 512 512 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
+        sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
+        iconutil -c icns "$ICONSET_DIR" -o "$APP_PATH/Contents/Resources/appIcon.icns"
 
         cat <<EOF > "$APP_PATH/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -83,7 +100,9 @@ EOF
     <key>CFBundleExecutable</key>
     <string>aoede</string>
     <key>CFBundleIconFile</key>
-    <string>appIcon.png</string>
+    <string>appIcon.icns</string>
+    <key>CFBundleIconName</key>
+    <string>appIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.aoede.desktop</string>
     <key>CFBundleName</key>

@@ -76,19 +76,11 @@ function onTrayMenuItemClicked(event) {
     }
 }
 
-/*
-    Function to handle the window close event by gracefully exiting the Neutralino application.
-*/
-function onWindowClose() {
-    Neutralino.app.exit();
-}
-
 // Initialize Neutralino
 Neutralino.init();
 
 // Register event listeners
 Neutralino.events.on("trayMenuItemClicked", onTrayMenuItemClicked);
-Neutralino.events.on("windowClose", onWindowClose);
 
 // Conditional initialization: Set up system tray if not running on macOS
 if(NL_OS != "Darwin") { // TODO: Fix https://github.com/neutralinojs/neutralinojs/issues/615
