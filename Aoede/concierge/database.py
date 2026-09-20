@@ -77,7 +77,10 @@ def _configure_sqlite(dbapi_connection, _connection_record):
         return
 
     cursor = dbapi_connection.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.OperationalError:
+        pass
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA busy_timeout=30000")

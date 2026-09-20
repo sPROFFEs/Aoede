@@ -55,6 +55,8 @@ if [ "$(id -u)" = "0" ]; then
         chown appuser:downloaders /saas-data/download-staging /saas-data/download-staging/jobs
         chmod 2770 /saas-data/download-staging /saas-data/download-staging/jobs
     fi
+    # Always ensure root database files have appuser ownership
+    find /saas-data -maxdepth 1 -name "concierge.db*" -exec chown appuser:appuser {} + -exec chmod 660 {} + 2>/dev/null || true
 fi
 
 # 3. DROP PRIVILEGES AND RUN COMMAND
