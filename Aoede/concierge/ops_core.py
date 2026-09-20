@@ -19,11 +19,18 @@ from sqlalchemy import text
 
 def _detect_compose_project_root(repo_root: Path) -> Path:
     direct = repo_root / "docker-compose.yaml"
-    nested = repo_root / "Aoede" / "docker-compose.yaml"
+    nested_aoede = repo_root / "Aoede" / "docker-compose.yaml"
+    nested_navipod = repo_root / "Navipod" / "docker-compose.yaml"
     if direct.exists():
         return repo_root
-    if nested.exists():
+    if nested_aoede.exists():
         return repo_root / "Aoede"
+    if nested_navipod.exists():
+        return repo_root / "Navipod"
+    if (repo_root / "Aoede").exists():
+        return repo_root / "Aoede"
+    if (repo_root / "Navipod").exists():
+        return repo_root / "Navipod"
     return repo_root / "Aoede"
 
 
@@ -71,11 +78,11 @@ def _path_variants_for_match(path: str | Path | None) -> set[str]:
         return set()
 
     variants = {normalized}
-    nested_prefixes = []
+    nested_prefixes = ["Aoede", "Navipod"]
 
-    if COMPOSE_PROJECT_ROOT != REPO_ROOT:
+    if COMPOSE_PROJECT_ROOT != REPO_ROOT and COMPOSE_PROJECT_ROOT.name not in nested_prefixes:
         nested_prefixes.append(COMPOSE_PROJECT_ROOT.name)
-    if REPO_ROOT.name and REPO_ROOT.name != COMPOSE_PROJECT_ROOT.name:
+    if REPO_ROOT.name and REPO_ROOT.name not in nested_prefixes:
         nested_prefixes.append(REPO_ROOT.name)
 
     for prefix in nested_prefixes:
