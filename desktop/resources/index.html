@@ -90,17 +90,12 @@
         </div>
     </div>
 
-    <iframe id="app-frame" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe>
-    <button id="change-server-btn" onclick="showSetup()">⚙ Server</button>
-
     <script src="js/neutralino.js"></script>
     <script>
         const STORAGE_KEY = 'aoede_server_url';
         const setupView = document.getElementById('setup-view');
-        const appFrame = document.getElementById('app-frame');
         const setupForm = document.getElementById('setup-form');
         const serverInput = document.getElementById('server-url');
-        const changeServerBtn = document.getElementById('change-server-btn');
 
         async function initApp() {
             try {
@@ -124,10 +119,7 @@
         }
 
         function showSetup() {
-            appFrame.style.display = 'none';
-            appFrame.src = 'about:blank';
             setupView.style.display = 'flex';
-            changeServerBtn.style.display = 'none';
             serverInput.focus();
         }
 
@@ -138,15 +130,13 @@
             }
             formatted = formatted.replace(/\/+$/, '');
 
-            setupView.style.display = 'none';
-            appFrame.style.display = 'block';
-            appFrame.src = formatted;
-            changeServerBtn.style.display = 'block';
-
             try {
                 Neutralino.storage.setData(STORAGE_KEY, formatted);
             } catch(e) {}
             localStorage.setItem(STORAGE_KEY, formatted);
+
+            // Direct top-level navigation instead of iframe
+            window.location.replace(formatted);
         }
 
         setupForm.addEventListener('submit', (e) => {
