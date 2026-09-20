@@ -2,7 +2,7 @@
 set -e
 
 REPO="sPROFFEs/Navipod"
-TAG="v1.2.0"
+TAG="v1.2.0-wrappers"
 INSTALL_DIR="$HOME/.local/bin"
 DESKTOP_DIR="$HOME/.local/share/applications"
 ICON_DIR="$HOME/.local/share/icons/hicolor/512x512/apps"

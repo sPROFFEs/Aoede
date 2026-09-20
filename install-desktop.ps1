@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Repo = "sPROFFEs/Navipod"
-$Tag = "v1.2.0"
+$Tag = "v1.2.0-wrappers"
 $InstallDir = "$env:LOCALAPPDATA\Navipod"
 $BinaryName = "navipod-windows-amd64.exe"
 
