@@ -177,12 +177,12 @@ export async function addToPlaylistApi(playlistId, trackId) {
   }
 }
 
-export async function reorderPlaylistApi(playlistId, items) {
+export async function reorderPlaylistApi(playlistId, items, revision = null) {
   try {
     const res = await fetch(`${state.API}/playlists/${playlistId}/reorder`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ items })
+      body: JSON.stringify({ items, revision })
     });
     if (!res.ok) return null;
     return await res.json();

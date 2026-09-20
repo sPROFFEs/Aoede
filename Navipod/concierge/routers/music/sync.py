@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from .core import get_current_user_safe, get_db
 from .favorites import schedule_navidrome_sync
+from .playlists import accessible_playlist_filter
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -42,7 +43,9 @@ async def get_sync_state(request: Request, db: Session = Depends(get_db)):
 
         # Get playlist rows — derive playlist_count from len() same reason.
         playlists = (
-            db.query(database.Playlist.id, database.Playlist.name).filter(database.Playlist.owner_id == user.id).all()
+            db.query(database.Playlist.id, database.Playlist.name, database.Playlist.revision)
+            .filter(accessible_playlist_filter(user.id))
+            .all()
         )
         playlist_count = len(playlists)
         playlist_ids = [row[0] for row in playlists]
@@ -59,8 +62,8 @@ async def get_sync_state(request: Request, db: Session = Depends(get_db)):
             }
 
         playlist_state = sorted(
-            (int(playlist_id), playlist_name, int(playlist_item_counts.get(int(playlist_id), 0)))
-            for playlist_id, playlist_name in playlists
+            (int(playlist_id), playlist_name, revision, int(playlist_item_counts.get(int(playlist_id), 0)))
+            for playlist_id, playlist_name, revision in playlists
         )
 
         # Create version hash

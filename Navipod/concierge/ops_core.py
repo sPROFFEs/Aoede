@@ -1493,6 +1493,15 @@ def _migration_029_delete_reference_cleanup(conn):
     )
 
 
+def _migration_030_collaborative_playlists(conn):
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(playlists)")).fetchall()}
+    if "is_collaborative" not in columns:
+        conn.execute(text("ALTER TABLE playlists ADD COLUMN is_collaborative BOOLEAN NOT NULL DEFAULT 0"))
+    if "revision" not in columns:
+        conn.execute(text("ALTER TABLE playlists ADD COLUMN revision INTEGER NOT NULL DEFAULT 0"))
+    database.PlaylistCollaborator.__table__.create(bind=conn, checkfirst=True)
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1524,6 +1533,7 @@ MIGRATIONS = [
     ("027_playback_queue_volume", _migration_027_playback_queue_volume),
     ("028_downloader_mode", _migration_028_downloader_mode),
     ("029_delete_reference_cleanup", _migration_029_delete_reference_cleanup),
+    ("030_collaborative_playlists", _migration_030_collaborative_playlists),
 ]
 
 

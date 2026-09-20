@@ -20,7 +20,7 @@ from navipod_config import settings
 from PIL import Image
 from playlist_files import normalize_playlist_name, playlist_m3u_filename
 from pydantic import BaseModel as PydanticBaseModel
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, aliased
 
 from .core import get_current_user_safe, get_db
@@ -45,6 +45,11 @@ def _smart_rule_summary(raw_rules: str | None) -> str | None:
 class CreatePlaylistRequest(PydanticBaseModel):
     name: str
     track_ids: list[int] | None = None
+    is_collaborative: bool = False
+
+
+class CollaboratorRequest(PydanticBaseModel):
+    username: str
 
 
 class PlaylistUpdateRequest(PydanticBaseModel):
@@ -70,6 +75,7 @@ class ReorderItemSchema(PydanticBaseModel):
 
 class ReorderRequest(PydanticBaseModel):
     items: list[ReorderItemSchema]
+    revision: int | None = None
 
 
 SYSTEM_PLAYLIST_NAMES = {"music", "pool", "users", "podcasts", "downloads"}
@@ -92,13 +98,37 @@ def get_playlist_or_404(db: Session, playlist_id: int, user):
         return None
 
     is_owner = playlist.owner_id == user.id
-    if not is_owner and not playlist.is_public:
+    if not is_owner and not playlist.is_public and not playlist_has_collaborator(playlist, user.id):
         return None
     return playlist
 
 
 def playlist_is_editable_by_user(playlist, user) -> bool:
-    return playlist.owner_id == user.id and playlist.source_playlist_id is None and playlist.smart_rules_json is None
+    return (
+        (playlist.owner_id == user.id or playlist_has_collaborator(playlist, user.id))
+        and playlist.source_playlist_id is None
+        and playlist.smart_rules_json is None
+    )
+
+
+def playlist_has_collaborator(playlist, user_id):
+    return playlist.is_collaborative and any(member.user_id == user_id for member in playlist.collaborators)
+
+
+def accessible_playlist_filter(user_id):
+    return or_(
+        database.Playlist.owner_id == user_id,
+        database.Playlist.is_collaborative
+        & database.Playlist.collaborators.any(database.PlaylistCollaborator.user_id == user_id),
+    )
+
+
+def sync_edited_playlist(db, playlist):
+    # Shared edits always regenerate the owner's export, never the editor's path.
+    db.expire(playlist, ["items"])
+    generate_m3u_for_playlist(db, playlist, playlist.owner.username)
+    schedule_playlist_sync(db, playlist.owner)
+    schedule_navidrome_sync(playlist.owner_id, playlist.owner.username, delay_seconds=2.0)
 
 
 def _playlist_cover_dir(username: str) -> str:
@@ -158,7 +188,12 @@ def get_playlist_thumbnail(db: Session, playlist) -> str:
 
 
 def fetch_playlist_summaries(
-    db: Session, viewer_id: int | None = None, *, owner_id: int | None = None, public_only: bool = False
+    db: Session,
+    viewer_id: int | None = None,
+    *,
+    owner_id: int | None = None,
+    public_only: bool = False,
+    include_shared: bool = False,
 ):
     count_subquery = (
         db.query(
@@ -177,6 +212,7 @@ def fetch_playlist_summaries(
             database.Playlist.name.label("name"),
             database.Playlist.owner_id.label("owner_id"),
             database.Playlist.is_public.label("is_public"),
+            database.Playlist.is_collaborative.label("is_collaborative"),
             database.Playlist.source_playlist_id.label("source_playlist_id"),
             database.Playlist.cover_path.label("cover_path"),
             database.Playlist.cover_track_id.label("cover_track_id"),
@@ -193,10 +229,22 @@ def fetch_playlist_summaries(
     )
 
     if owner_id is not None:
-        query = query.filter(database.Playlist.owner_id == owner_id)
+        query = query.filter(
+            accessible_playlist_filter(owner_id) if include_shared else database.Playlist.owner_id == owner_id
+        )
     if public_only:
         query = query.filter(database.Playlist.is_public == True)
 
+    member_ids = (
+        {
+            row[0]
+            for row in db.query(database.PlaylistCollaborator.playlist_id)
+            .filter(database.PlaylistCollaborator.user_id == viewer_id)
+            .all()
+        }
+        if viewer_id is not None
+        else set()
+    )
     summaries = []
     for row in query.order_by(database.Playlist.id.desc()).all():
         if not row.name or row.name.lower() in SYSTEM_PLAYLIST_NAMES:
@@ -212,12 +260,13 @@ def fetch_playlist_summaries(
                 if (row.cover_path or row.cover_track_id or int(row.track_count or 0) > 0)
                 else "/static/img/default_cover.png",
                 "is_public": bool(row.is_public),
+                "is_collaborative": bool(row.is_collaborative),
                 "source_playlist_id": row.source_playlist_id,
                 "owner_username": owner_username,
                 "source_owner_username": source_owner_username,
                 "is_owner": viewer_id == row.owner_id if viewer_id is not None else False,
                 "is_editable": row.source_playlist_id is None
-                and viewer_id == row.owner_id
+                and (viewer_id == row.owner_id or (row.is_collaborative and row.id in member_ids))
                 and row.smart_rules_json is None
                 if viewer_id is not None
                 else False,
@@ -250,13 +299,14 @@ def serialize_playlist_summary(db: Session, playlist, viewer_id: int | None = No
         "track_count": track_count,
         "thumbnail": get_playlist_thumbnail(db, playlist),
         "is_public": bool(playlist.is_public),
+        "is_collaborative": bool(playlist.is_collaborative),
         "source_playlist_id": playlist.source_playlist_id,
         "owner_username": owner_name,
         "source_owner_username": source_owner_name,
         "is_owner": viewer_id == playlist.owner_id if viewer_id is not None else False,
         "is_editable": playlist.source_playlist_id is None
         and playlist.smart_rules_json is None
-        and viewer_id == playlist.owner_id
+        and (viewer_id == playlist.owner_id or playlist_has_collaborator(playlist, viewer_id))
         if viewer_id is not None
         else False,
         "is_smart": playlist.smart_rules_json is not None,
@@ -430,7 +480,69 @@ async def list_playlists(request: Request, db: Session = Depends(get_db)):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    return JSONResponse(fetch_playlist_summaries(db, viewer_id=user.id, owner_id=user.id))
+    return JSONResponse(fetch_playlist_summaries(db, viewer_id=user.id, owner_id=user.id, include_shared=True))
+
+
+@router.get("/api/playlists/{playlist_id}/collaborators")
+async def list_collaborators(playlist_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_safe(db, request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    playlist = get_playlist_or_404(db, playlist_id, user)
+    if not playlist or (playlist.owner_id != user.id and not playlist_has_collaborator(playlist, user.id)):
+        return JSONResponse({"error": "Playlist not found"}, status_code=404)
+    return JSONResponse(
+        {
+            "is_owner": playlist.owner_id == user.id,
+            "members": [{"id": member.user_id, "username": member.user.username} for member in playlist.collaborators],
+        }
+    )
+
+
+@router.post("/api/playlists/{playlist_id}/collaborators")
+async def add_collaborator(
+    playlist_id: int, payload: CollaboratorRequest, request: Request, db: Session = Depends(get_db)
+):
+    user = get_current_user_safe(db, request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    playlist = db.query(database.Playlist).filter_by(id=playlist_id, owner_id=user.id).first()
+    if not playlist:
+        return JSONResponse({"error": "Playlist not found"}, status_code=404)
+    if not playlist_is_editable_by_user(playlist, user):
+        return JSONResponse({"error": "Smart playlists and synced copies cannot have collaborators."}, status_code=403)
+    member = (
+        db.query(database.User)
+        .filter_by(username=payload.username.strip(), is_service_account=False, is_active=True)
+        .first()
+    )
+    if not member:
+        return JSONResponse({"error": "No user with that username."}, status_code=404)
+    if member.id == user.id:
+        return JSONResponse({"error": "You already own this playlist."}, status_code=400)
+    if not db.get(database.PlaylistCollaborator, (playlist.id, member.id)):
+        db.add(database.PlaylistCollaborator(playlist_id=playlist.id, user_id=member.id))
+    playlist.is_collaborative = True
+    playlist.revision = database.Playlist.revision + 1
+    db.commit()
+    return JSONResponse({"status": "added"})
+
+
+@router.delete("/api/playlists/{playlist_id}/collaborators/{user_id}")
+async def remove_collaborator(playlist_id: int, user_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user_safe(db, request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    playlist = db.get(database.Playlist, playlist_id)
+    if not playlist or (playlist.owner_id != user.id and user.id != user_id):
+        return JSONResponse({"error": "Playlist not found"}, status_code=404)
+    member = db.get(database.PlaylistCollaborator, (playlist_id, user_id))
+    if not member:
+        return JSONResponse({"error": "Collaborator not found"}, status_code=404)
+    db.delete(member)
+    playlist.revision = database.Playlist.revision + 1
+    db.commit()
+    return JSONResponse({"status": "removed"})
 
 
 @router.get("/api/public/playlists")
@@ -455,7 +567,7 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
-    playlist = database.Playlist(name=playlist_name, owner_id=user.id)
+    playlist = database.Playlist(name=playlist_name, owner_id=user.id, is_collaborative=req.is_collaborative)
     db.add(playlist)
     db.commit()
     db.refresh(playlist)
@@ -487,7 +599,7 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
     schedule_playlist_sync(db, user)
     schedule_navidrome_sync(user.id, user.username, delay_seconds=2.0)
 
-    return JSONResponse({"id": playlist.id, "name": playlist.name})
+    return JSONResponse(serialize_playlist_summary(db, playlist, user.id))
 
 
 @router.post("/api/playlists/{playlist_id}/public")
@@ -622,6 +734,8 @@ async def get_playlist(playlist_id: int, request: Request, db: Session = Depends
             "thumbnail": thumbnail,
             "owner_username": playlist.owner.username if playlist.owner else "Unknown",
             "is_public": bool(playlist.is_public),
+            "is_collaborative": bool(playlist.is_collaborative),
+            "revision": playlist.revision,
             "source_playlist_id": playlist.source_playlist_id,
             "source_playlist_exists": source_playlist_exists,
             "source_playlist_public": source_playlist_public,
@@ -821,11 +935,7 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    playlist = (
-        db.query(database.Playlist)
-        .filter(database.Playlist.id == playlist_id, database.Playlist.owner_id == user.id)
-        .first()
-    )
+    playlist = get_playlist_or_404(db, playlist_id, user)
 
     if not playlist:
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
@@ -860,12 +970,11 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
 
     item = database.PlaylistItem(playlist_id=playlist_id, track_id=req.track_id, position=max_pos + 1)
     db.add(item)
+    playlist.revision = database.Playlist.revision + 1
     db.commit()
 
     # Regenerate M3U
-    generate_m3u_for_playlist(db, playlist, user.username)
-    schedule_playlist_sync(db, user)
-    schedule_navidrome_sync(user.id, user.username, delay_seconds=2.0)
+    sync_edited_playlist(db, playlist)
 
     # Return the live track count so the frontend can update its cached
     # state.userPlaylists optimistically without waiting for the next
@@ -885,11 +994,7 @@ async def remove_from_playlist(playlist_id: int, track_id: int, request: Request
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    playlist = (
-        db.query(database.Playlist)
-        .filter(database.Playlist.id == playlist_id, database.Playlist.owner_id == user.id)
-        .first()
-    )
+    playlist = get_playlist_or_404(db, playlist_id, user)
 
     if not playlist:
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
@@ -909,12 +1014,11 @@ async def remove_from_playlist(playlist_id: int, track_id: int, request: Request
         return JSONResponse({"error": "Track not in playlist"}, status_code=404)
 
     db.delete(item)
+    playlist.revision = database.Playlist.revision + 1
     db.commit()
 
     # Regenerate M3U
-    generate_m3u_for_playlist(db, playlist, user.username)
-    schedule_playlist_sync(db, user)
-    schedule_navidrome_sync(user.id, user.username, delay_seconds=2.0)
+    sync_edited_playlist(db, playlist)
 
     return JSONResponse({"status": "removed"})
 
@@ -1019,11 +1123,7 @@ async def reorder_playlist_tracks(
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    playlist = (
-        db.query(database.Playlist)
-        .filter(database.Playlist.id == playlist_id, database.Playlist.owner_id == user.id)
-        .first()
-    )
+    playlist = get_playlist_or_404(db, playlist_id, user)
     if not playlist:
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
 
@@ -1033,6 +1133,22 @@ async def reorder_playlist_tracks(
     if not body.items:
         return JSONResponse({"ok": True})
 
+    if playlist.is_collaborative and body.revision is None:
+        return JSONResponse({"error": "Reload this playlist before reordering."}, status_code=409)
+    ids = [item.track_id for item in body.items]
+    positions = [item.position for item in body.items]
+    current_ids = {item.track_id for item in playlist.items}
+    if len(set(ids)) != len(ids) or set(ids) != current_ids or sorted(positions) != list(range(1, len(ids) + 1)):
+        return JSONResponse(
+            {"error": "Reorder must contain every song once with consecutive positions."}, status_code=400
+        )
+    revision_query = db.query(database.Playlist).filter(database.Playlist.id == playlist_id)
+    if body.revision is not None:
+        revision_query = revision_query.filter(database.Playlist.revision == body.revision)
+    if not revision_query.update({database.Playlist.revision: database.Playlist.revision + 1}):
+        db.rollback()
+        return JSONResponse({"error": "Playlist changed. Reload and try again."}, status_code=409)
+
     for item in body.items:
         db.query(database.PlaylistItem).filter(
             database.PlaylistItem.playlist_id == playlist_id,
@@ -1040,7 +1156,6 @@ async def reorder_playlist_tracks(
         ).update({"position": item.position})
 
     db.commit()
-    generate_m3u_for_playlist(db, playlist, user.username)
-    schedule_playlist_sync(db, user)
+    sync_edited_playlist(db, playlist)
 
-    return JSONResponse({"ok": True})
+    return JSONResponse({"ok": True, "revision": playlist.revision})

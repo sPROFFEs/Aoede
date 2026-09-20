@@ -276,9 +276,20 @@ class Playlist(Base):
     cover_track_id = Column(Integer, ForeignKey("tracks.id", ondelete="SET NULL"), nullable=True)
     smart_rules_json = Column(Text, nullable=True)
     smart_updated_at = Column(DateTime, nullable=True)
+    is_collaborative = Column(Boolean, default=False, nullable=False)
+    revision = Column(Integer, default=0, nullable=False)
 
     owner = relationship("User", back_populates="new_playlists")
     items = relationship("PlaylistItem", back_populates="playlist", cascade="all, delete-orphan")
+    collaborators = relationship("PlaylistCollaborator", cascade="all, delete-orphan")
+
+
+class PlaylistCollaborator(Base):
+    __tablename__ = "playlist_collaborators"
+
+    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    user = relationship("User")
 
 
 class PlaylistItem(Base):

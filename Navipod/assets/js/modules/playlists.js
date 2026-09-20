@@ -9,6 +9,94 @@ import * as api from './api.js';
 import * as player from './player.js';
 import * as offlineStore from './offline_store.js';
 
+let playlistRevision = null;
+let creatingCollaborative = false;
+document.addEventListener('navipod:modalclosed', () => {
+  creatingCollaborative = false;
+});
+
+export function showCreateMenu() {
+  creatingCollaborative = false;
+  selectedImportTracks = [];
+  document.getElementById('modal-container').innerHTML = `
+    <div class="modal-overlay create-menu-overlay" onclick="if(event.target===this) closeModal()">
+      <div class="modal create-menu" role="dialog" aria-modal="true" aria-label="Create">
+        <button class="create-option" onclick="startPlaylistCreation(false)"><span class="create-option-icon"><i data-lucide="music"></i></span><span><strong>Playlist</strong><small>Create a playlist with your favorite songs</small></span></button>
+        <button class="create-option" onclick="startPlaylistCreation(true)"><span class="create-option-icon"><i data-lucide="users"></i></span><span><strong>Collaborative playlist</strong><small>Create a playlist together with friends</small></span></button>
+        <button class="create-option" onclick="showCreateSmartPlaylistModal()"><span class="create-option-icon"><i data-lucide="sparkles"></i></span><span><strong>Smart playlist</strong><small>Let your library build a mix from your rules</small></span></button>
+        <button class="create-menu-close" onclick="closeModal()" aria-label="Close create menu"><i data-lucide="x"></i></button>
+      </div>
+    </div>`;
+  ui.refreshIcons(document.getElementById('modal-container'));
+  ui.focusModal();
+}
+
+export function startPlaylistCreation(collaborative) {
+  creatingCollaborative = collaborative;
+  selectedImportTracks = [];
+  showCreatePlaylistModal();
+}
+
+async function collaboratorsRequest(playlistId, method = 'GET', userId = null) {
+  if (!navigator.onLine) throw new Error('Connect to manage collaborators.');
+  const response = await fetch(
+    `${state.API}/playlists/${playlistId}/collaborators${userId === null ? '' : `/${userId}`}`,
+    {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      ...(method === 'POST'
+        ? { body: JSON.stringify({ username: document.getElementById('collaborator-username')?.value.trim() || '' }) }
+        : {})
+    }
+  );
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'Unable to update collaborators.');
+  return data;
+}
+
+export async function showCollaboratorsModal(playlistId) {
+  try {
+    const data = await collaboratorsRequest(playlistId);
+    document.getElementById('modal-container').innerHTML = `
+      <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="collaborators-title">
+          <div class="modal-header"><h2 id="collaborators-title">Collaborators</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
+          <p class="modal-subtitle">Invite someone on this Navipod server. They can add, remove, and reorder songs. You control sharing and deletion.</p>
+          ${data.is_owner ? `<form onsubmit="event.preventDefault(); updateCollaborator(${playlistId}, 'POST')"><label class="modal-label" for="collaborator-username">Username</label><div class="collaborator-form"><input id="collaborator-username" class="modal-input" maxlength="100" required autocomplete="off" placeholder="Enter a username"><button class="btn-primary" type="submit">Invite</button></div></form>` : ''}
+          <div class="collaborator-list">${data.members.length ? data.members.map((member) => `<div class="collaborator-row"><span>${ui.escHtml(member.username)}</span>${data.is_owner ? `<button class="btn-secondary" onclick="updateCollaborator(${playlistId}, 'DELETE', ${Number(member.id)})" aria-label="Remove ${ui.escHtml(member.username)}">Remove</button>` : ''}</div>`).join('') : '<p class="modal-subtitle">No collaborators yet.</p>'}</div>
+        </div>
+      </div>`;
+    ui.refreshIcons(document.getElementById('modal-container'));
+    ui.focusModal();
+  } catch (error) {
+    ui.showToast(error.message, 'error');
+  }
+}
+
+export async function updateCollaborator(playlistId, method, userId = null) {
+  try {
+    await collaboratorsRequest(playlistId, method, userId);
+    ui.showToast(method === 'POST' ? 'Collaborator invited.' : 'Collaborator removed.', 'success');
+    await showCollaboratorsModal(playlistId);
+    if (window.loadUserData) window.loadUserData();
+  } catch (error) {
+    ui.showToast(error.message, 'error');
+  }
+}
+
+export async function leaveCollaborativePlaylist(playlistId) {
+  try {
+    const data = await collaboratorsRequest(playlistId);
+    const self = data.members.find((member) => member.username === window.USER_DATA?.username);
+    if (!self || !window.confirm('Leave this collaborative playlist?')) return;
+    await collaboratorsRequest(playlistId, 'DELETE', self.id);
+    await window.loadView('library');
+    if (window.loadUserData) window.loadUserData();
+  } catch (error) {
+    ui.showToast(error.message, 'error');
+  }
+}
+
 // === RENDER PLAYLIST VIEW ===
 
 export async function renderPlaylist(container, playlistId) {
@@ -18,6 +106,10 @@ export async function renderPlaylist(container, playlistId) {
   try {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       const res = await fetch(`${state.API}/playlists/${numId}`);
+      if ([401, 403, 404].includes(res.status)) {
+        container.innerHTML = '<div class="empty-state"><p>This playlist is no longer available to you.</p></div>';
+        return;
+      }
       if (res.ok) {
         const json = await res.json();
         if (json && !json.error && !json.offline) {
@@ -76,6 +168,7 @@ export async function renderPlaylist(container, playlistId) {
   const isOwner = Boolean(data.is_owner);
   const isEditable = Boolean(data.is_editable);
   const isSmart = Boolean(data.is_smart);
+  playlistRevision = data.revision ?? null;
   const isSyncedCopy = Boolean(data.source_playlist_id);
   const sourcePlaylistAvailable = Boolean(data.source_playlist_exists && data.source_playlist_public);
   const ownerLabel = data.owner_username
@@ -193,7 +286,7 @@ export async function renderPlaylist(container, playlistId) {
                 ${coverControls}
             </div>
             <div class="playlist-info">
-                <p class="playlist-type">${isSmart ? 'Smart playlist' : 'Playlist'}</p>
+                <p class="playlist-type">${isSmart ? 'Smart playlist' : data.is_collaborative ? 'Collaborative playlist' : 'Playlist'}</p>
                 <div class="playlist-title-row">
                     <h1 class="playlist-title" id="playlist-title-${playlistId}">${ui.escHtml(data.name || 'Playlist')}</h1>
                     ${ownerControls}
@@ -222,6 +315,8 @@ export async function renderPlaylist(container, playlistId) {
                     ${copyButton}
                     ${syncButton}
                     ${smartRefreshButton}
+                    ${isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="showCollaboratorsModal(${numId})"><i data-lucide="users" width="20"></i><span class="playlist-btn-label">Collaborators</span></button>` : ''}
+                    ${!isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="leaveCollaborativePlaylist(${numId})"><i data-lucide="log-out" width="20"></i><span class="playlist-btn-label">Leave playlist</span></button>` : ''}
                     ${deleteButton}
                 </div>
             </div>
@@ -268,8 +363,14 @@ function initPlaylistDragDrop(container, playlistId) {
   // breaking the base .track-row grid-template-columns.
   trackList.classList.add('playlist-draggable-list');
 
-  Array.from(trackList.querySelectorAll('.track-row')).forEach((row, index) => {
-    const handle = document.createElement('span');
+  Array.from(trackList.querySelectorAll('.track-row:not(.header)')).forEach((row, index) => {
+    const handle = document.createElement('button');
+    handle.type = 'button';
+    handle.setAttribute('aria-label', `Reorder ${state.currentViewList[index]?.title || 'song'}`);
+    handle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      showReorderMenu(playlistId, index);
+    });
     handle.className = 'track-drag-handle';
     handle.title = 'Drag to reorder';
     handle.innerHTML = gripSvg;
@@ -328,7 +429,7 @@ function initPlaylistDragDrop(container, playlistId) {
     const targetRow = e.target.closest('.track-row');
     if (!targetRow || !dragSrc || targetRow === dragSrc) return;
 
-    const allRows = Array.from(trackList.querySelectorAll('.track-row'));
+    const allRows = Array.from(trackList.querySelectorAll('.track-row:not(.header)'));
     const fromIdx = allRows.indexOf(dragSrc);
     const toIdx = allRows.indexOf(targetRow);
     if (fromIdx === toIdx) return;
@@ -349,14 +450,37 @@ function initPlaylistDragDrop(container, playlistId) {
     });
 
     // Persist to server
-    const items = newOrder.map((t, i) => ({ track_id: t.db_id || t.id, position: i }));
-    const result = await api.reorderPlaylistApi(playlistId, items);
+    const items = newOrder.map((t, i) => ({ track_id: t.db_id || t.id, position: i + 1 }));
+    const result = await api.reorderPlaylistApi(playlistId, items, playlistRevision);
     if (result?.ok) {
+      playlistRevision = result.revision;
       ui.showToast('Order saved', 'success');
     } else {
-      ui.showToast('Failed to save order', 'error');
+      ui.showToast('Playlist changed or order could not be saved. Reloading.', 'error');
     }
+    await renderPlaylist(container, playlistId);
   });
+}
+
+function showReorderMenu(playlistId, index) {
+  document.getElementById('modal-container').innerHTML =
+    `<div class="modal-overlay" onclick="if(event.target===this) closeModal()"><div class="modal" role="dialog" aria-modal="true" aria-label="Reorder song"><h2>Move song</h2><div class="modal-actions"><button class="btn-secondary" ${index === 0 ? 'disabled' : ''} onclick="movePlaylistTrack(${playlistId}, ${index}, -1)">Move up</button><button class="btn-secondary" ${index === state.currentViewList.length - 1 ? 'disabled' : ''} onclick="movePlaylistTrack(${playlistId}, ${index}, 1)">Move down</button><button class="btn-secondary" onclick="closeModal()">Cancel</button></div></div></div>`;
+  ui.focusModal();
+}
+
+export async function movePlaylistTrack(playlistId, index, direction) {
+  const tracks = [...state.currentViewList];
+  const target = index + direction;
+  if (target < 0 || target >= tracks.length) return;
+  [tracks[index], tracks[target]] = [tracks[target], tracks[index]];
+  const result = await api.reorderPlaylistApi(
+    playlistId,
+    tracks.map((track, i) => ({ track_id: track.db_id || track.id, position: i + 1 })),
+    playlistRevision
+  );
+  ui.closeModal();
+  if (!result?.ok) ui.showToast('Playlist changed or order could not be saved. Reloading.', 'error');
+  await window.loadView('playlist', playlistId, { pushHistory: false });
 }
 
 export function openPlaylistCoverUpload(playlistId) {
@@ -924,7 +1048,7 @@ export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') 
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 520px;">
             <div class="modal-header">
-                <h2><i data-lucide="folder-plus"></i> ${ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
+                <h2><i data-lucide="folder-plus"></i> ${creatingCollaborative ? 'Collaborative playlist' : ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
                 <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
@@ -1161,6 +1285,7 @@ export function showEditPlaylistModal(id, currentName) {
 // === CRUD ACTIONS ===
 
 export async function createPlaylist(trackIdToAdd = null) {
+  const collaborative = creatingCollaborative;
   const input = document.getElementById('new-playlist-name');
   const name = input?.value?.trim();
   if (!name) {
@@ -1177,6 +1302,7 @@ export async function createPlaylist(trackIdToAdd = null) {
   }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (creatingCollaborative) return ui.showToast('Connect to create a collaborative playlist.', 'error');
     const tempId = -Math.floor(Date.now() / 1000);
     const pl = { id: tempId, name, track_count: trackIds.length, is_owner: true, is_editable: true, is_public: false };
     const playlists = [...state.userPlaylists, pl];
@@ -1194,7 +1320,11 @@ export async function createPlaylist(trackIdToAdd = null) {
     const res = await fetch(`${state.API}/playlists`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, track_ids: trackIds.length ? trackIds : undefined })
+      body: JSON.stringify({
+        name,
+        track_ids: trackIds.length ? trackIds : undefined,
+        is_collaborative: creatingCollaborative
+      })
     });
     const pl = await res.json();
     if (res.ok) {
@@ -1208,6 +1338,8 @@ export async function createPlaylist(trackIdToAdd = null) {
       ui.closeModal();
       ui.showToast('Playlist created!', 'success');
       if (state.currentViewName === 'library' && window.loadView) window.loadView('library');
+      if (collaborative) await showCollaboratorsModal(pl.id);
+      creatingCollaborative = false;
     } else {
       ui.showToast(pl.error || 'Failed to create playlist', 'error');
     }

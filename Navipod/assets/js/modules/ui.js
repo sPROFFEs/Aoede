@@ -142,8 +142,39 @@ function _dismissToast(toast) {
 
 // === MODAL UTILITIES ===
 
+let modalReturnFocus = null;
+
+export function focusModal() {
+  const modal = document.querySelector('#modal-container .modal');
+  if (!modal) return;
+  if (!modalReturnFocus?.isConnected) modalReturnFocus = document.activeElement;
+  const focusable = () =>
+    Array.from(modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select, [tabindex="0"]'));
+  modal.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeModal();
+    }
+    if (event.key !== 'Tab') return;
+    const nodes = focusable();
+    const first = nodes[0];
+    const last = nodes[nodes.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last?.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first?.focus();
+    }
+  });
+  focusable()[0]?.focus();
+}
+
 export function closeModal() {
   document.getElementById('modal-container').innerHTML = '';
+  modalReturnFocus?.focus();
+  modalReturnFocus = null;
+  document.dispatchEvent(new Event('navipod:modalclosed'));
 }
 
 // === VOLUME MUTE TOGGLE ===

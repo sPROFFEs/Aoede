@@ -58,8 +58,8 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 16px 8px 16px;
-    background: var(--surface-1);
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+    background: #121212;
     flex-shrink: 0;
     position: sticky;
     top: 0;
@@ -67,8 +67,8 @@
 }
 
 .m-topbar-avatar {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: var(--surface-3);
     overflow: hidden;
@@ -90,7 +90,7 @@
     flex: 1;
     min-width: 0;
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1.5rem;
     font-weight: 700;
     letter-spacing: -0.01em;
     color: var(--text-main);
@@ -116,12 +116,12 @@
 }
 
 .m-icon-btn {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: transparent;
     border: 0;
-    color: var(--text-sub);
+    color: var(--text-main);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -178,7 +178,7 @@
 
 .home-tab {
     flex-shrink: 0;
-    padding: 6px 14px;
+    padding: 10px 16px;
     font-size: 0.82rem;
 }
 
@@ -232,15 +232,15 @@
     display: flex !important;
     align-items: center;
     gap: 12px;
-    margin: 4px 16px 16px 16px;
+    margin: 12px 16px 20px;
     padding: 0 14px;
-    height: 44px;
-    background: var(--surface-2);
+    height: 52px;
+    background: #fff;
     border-radius: 6px;
 }
 
 .m-search-pill-icon {
-    color: var(--text-sub);
+    color: #171717;
     flex-shrink: 0;
     width: 18px;
     height: 18px;
@@ -252,14 +252,15 @@
     background: transparent;
     border: 0;
     outline: none;
-    color: var(--text-main);
-    font-size: 0.95rem;
+    color: #171717;
+    font-size: 16px;
+    font-weight: 600;
     font-family: inherit;
     padding: 0;
 }
 
 .m-search-pill-input::placeholder {
-    color: var(--text-sub);
+    color: #555;
     opacity: 0.85;
 }
 
@@ -272,12 +273,16 @@
 }
 
 .quick-pick {
-    height: 56px;
+    height: 52px;
+    background: #292929;
+    border-radius: 4px;
+    border: 0;
+    overflow: hidden;
 }
 
 .quick-pick-cover {
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
 }
 
 .quick-pick-name {
@@ -301,18 +306,18 @@
  * #player-cover). */
 .player-footer {
     position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
-    width: 100% !important;
-    height: 64px !important;
-    border-radius: 0 !important;
+    left: 8px !important;
+    right: 8px !important;
+    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    width: auto !important;
+    height: 58px !important;
+    border-radius: 8px !important;
     display: flex !important;
     flex-direction: row !important;
     align-items: center !important;
     gap: 12px !important;
-    padding: 0 12px !important;
-    background: rgba(15, 15, 15, 0.96) !important;
+    padding: 0 8px !important;
+    background: #1c2a32 !important;
     border: 0 !important;
     border-top: 1px solid rgba(255, 255, 255, 0.04) !important;
     box-shadow: none !important;
@@ -456,14 +461,14 @@
     left: 0;
     right: 0;
     bottom: 0;
-    height: calc(60px + env(safe-area-inset-bottom, 0px));
+    height: calc(64px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     display: flex;
     align-items: stretch;
     /* Same surface colour as the mini player above so the two stack
      * looks like one continuous bottom panel (no visible seam other
      * than the hairline border the player adds on its top edge). */
-    background: rgba(15, 15, 15, 0.96);
+    background: linear-gradient(180deg, rgba(18, 18, 18, 0.92), #080808);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-top: 0;
@@ -483,8 +488,8 @@
     color: var(--text-faint, #888);
     /* 0.62rem on smaller screens because the 4-tab layout shrinks each
      * cell — Spotify uses ~10-11px labels, this keeps them readable. */
-    font-size: 0.62rem;
-    font-weight: 600;
+    font-size: 0.65rem;
+    font-weight: 500;
     cursor: pointer;
     transition: color 0.12s ease;
     min-width: 0;
@@ -499,8 +504,8 @@
 
 .m-nav-item i,
 .m-nav-item svg {
-    width: 22px;
-    height: 22px;
+    width: 26px;
+    height: 26px;
 }
 
 .m-nav-item:active {
@@ -708,6 +713,7 @@
 /* Tracks list takes the full remaining width inside the view */
 #view-container .track-list {
     margin: 0 4px;
+    width: auto;
 }
 
 
@@ -770,6 +776,66 @@
 /* The old hamburger (#menu-toggle) is no longer needed — bottom nav
  * replaces it; if it lingers in markup, hide it too. */
 #menu-toggle { display: none !important; }
+
+/* Reference layout: spacious rows, horizontal shelves and a floating create sheet. */
+body, .main-view, .view-content { background: #121212 !important; }
+.main-view { min-height: 0; }
+.view-content { min-height: 0; overscroll-behavior-y: contain; }
+.m-library-action { display: none; }
+body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
+body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { display: none; }
+.home-overview > .hero-section { display: none; }
+.home-overview { padding: 0 !important; background: transparent; margin-bottom: 24px; }
+.home-overview::before { display: none; }
+.home-tab.active { background: var(--primary); color: #101010; }
+.home-overview .quick-picks-grid { margin: 0 16px 26px; }
+.quick-pick-name { white-space: normal; line-height: 1.25; font-weight: 700; }
+.home-shelf { margin-top: 26px; }
+.shelf-title { font-size: 1.35rem; letter-spacing: -0.04em; }
+.home-rail { grid-auto-columns: 43vw !important; gap: 16px; padding-bottom: 8px; }
+.home-rail > .card { padding: 0; background: transparent; border: 0; }
+.home-rail .card-img-container { border-radius: 4px; }
+.home-rail .card-subtitle { white-space: normal; line-height: 1.45; }
+.library-shell { padding: 0 16px; }
+.library-shell > .home-overview { display: none; }
+.library-filters { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; scrollbar-width: none; }
+.library-filter { flex-shrink: 0; border: 0; background: #292929; border-radius: 999px; padding: 10px 16px; }
+.library-filter.active { background: #1ed760; color: #101010; }
+.library-cards-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.library-card {
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-rows: 1fr 1fr;
+    column-gap: 12px;
+    row-gap: 3px;
+    min-height: 80px;
+    width: 100%;
+    padding: 8px 0;
+    background: transparent;
+    border: 0;
+    border-radius: 4px;
+}
+.library-card:hover { transform: none; }
+.library-card-cover { grid-row: 1 / 3; width: 64px; height: 64px; border-radius: 3px; }
+.library-card-name { align-self: end; font-size: 1rem; font-weight: 500; }
+.library-card-sub { align-self: start; font-size: 0.82rem; }
+.search-browse { margin: 26px 16px; }
+.search-browse-grid { gap: 12px; }
+.search-browse-card { min-height: 120px; padding: 16px; font-size: 1.15rem; }
+.source-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.source-chips .chip { flex-shrink: 0; }
+.create-menu-overlay { padding: 0 8px calc(80px + env(safe-area-inset-bottom, 0px)); }
+.create-menu { border-radius: 20px !important; padding: 12px; position: relative; overflow: visible; }
+.create-menu-close { position: absolute; right: 8px; bottom: -66px; }
+.modal:not(.create-menu) { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.modal input, .modal select { font-size: 16px; }
+.track-drag-handle { min-height: 44px; border: 0; background: transparent; color: var(--text-sub); opacity: 1; }
+@media (max-width: 359px) {
+    .m-topbar-title { font-size: 1.2rem; }
+    .quick-pick-cover { width: 42px; height: 52px; }
+    .quick-pick-name { font-size: 0.75rem; }
+    .create-option { gap: 10px; }
+}
 
 /* The fullscreen player (still works on tap-cover) takes the whole
  * screen on mobile — no override needed beyond what already exists. */

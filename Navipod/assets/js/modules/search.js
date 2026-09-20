@@ -148,9 +148,10 @@ export async function executeSearch(query) {
     results.classList.remove('search-results-fetching');
     renderResults(
       results,
-      `<div class="empty-state"><p>${ui.t('search.empty_help', 'Type to search your library, federated peers, server users, and remote sources.')}</p></div>`
+      `<section class="search-browse"><h2>Discover something new</h2><div class="search-browse-grid"><button onclick="loadView('discovery')" class="search-browse-card browse-discover"><strong>Made for you</strong><i data-lucide="sparkles"></i></button><button onclick="loadView('discover_radios')" class="search-browse-card browse-radio"><strong>Radio</strong><i data-lucide="radio"></i></button><button onclick="loadView('library')" class="search-browse-card browse-library"><strong>Your music</strong><i data-lucide="disc-3"></i></button><button onclick="loadView('public')" class="search-browse-card browse-public"><strong>Community playlists</strong><i data-lucide="users"></i></button></div></section>`
     );
     state.setCurrentViewList([]);
+    ui.refreshIcons(results);
     return;
   }
 

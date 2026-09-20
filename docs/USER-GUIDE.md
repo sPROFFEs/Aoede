@@ -75,6 +75,14 @@ Create a playlist from the Library view or save one from a mix. Playlist owners 
 
 The **Public** Home tab lists playlists shared by users on the same server. You can save a read-only local copy of another user's playlist and sync that copy when its source changes. Synced copies cannot be edited or published as if they were the original; create a separate playlist if you want an independent version.
 
+## Collaborative playlists
+
+Choose **Create → Collaborative playlist** on mobile, or use **New Playlist** in the Library to open the same creation menu. After naming the playlist, invite an existing user by their exact Navipod username. You can also open **Collaborators** on any ordinary playlist you own to invite users later.
+
+Invited users see the shared playlist in their Library and in the Add to Playlist picker. They can add, remove, and reorder songs. On a phone, tap a song's reorder handle and choose **Move up** or **Move down**; desktop drag-and-drop is also supported. Changes appear for other users through the normal refresh cycle (up to 30 seconds while the app is visible). A stale reorder is rejected and the latest playlist is reloaded.
+
+The owner alone can rename, publish, change the cover, delete the playlist, or manage collaborators. Collaborators can leave using **Leave playlist**. Removing a collaborator immediately revokes editing access; public playlists remain viewable. Public visibility does not grant editing rights. Invitations require a connection, and smart playlists and synced copies cannot accept collaborators. Collaborative edits update the owner's Navidrome export; collaboration itself is managed in the Navipod webapp.
+
 ## Smart playlists
 
 Smart playlists are rule-based views of the current library rather than fixed track lists. When creating or editing one, you can combine:

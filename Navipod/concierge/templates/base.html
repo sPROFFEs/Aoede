@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ _('app.title') }} - {% block title %}Home{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -266,6 +266,8 @@
                 </a>
                 <h1 class="m-topbar-title" id="m-topbar-title">{{ username }}</h1>
                 <div class="m-topbar-actions">
+                    <button class="m-icon-btn m-library-action" onclick="loadView('search')" aria-label="Search your library"><i data-lucide="search"></i></button>
+                    <button class="m-icon-btn m-library-action" onclick="showCreateMenu()" aria-label="Create a playlist"><i data-lucide="plus"></i></button>
                     <button class="m-icon-btn" onclick="openDownloadsModal()" title="Downloads">
                         <i data-lucide="download-cloud"></i>
                         <span id="m-download-badge" class="m-badge" style="display:none;">0</span>
@@ -307,6 +309,9 @@
             <button class="m-nav-item" data-view="library" onclick="loadView('library')">
                 <i data-lucide="library"></i>
                 <span>{{ _('menu.library') if _ else 'Your Library' }}</span>
+            </button>
+            <button class="m-nav-item" onclick="showCreateMenu()" aria-label="Create a playlist">
+                <i data-lucide="plus"></i><span>Create</span>
             </button>
         </nav>
 
@@ -540,12 +545,16 @@
          * user's current location even when they're not on the canonical
          * top-level view. Called from views.loadView() via window. */
         window.markBottomNavActive = function (view) {
+            document.body.dataset.mobileView = view;
+            const title = document.getElementById('m-topbar-title');
+            const titles = { home: 'Home', search: 'Search', library: 'Your library', playlist: 'Playlist', favorites: 'Liked Songs', discovery: 'Discover', offline: 'Downloads' };
+            if (title) title.textContent = titles[view] || 'Navipod';
             const nav = document.getElementById('m-bottom-nav');
             if (!nav) return;
             const homeViews      = new Set(['home', 'party', 'party_room', 'public', 'discover_radios', 'mix']);
             const searchViews    = new Set(['search']);
             const discoveryViews = new Set(['discovery']);
-            const libraryViews   = new Set(['library', 'playlist', 'favorites']);
+            const libraryViews   = new Set(['library', 'playlist', 'favorites', 'offline', 'downloads_offline']);
             let activeTab = '';
             if (homeViews.has(view))           activeTab = 'home';
             else if (searchViews.has(view))    activeTab = 'search';

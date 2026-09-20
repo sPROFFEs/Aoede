@@ -74,6 +74,8 @@ export async function checkSyncState() {
     const syncState = await res.json();
 
     if (state.lastSyncVersion !== null && syncState.version !== state.lastSyncVersion) {
+      // Do not replace a collaborator's in-progress form or drag gesture.
+      if (document.querySelector('#modal-container .modal, .track-row.dragging')) return;
       console.log('[SYNC] State changed, updating...');
 
       state.setUserFavorites(new Set(syncState.fav_ids));
@@ -98,6 +100,12 @@ export async function checkSyncState() {
         }
       });
       if (window.lucide) lucide.createIcons();
+      if (['library', 'playlist'].includes(state.currentViewName) && window.loadView) {
+        const container = document.getElementById('view-container');
+        const scrollTop = container?.scrollTop || 0;
+        await window.loadView(state.currentViewName, state.currentViewParam, { pushHistory: false });
+        if (container) container.scrollTop = scrollTop;
+      }
     }
 
     state.setLastSyncVersion(syncState.version);

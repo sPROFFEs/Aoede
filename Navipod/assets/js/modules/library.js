@@ -13,18 +13,24 @@ let facetLimit = 50;
 
 function playlistCard(pl) {
   const tracks = Number(pl.track_count || 0);
-  const type = pl.is_smart ? 'Smart playlist' : pl.source_playlist_id ? 'Synced playlist' : 'Playlist';
+  const type = pl.is_smart
+    ? 'Smart playlist'
+    : pl.is_collaborative
+      ? 'Collaborative playlist'
+      : pl.source_playlist_id
+        ? 'Synced playlist'
+        : 'Playlist';
   const icon = pl.is_smart ? 'sparkles' : pl.source_playlist_id ? 'refresh-cw' : 'list-music';
   const thumb = pl.thumbnail || '/static/img/default_cover.png';
   const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
   return `
-    <div class="library-card" onclick="loadView('playlist', ${pl.id})">
+    <button class="library-card" onclick="loadView('playlist', ${pl.id})">
       <div class="library-card-cover">
         ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="${icon}"></i>`}
       </div>
       <div class="library-card-name" title="${ui.escHtml(pl.name || 'Playlist')}">${ui.escHtml(pl.name || 'Playlist')}</div>
-      <div class="library-card-sub">${type} · ${tracks} ${tracks === 1 ? 'song' : 'songs'}</div>
-    </div>`;
+      <div class="library-card-sub">${type} · ${ui.escHtml(pl.owner_username || window.USER_DATA?.username || '')} · ${tracks} ${tracks === 1 ? 'song' : 'songs'}</div>
+    </button>`;
 }
 
 function facetCard(kind, facet) {
@@ -56,7 +62,7 @@ function shell(content, browsing = false, total = 0, hasMore = false) {
             <button class="btn-secondary" onclick="showCreateSmartPlaylistModal()" title="${ui.t('library.smart_playlist', 'Smart Playlist')}">
               <i data-lucide="sparkles" width="16" height="16"></i> ${ui.t('library.smart_playlist', 'Smart Playlist')}
             </button>
-            <button class="btn-primary" onclick="showCreatePlaylistModal()" title="${ui.t('library.new_playlist', 'New Playlist')}">
+            <button class="btn-primary" onclick="showCreateMenu()" title="${ui.t('library.new_playlist', 'New Playlist')}">
               <i data-lucide="plus" width="16" height="16"></i> ${ui.t('library.new_playlist', 'New Playlist')}
             </button>
           </div>
@@ -101,9 +107,7 @@ export async function renderLibrary(container, kind = null) {
         playlists = (await offlineStore.getLibrarySnapshot('playlists')) || [];
       }
       container.innerHTML = shell(
-        playlists.length
-          ? `<div class="library-cards-grid">${playlists.map(playlistCard).join('')}</div>`
-          : '<div class="empty-state"><p>No playlists yet. Use + or create a smart playlist.</p></div>'
+        `<div class="library-list-heading"><i data-lucide="arrow-down-wide-narrow" width="16"></i><span>Recently created</span></div><div class="library-cards-grid"><button class="library-card library-liked" onclick="loadView('favorites')"><div class="library-card-cover"><i data-lucide="heart"></i></div><div class="library-card-name">Liked Songs</div><div class="library-card-sub">Playlist · ${ui.escHtml(window.USER_DATA?.username || 'You')}</div></button>${playlists.map(playlistCard).join('')}</div>`
       );
     } else {
       let page = { items: [], total: 0, has_more: false };
