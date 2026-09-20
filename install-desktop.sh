@@ -66,9 +66,11 @@ EOF
         TEMP_DIR="$(mktemp -d)"
         curl -fsSL "https://github.com/${REPO}/releases/download/${TAG}/${PACKAGE_NAME}" | tar -xz -C "$TEMP_DIR"
 
+        rm -rf "$APP_PATH"
         mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
         cp "$TEMP_DIR/$BINARY_NAME" "$APP_PATH/Contents/MacOS/aoede"
         cp "$TEMP_DIR/resources.neu" "$APP_PATH/Contents/MacOS/resources.neu"
+        cp "$TEMP_DIR/resources.neu" "$APP_PATH/Contents/Resources/resources.neu"
         chmod +x "$APP_PATH/Contents/MacOS/aoede"
 
         curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Aoede/assets/icon.png" -o "$APP_PATH/Contents/Resources/appIcon.png" 2>/dev/null || true
@@ -89,12 +91,16 @@ EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.0</string>
+    <string>${TAG}</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.13</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
 </dict>
 </plist>
 EOF
+        # Remove quarantine attribute on macOS if present
+        xattr -dr com.apple.quarantine "$APP_PATH" 2>/dev/null || true
         rm -rf "$TEMP_DIR"
         echo ""
         echo "✅ Aoede.app installed to /Applications/Aoede.app"
