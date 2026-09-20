@@ -118,22 +118,31 @@ def _rotate_current_to_previous(db):
     current_path = ops.BACKUP_ROOT / ops.CURRENT_BACKUP_NAME
     previous_path = ops.BACKUP_ROOT / ops.PREVIOUS_BACKUP_NAME
     current_artifact = db.query(database.BackupArtifact).filter(database.BackupArtifact.slot == "current").first()
-    if not current_artifact or not current_artifact.file_path or not os.path.exists(current_artifact.file_path):
+    if not current_artifact or not current_artifact.file_path:
+        return
+
+    source_path = Path(current_artifact.file_path)
+    if not source_path.exists():
+        source_path = current_path
+    if not source_path.exists():
         return
 
     if previous_path.exists():
-        previous_path.unlink()
-    shutil.copy2(current_path, previous_path)
-    _set_backup_file_permissions(previous_path)
-    _upsert_backup_artifact(
-        db,
-        "previous",
-        filename=ops.PREVIOUS_BACKUP_NAME,
-        file_path=str(previous_path),
-        size_bytes=previous_path.stat().st_size,
-        created_at=current_artifact.created_at,
-        manifest=json.loads(current_artifact.manifest_json or "{}"),
-    )
+        previous_path.unlink(missing_ok=True)
+    try:
+        shutil.copy2(source_path, previous_path)
+        _set_backup_file_permissions(previous_path)
+        _upsert_backup_artifact(
+            db,
+            "previous",
+            filename=ops.PREVIOUS_BACKUP_NAME,
+            file_path=str(previous_path),
+            size_bytes=previous_path.stat().st_size,
+            created_at=current_artifact.created_at,
+            manifest=json.loads(current_artifact.manifest_json or "{}"),
+        )
+    except Exception as e:
+        logger.warning("Could not rotate current backup to previous: %s", e)
 
 
 def _set_backup_file_permissions(path: Path) -> None:
