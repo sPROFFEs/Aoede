@@ -67,9 +67,9 @@ services:
       - "8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock # Para controlar Docker
-      - /opt/saas-data:/saas-data # Donde se guardan las DBs y configs de usuarios
+      - ${HOST_DATA_ROOT:-/opt/saas-data}:/saas-data # Donde se guardan las DBs y configs de usuarios
       - ..:/workspace
-      - /opt/saas-data/config/aoede.env:/run/aoede/.env
+      - ${HOST_DATA_ROOT:-/opt/saas-data}/config/aoede.env:/run/aoede/.env
       - ./concierge/templates:/app/templates
       - ./concierge:/app
       - ./assets:/app/assets
