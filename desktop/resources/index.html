@@ -100,6 +100,9 @@
         async function initApp() {
             try {
                 Neutralino.init();
+                Neutralino.events.on('windowClose', () => {
+                    Neutralino.app.exit();
+                });
             } catch (e) {
                 console.warn('Running outside Neutralino runtime');
             }
