@@ -74,6 +74,7 @@ services:
       - ./concierge:/app
       - ./assets:/app/assets
     environment:
+      - SELF_CONTAINER_NAME=concierge
       - SECRET_KEY=${SECRET_KEY}
       - ALGORITHM=${ALGORITHM:-HS256}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
