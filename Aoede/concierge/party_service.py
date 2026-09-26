@@ -40,6 +40,37 @@ def _utcnow() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def _queue_item_track_dict(item: database.PartyRoomQueueItem) -> dict | None:
+    if item.track:
+        return {
+            "id": item.track.id,
+            "db_id": item.track.id,
+            "title": item.track.title or "Unknown title",
+            "artist": item.track.artist or "Unknown artist",
+            "album": item.track.album or "",
+            "duration": int(item.track.duration or 0),
+            "thumbnail": f"/api/cover/{item.track.id}",
+            "is_local": True,
+            "source": "local",
+        }
+    if item.fed_instance_id and item.fed_remote_id:
+        return {
+            "id": f"fed_{item.fed_instance_id}_{item.fed_remote_id}",
+            "db_id": None,
+            "fed_instance_id": item.fed_instance_id,
+            "fed_remote_id": item.fed_remote_id,
+            "title": item.remote_title or "Unknown title",
+            "artist": item.remote_artist or "Unknown artist",
+            "album": item.remote_album or "",
+            "duration": int(item.remote_duration or 0),
+            "thumbnail": item.remote_thumbnail or "/static/img/default_cover.png",
+            "is_local": False,
+            "source": "federated",
+            "stream_url": f"/api/federation/proxy/{item.fed_instance_id}/stream/{item.fed_remote_id}",
+        }
+    return None
+
+
 def _track_dict(track: database.Track | None) -> dict | None:
     if not track:
         return None
@@ -52,6 +83,7 @@ def _track_dict(track: database.Track | None) -> dict | None:
         "duration": int(track.duration or 0),
         "thumbnail": f"/api/cover/{track.id}",
         "is_local": True,
+        "source": "local",
     }
 
 
@@ -92,7 +124,9 @@ def normalize_playback(room: database.PartyRoom, now: datetime | None = None) ->
     position_ms = _effective_position_ms(room, now)
     changed = False
     while room.current_index < len(items):
-        duration_ms = max(0, int(items[room.current_index].track.duration or 0) * 1000)
+        item = items[room.current_index]
+        dur = item.track.duration if item.track else item.remote_duration
+        duration_ms = max(0, int(dur or 0) * 1000)
         if not duration_ms or position_ms < duration_ms:
             break
         position_ms -= duration_ms
@@ -101,8 +135,9 @@ def normalize_playback(room: database.PartyRoom, now: datetime | None = None) ->
 
     if room.current_index >= len(items):
         room.current_index = len(items) - 1
+        last_dur = items[-1].track.duration if items[-1].track else items[-1].remote_duration
         room.playback_status = "paused"
-        room.playback_position_ms = max(0, int(items[-1].track.duration or 0) * 1000)
+        room.playback_position_ms = max(0, int(last_dur or 0) * 1000)
         room.playback_started_at = None
     else:
         if changed:
@@ -139,11 +174,13 @@ def serialize_room(room: database.PartyRoom, presence: dict | None = None, inclu
         ),
         "current_index": room.current_index,
         "current_item_id": current.id if current else None,
-        "current_track": _track_dict(current.track) if current else None,
+        "current_track": _queue_item_track_dict(current) if current else None,
         "revision": room.revision,
         "active_users": len(participants),
         "participants": participants,
         "queue_count": len(items),
+        "is_federated": bool(room.is_federated),
+        "federated_peer_ids": [p.instance_id for p in room.federated_peers] if room.federated_peers else [],
         "created_at": room.created_at.isoformat() if room.created_at else None,
     }
     if include_queue:
@@ -152,7 +189,7 @@ def serialize_room(room: database.PartyRoom, presence: dict | None = None, inclu
                 "item_id": item.id,
                 "position": index,
                 "added_by": item.added_by.username if item.added_by else None,
-                "track": _track_dict(item.track),
+                "track": _queue_item_track_dict(item),
             }
             for index, item in enumerate(items)
         ]
@@ -173,16 +210,22 @@ def create_room(
     max_users: int,
     allow_guests_queue: bool,
     playlist_id: int | None = None,
+    is_federated: bool = False,
+    federated_peer_ids: list[int] | None = None,
 ) -> database.PartyRoom:
     if not MIN_ROOM_USERS <= max_users <= MAX_ROOM_USERS:
         raise PartyError(f"User limit must be between {MIN_ROOM_USERS} and {MAX_ROOM_USERS}")
-    room_name = (name or f"{owner.username}'s Party").strip()
+    room_name = (name or f"{owner.username}'s {'Federated ' if is_federated else ''}Party").strip()
     if not room_name or len(room_name) > MAX_ROOM_NAME:
         raise PartyError(f"Room name must be between 1 and {MAX_ROOM_NAME} characters")
 
     with _write_lock:
-        if db.query(database.PartyRoom.id).filter(database.PartyRoom.owner_id == owner.id).first():
-            raise PartyError("Delete your existing party room before creating another", 409)
+        existing = db.query(database.PartyRoom).filter(database.PartyRoom.owner_id == owner.id).all()
+        # Max 2 rooms per owner: 1 local and 1 federated
+        if any(r.is_federated == is_federated for r in existing):
+            mode_name = "federated" if is_federated else "local"
+            raise PartyError(f"Delete your existing {mode_name} party room before creating another", 409)
+
         playlist = None
         if playlist_id is not None:
             playlist = (
@@ -200,9 +243,21 @@ def create_room(
             name=room_name,
             max_users=max_users,
             allow_guests_queue=allow_guests_queue,
+            is_federated=is_federated,
         )
         db.add(room)
         db.flush()
+
+        if is_federated and federated_peer_ids:
+            for pid in federated_peer_ids:
+                peer = (
+                    db.query(database.FederatedInstance)
+                    .filter(database.FederatedInstance.id == pid, database.FederatedInstance.enabled.is_(True))
+                    .first()
+                )
+                if peer:
+                    db.add(database.PartyRoomFederatedPeer(room_id=room.id, instance_id=peer.id))
+
         if playlist:
             for position, playlist_item in enumerate(sorted(playlist.items, key=lambda item: item.position)):
                 db.add(
@@ -220,12 +275,30 @@ def create_room(
         return room
 
 
-def add_track(db: Session, room: database.PartyRoom, user: database.User, track_id: int) -> None:
+def add_track(
+    db: Session,
+    room: database.PartyRoom,
+    user: database.User,
+    track_id: int | None = None,
+    *,
+    fed_instance_id: int | None = None,
+    fed_remote_id: int | None = None,
+    remote_title: str | None = None,
+    remote_artist: str | None = None,
+    remote_album: str | None = None,
+    remote_duration: float | None = None,
+    remote_thumbnail: str | None = None,
+) -> None:
     if user.id != room.owner_id and not room.allow_guests_queue:
         raise PartyError("Only the room owner can add songs", 403)
-    track = db.query(database.Track).filter(database.Track.id == track_id).first()
-    if not track:
-        raise PartyError("Track not found", 404)
+
+    if track_id is not None:
+        track = db.query(database.Track).filter(database.Track.id == track_id).first()
+        if not track:
+            raise PartyError("Track not found", 404)
+    elif not (fed_instance_id and fed_remote_id):
+        raise PartyError("Either track_id or federated track details must be provided", 400)
+
     with _write_lock:
         position = db.query(database.PartyRoomQueueItem).filter_by(room_id=room.id).count()
         if position >= MAX_QUEUE_ITEMS:
@@ -233,7 +306,14 @@ def add_track(db: Session, room: database.PartyRoom, user: database.User, track_
         db.add(
             database.PartyRoomQueueItem(
                 room_id=room.id,
-                track_id=track.id,
+                track_id=track_id,
+                fed_instance_id=fed_instance_id,
+                fed_remote_id=fed_remote_id,
+                remote_title=remote_title,
+                remote_artist=remote_artist,
+                remote_album=remote_album,
+                remote_duration=remote_duration,
+                remote_thumbnail=remote_thumbnail,
                 added_by_user_id=user.id,
                 position=position,
             )
@@ -446,8 +526,11 @@ def pause_all_rooms(db: Session) -> int:
     return len(rooms)
 
 
-def search_tracks(db: Session, query: str, limit: int = 20) -> list[dict]:
+def search_tracks(db: Session, query: str, limit: int = 20, room: database.PartyRoom | None = None) -> list[dict]:
     term = query.strip()
+    results = []
+
+    # 1. Local tracks
     fts_query = build_fts_query(term)
     if fts_query:
         try:
@@ -456,19 +539,55 @@ def search_tracks(db: Session, query: str, limit: int = 20) -> list[dict]:
                 {"query": fts_query, "limit": limit},
             ).fetchall()
             track_ids = [int(row[0]) for row in rows]
-            if not track_ids:
-                return []
-            tracks = db.query(database.Track).filter(database.Track.id.in_(track_ids)).all()
-            tracks_by_id = {int(track.id): track for track in tracks}
-            return [_track_dict(tracks_by_id[track_id]) for track_id in track_ids if track_id in tracks_by_id]
+            if track_ids:
+                tracks = db.query(database.Track).filter(database.Track.id.in_(track_ids)).all()
+                tracks_by_id = {int(track.id): track for track in tracks}
+                results = [_track_dict(tracks_by_id[track_id]) for track_id in track_ids if track_id in tracks_by_id]
         except Exception as exc:
             logger.debug("Party track FTS unavailable, falling back to ILIKE: %s", exc)
 
-    q = db.query(database.Track)
-    if term:
-        pattern = f"%{term}%"
-        q = q.filter(or_(database.Track.title.ilike(pattern), database.Track.artist.ilike(pattern)))
-    return [_track_dict(track) for track in q.order_by(database.Track.artist, database.Track.title).limit(limit).all()]
+    if not results:
+        q = db.query(database.Track)
+        if term:
+            pattern = f"%{term}%"
+            q = q.filter(or_(database.Track.title.ilike(pattern), database.Track.artist.ilike(pattern)))
+        results = [
+            _track_dict(track) for track in q.order_by(database.Track.artist, database.Track.title).limit(limit).all()
+        ]
+
+    # 2. If room is federated, also search cached federated tracks from participating peers
+    if room and room.is_federated:
+        peer_ids = [p.instance_id for p in room.federated_peers] if room.federated_peers else []
+        fed_q = db.query(database.FederatedTrack)
+        if peer_ids:
+            fed_q = fed_q.filter(database.FederatedTrack.instance_id.in_(peer_ids))
+        if term:
+            fed_pattern = f"%{term}%"
+            fed_q = fed_q.filter(
+                or_(database.FederatedTrack.title.ilike(fed_pattern), database.FederatedTrack.artist.ilike(fed_pattern))
+            )
+        fed_tracks = fed_q.limit(limit).all()
+        for ft in fed_tracks:
+            peer = db.query(database.FederatedInstance).filter(database.FederatedInstance.id == ft.instance_id).first()
+            peer_label = peer.name if peer else "Federated"
+            results.append(
+                {
+                    "id": f"fed_{ft.instance_id}_{ft.remote_track_id}",
+                    "db_id": None,
+                    "fed_instance_id": ft.instance_id,
+                    "fed_remote_id": ft.remote_track_id,
+                    "title": ft.title,
+                    "artist": ft.artist,
+                    "album": ft.album,
+                    "duration": int(ft.duration or 0),
+                    "thumbnail": ft.thumbnail or "/static/img/default_cover.png",
+                    "is_local": False,
+                    "source": "federated",
+                    "origin_label": peer_label,
+                }
+            )
+
+    return results[:limit]
 
 
 class PartyHub:

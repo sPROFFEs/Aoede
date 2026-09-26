@@ -1228,8 +1228,13 @@ export function showTrackActionsSheet(encodedData, playlistId) {
       </button>`);
 
     if (window.partyController?.isActive() && window.partyController?.canAddSongs()) {
+      const isFed = item.source === 'federated';
+      const addArg = isFed
+        ? `null, { fed_instance_id: ${item.fed_instance_id}, fed_remote_id: ${item.fed_remote_id}, remote_title: '${safeTitle}', remote_artist: '${safeArtist}', remote_album: '${ui.escHtml(item.album || '').replace(/'/g, "\\'")}', remote_duration: ${item.duration || 0}, remote_thumbnail: '${ui.escHtml(img).replace(/'/g, "\\'")}' }`
+        : `${item.db_id || item.id}`;
+
       actions.push(`
-        <button class="tas-action-btn" onclick="window.addPartyTrack(${item.db_id || item.id}); closeTrackActionsSheet()">
+        <button class="tas-action-btn" onclick="window.addPartyTrack(${addArg}); closeTrackActionsSheet()">
           <i data-lucide="radio-tower"></i><span>${ui.t('party.add_to_party_queue', 'Add to Party Queue')}</span>
         </button>`);
     }
@@ -1340,6 +1345,7 @@ export function showContextMenu(encodedData, playlistId, x, y) {
   const canAddToPlaylist = item.is_local && item.db_id;
   const safeTitle = ui.escHtml(item.title || 'Unknown').replace(/'/g, "\\'");
   const safeArtist = ui.escHtml(item.artist || 'Unknown').replace(/'/g, "\\'");
+  const img = item.thumbnail || '/static/img/default_cover.png';
 
   const actions = [];
 
@@ -1360,7 +1366,12 @@ export function showContextMenu(encodedData, playlistId, x, y) {
       <i data-lucide="list-plus"></i><span>${ui.t('player.add_to_queue', 'Add to Queue')}</span></div>`);
 
     if (window.partyController?.isActive() && window.partyController?.canAddSongs()) {
-      actions.push(`<div class="ctx-item" onclick="window.addPartyTrack(${item.db_id || item.id}); closeContextMenu()">
+      const isFed = item.source === 'federated';
+      const addArg = isFed
+        ? `null, { fed_instance_id: ${item.fed_instance_id}, fed_remote_id: ${item.fed_remote_id}, remote_title: '${safeTitle}', remote_artist: '${safeArtist}', remote_album: '${ui.escHtml(item.album || '').replace(/'/g, "\\'")}', remote_duration: ${item.duration || 0}, remote_thumbnail: '${ui.escHtml(img).replace(/'/g, "\\'")}' }`
+        : `${item.db_id || item.id}`;
+
+      actions.push(`<div class="ctx-item" onclick="window.addPartyTrack(${addArg}); closeContextMenu()">
         <i data-lucide="radio-tower"></i><span>${ui.t('party.add_to_party_queue', 'Add to Party Queue')}</span></div>`);
     }
 

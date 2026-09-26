@@ -1509,6 +1509,34 @@ def _migration_030_collaborative_playlists(conn):
     database.PlaylistCollaborator.__table__.create(bind=conn, checkfirst=True)
 
 
+def _migration_031_federated_party_rooms(conn):
+    room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(party_rooms)")).fetchall()}
+    if "is_federated" not in room_cols:
+        conn.execute(text("ALTER TABLE party_rooms ADD COLUMN is_federated BOOLEAN NOT NULL DEFAULT 0"))
+
+    queue_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(party_room_queue_items)")).fetchall()}
+    if "fed_instance_id" not in queue_cols:
+        conn.execute(
+            text(
+                "ALTER TABLE party_room_queue_items ADD COLUMN fed_instance_id INTEGER REFERENCES federated_instances(id) ON DELETE SET NULL"
+            )
+        )
+    if "fed_remote_id" not in queue_cols:
+        conn.execute(text("ALTER TABLE party_room_queue_items ADD COLUMN fed_remote_id INTEGER"))
+    if "remote_title" not in queue_cols:
+        conn.execute(text("ALTER TABLE party_room_queue_items ADD COLUMN remote_title VARCHAR"))
+    if "remote_artist" not in queue_cols:
+        conn.execute(text("ALTER TABLE party_room_queue_items ADD COLUMN remote_artist VARCHAR"))
+    if "remote_album" not in queue_cols:
+        conn.execute(text("ALTER TABLE party_room_queue_items ADD COLUMN remote_album VARCHAR"))
+    if "remote_duration" not in queue_cols:
+        conn.execute(text("ALTER TABLE party_room_queue_items ADD COLUMN remote_duration FLOAT"))
+    if "remote_thumbnail" not in queue_cols:
+        conn.execute(text("ALTER TABLE party_room_queue_items ADD COLUMN remote_thumbnail VARCHAR"))
+
+    database.PartyRoomFederatedPeer.__table__.create(bind=conn, checkfirst=True)
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1541,6 +1569,7 @@ MIGRATIONS = [
     ("028_downloader_mode", _migration_028_downloader_mode),
     ("029_delete_reference_cleanup", _migration_029_delete_reference_cleanup),
     ("030_collaborative_playlists", _migration_030_collaborative_playlists),
+    ("031_federated_party_rooms", _migration_031_federated_party_rooms),
 ]
 
 

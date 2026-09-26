@@ -19,10 +19,19 @@ class CreateRoomRequest(BaseModel):
     max_users: int = Field(default=5, ge=party_service.MIN_ROOM_USERS, le=party_service.MAX_ROOM_USERS)
     allow_guests_queue: bool = True
     playlist_id: int | None = None
+    is_federated: bool = False
+    federated_peer_ids: list[int] | None = None
 
 
 class AddTrackRequest(BaseModel):
-    track_id: int
+    track_id: int | None = None
+    fed_instance_id: int | None = None
+    fed_remote_id: int | None = None
+    remote_title: str | None = None
+    remote_artist: str | None = None
+    remote_album: str | None = None
+    remote_duration: float | None = None
+    remote_thumbnail: str | None = None
 
 
 class ControlRequest(BaseModel):
@@ -49,6 +58,32 @@ def _room_payload(room: database.PartyRoom, user: database.User, include_queue: 
     return payload
 
 
+@router.get("/peers")
+async def list_available_peers(request: Request, db: Session = Depends(get_db)):
+    user, response = _user_or_401(db, request)
+    if response:
+        return response
+    peers = (
+        db.query(database.FederatedInstance)
+        .filter(database.FederatedInstance.enabled.is_(True))
+        .order_by(database.FederatedInstance.name)
+        .all()
+    )
+    return JSONResponse(
+        {
+            "peers": [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "base_url": p.base_url,
+                    "status": p.status,
+                }
+                for p in peers
+            ]
+        }
+    )
+
+
 @router.get("/rooms")
 async def list_rooms(request: Request, db: Session = Depends(get_db)):
     user, response = _user_or_401(db, request)
@@ -71,6 +106,8 @@ async def create_room(payload: CreateRoomRequest, request: Request, db: Session 
             payload.max_users,
             payload.allow_guests_queue,
             payload.playlist_id,
+            is_federated=payload.is_federated,
+            federated_peer_ids=payload.federated_peer_ids,
         )
         await party_service.hub.open_room(room.id)
         return JSONResponse({"room": _room_payload(room, user)}, status_code=201)
@@ -132,7 +169,7 @@ async def room_track_search(room_id: int, request: Request, q: str = "", db: Ses
         party_service.require_membership(room, user)
         if user.id != room.owner_id and not room.allow_guests_queue:
             raise party_service.PartyError("Only the room owner can add songs", 403)
-        return JSONResponse({"tracks": party_service.search_tracks(db, q)})
+        return JSONResponse({"tracks": party_service.search_tracks(db, q, room=room)})
     except party_service.PartyError as exc:
         return _error(exc)
 
@@ -145,7 +182,19 @@ async def add_queue_track(room_id: int, payload: AddTrackRequest, request: Reque
     try:
         room = party_service.get_room(db, room_id)
         party_service.require_membership(room, user)
-        party_service.add_track(db, room, user, payload.track_id)
+        party_service.add_track(
+            db,
+            room,
+            user,
+            payload.track_id,
+            fed_instance_id=payload.fed_instance_id,
+            fed_remote_id=payload.fed_remote_id,
+            remote_title=payload.remote_title,
+            remote_artist=payload.remote_artist,
+            remote_album=payload.remote_album,
+            remote_duration=payload.remote_duration,
+            remote_thumbnail=payload.remote_thumbnail,
+        )
         await party_service.hub.broadcast(room_id)
         return JSONResponse({"status": "added"}, status_code=201)
     except party_service.PartyError as exc:

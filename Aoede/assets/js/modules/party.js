@@ -43,11 +43,12 @@ export async function fetchRooms() {
 
 function roomCard(room, compact = false) {
   const track = room.current_track;
+  const isFederated = Boolean(room.is_federated);
   return `
     <button class="party-card${compact ? ' party-card-compact' : ''}" onclick="loadView('party_room', ${room.id})">
-      <span class="party-card-icon"><i data-lucide="radio-tower"></i></span>
+      <span class="party-card-icon"><i data-lucide="${isFederated ? 'globe' : 'radio-tower'}"></i></span>
       <span class="party-card-copy">
-        <strong>${ui.escHtml(room.name)}</strong>
+        <strong>${ui.escHtml(room.name)} ${isFederated ? '<span class="status-badge finished" style="font-size:0.65rem; padding:1px 5px; margin-left:4px;">Federated</span>' : ''}</strong>
         <span>Hosted by ${ui.escHtml(room.owner_username)} · ${room.active_users}/${room.max_users} listening</span>
         <span class="party-card-track">${track ? `${ui.escHtml(track.title)} — ${ui.escHtml(track.artist)}` : `${room.queue_count ?? room.queue?.length ?? 0} songs ready`}</span>
       </span>
@@ -75,7 +76,10 @@ export function renderHomeShelf(rooms) {
 
 export async function renderPartyList(container) {
   const rooms = await fetchRooms();
-  const owned = rooms.find((room) => room.is_owner);
+  const ownedLocal = rooms.find((room) => room.is_owner && !room.is_federated);
+  const ownedFederated = rooms.find((room) => room.is_owner && room.is_federated);
+  const canCreate = !ownedLocal || !ownedFederated;
+
   container.innerHTML = `
     <section class="home-overview party-theme">
       ${ui.homeTabsBar('party')}
@@ -85,14 +89,14 @@ export async function renderPartyList(container) {
           <h1 class="hero-greeting">${ui.t('party.title', 'Party Rooms')}</h1>
           <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('party.subtitle', 'Join a shared queue and stay on the same beat with everyone in the room.')}</p>
         </div>
-        <button class="btn-primary party-create-btn" onclick="showCreatePartyModal()" ${owned ? 'disabled title="Delete your existing room first"' : ''}>
+        <button class="btn-primary party-create-btn" onclick="showCreatePartyModal()" ${!canCreate ? 'disabled title="You have reached the limit of 2 rooms (1 Local + 1 Federated)"' : ''}>
           <i data-lucide="plus" width="18" height="18"></i> ${ui.t('party.create_room', 'Create Room')}
         </button>
       </div>
     </section>
     ${
-      owned
-        ? `<div class="party-owner-notice"><i data-lucide="info"></i><span>You already own <strong>${ui.escHtml(owned.name)}</strong>. Delete it before creating another room.</span></div>`
+      ownedLocal && ownedFederated
+        ? `<div class="party-owner-notice"><i data-lucide="info"></i><span>You have active rooms: <strong>${ui.escHtml(ownedLocal.name)}</strong> (Local) and <strong>${ui.escHtml(ownedFederated.name)}</strong> (Federated).</span></div>`
         : ''
     }
     <div class="shelf-section home-shelf">
@@ -106,12 +110,44 @@ export async function renderPartyList(container) {
   ui.refreshIcons(container);
 }
 
-export function showCreateModal() {
+export async function showCreateModal() {
   const playlists = state.userPlaylists || [];
+  let availablePeers = [];
+  try {
+    const peerRes = await request('/peers');
+    availablePeers = peerRes.peers || [];
+  } catch (_) {
+    availablePeers = [];
+  }
+
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
       <form class="modal-box party-create-modal" onsubmit="createPartyRoom(event)">
         <div class="modal-header"><h2>${ui.t('party.create_room', 'Create party room')}</h2><button type="button" class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+        
+        <label class="party-field">
+          <span>Room Type</span>
+          <select id="party-room-type" class="modal-input" onchange="togglePartyPeerSelector(this.value)">
+            <option value="local">🏠 Local Room (This server only)</option>
+            <option value="federated" ${!availablePeers.length ? 'disabled' : ''}>🌐 Federated Room (Shared across connected servers)</option>
+          </select>
+        </label>
+
+        <div id="party-peers-container" style="display:none; margin-bottom:14px;">
+          <span class="modal-label" style="margin-bottom:6px;">Select Connected Servers to Invite:</span>
+          <div class="glass-panel" style="max-height:120px; overflow-y:auto; padding:6px; border-radius:6px; display:flex; flex-direction:column; gap:4px;">
+            ${availablePeers
+              .map(
+                (p) => `
+              <label style="display:flex; align-items:center; gap:8px; padding:4px 6px; font-size:0.85rem; cursor:pointer;">
+                <input type="checkbox" class="party-peer-checkbox" value="${p.id}" checked style="accent-color:var(--primary);">
+                <span><strong>${ui.escHtml(p.name)}</strong> <small style="color:var(--text-sub);">(${ui.escHtml(p.base_url)})</small></span>
+              </label>`
+              )
+              .join('')}
+          </div>
+        </div>
+
         <label class="party-field"><span>${ui.t('party.room_name', 'Room name')}</span><input id="party-room-name" maxlength="80" placeholder="${ui.escHtml(window.USER_DATA?.username || 'My')}’s ${ui.t('party.room_name_placeholder', 'Party')}"></label>
         <label class="party-field"><span>User limit</span><select id="party-room-limit">${Array.from(
           { length: 14 },
@@ -129,19 +165,34 @@ export function showCreateModal() {
   ui.refreshIcons(document.getElementById('modal-container'));
 }
 
+window.togglePartyPeerSelector = function (type) {
+  const container = document.getElementById('party-peers-container');
+  if (container) container.style.display = type === 'federated' ? 'block' : 'none';
+};
+
 export async function createRoom(event) {
   event?.preventDefault();
   const button = event?.submitter;
   if (button) button.disabled = true;
   try {
     const playlistValue = document.getElementById('party-room-playlist').value;
+    const isFederated = document.getElementById('party-room-type').value === 'federated';
+    let peerIds = [];
+    if (isFederated) {
+      document.querySelectorAll('.party-peer-checkbox:checked').forEach((cb) => {
+        peerIds.push(Number(cb.value));
+      });
+    }
+
     const data = await request('/rooms', {
       method: 'POST',
       body: JSON.stringify({
         name: document.getElementById('party-room-name').value.trim() || null,
         max_users: Number(document.getElementById('party-room-limit').value),
         allow_guests_queue: document.getElementById('party-guests-queue').checked,
-        playlist_id: playlistValue ? Number(playlistValue) : null
+        playlist_id: playlistValue ? Number(playlistValue) : null,
+        is_federated: isFederated,
+        federated_peer_ids: peerIds
       })
     });
     ui.closeModal();
@@ -386,10 +437,17 @@ export function searchTracks(query) {
     try {
       const data = await request(`/rooms/${activeRoom.id}/tracks?q=${encodeURIComponent(query)}`);
       results.innerHTML = data.tracks
-        .map(
-          (track) =>
-            `<button class="party-search-row" onclick="addPartyTrack(${track.db_id})"><img src="${track.thumbnail}" onerror="this.src='/static/img/default_cover.png'"><span><strong>${ui.escHtml(track.title)}</strong><small>${ui.escHtml(track.artist)}</small></span><i data-lucide="plus"></i></button>`
-        )
+        .map((track) => {
+          const isFed = track.source === 'federated';
+          const badge = isFed
+            ? `<span style="font-size:0.65rem; background:rgba(255,255,255,0.12); padding:1px 5px; border-radius:4px; margin-left:4px;">🌐 ${ui.escHtml(track.origin_label || 'Federated')}</span>`
+            : '';
+          const addArg = isFed
+            ? `null, { fed_instance_id: ${track.fed_instance_id}, fed_remote_id: ${track.fed_remote_id}, remote_title: '${ui.escHtml(track.title).replace(/'/g, "\\'")}', remote_artist: '${ui.escHtml(track.artist).replace(/'/g, "\\'")}', remote_album: '${ui.escHtml(track.album || '').replace(/'/g, "\\'")}', remote_duration: ${track.duration || 0}, remote_thumbnail: '${ui.escHtml(track.thumbnail).replace(/'/g, "\\'")}' }`
+            : `${track.db_id}`;
+
+          return `<button class="party-search-row" onclick="addPartyTrack(${addArg})"><img src="${track.thumbnail}" onerror="this.src='/static/img/default_cover.png'"><span><strong>${ui.escHtml(track.title)}</strong>${badge}<small>${ui.escHtml(track.artist)}</small></span><i data-lucide="plus"></i></button>`;
+        })
         .join('');
       ui.refreshIcons(results);
     } catch (error) {
@@ -398,12 +456,13 @@ export function searchTracks(query) {
   }, 250);
 }
 
-export async function addTrack(trackId) {
+export async function addTrack(trackId = null, fedData = null) {
   if (!activeRoom) return;
   try {
+    const bodyPayload = trackId ? { track_id: trackId } : fedData || {};
     await request(`/rooms/${activeRoom.id}/queue`, {
       method: 'POST',
-      body: JSON.stringify({ track_id: trackId })
+      body: JSON.stringify(bodyPayload)
     });
     ui.showToast('Added to the party queue', 'success');
   } catch (error) {

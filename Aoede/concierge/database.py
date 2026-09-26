@@ -317,7 +317,7 @@ class PartyRoom(Base):
     __tablename__ = "party_rooms"
 
     id = Column(Integer, primary_key=True, index=True)
-    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
+    owner_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String, nullable=False)
     max_users = Column(Integer, default=5, nullable=False)
     allow_guests_queue = Column(Boolean, default=True, nullable=False)
@@ -326,6 +326,7 @@ class PartyRoom(Base):
     playback_position_ms = Column(Integer, default=0, nullable=False)
     playback_started_at = Column(DateTime, nullable=True)
     revision = Column(Integer, default=0, nullable=False)
+    is_federated = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
 
@@ -336,6 +337,23 @@ class PartyRoom(Base):
         cascade="all, delete-orphan",
         order_by="PartyRoomQueueItem.position",
     )
+    federated_peers = relationship(
+        "PartyRoomFederatedPeer",
+        back_populates="room",
+        cascade="all, delete-orphan",
+    )
+
+
+class PartyRoomFederatedPeer(Base):
+    __tablename__ = "party_room_federated_peers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    room_id = Column(Integer, ForeignKey("party_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
+    instance_id = Column(Integer, ForeignKey("federated_instances.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+
+    room = relationship("PartyRoom", back_populates="federated_peers")
+    instance = relationship("FederatedInstance")
 
 
 class PartyRoomQueueItem(Base):
@@ -343,14 +361,24 @@ class PartyRoomQueueItem(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     room_id = Column(Integer, ForeignKey("party_rooms.id", ondelete="CASCADE"), nullable=False, index=True)
-    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=False, index=True)
+    track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"), nullable=True, index=True)
     added_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     position = Column(Integer, default=0, nullable=False)
+    fed_instance_id = Column(
+        Integer, ForeignKey("federated_instances.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    fed_remote_id = Column(Integer, nullable=True)
+    remote_title = Column(String, nullable=True)
+    remote_artist = Column(String, nullable=True)
+    remote_album = Column(String, nullable=True)
+    remote_duration = Column(Float, nullable=True)
+    remote_thumbnail = Column(String, nullable=True)
     added_at = Column(DateTime, default=func.now(), nullable=False)
 
     room = relationship("PartyRoom", back_populates="queue_items")
     track = relationship("Track")
     added_by = relationship("User")
+    fed_instance = relationship("FederatedInstance")
 
 
 class DownloadJob(Base):
