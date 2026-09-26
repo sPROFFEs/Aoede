@@ -8,6 +8,11 @@ Thumbs.db
 *.swp
 *.swo
 
+# AI / Assistant config
+.codex/
+.praimate/
+opencode.json
+
 # Git internals and local worktrees
 *.orig
 *.rej
@@ -66,6 +71,7 @@ cookies.txt
 build/
 dist/
 *.egg-info/
+desktop/dist/
 
 # Frontend / package managers
 node_modules/
@@ -81,12 +87,9 @@ Aoede/**/*.pyc
 Aoede/**/*.pyo
 Aoede/**/*.pyd
 
-# Local docs / scratch files that should not ship.
-# Anything inside docs/ is ignored EXCEPT the deployment guide, which
-# we ship so admins reading the README on GitHub can follow it.
-/docs/*
-!/docs/DEPLOYMENT.md
-docs/*
-!docs/DEPLOYMENT.md
+# Local helper scripts
+backup_main_to_branch.sh
+resize_disk.sh
+import_music.sh
 spotifyapi.txt
 .gstack/
