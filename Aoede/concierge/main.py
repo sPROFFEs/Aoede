@@ -165,7 +165,17 @@ async def startup_event():
 
         # Mark admin jobs that were mid-flight when the previous process
         # exited as failed — BackgroundTasks workers died with the process.
-        stuck_admin = db.query(database.AdminJob).filter(database.AdminJob.status.in_(["queued", "running"])).all()
+        # EXCEPTION: apply_update jobs are executed inside the independent
+        # 'updater' container, NOT by concierge. When concierge restarts
+        # mid-update, it must NOT kill the updater's active job.
+        stuck_admin = (
+            db.query(database.AdminJob)
+            .filter(
+                database.AdminJob.status.in_(["queued", "running"]),
+                database.AdminJob.job_type != "apply_update",
+            )
+            .all()
+        )
         for job in stuck_admin:
             job.status = "failed"
             job.message = (job.message or "") + " (interrupted by restart)"
@@ -173,9 +183,19 @@ async def startup_event():
         if stuck_admin:
             db.commit()
             logger.info("Marked %s stuck admin job(s) as failed on startup", len(stuck_admin))
-        # Clear any stale operation locks left over from the previous process.
-        db.query(database.AdminOperationLock).delete(synchronize_session=False)
-        db.commit()
+        # Clear any stale operation locks left over from the previous process,
+        # but keep the lock if an apply_update job is actively running in the updater container.
+        active_updater_job = (
+            db.query(database.AdminJob)
+            .filter(
+                database.AdminJob.job_type == "apply_update",
+                database.AdminJob.status.in_(["queued", "running"]),
+            )
+            .first()
+        )
+        if not active_updater_job:
+            db.query(database.AdminOperationLock).delete(synchronize_session=False)
+            db.commit()
 
         paused_rooms = party_service.pause_all_rooms(db)
         if paused_rooms:
