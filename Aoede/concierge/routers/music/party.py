@@ -3,6 +3,7 @@
 import asyncio
 
 import database
+import httpx
 import party_service
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -89,8 +90,36 @@ async def list_rooms(request: Request, db: Session = Depends(get_db)):
     user, response = _user_or_401(db, request)
     if response:
         return response
-    rooms = db.query(database.PartyRoom).order_by(database.PartyRoom.created_at.desc()).all()
-    return JSONResponse({"rooms": [_room_payload(room, user, include_queue=False) for room in rooms]})
+    local_rooms = db.query(database.PartyRoom).order_by(database.PartyRoom.created_at.desc()).all()
+    out = [_room_payload(room, user, include_queue=False) for room in local_rooms]
+
+    # Query active federated rooms from enabled peers
+    peers = db.query(database.FederatedInstance).filter(database.FederatedInstance.enabled.is_(True)).all()
+    for p in peers:
+        try:
+            headers = {"User-Agent": "Aoede-Federation/1.0"}
+            if p.api_token:
+                headers["Authorization"] = f"Bearer {p.api_token}"
+            res = httpx.get(
+                f"{p.base_url.rstrip('/')}/api/federation/parties",
+                headers=headers,
+                timeout=3.0,
+                follow_redirects=True,
+            )
+            if res.status_code == 200:
+                data = res.json()
+                for r in data.get("rooms", []):
+                    r["is_remote_federated"] = True
+                    r["remote_instance_id"] = p.id
+                    r["remote_instance_name"] = p.name
+                    r["remote_base_url"] = p.base_url
+                    r["is_owner"] = False
+                    r["can_add_songs"] = bool(r.get("allow_guests_queue"))
+                    out.append(r)
+        except Exception:
+            continue
+
+    return JSONResponse({"rooms": out})
 
 
 @router.post("/rooms")

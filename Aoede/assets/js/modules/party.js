@@ -43,12 +43,16 @@ export async function fetchRooms() {
 
 function roomCard(room, compact = false) {
   const track = room.current_track;
-  const isFederated = Boolean(room.is_federated);
+  const isFederated = Boolean(room.is_federated || room.is_remote_federated);
+  const remoteOrigin = room.is_remote_federated
+    ? `<span style="font-size:0.7rem; color:var(--primary); font-weight:600;">[🌐 ${ui.escHtml(room.remote_instance_name)}]</span>`
+    : '';
+
   return `
     <button class="party-card${compact ? ' party-card-compact' : ''}" onclick="loadView('party_room', ${room.id})">
       <span class="party-card-icon"><i data-lucide="${isFederated ? 'globe' : 'radio-tower'}"></i></span>
       <span class="party-card-copy">
-        <strong>${ui.escHtml(room.name)} ${isFederated ? '<span class="status-badge finished" style="font-size:0.65rem; padding:1px 5px; margin-left:4px;">Federated</span>' : ''}</strong>
+        <strong>${ui.escHtml(room.name)} ${remoteOrigin} ${isFederated ? '<span class="status-badge finished" style="font-size:0.65rem; padding:1px 5px; margin-left:4px;">Federated</span>' : ''}</strong>
         <span>Hosted by ${ui.escHtml(room.owner_username)} · ${room.active_users}/${room.max_users} listening</span>
         <span class="party-card-track">${track ? `${ui.escHtml(track.title)} — ${ui.escHtml(track.artist)}` : `${room.queue_count ?? room.queue?.length ?? 0} songs ready`}</span>
       </span>

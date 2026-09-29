@@ -34,6 +34,7 @@ from datetime import datetime, timezone
 import database
 import federation_service
 import httpx
+import party_service
 from auth import get_current_user, get_password_hash
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -251,6 +252,26 @@ def _verify_federation_token(
 # ============================================================================
 # PUBLISH ENDPOINTS (called BY remote peers)
 # ============================================================================
+
+
+@router.get("/api/federation/parties")
+async def federation_parties(
+    request: Request,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    """List active federated party rooms on this instance for peers."""
+    _verify_federation_token(db, request, authorization)
+    rooms = (
+        db.query(database.PartyRoom)
+        .filter(database.PartyRoom.is_federated.is_(True))
+        .order_by(database.PartyRoom.created_at.desc())
+        .all()
+    )
+    visible_rooms = [
+        party_service.serialize_room(r, party_service.hub.presence(r.id), include_queue=False) for r in rooms
+    ]
+    return JSONResponse({"rooms": visible_rooms})
 
 
 @router.get("/api/federation/health")
