@@ -66,8 +66,8 @@ class AuthBrowserManager:
         self.enabled = os.getenv("AUTH_BROWSER_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
         self.ttl = max(60, min(1800, int(os.getenv("AUTH_BROWSER_TTL", "600"))))
         self.display = os.getenv("AUTH_BROWSER_DISPLAY", ":99")
-        self.width = max(800, min(2560, int(os.getenv("AUTH_BROWSER_WIDTH", "1440"))))
-        self.height = max(600, min(1600, int(os.getenv("AUTH_BROWSER_HEIGHT", "900"))))
+        self.width = max(800, min(2560, int(os.getenv("AUTH_BROWSER_WIDTH", "1024"))))
+        self.height = max(600, min(1600, int(os.getenv("AUTH_BROWSER_HEIGHT", "768"))))
         self.vnc_port = int(os.getenv("AUTH_BROWSER_VNC_PORT", "5900"))
         self.websocket_port = int(os.getenv("AUTH_BROWSER_WEBSOCKET_PORT", "6080"))
         self.debugging_port = int(os.getenv("AUTH_BROWSER_DEBUGGING_PORT", "9222"))

@@ -660,7 +660,7 @@ async def api_start_auth_browser(
         {
             "status": worker_session.get("status", "starting"),
             "browser_session": session.serialize(),
-            "novnc_url": f"/admin/auth-browser/vnc.html?path={websocket_path}",
+            "novnc_url": f"/admin/auth-browser/vnc.html?autoconnect=true&resize=scale&quality=6&compression=2&path={websocket_path}",
         },
         headers={"Cache-Control": "private, no-store"},
     )

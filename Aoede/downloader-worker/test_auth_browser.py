@@ -38,7 +38,7 @@ def test_chromium_uses_container_safe_real_browser_defaults(tmp_path):
     assert "--disable-gpu" not in command
     assert "--disable-dev-shm-usage" not in command
     assert "--disable-extensions" not in command
-    assert "--window-size=1440,900" in command
+    assert "--window-size=1024,768" in command
     assert "--remote-debugging-address=127.0.0.1" in command
     assert "--remote-debugging-port=9222" in command
 

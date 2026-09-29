@@ -304,4 +304,10 @@
     .download-provider-meta strong { text-align: left; }
     .download-provider-actions button { width: 100%; }
     .download-provider-unavailable { width: 100%; }
+    .auth-browser-modal { padding: 8px; }
+    .auth-browser-dialog { width: 100vw; height: 92vh; max-height: 92vh; padding: 12px 10px; border-radius: 12px; gap: 0.5rem; }
+    .auth-browser-dialog-head h2 { font-size: 1.1rem; }
+    .auth-browser-footer { flex-direction: column; align-items: stretch; gap: 8px; }
+    .auth-browser-footer div { display: flex; gap: 8px; }
+    .auth-browser-footer button { flex: 1; }
 }
