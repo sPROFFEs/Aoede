@@ -2,9 +2,8 @@
 set -e
 
 REPO="sPROFFEs/Aoede"
-TAG="v1.2.1"
 
-echo "🎵 Installing Aoede Desktop App ($TAG)..."
+echo "🎵 Installing Aoede Desktop App (latest)..."
 
 OS="$(uname -s | tr '[:upper:]' '[:lower:]')"
 ARCH="$(uname -m)"
@@ -25,7 +24,7 @@ case "$OS" in
         mkdir -p "$APP_DIR" "$BIN_DIR" "$DESKTOP_DIR" "$ICON_DIR"
         
         echo "⬇️  Downloading ${PACKAGE_NAME}..."
-        curl -fsSL "https://github.com/${REPO}/releases/download/${TAG}/${PACKAGE_NAME}" | tar -xz -C "$APP_DIR"
+        curl -fsSL "https://github.com/${REPO}/releases/latest/download/${PACKAGE_NAME}" | tar -xz -C "$APP_DIR"
         
         chmod +x "$APP_DIR/$BINARY_NAME"
         
@@ -64,7 +63,7 @@ EOF
 
         echo "⬇️  Downloading ${PACKAGE_NAME}..."
         TEMP_DIR="$(mktemp -d)"
-        curl -fsSL "https://github.com/${REPO}/releases/download/${TAG}/${PACKAGE_NAME}" | tar -xz -C "$TEMP_DIR"
+        curl -fsSL "https://github.com/${REPO}/releases/latest/download/${PACKAGE_NAME}" | tar -xz -C "$TEMP_DIR"
 
         rm -rf "$APP_PATH"
         mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"

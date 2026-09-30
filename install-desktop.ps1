@@ -1,14 +1,13 @@
 $ErrorActionPreference = 'Stop'
 
 $Repo = "sPROFFEs/Aoede"
-$Tag = "v1.2.1"
 $InstallDir = "$env:LOCALAPPDATA\Aoede"
 $PackageName = "aoede-win-x64.tar.gz"
 
-$DownloadUrl = "https://github.com/$Repo/releases/download/$Tag/$PackageName"
+$DownloadUrl = "https://github.com/$Repo/releases/latest/download/$PackageName"
 $ExePath = "$InstallDir\aoede-win_x64.exe"
 
-Write-Host "🎵 Installing Aoede Desktop App ($Tag)..." -ForegroundColor Green
+Write-Host "🎵 Installing Aoede Desktop App (latest)..." -ForegroundColor Green
 
 if (!(Test-Path $InstallDir)) {
     New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
