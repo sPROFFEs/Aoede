@@ -138,6 +138,17 @@
             } catch(e) {}
             localStorage.setItem(STORAGE_KEY, formatted);
 
+            // Set up clean window close handler before loading server
+            try {
+                Neutralino.events.on('windowClose', async () => {
+                    try {
+                        await Neutralino.app.exit();
+                    } catch (e) {
+                        console.error('Exit failed:', e);
+                    }
+                });
+            } catch (e) {}
+
             // Direct top-level navigation instead of iframe
             window.location.replace(formatted);
         }
