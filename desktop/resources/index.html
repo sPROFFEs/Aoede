@@ -24,7 +24,7 @@
         }
 
         #setup-view {
-            display: flex;
+            display: none;
             align-items: center;
             justify-content: center;
             height: 100%;
@@ -59,25 +59,11 @@
         button { width: 100%; padding: 13px; background: var(--primary); color: #000; font-weight: 700; border: none; border-radius: 999px; cursor: pointer; font-size: 0.95rem; transition: transform 0.1s, opacity 0.2s; }
         button:hover { opacity: 0.92; }
         button:active { transform: scale(0.98); }
-
-        #change-server-btn {
-            position: fixed;
-            bottom: 12px;
-            right: 12px;
-            background: rgba(0,0,0,0.6);
-            border: 1px solid var(--border);
-            color: var(--text-sub);
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            cursor: pointer;
-            z-index: 9999;
-            display: none;
-        }
-        #change-server-btn:hover { color: #fff; background: rgba(0,0,0,0.9); }
     </style>
 </head>
 <body>
+    <iframe id="app-frame" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; display-capture"></iframe>
+
     <div id="setup-view">
         <div class="card">
             <div class="logo">Aoede <span>Desktop</span></div>
@@ -96,12 +82,17 @@
         const setupView = document.getElementById('setup-view');
         const setupForm = document.getElementById('setup-form');
         const serverInput = document.getElementById('server-url');
+        const appFrame = document.getElementById('app-frame');
 
         async function initApp() {
             try {
                 Neutralino.init();
-                Neutralino.events.on('windowClose', () => {
-                    Neutralino.app.exit();
+                Neutralino.events.on('windowClose', async () => {
+                    try {
+                        await Neutralino.app.exit();
+                    } catch (e) {
+                        console.error('Exit failed:', e);
+                    }
                 });
             } catch (e) {
                 console.warn('Running outside Neutralino runtime');
@@ -122,6 +113,7 @@
         }
 
         function showSetup() {
+            appFrame.style.display = 'none';
             setupView.style.display = 'flex';
             serverInput.focus();
         }
@@ -138,19 +130,9 @@
             } catch(e) {}
             localStorage.setItem(STORAGE_KEY, formatted);
 
-            // Set up clean window close handler before loading server
-            try {
-                Neutralino.events.on('windowClose', async () => {
-                    try {
-                        await Neutralino.app.exit();
-                    } catch (e) {
-                        console.error('Exit failed:', e);
-                    }
-                });
-            } catch (e) {}
-
-            // Direct top-level navigation instead of iframe
-            window.location.replace(formatted);
+            setupView.style.display = 'none';
+            appFrame.src = formatted;
+            appFrame.style.display = 'block';
         }
 
         setupForm.addEventListener('submit', (e) => {
