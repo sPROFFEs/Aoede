@@ -16,13 +16,6 @@
         * { margin:0; padding:0; box-sizing:border-box; font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body, html { width: 100%; height: 100%; background: var(--background); color: var(--text-main); overflow: hidden; }
         
-        #app-frame {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: none;
-        }
-
         #setup-view {
             display: none;
             align-items: center;
@@ -62,8 +55,6 @@
     </style>
 </head>
 <body>
-    <iframe id="app-frame" allow="autoplay; encrypted-media; fullscreen; picture-in-picture; clipboard-write; display-capture"></iframe>
-
     <div id="setup-view">
         <div class="card">
             <div class="logo">Aoede <span>Desktop</span></div>
@@ -82,18 +73,10 @@
         const setupView = document.getElementById('setup-view');
         const setupForm = document.getElementById('setup-form');
         const serverInput = document.getElementById('server-url');
-        const appFrame = document.getElementById('app-frame');
 
         async function initApp() {
             try {
                 Neutralino.init();
-                Neutralino.events.on('windowClose', async () => {
-                    try {
-                        await Neutralino.app.exit();
-                    } catch (e) {
-                        console.error('Exit failed:', e);
-                    }
-                });
             } catch (e) {
                 console.warn('Running outside Neutralino runtime');
             }
@@ -113,7 +96,6 @@
         }
 
         function showSetup() {
-            appFrame.style.display = 'none';
             setupView.style.display = 'flex';
             serverInput.focus();
         }
@@ -130,9 +112,13 @@
             } catch(e) {}
             localStorage.setItem(STORAGE_KEY, formatted);
 
-            setupView.style.display = 'none';
-            appFrame.src = formatted;
-            appFrame.style.display = 'block';
+            // Pass Neutralino server parameters to the webapp via query parameters so
+            // it can connect to the local Neutralino native bridge and handle window events.
+            const urlObj = new URL(formatted);
+            if (window.NL_PORT) urlObj.searchParams.set('nl_port', window.NL_PORT);
+            if (window.NL_TOKEN) urlObj.searchParams.set('nl_token', window.NL_TOKEN);
+
+            window.location.replace(urlObj.toString());
         }
 
         setupForm.addEventListener('submit', (e) => {

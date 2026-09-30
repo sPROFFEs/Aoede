@@ -51,6 +51,50 @@ function isTypingTarget(el) {
   return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
 }
 
+function initDesktopWrapper() {
+  if (typeof window === 'undefined') return;
+  const params = new URLSearchParams(window.location.search);
+  const nlPort = params.get('nl_port') || window.sessionStorage?.getItem('NL_PORT');
+  const nlToken = params.get('nl_token') || window.sessionStorage?.getItem('NL_TOKEN');
+
+  if (!nlPort || !nlToken) return;
+
+  try {
+    window.sessionStorage?.setItem('NL_PORT', nlPort);
+    window.sessionStorage?.setItem('NL_TOKEN', nlToken);
+  } catch {}
+
+  // Strip parameters from URL without reloading
+  params.delete('nl_port');
+  params.delete('nl_token');
+  const cleanSearch = params.toString() ? `?${params.toString()}` : '';
+  window.history.replaceState({}, '', `${window.location.pathname}${cleanSearch}${window.location.hash}`);
+
+  if (typeof window.WebSocket === 'undefined') return;
+
+  try {
+    const ws = new window.WebSocket(`ws://127.0.0.1:${nlPort}?connectToken=${nlToken}`);
+    ws.addEventListener('message', (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.event === 'windowClose') {
+          // Send app.exit command directly over WebSocket
+          const exitPayload = JSON.stringify({
+            id: 'desktop-exit',
+            method: 'app.exit',
+            accessToken: nlToken
+          });
+          ws.send(exitPayload);
+        }
+      } catch (e) {
+        console.error('[DESKTOP] Failed to process message:', e);
+      }
+    });
+  } catch (e) {
+    console.warn('[DESKTOP] Native bridge init failed:', e);
+  }
+}
+
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -406,6 +450,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Setup player controls
   player.setupPlayer();
   player.setPartyController(party.controller);
+
+  // Initialize Neutralino desktop integration if running within wrapper
+  initDesktopWrapper();
 
   // Restore persisted volume (server is authoritative, cross-device).
   // Runs async — applies the localStorage value instantly then reconciles
