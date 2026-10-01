@@ -1,6 +1,7 @@
 """Authenticated party-room API and server-sent event stream."""
 
 import asyncio
+import re
 
 import database
 import httpx
@@ -42,7 +43,7 @@ class ControlRequest(BaseModel):
 
 
 def _user_or_401(db: Session, request: Request):
-    user = get_current_user_safe(db, request)
+    user = getattr(request.state, "party_peer_user", None) or get_current_user_safe(db, request)
     if not user or user.is_service_account:
         return None, JSONResponse({"error": "Unauthorized"}, status_code=401)
     return user, None
@@ -57,6 +58,76 @@ def _room_payload(room: database.PartyRoom, user: database.User, include_queue: 
     payload["is_owner"] = room.owner_id == user.id
     payload["can_add_songs"] = room.owner_id == user.id or bool(room.allow_guests_queue)
     return payload
+
+
+async def relay_party_request(instance, user, room_id: int, path: str, request: Request):
+    """Relay only party operations to a configured peer; keep its token server-side."""
+    headers = {
+        "Authorization": f"Bearer {instance.api_token}",
+        "User-Agent": "Aoede-Federation/1.0",
+        "X-Party-User-Id": str(user.id),
+        "X-Party-Username": user.username.encode("utf-8").hex(),
+        "Content-Type": "application/json",
+    }
+    if request.headers.get("range"):
+        headers["Range"] = request.headers["range"]
+    client = httpx.AsyncClient(timeout=httpx.Timeout(30, read=None if path == "events" else 30))
+    url = f"{instance.base_url.rstrip('/')}/api/federation/parties/{room_id}"
+    if path:
+        url += f"/{path}"
+    try:
+        upstream = await client.send(
+            client.build_request(
+                request.method, url, headers=headers, params=request.query_params, content=await request.body()
+            ),
+            stream=True,
+        )
+    except httpx.HTTPError:
+        await client.aclose()
+        return JSONResponse({"error": "Could not reach the party host"}, status_code=502)
+
+    async def close():
+        try:
+            await upstream.aclose()
+        finally:
+            await client.aclose()
+
+    async def body():
+        try:
+            async for chunk in upstream.aiter_bytes():
+                yield chunk
+        finally:
+            await close()
+
+    from starlette.background import BackgroundTask
+
+    response_headers = {
+        k: v for k, v in upstream.headers.items() if k in {"content-type", "content-range", "accept-ranges"}
+    }
+    if path == "events":
+        response_headers.update({"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
+    return StreamingResponse(
+        body(), status_code=upstream.status_code, headers=response_headers, background=BackgroundTask(close)
+    )
+
+
+@router.api_route("/remote/{instance_id}/rooms/{room_id}", methods=["GET"])
+@router.api_route("/remote/{instance_id}/rooms/{room_id}/{path:path}", methods=["GET", "POST", "DELETE"])
+async def remote_room(instance_id: int, room_id: int, request: Request, path: str = "", db: Session = Depends(get_db)):
+    user, response = _user_or_401(db, request)
+    if response:
+        return response
+    allowed = {
+        "GET": r"(?:|events|tracks|stream/[1-9][0-9]*)",
+        "POST": r"(?:join|queue|control)",
+        "DELETE": r"queue/[1-9][0-9]*",
+    }
+    if not re.fullmatch(allowed.get(request.method, r"(?!)"), path):
+        return JSONResponse({"error": "Party operation not found"}, status_code=404)
+    instance = db.query(database.FederatedInstance).filter_by(id=instance_id, enabled=True).first()
+    if not instance:
+        return JSONResponse({"error": "Instance not found"}, status_code=404)
+    return await relay_party_request(instance, user, room_id, path, request)
 
 
 @router.get("/peers")
@@ -100,15 +171,14 @@ async def list_rooms(request: Request, db: Session = Depends(get_db)):
             headers = {"User-Agent": "Aoede-Federation/1.0"}
             if p.api_token:
                 headers["Authorization"] = f"Bearer {p.api_token}"
-            res = httpx.get(
-                f"{p.base_url.rstrip('/')}/api/federation/parties",
-                headers=headers,
-                timeout=3.0,
-                follow_redirects=True,
-            )
+            async with httpx.AsyncClient(timeout=3.0) as client:
+                res = await client.get(f"{p.base_url.rstrip('/')}/api/federation/parties", headers=headers)
             if res.status_code == 200:
                 data = res.json()
                 for r in data.get("rooms", []):
+                    r["id"] = int(r["id"])
+                    if r["id"] <= 0:
+                        continue
                     r["is_remote_federated"] = True
                     r["remote_instance_id"] = p.id
                     r["remote_instance_name"] = p.name

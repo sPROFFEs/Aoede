@@ -13,13 +13,45 @@ let reconnectProbeTimer = null;
 let streamGeneration = 0;
 let stateApplyChain = Promise.resolve();
 
+function roomKey(room) {
+  return room.is_remote_federated ? `fed_${room.remote_instance_id}_${room.id}` : String(room.id);
+}
+
+function apiPath(path) {
+  return `/api/party${path.replace(/^\/rooms\/fed_(\d+)_(\d+)(?=\/|$)/, '/remote/$1/rooms/$2')}`;
+}
+
+function remoteRoom(room, key) {
+  const match = /^fed_(\d+)_(\d+)$/.exec(String(key));
+  if (!match) return room;
+  const track = (value, itemId) =>
+    value && {
+      ...value,
+      id: `${key}:${itemId}`,
+      db_id: null,
+      is_local: false,
+      thumbnail: '/static/img/default_cover.png',
+      stream_url: apiPath(`/rooms/${key}/stream/${itemId}`)
+    };
+  return {
+    ...room,
+    id: key,
+    is_remote_federated: true,
+    remote_instance_id: Number(match[1]),
+    is_owner: false,
+    can_add_songs: Boolean(room.allow_guests_queue),
+    current_track: track(room.current_track, room.current_item_id),
+    ...(room.queue ? { queue: room.queue.map((item) => ({ ...item, track: track(item.track, item.item_id) })) } : {})
+  };
+}
+
 function setPartyPlayerMode(enabled) {
   document.getElementById('fullscreen-player')?.classList.toggle('party-player', enabled);
   document.querySelector('.player-footer')?.classList.toggle('party-player', enabled);
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`/api/party${path}`, {
+  const response = await fetch(apiPath(path), {
     credentials: 'include',
     ...options,
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
@@ -33,6 +65,7 @@ async function request(path, options = {}) {
     error.status = response.status;
     throw error;
   }
+  if (body.room) body.room = remoteRoom(body.room, path.split('/')[2]);
   return body;
 }
 
@@ -49,7 +82,7 @@ function roomCard(room, compact = false) {
     : '';
 
   return `
-    <button class="party-card${compact ? ' party-card-compact' : ''}" onclick="loadView('party_room', ${room.id})">
+    <button class="party-card${compact ? ' party-card-compact' : ''}" onclick="loadView('party_room', '${roomKey(room)}')">
       <span class="party-card-icon"><i data-lucide="${isFederated ? 'globe' : 'radio-tower'}"></i></span>
       <span class="party-card-copy">
         <strong>${ui.escHtml(room.name)} ${remoteOrigin} ${isFederated ? '<span class="status-badge finished" style="font-size:0.65rem; padding:1px 5px; margin-left:4px;">Federated</span>' : ''}</strong>
@@ -216,10 +249,10 @@ function closeStream() {
 }
 
 function connect(roomId) {
-  if (eventSource && activeRoom?.id === roomId) return;
+  if (eventSource && String(activeRoom?.id) === String(roomId)) return;
   closeStream();
   const generation = streamGeneration;
-  eventSource = new EventSource(`/api/party/rooms/${roomId}/events`);
+  eventSource = new EventSource(apiPath(`/rooms/${roomId}/events`));
   eventSource.addEventListener('state', (event) => {
     stateApplyChain = stateApplyChain
       .then(async () => {
@@ -236,7 +269,7 @@ function connect(roomId) {
         const permissions = activeRoom
           ? { is_owner: activeRoom.is_owner, can_add_songs: activeRoom.can_add_songs }
           : {};
-        const nextRoom = { ...(activeRoom || {}), ...payload.room, ...permissions };
+        const nextRoom = { ...(activeRoom || {}), ...remoteRoom(payload.room, roomId), ...permissions };
         activeRoom = nextRoom;
         const wasBlocked = autoplayBlocked;
         const synced = await player.syncPartyPlayback(nextRoom);
@@ -252,7 +285,7 @@ function connect(roomId) {
         if (
           shouldPaint &&
           state.currentViewName === 'party_room' &&
-          Number(state.currentViewParam) === Number(roomId)
+          String(state.currentViewParam) === String(roomId)
         ) {
           paintRoom(document.getElementById('view-container'));
         }
@@ -264,7 +297,7 @@ function connect(roomId) {
     if (status) status.textContent = 'Reconnecting…';
     clearTimeout(reconnectProbeTimer);
     reconnectProbeTimer = setTimeout(async () => {
-      if (!activeRoom || Number(activeRoom.id) !== Number(roomId)) return;
+      if (!activeRoom || String(activeRoom.id) !== String(roomId)) return;
       try {
         await request(`/rooms/${roomId}`);
       } catch (error) {

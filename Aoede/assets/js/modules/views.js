@@ -293,7 +293,7 @@ export async function loadView(view, param = null, options = {}) {
     else if (view === 'profile') await renderProfile(container, param);
     else if (view === 'community' || view === 'users') await renderCommunity(container);
     else if (view === 'party') await party.renderPartyList(container);
-    else if (view === 'party_room') await party.renderPartyRoom(container, Number(param));
+    else if (view === 'party_room') await party.renderPartyRoom(container, param);
     else if (view === 'library') await library.renderLibrary(container);
     else if (view === 'mix') {
       await renderMix(container, param);

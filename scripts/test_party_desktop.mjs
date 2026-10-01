@@ -1,0 +1,87 @@
+// Run: node --experimental-vm-modules scripts/test_party_desktop.mjs
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+
+async function load(relative, globals, dependencies) {
+  const context = vm.createContext(globals);
+  const module = new vm.SourceTextModule(await readFile(new URL(`../${relative}`, import.meta.url), 'utf8'), { context });
+  await module.link((name) => {
+    const values = dependencies[name];
+    return new vm.SyntheticModule(Object.keys(values), function () {
+      for (const [key, value] of Object.entries(values)) this.setExport(key, value);
+    }, { context });
+  });
+  await module.evaluate();
+  return module.namespace;
+}
+
+for (const platform of ['MacIntel', 'Win32', 'Linux x86_64', 'iPhone']) {
+  const audio = { volume: 0.7 };
+  const gains = [];
+  class Context {
+    state = 'suspended';
+    currentTime = 0;
+    destination = {};
+    createMediaElementSource() { return { connect() {} }; }
+    createGain() {
+      const node = { connect() {}, gain: { value: 1, setValueAtTime(value) { this.value = value; } } };
+      gains.push(node);
+      return node;
+    }
+    async resume() { this.state = 'running'; }
+  }
+  const engine = await load('Aoede/assets/js/modules/audio_engine.js', {
+    navigator: { platform, userAgent: `${platform} AoedeDesktop` },
+    window: { AudioContext: Context }, console
+  }, { './state.js': { audio } });
+  engine.setVolume(0.3);
+  assert.equal(engine.getVolume(), 0.3);
+  if (platform === 'MacIntel') {
+    assert.equal(audio.volume, 1);
+    assert.equal(gains.at(-1).gain.value, 0.3);
+    engine.setVolume(0);
+    assert.equal(gains.at(-1).gain.value, 0);
+    engine.setVolume(0.8);
+    assert.equal(gains.length, 3); // One graph; no duplicate media source or double attenuation.
+    assert.equal(gains.at(-1).gain.value, 0.8);
+  } else {
+    assert.equal(audio.volume, 0.3);
+    assert.equal(gains.length, 0);
+  }
+}
+
+const paths = [];
+let source;
+const room = { id: 2, owner_id: 1, name: 'Party', current_item_id: 9, current_index: 0,
+  allow_guests_queue: true, participants: [], playback_status: 'paused', revision: 1,
+  current_track: { id: 1, db_id: 1, title: 'Remote song', artist: 'Artist' }, queue: [] };
+const container = { innerHTML: '', classList: { toggle() {} } };
+const state = { audio: { currentTime: 0, pause() {} }, userQueue: [], contextQueue: [], originalContextQueue: [],
+  currentViewName: 'party_room', currentViewParam: 'fed_7_2' };
+class EventSource {
+  constructor(path) { paths.push(path); source = this; this.listeners = {}; }
+  addEventListener(event, handler) { this.listeners[event] = handler; }
+  close() {}
+}
+let synced;
+const party = await load('Aoede/assets/js/modules/party.js', {
+  fetch: async (path) => { paths.push(path); return { ok: true, json: async () => ({ room }) }; },
+  document: { getElementById: () => container, querySelector: () => null },
+  window: {}, EventSource, clearTimeout, setTimeout, console
+}, {
+  './state.js': state,
+  './ui.js': { escHtml: String, t: (_key, fallback) => fallback, refreshIcons() {}, homeTabsBar: () => '' },
+  './player.js': { syncPartyPlayback: async (value) => { synced = value; return true; } }
+});
+assert.match(party.renderHomeShelf([{ ...room, is_remote_federated: true, remote_instance_id: 7 }]), /'fed_7_2'/);
+await party.renderPartyRoom(container, 'fed_7_2');
+assert.deepEqual(paths, ['/api/party/remote/7/rooms/2/join', '/api/party/remote/7/rooms/2/events']);
+source.listeners.state({ data: JSON.stringify({ type: 'state', room }) });
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.equal(synced.current_track.stream_url, '/api/party/remote/7/rooms/2/stream/9');
+assert.equal(synced.current_track.db_id, null);
+assert.equal(synced.is_owner, false);
+await party.control('ready', 9);
+assert.equal(paths.at(-1), '/api/party/remote/7/rooms/2/control');
+console.log('PASS: remote party routing/SSE/stream identity and macOS volume/mute; native playback on Windows/Linux/iOS.');

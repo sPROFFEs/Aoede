@@ -203,6 +203,16 @@ def get_room(db: Session, room_id: int) -> database.PartyRoom:
     return room
 
 
+def visible_to_peer(room: database.PartyRoom, peer: database.FederationOutboundPeer) -> bool:
+    if not room.is_federated:
+        return False
+    # ponytail: legacy tokens lack peer_url; bind it to enforce per-room invitations.
+    if not room.federated_peers or not peer.peer_url:
+        return True
+    peer_url = (peer.peer_url or "").rstrip("/")
+    return any(p.instance.enabled and p.instance.base_url.rstrip("/") == peer_url for p in room.federated_peers)
+
+
 def create_room(
     db: Session,
     owner: database.User,
@@ -314,7 +324,7 @@ def add_track(
                 remote_album=remote_album,
                 remote_duration=remote_duration,
                 remote_thumbnail=remote_thumbnail,
-                added_by_user_id=user.id,
+                added_by_user_id=user.id if isinstance(user.id, int) else None,
                 position=position,
             )
         )
@@ -572,15 +582,15 @@ def search_tracks(db: Session, query: str, limit: int = 20, room: database.Party
             peer_label = peer.name if peer else "Federated"
             results.append(
                 {
-                    "id": f"fed_{ft.instance_id}_{ft.remote_track_id}",
+                    "id": f"fed_{ft.instance_id}_{ft.remote_id}",
                     "db_id": None,
                     "fed_instance_id": ft.instance_id,
-                    "fed_remote_id": ft.remote_track_id,
+                    "fed_remote_id": ft.remote_id,
                     "title": ft.title,
                     "artist": ft.artist,
                     "album": ft.album,
                     "duration": int(ft.duration or 0),
-                    "thumbnail": ft.thumbnail or "/static/img/default_cover.png",
+                    "thumbnail": ft.cover_url or "/static/img/default_cover.png",
                     "is_local": False,
                     "source": "federated",
                     "origin_label": peer_label,

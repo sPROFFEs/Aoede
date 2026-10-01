@@ -112,13 +112,7 @@
             } catch(e) {}
             localStorage.setItem(STORAGE_KEY, formatted);
 
-            // Pass Neutralino server parameters to the webapp via query parameters so
-            // it can connect to the local Neutralino native bridge and handle window events.
-            const urlObj = new URL(formatted);
-            if (window.NL_PORT) urlObj.searchParams.set('nl_port', window.NL_PORT);
-            if (window.NL_TOKEN) urlObj.searchParams.set('nl_token', window.NL_TOKEN);
-
-            window.location.replace(urlObj.toString());
+            window.location.replace(formatted);
         }
 
         setupForm.addEventListener('submit', (e) => {

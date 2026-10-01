@@ -30,6 +30,7 @@ import logging
 import secrets
 import time
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 import database
 import federation_service
@@ -38,9 +39,11 @@ import party_service
 from auth import get_current_user, get_password_hash
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
 
+from .music import party as party_routes
 from .music.core import get_db
 
 router = APIRouter()
@@ -261,7 +264,7 @@ async def federation_parties(
     authorization: str | None = Header(default=None),
 ):
     """List active federated party rooms on this instance for peers."""
-    _verify_federation_token(db, request, authorization)
+    peer = _verify_federation_token(db, request, authorization)
     rooms = (
         db.query(database.PartyRoom)
         .filter(database.PartyRoom.is_federated.is_(True))
@@ -269,9 +272,75 @@ async def federation_parties(
         .all()
     )
     visible_rooms = [
-        party_service.serialize_room(r, party_service.hub.presence(r.id), include_queue=False) for r in rooms
+        party_service.serialize_room(r, party_service.hub.presence(r.id), include_queue=False)
+        for r in rooms
+        if party_service.visible_to_peer(r, peer)
     ]
     return JSONResponse({"rooms": visible_rooms})
+
+
+@router.api_route("/api/federation/parties/{room_id}", methods=["GET"])
+@router.api_route("/api/federation/parties/{room_id}/{path:path}", methods=["GET", "POST", "DELETE"])
+async def federation_party(
+    room_id: int,
+    request: Request,
+    path: str = "",
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    peer = _verify_federation_token(db, request, authorization)
+    try:
+        room = party_service.get_room(db, room_id)
+        if not party_service.visible_to_peer(room, peer):
+            raise party_service.PartyError("Party room not found", 404)
+        user_id = int(request.headers.get("x-party-user-id", "0"))
+        username = bytes.fromhex(request.headers.get("x-party-username", "")).decode("utf-8")
+        if user_id <= 0 or not username or len(username) > 200:
+            raise ValueError("Invalid remote listener")
+    except party_service.PartyError as exc:
+        return party_routes._error(exc)
+    except (ValueError, UnicodeError):
+        return JSONResponse({"error": "Invalid remote listener"}, status_code=400)
+
+    # Peer/user identity cannot collide with a local owner or another peer.
+    user = SimpleNamespace(
+        id=f"peer:{peer.id}:{user_id}", username=f"{username} @ {peer.name}", is_service_account=False
+    )
+    request.state.party_peer_user = user
+    method = request.method
+    if method == "GET" and path == "":
+        return await party_routes.room_detail(room_id, request, db)
+    if method == "GET" and path == "events":
+        return await party_routes.room_events(room_id, request, db)
+    if method == "GET" and path == "tracks":
+        return await party_routes.room_track_search(room_id, request, request.query_params.get("q", ""), db)
+    if method == "POST" and path == "join":
+        return await party_routes.check_join(room_id, request, db)
+    try:
+        if method == "POST" and path == "queue":
+            payload = party_routes.AddTrackRequest(**await request.json())
+            return await party_routes.add_queue_track(room_id, payload, request, db)
+        if method == "POST" and path == "control":
+            payload = party_routes.ControlRequest(**await request.json())
+            return await party_routes.control_playback(room_id, payload, request, db)
+    except (ValidationError, ValueError, TypeError):
+        return JSONResponse({"error": "Invalid party payload"}, status_code=422)
+    if method == "GET" and path.startswith("stream/") and path[7:].isdigit():
+        try:
+            party_service.require_membership(room, user)
+            item = next((item for item in room.queue_items if item.id == int(path[7:])), None)
+            if not item:
+                raise party_service.PartyError("Queue item not found", 404)
+            if item.track_id:
+                from .music.streaming import stream_track_authorized
+
+                return stream_track_authorized(item.track_id, request, db)
+            return await _proxy_federated_stream(item.fed_instance_id, item.fed_remote_id, request, db)
+        except party_service.PartyError as exc:
+            return party_routes._error(exc)
+    if method == "DELETE" and path.startswith("queue/") and path[6:].isdigit():
+        return await party_routes.remove_queue_track(room_id, int(path[6:]), request, db)
+    return JSONResponse({"error": "Party operation not found"}, status_code=404)
 
 
 @router.get("/api/federation/health")
@@ -619,6 +688,10 @@ async def federation_proxy_stream(
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    return await _proxy_federated_stream(instance_id, remote_id, request, db)
+
+
+async def _proxy_federated_stream(instance_id: int, remote_id: int, request: Request, db: Session):
     inst = db.query(database.FederatedInstance).filter(database.FederatedInstance.id == instance_id).first()
     if not inst or not inst.enabled:
         raise HTTPException(status_code=404, detail="Instance not found")

@@ -52,46 +52,19 @@ function isTypingTarget(el) {
 }
 
 function initDesktopWrapper() {
-  if (typeof window === 'undefined') return;
   const params = new URLSearchParams(window.location.search);
-  const nlPort = params.get('nl_port') || window.sessionStorage?.getItem('NL_PORT');
-  const nlToken = params.get('nl_token') || window.sessionStorage?.getItem('NL_TOKEN');
-
-  if (!nlPort || !nlToken) return;
-
-  try {
-    window.sessionStorage?.setItem('NL_PORT', nlPort);
-    window.sessionStorage?.setItem('NL_TOKEN', nlToken);
-  } catch {}
-
-  // Strip parameters from URL without reloading
+  // Clean up credentials left by older wrappers. Native close is now owned
+  // by exitProcessOnClose and works before login and after navigation.
+  const hasLegacyParams = params.has('nl_port') || params.has('nl_token');
   params.delete('nl_port');
   params.delete('nl_token');
-  const cleanSearch = params.toString() ? `?${params.toString()}` : '';
-  window.history.replaceState({}, '', `${window.location.pathname}${cleanSearch}${window.location.hash}`);
-
-  if (typeof window.WebSocket === 'undefined') return;
-
   try {
-    const ws = new window.WebSocket(`ws://127.0.0.1:${nlPort}?connectToken=${nlToken}`);
-    ws.addEventListener('message', (event) => {
-      try {
-        const msg = JSON.parse(event.data);
-        if (msg.event === 'windowClose') {
-          // Send app.exit command directly over WebSocket
-          const exitPayload = JSON.stringify({
-            id: 'desktop-exit',
-            method: 'app.exit',
-            accessToken: nlToken
-          });
-          ws.send(exitPayload);
-        }
-      } catch (e) {
-        console.error('[DESKTOP] Failed to process message:', e);
-      }
-    });
-  } catch (e) {
-    console.warn('[DESKTOP] Native bridge init failed:', e);
+    window.sessionStorage.removeItem('NL_PORT');
+    window.sessionStorage.removeItem('NL_TOKEN');
+  } catch {}
+  if (hasLegacyParams) {
+    const cleanSearch = params.toString() ? `?${params.toString()}` : '';
+    window.history.replaceState({}, '', `${window.location.pathname}${cleanSearch}${window.location.hash}`);
   }
 }
 

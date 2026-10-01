@@ -44,7 +44,7 @@ let _volumeSaveTimer = null;
 
 function applyVolume(value) {
   const v = Math.max(0, Math.min(1, Number(value) || 0));
-  state.audio.volume = v;
+  audioEngine.setVolume(v);
   const pct = `${v * 100}%`;
   const volumeFill = document.querySelector('.volume-bar-fill');
   const volumeKnob = document.querySelector('.volume-knob');
@@ -825,6 +825,13 @@ export async function playTrack(track, options = {}) {
   }
 
   if (window.renderQueue) window.renderQueue();
+
+  if (options.party && track.stream_url) {
+    state.audio.src = track.stream_url;
+    ensureMediaSessionHandlers();
+    updateMediaSessionMetadata(track);
+    return;
+  }
 
   if (track.db_id) {
     beginListenSession(track);
@@ -1776,7 +1783,7 @@ export function setupPlayer() {
   if (volumeBar) {
     ui.setupDraggable(volumeBar, (pct) => {
       const v = Math.max(0, Math.min(1, pct));
-      state.audio.volume = v;
+      audioEngine.setVolume(v);
       persistVolume(v);
     });
   }
@@ -1797,7 +1804,8 @@ export function setupPlayer() {
     });
   }
 
-  state.audio.volume = DEFAULT_VOLUME;
+  audioEngine.setVolume(DEFAULT_VOLUME);
+  state.audio.addEventListener('play', () => audioEngine.resumeIfSuspended());
 
   // Initialize volume bar visual position to the default; restoreVolume()
   // (called from main.js after setupPlayer) will override this with the
@@ -1975,9 +1983,9 @@ export async function syncPartyPlayback(room) {
     return true;
   }
 
-  const changed = Number(state.currentTrack?.db_id) !== Number(track.db_id);
+  const changed = state.currentTrack?.id !== track.id || state.currentTrack?.stream_url !== track.stream_url;
   if (changed) {
-    playTrack(track, { autoplay: false, party: true });
+    await playTrack(track, { autoplay: false, party: true });
   }
 
   if (room.playback_status === 'loading') {

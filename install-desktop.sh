@@ -67,13 +67,18 @@ EOF
 
         rm -rf "$APP_PATH"
         mkdir -p "$APP_PATH/Contents/MacOS" "$APP_PATH/Contents/Resources"
+        if [ -d "$TEMP_DIR/Aoede.app" ]; then
+            # Use the release's complete bundle and the same icon as the window.
+            cp -R "$TEMP_DIR/Aoede.app/." "$APP_PATH/"
+        else
+        # Compatibility with older archives without a prebuilt bundle.
         cp "$TEMP_DIR/$BINARY_NAME" "$APP_PATH/Contents/MacOS/aoede"
         cp "$TEMP_DIR/resources.neu" "$APP_PATH/Contents/MacOS/resources.neu"
         cp "$TEMP_DIR/resources.neu" "$APP_PATH/Contents/Resources/resources.neu"
         chmod +x "$APP_PATH/Contents/MacOS/aoede"
 
         ICON_SOURCE="$APP_PATH/Contents/Resources/appIcon.png"
-        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/Aoede/assets/icon.png" -o "$ICON_SOURCE"
+        curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/desktop/resources/icons/appIcon.png" -o "$ICON_SOURCE"
 
         # Finder and the Dock use an ICNS file for the bundle icon.  Registering
         # the source PNG directly can make the icon render at the wrong scale.
@@ -91,6 +96,7 @@ EOF
         sips -z 1024 1024 "$ICON_SOURCE" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
         iconutil -c icns "$ICONSET_DIR" -o "$APP_PATH/Contents/Resources/appIcon.icns"
 
+        APP_VERSION="$(curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/VERSION")"
         cat <<EOF > "$APP_PATH/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -100,8 +106,6 @@ EOF
     <string>aoede</string>
     <key>CFBundleIconFile</key>
     <string>appIcon.icns</string>
-    <key>CFBundleIconName</key>
-    <string>appIcon</string>
     <key>CFBundleIdentifier</key>
     <string>com.aoede.desktop</string>
     <key>CFBundleName</key>
@@ -109,7 +113,7 @@ EOF
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>${TAG}</string>
+    <string>${APP_VERSION}</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.13</string>
     <key>NSHighResolutionCapable</key>
@@ -117,8 +121,15 @@ EOF
 </dict>
 </plist>
 EOF
+        fi
+        chmod +x "$APP_PATH/Contents/MacOS/aoede"
         # Remove quarantine attribute on macOS if present
         xattr -dr com.apple.quarantine "$APP_PATH" 2>/dev/null || true
+        touch "$APP_PATH"
+        LSREGISTER="/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+        if [ -x "$LSREGISTER" ]; then
+            "$LSREGISTER" -f "$APP_PATH"
+        fi
         rm -rf "$TEMP_DIR"
         echo ""
         echo "✅ Aoede.app installed to /Applications/Aoede.app"

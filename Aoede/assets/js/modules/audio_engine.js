@@ -13,7 +13,7 @@
  *   discarded and playback continues unmodified.
  *
  * Chain
- *   <audio> ─► MediaElementSource ─► gainReplay ─► gainFade ─► destination
+ *   <audio> ─► MediaElementSource ─► gainReplay ─► gainFade ─► gainVolume ─► destination
  *
  *   gainReplay  — set per-track from /api/track/{id}/gain
  *   gainFade    — driven by player.js to fade in/out across track
@@ -33,6 +33,8 @@ let _ctx = null;
 let _source = null;
 let _gainReplay = null;
 let _gainFade = null;
+let _gainVolume = null;
+let _volume = null;
 let _initialized = false;
 let _initFailed = false;
 
@@ -57,6 +59,24 @@ const _IS_IOS = (() => {
   if (navigator.platform === 'MacIntel' && (navigator.maxTouchPoints || 0) > 1) return true;
   return false;
 })();
+
+const _MAC_WRAPPER = !_IS_IOS && /Mac/.test(navigator.platform || '') && /AoedeDesktop/.test(navigator.userAgent || '');
+
+export function getVolume() {
+  return _MAC_WRAPPER ? (_volume ?? state.audio.volume) : state.audio.volume;
+}
+
+export function setVolume(value) {
+  _volume = Math.max(0, Math.min(1, Number(value) || 0));
+  if (_MAC_WRAPPER && ensureInitialized()) {
+    // WKWebView's media volume is unreliable; apply it once in the existing graph.
+    state.audio.volume = 1;
+    _gainVolume.gain.setValueAtTime(_volume, _ctx.currentTime);
+    resumeIfSuspended();
+  } else {
+    state.audio.volume = _volume;
+  }
+}
 
 // Pre-amp keeps tracks from clipping after positive gain. Spotify uses
 // -1 dB; we follow suit so a fully-tagged library tagged at -14 LUFS
@@ -129,11 +149,14 @@ export function ensureInitialized() {
     _source = _ctx.createMediaElementSource(state.audio);
     _gainReplay = _ctx.createGain();
     _gainFade = _ctx.createGain();
+    _gainVolume = _ctx.createGain();
     _gainReplay.gain.value = 1.0;
     _gainFade.gain.value = 1.0;
+    _gainVolume.gain.value = _MAC_WRAPPER ? (_volume ?? state.audio.volume) : 1;
     _source.connect(_gainReplay);
     _gainReplay.connect(_gainFade);
-    _gainFade.connect(_ctx.destination);
+    _gainFade.connect(_gainVolume);
+    _gainVolume.connect(_ctx.destination);
     _initialized = true;
     return true;
   } catch (e) {
@@ -163,7 +186,7 @@ function _notifyInitFailure(msg) {
 // Some browsers suspend the AudioContext until a user gesture — call
 // this from a click handler before applying gain.
 export async function resumeIfSuspended() {
-  if (_ctx && _ctx.state === 'suspended') {
+  if (_ctx && ['suspended', 'interrupted'].includes(_ctx.state)) {
     try {
       await _ctx.resume();
     } catch {}

@@ -4,6 +4,7 @@
  */
 
 import * as state from './state.js';
+import * as audioEngine from './audio_engine.js';
 
 // === FORMATTERS ===
 
@@ -183,25 +184,25 @@ let savedVolume = 0.7;
 
 function _persistVolumeIfWired() {
   if (typeof window.aoedeOnVolumeChange === 'function') {
-    window.aoedeOnVolumeChange(state.audio.volume);
+    window.aoedeOnVolumeChange(audioEngine.getVolume());
   }
 }
 
 export function toggleMute() {
   const btn = document.getElementById('btn-volume-icon');
-  if (state.audio.volume > 0) {
-    savedVolume = state.audio.volume;
-    state.audio.volume = 0;
+  if (audioEngine.getVolume() > 0) {
+    savedVolume = audioEngine.getVolume();
+    audioEngine.setVolume(0);
     if (btn) btn.innerHTML = '<i data-lucide="volume-x"></i>';
   } else {
-    state.audio.volume = savedVolume;
+    audioEngine.setVolume(savedVolume);
     if (btn) btn.innerHTML = '<i data-lucide="volume-2"></i>';
   }
 
   // Update volume bar visual
   const volumeFill = document.querySelector('.volume-bar-fill');
   const volumeKnob = document.querySelector('.volume-knob');
-  const pct = state.audio.volume * 100;
+  const pct = audioEngine.getVolume() * 100;
   if (volumeFill) volumeFill.style.width = `${pct}%`;
   if (volumeKnob) volumeKnob.style.left = `${pct}%`;
 
@@ -212,11 +213,11 @@ export function toggleMute() {
 // === VOLUME NUDGE (keyboard shortcuts) ===
 
 export function nudgeVolume(delta) {
-  state.audio.volume = Math.max(0, Math.min(1, state.audio.volume + delta));
+  audioEngine.setVolume(audioEngine.getVolume() + delta);
 
   const volumeFill = document.querySelector('.volume-bar-fill');
   const volumeKnob = document.querySelector('.volume-knob');
-  const pct = state.audio.volume * 100;
+  const pct = audioEngine.getVolume() * 100;
   if (volumeFill) volumeFill.style.width = `${pct}%`;
   if (volumeKnob) volumeKnob.style.left = `${pct}%`;
   _persistVolumeIfWired();
