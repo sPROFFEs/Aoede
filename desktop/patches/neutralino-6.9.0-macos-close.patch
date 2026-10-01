@@ -26,11 +26,16 @@
  
 --- a/lib/webview/webview.h
 +++ b/lib/webview/webview.h
-@@ -794,7 +794,7 @@
+@@ -792,9 +792,10 @@
+   void *wv() { return (void *)m_webview; }
+   void terminate(int exitCode = 0) {
      close();
-     ((void (*)(id, SEL, id))objc_msgSend)("NSApp"_cls, "terminate:"_sel,
-                                           nullptr);
+-    ((void (*)(id, SEL, id))objc_msgSend)("NSApp"_cls, "terminate:"_sel,
+-                                          nullptr);
 -    std::exit(exitCode);
++    id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls,
++                                            "sharedApplication"_sel);
++    ((void (*)(id, SEL, id))objc_msgSend)(app, "terminate:"_sel, nullptr);
 +    // Cocoa owns process termination; do not race its teardown with std::exit.
    }
    void run() {

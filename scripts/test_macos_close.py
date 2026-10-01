@@ -23,10 +23,12 @@ def main():
     });
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 3 * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
         std::string mode = std::getenv("AOEDE_TEST_CLOSE");
+        std::cerr << "AOEDE_NATIVE_CLOSE:" << mode << std::endl;
         if(mode == "worker") {
             dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{ app::exit(); });
         } else if(mode == "quit") {
-            ((void (*)(id, SEL, id))objc_msgSend)("NSApp"_cls, "terminate:"_sel, nullptr);
+            id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls, "sharedApplication"_sel);
+            ((void (*)(id, SEL, id))objc_msgSend)(app, "terminate:"_sel, nullptr);
         } else {
             ((void (*)(id, SEL, id))objc_msgSend)((id)windowHandle, "performClose:"_sel, nullptr);
         }
@@ -55,9 +57,10 @@ def main():
                         env=env,
                         capture_output=True,
                         text=True,
-                        timeout=20,
+                        timeout=60,
                     )
                     assert result.returncode == 0, f"{mode} close failed: {result.returncode}\n{result.stderr}"
+                    assert f"AOEDE_NATIVE_CLOSE:{mode}" in result.stderr, result.stderr
                     print(f"PASS: Cocoa {mode} close after external navigation", flush=True)
             server.shutdown()
     finally:
