@@ -1,0 +1,39 @@
+name: Patched macOS Runtime
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: neutralinojs/neutralinojs
+          ref: 2cec764ac5e3ccc5b1b44d046d6e6d6c85c3099e
+          path: native-runtime
+      - name: Apply macOS lifecycle fix to Neutralino 6.9.0
+        working-directory: native-runtime
+        run: git apply --check ../desktop/patches/neutralino-6.9.0-macos-close.patch && git apply ../desktop/patches/neutralino-6.9.0-macos-close.patch
+      - name: Build universal runtime
+        run: |
+          cmake -S native-runtime -B native-runtime/build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+          cmake --build native-runtime/build --parallel 3
+          mkdir -p patched-runtime
+          cp native-runtime/bin/neutralino-mac_* patched-runtime/neutralino-mac_universal
+          lipo patched-runtime/neutralino-mac_universal -thin arm64 -output patched-runtime/neutralino-mac_arm64
+          lipo patched-runtime/neutralino-mac_universal -thin x86_64 -output patched-runtime/neutralino-mac_x64
+          codesign --force --sign - patched-runtime/neutralino-mac_universal
+          codesign --force --sign - patched-runtime/neutralino-mac_arm64
+          codesign --force --sign - patched-runtime/neutralino-mac_x64
+      - name: Test Cocoa window close, API exit, and application quit after remote navigation
+        run: python3 scripts/test_macos_close.py native-runtime desktop
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patched-macos-runtime
+          path: patched-runtime/neutralino-mac_*

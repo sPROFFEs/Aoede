@@ -1,0 +1,37 @@
+--- a/api/window/window.cpp
++++ b/api/window/window.cpp
+@@ -733,7 +733,7 @@
+ void _close(int exitCode) {
+     if(nativeWindow) {
+         #if defined(__APPLE__)
+-        dispatch_sync(dispatch_get_main_queue(), ^{
++        dispatch_async(dispatch_get_main_queue(), ^{
+ 		#endif
+         if(windowProps.useSavedState) {
+             __saveWindowProps();
+@@ -749,12 +749,13 @@
+         nativeWindow->terminate(exitCode);
+ 		#if defined(__APPLE__)
+ 		});
+-		#endif
++		#else
+         #if defined(_WIN32)
+         FreeConsole();
+         #endif
+         delete nativeWindow;
+         nativeWindow = nullptr;
++        #endif
+     }
+ }
+ 
+--- a/lib/webview/webview.h
++++ b/lib/webview/webview.h
+@@ -794,7 +794,7 @@
+     close();
+     ((void (*)(id, SEL, id))objc_msgSend)("NSApp"_cls, "terminate:"_sel,
+                                           nullptr);
+-    std::exit(exitCode);
++    // Cocoa owns process termination; do not race its teardown with std::exit.
+   }
+   void run() {
+     id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls,
