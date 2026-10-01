@@ -55,7 +55,7 @@ def main():
                             "CFBundlePackageType": "APPL",
                             "CFBundleShortVersionString": config["version"],
                             "CFBundleVersion": config["version"],
-                            "LSMinimumSystemVersion": "10.13",
+                            "LSMinimumSystemVersion": "10.15",
                             "NSHighResolutionCapable": True,
                         },
                         file,

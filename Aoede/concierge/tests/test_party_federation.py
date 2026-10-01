@@ -178,3 +178,53 @@ def test_peer_visibility_and_event_membership(db_session, monkeypatch):
         assert not hub.is_connected(room.id, actor)
 
     asyncio.run(scenario())
+
+
+def test_host_deletes_federated_room_and_disconnects_remote_listener(db_session, monkeypatch):
+    from starlette.requests import Request
+
+    owner, guests, _, room = _room_fixture(db_session)
+    room.is_federated = True
+    instance = database.FederatedInstance(name="Invited", base_url="https://invited.example", enabled=True)
+    db_session.add(instance)
+    db_session.flush()
+    room.federated_peers.append(database.PartyRoomFederatedPeer(instance_id=instance.id, instance=instance))
+    db_session.commit()
+    room_id = room.id
+    routes = _load_party_router_module()
+    publisher = _federation_routes(routes)
+    hub = _hub_for(db_session)
+    monkeypatch.setattr(party_service, "hub", hub)
+    peer = SimpleNamespace(id=7, name="Invited", peer_url=instance.base_url)
+    monkeypatch.setattr(publisher, "_verify_federation_token", lambda *_: peer)
+
+    async def receive():
+        return {"type": "http.request", "body": b""}
+
+    remote_request = Request(
+        {
+            "type": "http",
+            "method": "GET",
+            "path": "/events",
+            "headers": [(b"x-party-user-id", str(owner.id).encode()), (b"x-party-username", b"4775657374")],
+        },
+        receive=receive,
+    )
+    local_request = Request({"type": "http", "method": "DELETE", "path": "/rooms/2", "headers": []})
+
+    async def scenario():
+        response = await publisher.federation_party(room_id, remote_request, "events", db_session, "test")
+        await anext(response.body_iterator)
+        routes.get_current_user_safe = lambda *_: guests[0]
+        assert (await routes.delete_room(room_id, local_request, db_session)).status_code == 403
+        assert (await routes.delete_room(room_id, remote_request, db_session)).status_code == 403
+        routes.get_current_user_safe = lambda *_: owner
+        assert (await routes.delete_room(room_id, local_request, db_session)).status_code == 200
+        event = await anext(response.body_iterator)
+        assert json.loads(event.split("data: ", 1)[1])["type"] == "deleted"
+        await response.body_iterator.aclose()
+        assert not hub.is_member(room_id, f"peer:7:{owner.id}")
+
+    asyncio.run(scenario())
+    assert db_session.query(database.PartyRoom).filter_by(id=room_id).count() == 0
+    assert db_session.query(database.PartyRoomFederatedPeer).filter_by(room_id=room_id).count() == 0

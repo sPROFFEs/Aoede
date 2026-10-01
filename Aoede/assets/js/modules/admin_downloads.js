@@ -1,3 +1,5 @@
+import { confirmDialog } from './ui.js';
+
 function setStatus(root, message, type = '') {
   const status = root.querySelector('#download-manager-status');
   if (!status) return;
@@ -55,7 +57,12 @@ async function refreshProviders(root, quiet = false) {
 }
 
 async function disconnectProvider(root, provider) {
-  if (!window.confirm(`Disconnect ${provider} from SpotiFLAC? Lossless downloads will skip it until reconnected.`))
+  if (
+    !(await confirmDialog({
+      message: `Disconnect ${provider} from SpotiFLAC? Lossless downloads will skip it until reconnected.`,
+      confirmLabel: 'Disconnect'
+    }))
+  )
     return;
   setStatus(root, `Disconnecting ${provider}…`, 'pending');
   const response = await fetch(`/admin/api/downloader/providers/${encodeURIComponent(provider)}`, {

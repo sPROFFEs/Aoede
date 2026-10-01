@@ -22,8 +22,15 @@ jobs:
         with:
           node-version: '22'
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install packaging dependency
+        run: python -m pip install Pillow==12.3.0
+
       - name: Install Neutralinojs CLI
-        run: sudo npm install -g @neutralinojs/neu
+        run: sudo npm install -g @neutralinojs/neu@11.7.2
 
       - name: Build Neutralino App
         working-directory: desktop
@@ -31,27 +38,25 @@ jobs:
           neu build --release
 
       - name: Package Release Archives
-        working-directory: desktop/dist/aoede
-        run: |
-          mkdir -p ../../artifacts
+        run: python scripts/package_desktop.py
 
-          # Linux x64
-          tar -czf ../../artifacts/aoede-linux-x64.tar.gz aoede-linux_x64 resources.neu
-          # Linux ARM64
-          tar -czf ../../artifacts/aoede-linux-arm64.tar.gz aoede-linux_arm64 resources.neu
-          # macOS Universal
-          tar -czf ../../artifacts/aoede-mac-universal.tar.gz aoede-mac_universal resources.neu
-          # Windows x64
-          tar -czf ../../artifacts/aoede-win-x64.tar.gz aoede-win_x64.exe resources.neu
+      - name: Include the existing Android APK and source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download v1.2.6 --pattern aoede-android.apk --pattern aoede-android-source.zip --dir desktop/dist/releases/android
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-release
+          path: desktop/dist/releases/
 
       - name: Upload Artifacts to GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
           files: |
-            desktop/artifacts/aoede-linux-x64.tar.gz
-            desktop/artifacts/aoede-linux-arm64.tar.gz
-            desktop/artifacts/aoede-mac-universal.tar.gz
-            desktop/artifacts/aoede-win-x64.tar.gz
+            desktop/dist/releases/*.tar.gz
+            desktop/dist/releases/android/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -33,3 +33,4 @@ fi
 
 npm run lint
 npm run format:check
+node --experimental-vm-modules scripts/test_party_desktop.mjs

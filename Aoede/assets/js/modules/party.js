@@ -517,11 +517,22 @@ export async function removeTrack(itemId) {
 }
 
 export async function deleteRoom() {
-  if (!activeRoom || !window.confirm(`Delete “${activeRoom.name}”? This disconnects every listener.`)) return;
+  const room = activeRoom;
+  if (!room?.is_owner) return;
+  if (
+    !(await ui.confirmDialog({
+      title: 'Delete party room',
+      message: `Delete “${room.name}”? This disconnects every listener.`,
+      confirmLabel: 'Delete'
+    }))
+  )
+    return;
   try {
-    await request(`/rooms/${activeRoom.id}`, { method: 'DELETE' });
-    leave(false);
-    await window.loadView('party');
+    await request(`/rooms/${room.id}`, { method: 'DELETE' });
+    if (activeRoom?.id === room.id) {
+      leave(false);
+      await window.loadView('party');
+    }
   } catch (error) {
     ui.showToast(error.message, 'error');
   }

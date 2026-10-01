@@ -115,7 +115,7 @@ EOF
     <key>CFBundleShortVersionString</key>
     <string>${APP_VERSION}</string>
     <key>LSMinimumSystemVersion</key>
-    <string>10.13</string>
+    <string>10.15</string>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

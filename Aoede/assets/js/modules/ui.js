@@ -145,6 +145,36 @@ function _dismissToast(toast) {
 
 let modalReturnFocus = null;
 
+export function confirmDialog({ title = 'Confirm', message, confirmLabel = 'Continue', tone = 'danger' }) {
+  closeModal();
+  return new Promise((resolve) => {
+    let confirmed = false;
+    document.addEventListener('aoede:modalclosed', () => resolve(confirmed), { once: true });
+    const container = document.getElementById('modal-container');
+    container.innerHTML = `
+      <div class="modal-overlay">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title">
+          <h2 id="confirm-dialog-title">${escHtml(title)}</h2>
+          <p>${escHtml(message)}</p>
+          <div class="modal-actions">
+            <button type="button" data-role="cancel" class="btn-secondary">${t('common.cancel', 'Cancel')}</button>
+            <button type="button" data-role="confirm" class="${tone === 'danger' ? 'modal-btn-danger' : 'btn-primary'}">${escHtml(confirmLabel)}</button>
+          </div>
+        </div>
+      </div>`;
+    const overlay = container.firstElementChild;
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeModal();
+    });
+    container.querySelector('[data-role="cancel"]').addEventListener('click', closeModal);
+    container.querySelector('[data-role="confirm"]').addEventListener('click', () => {
+      confirmed = true;
+      closeModal();
+    });
+    focusModal();
+  });
+}
+
 export function focusModal() {
   const modal = document.querySelector('#modal-container .modal');
   if (!modal) return;

@@ -6,44 +6,6 @@
 import * as state from './state.js';
 import * as ui from './ui.js';
 
-function showAdminConfirmDialog({ title, message, confirmLabel = 'Continue', tone = 'danger' }) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'admin-confirm-overlay';
-
-    const panel = document.createElement('div');
-    panel.className = 'admin-confirm-panel';
-
-    const confirmToneClass = tone === 'danger' ? 'danger' : 'warning';
-
-    panel.innerHTML = `
-            <div class="admin-confirm-body">
-                <h3>${ui.escHtml(title)}</h3>
-                <p>${ui.escHtml(message)}</p>
-            </div>
-            <div class="admin-confirm-actions">
-                <button type="button" data-role="cancel" class="admin-secondary-btn">Cancel</button>
-                <button type="button" data-role="confirm" class="admin-danger-btn ${confirmToneClass}">${ui.escHtml(confirmLabel)}</button>
-            </div>
-        `;
-
-    function close(result) {
-      overlay.remove();
-      resolve(result);
-    }
-
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) close(false);
-    });
-
-    panel.querySelector('[data-role="cancel"]').addEventListener('click', () => close(false));
-    panel.querySelector('[data-role="confirm"]').addEventListener('click', () => close(true));
-
-    overlay.appendChild(panel);
-    document.body.appendChild(overlay);
-  });
-}
-
 // === TOGGLE PASSWORD RESET ROW ===
 
 export function toggleReset(id) {
@@ -93,7 +55,7 @@ export async function handleAdminForm(event, url) {
 }
 
 export async function deleteUser(userId, username) {
-  const confirmed = await showAdminConfirmDialog({
+  const confirmed = await ui.confirmDialog({
     title: 'Delete user',
     message: `Delete user "${username}"? This action is irreversible.`,
     confirmLabel: 'Delete',
@@ -113,7 +75,7 @@ export async function createUser(event) {
 
 export async function toggleRole(userId, username, currentRole) {
   const newRole = currentRole ? 'Standard User' : 'Admin';
-  const confirmed = await showAdminConfirmDialog({
+  const confirmed = await ui.confirmDialog({
     title: 'Change role',
     message: `Change role for user "${username}" to ${newRole}?`,
     confirmLabel: 'Change role',
@@ -126,7 +88,7 @@ export async function toggleRole(userId, username, currentRole) {
 }
 
 export async function resetPassword(userId, username) {
-  const confirmed = await showAdminConfirmDialog({
+  const confirmed = await ui.confirmDialog({
     title: 'Reset password',
     message: `Reset the password for user "${username}"? A new random password will be generated.`,
     confirmLabel: 'Reset password',
@@ -462,10 +424,8 @@ export async function adminDeleteTrack(id) {
 
 // === FEDERATION PANEL ======================================================
 //
-// admin.html is loaded via renderExternalView (DOMParser + replaceChildren),
-// which silently drops inline <script> elements. So all the federation panel
-// logic lives here, exposed via window.* and bootstrapped by an init call
-// from views.js when the admin view mounts.
+// main.js mounts the panel after this module loads. Actions are exposed via
+// window so the server-rendered buttons can call them.
 
 let _fedRefreshTimer = null;
 
@@ -700,7 +660,13 @@ export async function federationToggleEnabled(id, enable) {
 }
 
 export async function federationDeleteInstance(id) {
-  if (!confirm('Remove this peer? Its mirrored catalog rows will be deleted from this instance.')) return;
+  if (
+    !(await ui.confirmDialog({
+      message: 'Remove this peer? Its mirrored catalog rows will be deleted from this instance.',
+      confirmLabel: 'Remove'
+    }))
+  )
+    return;
   await fetch('/api/admin/federation/instances/' + id, { method: 'DELETE', credentials: 'include' });
   _fedRefreshInbound();
 }
@@ -739,9 +705,11 @@ export async function federationIssueToken(e) {
 
 export async function federationRevokeOutbound(id) {
   if (
-    !confirm(
-      'Revoke this token? The remote will lose access immediately. The row stays so you can still see when the peer was last online.'
-    )
+    !(await ui.confirmDialog({
+      message:
+        'Revoke this token? The remote will lose access immediately. The row stays so you can still see when the peer was last online.',
+      confirmLabel: 'Revoke'
+    }))
   )
     return;
   await fetch('/api/admin/federation/outbound/' + id + '/revoke', { method: 'POST', credentials: 'include' });
@@ -749,12 +717,18 @@ export async function federationRevokeOutbound(id) {
 }
 
 export async function federationDeleteOutbound(id) {
-  if (!confirm('Delete this token record permanently? You will lose the history of when the peer was online.')) return;
+  if (
+    !(await ui.confirmDialog({
+      message: 'Delete this token record permanently? You will lose the history of when the peer was online.',
+      confirmLabel: 'Delete'
+    }))
+  )
+    return;
   await fetch('/api/admin/federation/outbound/' + id, { method: 'DELETE', credentials: 'include' });
   _fedRefreshOutbound();
 }
 
-// Called by views.js when the admin view mounts. Tears down on unmount
+// Called when the admin module loads. Tears down on unmount
 // so the periodic poll doesn't leak when the user navigates away.
 export function initAdminFederationPanel(container) {
   if (!container || !container.querySelector('#federation-panel')) return;

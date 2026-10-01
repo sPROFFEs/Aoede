@@ -187,7 +187,8 @@ export async function leaveCollaborativePlaylist(playlistId) {
   try {
     const data = await collaboratorsRequest(playlistId);
     const self = data.members.find((member) => member.username === window.USER_DATA?.username);
-    if (!self || !window.confirm('Leave this collaborative playlist?')) return;
+    if (!self || !(await ui.confirmDialog({ message: 'Leave this collaborative playlist?', confirmLabel: 'Leave' })))
+      return;
     await collaboratorsRequest(playlistId, 'DELETE', self.id);
     await window.loadView('library');
     if (window.loadUserData) window.loadUserData();
@@ -1511,7 +1512,10 @@ export async function togglePlaylistOfflineDownload(playlistId) {
   const btn = document.getElementById(`pl-offline-btn-${playlistId}`);
 
   if (btn && btn.classList.contains('downloaded')) {
-    const shouldRemove = confirm('Remove this playlist and its downloaded songs from offline storage?');
+    const shouldRemove = await ui.confirmDialog({
+      message: 'Remove this playlist and its downloaded songs from offline storage?',
+      confirmLabel: 'Remove'
+    });
     if (shouldRemove) {
       await offlineStore.deleteOfflinePlaylist(numId, true);
       ui.showToast('Removed offline playlist from device');

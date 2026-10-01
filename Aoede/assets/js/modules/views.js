@@ -226,6 +226,10 @@ function _pushSpaHistory(view, param = null, replace = false) {
 }
 
 export async function loadView(view, param = null, options = {}) {
+  if (view === 'settings_admin') {
+    window.location.assign('/admin/');
+    return;
+  }
   const container = document.getElementById('view-container');
   if (!container) return;
   // Legacy aliases — both 'radio' and 'your_radios' now resolve to the
@@ -308,8 +312,7 @@ export async function loadView(view, param = null, options = {}) {
     else if (view === 'playlist') {
       await playlists.renderPlaylist(container, param);
       await trackRecentPlaylist(param);
-    } else if (view === 'settings_admin') await renderExternalView(container, '/admin/');
-    else if (view === 'system_monitor') await renderExternalView(container, '/admin/system');
+    } else if (view === 'system_monitor') await renderExternalView(container, '/admin/system');
     else if (view === 'admin_downloads') await renderExternalView(container, '/admin/downloads');
     else if (view === 'admin_delete_requests') await renderExternalView(container, '/admin/song-delete-requests');
     else if (view === 'settings_user') await renderExternalView(container, '/user/settings');
@@ -339,7 +342,11 @@ export async function loadView(view, param = null, options = {}) {
 
 export async function renderExternalView(container, url) {
   try {
-    const res = await fetch(url, { credentials: 'include' });
+    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    if (res.redirected && new URL(res.url).pathname !== url) {
+      window.location.assign(res.url);
+      return;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
 

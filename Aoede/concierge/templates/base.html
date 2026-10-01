@@ -200,9 +200,9 @@
                     </button>
 
                     {% if is_admin %}
-                    <button class="btn-icon-circle" onclick="loadView('settings_admin')" title="{{ _('header.admin_settings') if _ else 'Admin Settings' }}">
+                    <a href="/admin/" class="btn-icon-circle" title="{{ _('header.admin_settings') if _ else 'Admin Settings' }}">
                         <i data-lucide="settings"></i>
-                    </button>
+                    </a>
                     {% endif %}
 
                     <a href="https://aoede.{{ domain }}/{{ username }}" target="_blank"
@@ -278,9 +278,9 @@
                         <span id="m-delete-badge" class="m-badge" style="display:none;">0</span>
                     </button>
                     {% if is_admin %}
-                    <button class="m-icon-btn" onclick="loadView('settings_admin')" title="Admin">
+                    <a href="/admin/" class="m-icon-btn" title="Admin">
                         <i data-lucide="settings"></i>
-                    </button>
+                    </a>
                     {% endif %}
                 </div>
             </header>

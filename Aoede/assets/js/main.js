@@ -393,6 +393,7 @@ if (window.USER_DATA?.is_admin) {
     window.federationRevokeOutbound = admin.federationRevokeOutbound;
     window.federationDeleteOutbound = admin.federationDeleteOutbound;
     window.initAdminFederationPanel = admin.initAdminFederationPanel;
+    admin.initAdminFederationPanel(document.getElementById('view-container'));
   });
 }
 
