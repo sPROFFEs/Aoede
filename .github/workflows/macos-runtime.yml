@@ -22,7 +22,7 @@ jobs:
         run: git apply --check ../desktop/patches/neutralino-6.9.0-macos-close.patch && git apply ../desktop/patches/neutralino-6.9.0-macos-close.patch
       - name: Build universal runtime
         run: |
-          cmake -S native-runtime -B native-runtime/build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+          cmake -S native-runtime -B native-runtime/build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
           cmake --build native-runtime/build --parallel 3
           mkdir -p patched-runtime
           cp native-runtime/bin/neutralino-mac_* patched-runtime/neutralino-mac_universal
