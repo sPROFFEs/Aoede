@@ -63,6 +63,12 @@ jobs:
           fi
       - name: Package APK and complete source
         run: python3 scripts/package_android.py
+      - name: Verify the release APK manifest
+        run: |
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging android/dist/*.apk > "$RUNNER_TEMP/android-badging.txt"
+          cat "$RUNNER_TEMP/android-badging.txt"
+          if grep -q '^application-debuggable' "$RUNNER_TEMP/android-badging.txt"; then exit 1; fi
+          grep -q '^package: name='"'com.aoede.twa'" "$RUNNER_TEMP/android-badging.txt"
       - name: Verify installation compatibility with the existing release
         if: steps.signing.outputs.signed == 'true' && github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
         env:

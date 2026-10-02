@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -86,6 +87,8 @@ class PlaybackService : Service() {
         return START_NOT_STICKY
     }
 
+    // MediaStyle notifications carrying a MediaSession token are exempt from POST_NOTIFICATIONS.
+    @SuppressLint("NotificationPermission")
     private fun updatePlayback() {
         handler.removeCallbacks(stopIdle)
         handler.removeCallbacks(renewWakeLock)
