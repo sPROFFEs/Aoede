@@ -79,6 +79,15 @@ for (const native of [true, false]) {
   await flush();
   assert.equal(p.audio.plays, plays);
   assert.equal(p.state().state, 'paused');
+  if (native) {
+    session.setActionHandler('seekto', ({ seekTime }) => { p.audio.currentTime = seekTime; });
+    p.nativeActions.get('pause')();
+    p.nativeActions.get('seekto')({ seekTime: 12 });
+    await flush();
+    assert.equal(p.audio.currentTime, 12);
+    assert.equal(p.window.AoedeAndroid.isPaused, true); // Seeking must not resume a local/noisy pause.
+    assert.equal(p.state().state, 'paused');
+  }
   p.window.__aoedeMediaCommand('play');
   await flush();
   assert.equal(p.audio.plays, plays + 1);

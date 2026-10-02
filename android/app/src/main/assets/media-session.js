@@ -99,7 +99,10 @@
     if (originalHandler) {
       try { originalHandler(action, callback ? function (details) {
         if (action === 'pause' || action === 'stop') window.__aoedeMediaCommand(action);
-        else { resumeLocal(); callback(details); }
+        else {
+          if (action === 'play' || action === 'nexttrack' || action === 'previoustrack') resumeLocal();
+          callback(details);
+        }
       } : null); } catch (_) {}
     }
   };
