@@ -76,6 +76,8 @@ android/.gradle/
 android/local.properties
 *.keystore
 *.jks
+*.p12
+/.android-signing/
 
 # Frontend / package managers
 node_modules/

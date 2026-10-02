@@ -20,7 +20,9 @@ Unsigned builds are named `aoede-android-unsigned.apk`. They cannot be installed
 
 ## Distribution signing
 
-Set `AOEDE_ANDROID_KEYSTORE` to the absolute path of the existing signing keystore, plus `AOEDE_ANDROID_STORE_PASSWORD`, `AOEDE_ANDROID_KEY_ALIAS` and `AOEDE_ANDROID_KEY_PASSWORD`, then run `assembleRelease`. Keep this key private and backed up. Installing over an existing Aoede APK requires a compatible signing certificate; generating another Android Debug key does not preserve that compatibility.
+Set `AOEDE_ANDROID_KEYSTORE` to the absolute path of the distribution PKCS12 keystore, plus `AOEDE_ANDROID_STORE_PASSWORD`, `AOEDE_ANDROID_KEY_ALIAS` and `AOEDE_ANDROID_KEY_PASSWORD`, then run `assembleRelease`. Keep this key private and backed up. Installing over an existing Aoede APK requires a compatible signing certificate; generating another Android Debug key does not preserve that compatibility.
+
+Android 1.0.4 introduces the stable distribution key because the old debug key was not retained. Users of APK 1.0.3 must uninstall that APK before installing 1.0.4, which removes its local settings and offline downloads. Future releases use the same distribution key and can update 1.0.4 in place.
 
 For GitHub Actions configure those three credentials and `AOEDE_ANDROID_KEYSTORE_BASE64` as repository secrets. The Android workflow tests, lints, builds and packages every Android change. Dispatch it with `release_tag` to update the APK and source ZIP on an existing release after validation. Unsigned builds are retained as workflow artifacts and never replace the published installable APK.
 

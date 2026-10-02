@@ -36,6 +36,7 @@ android {
             val keyPath = System.getenv("AOEDE_ANDROID_KEYSTORE")
             if (!keyPath.isNullOrBlank()) {
                 storeFile = file(keyPath)
+                storeType = "PKCS12"
                 storePassword = System.getenv("AOEDE_ANDROID_STORE_PASSWORD")
                 keyAlias = System.getenv("AOEDE_ANDROID_KEY_ALIAS")
                 keyPassword = System.getenv("AOEDE_ANDROID_KEY_PASSWORD")

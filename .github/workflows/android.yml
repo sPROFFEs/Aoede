@@ -51,11 +51,12 @@ jobs:
           AOEDE_ANDROID_KEY_PASSWORD: ${{ secrets.AOEDE_ANDROID_KEY_PASSWORD }}
         run: |
           if [ -n "$AOEDE_ANDROID_KEYSTORE_BASE64" ]; then
-            export AOEDE_ANDROID_KEYSTORE="$RUNNER_TEMP/aoede-signing.jks"
+            export AOEDE_ANDROID_KEYSTORE="$RUNNER_TEMP/aoede-signing.p12"
             printf '%s' "$AOEDE_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$AOEDE_ANDROID_KEYSTORE"
             chmod 600 "$AOEDE_ANDROID_KEYSTORE"
             trap 'rm -f "$AOEDE_ANDROID_KEYSTORE"' EXIT
             (cd android && ./gradlew --no-daemon assembleRelease)
+            "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
             echo 'signed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'signed=false' >> "$GITHUB_OUTPUT"
