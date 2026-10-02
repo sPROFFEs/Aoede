@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Splash screen: dark background + the real app icon centred.
+     The bitmap points at the adaptive-icon foreground (432px), so the
+     splash always matches the launcher artwork. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#121212" />
+        </shape>
+    </item>
+    <item
+        android:width="144dp"
+        android:height="144dp"
+        android:gravity="center">
+        <bitmap
+            android:gravity="fill"
+            android:src="@mipmap/ic_launcher_foreground" />
+    </item>
+</layer-list>

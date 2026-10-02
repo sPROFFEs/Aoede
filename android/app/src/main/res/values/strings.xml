@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Default language: English -->
+<resources>
+    <string name="app_name">Aoede</string>
+
+    <!-- Setup / first-launch screen -->
+    <string name="setup_welcome_title">Welcome to Aoede</string>
+    <string name="setup_welcome_subtitle">Enter your server URL to get started</string>
+    <string name="setup_change_title">Change server</string>
+    <string name="setup_change_subtitle">The app will reload with the new URL once saved</string>
+    <string name="setup_url_hint" translatable="false">https://aoede.yourdomain.com</string>
+    <string name="setup_btn_connect">Connect</string>
+    <string name="setup_btn_cancel">Cancel</string>
+
+    <!-- Setup validation -->
+    <string name="setup_error_empty_url">Please enter a URL</string>
+    <string name="setup_error_invalid_url">Invalid URL</string>
+    <string name="setup_toast_saved">Server saved</string>
+
+    <!-- Main screen -->
+    <string name="main_btn_settings_desc">Configure server</string>
+    <string name="main_update_webview">Update Android System WebView to enable background playback and media controls.</string>
+    <string name="main_no_browser">No browser is available to open this link.</string>
+
+    <!-- Playback foreground service -->
+    <string name="playback_channel_name">Playback</string>
+    <string name="playback_channel_desc">Keeps the app active so music does not stop in the background</string>
+    <string name="playback_notif_title">Aoede</string>
+    <string name="playback_notif_text">Playback running</string>
+
+    <!-- Notification action labels (also used as accessibility descriptions) -->
+    <string name="playback_action_play">Play</string>
+    <string name="playback_action_pause">Pause</string>
+    <string name="playback_action_next">Next</string>
+    <string name="playback_action_prev">Previous</string>
+</resources>

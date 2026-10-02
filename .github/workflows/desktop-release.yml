@@ -40,12 +40,6 @@ jobs:
       - name: Package Release Archives
         run: python scripts/package_desktop.py
 
-      - name: Include the existing Android APK and source
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release download v1.2.6 --pattern aoede-android.apk --pattern aoede-android-source.zip --dir desktop/dist/releases/android
-
       - uses: actions/upload-artifact@v4
         with:
           name: desktop-release
@@ -57,6 +51,5 @@ jobs:
         with:
           files: |
             desktop/dist/releases/*.tar.gz
-            desktop/dist/releases/android/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

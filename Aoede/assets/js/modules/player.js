@@ -29,6 +29,7 @@ let _partyController = null;
 let _partyScheduledStartTimer = null;
 let _partyScheduledStartKey = null;
 let _partyReadyKey = null;
+let _localPlaybackSuspended = false;
 
 const PLAYBACK_SESSION_KEY = 'aoede.playback.session.v1';
 const PLAYBACK_SESSION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
@@ -157,6 +158,8 @@ function sendTrackingEvent(eventType, session, extra = {}) {
 //    some Chrome aggressive suspension paths. Harmless if unsupported.
 async function acquirePlaybackLock() {
   releasePlaybackLock();
+  // Android holds a CPU lock in its playback service; let the screen turn off.
+  if (window.AoedeAndroid) return;
 
   try {
     if ('locks' in navigator) {
@@ -372,14 +375,23 @@ function ensureMediaSessionHandlers() {
   };
 
   safeSet('play', () => {
+    const localResume = _localPlaybackSuspended || Boolean(window.AoedeAndroid && state.audio.paused);
+    resumeLocalPlayback();
     if (_partyController?.isActive?.()) {
+      if (localResume && _partyController.resumeAudio) {
+        _partyController.resumeAudio();
+        return;
+      }
       _partyController.control('play');
       return;
     }
     state.audio.play().catch(() => {});
-    ms.playbackState = 'playing';
   });
   safeSet('pause', () => {
+    if (window.AoedeAndroid) {
+      window.AoedeAndroid.pauseLocal();
+      return;
+    }
     if (_partyController?.isActive?.()) {
       _partyController.control('pause');
       return;
@@ -417,6 +429,11 @@ function ensureMediaSessionHandlers() {
     }
   });
   safeSet('stop', () => {
+    if (window.AoedeAndroid) {
+      window.AoedeAndroid.pauseLocal();
+      ms.playbackState = 'none';
+      return;
+    }
     if (_partyController?.isActive?.()) {
       _partyController.control('pause');
       return;
@@ -1440,6 +1457,11 @@ export function setupPlayer() {
   const progressBar = document.getElementById('progress-bar');
   const volumeBar = document.getElementById('volume-bar');
 
+  window.addEventListener('aoede-local-pause', suspendLocalPlayback);
+  window.addEventListener('aoede-local-resume', () => {
+    _localPlaybackSuspended = false;
+  });
+
   syncPlayerShellVisibility();
   requestPersistentStorage();
   applyPlaybackModes();
@@ -1479,7 +1501,13 @@ export function setupPlayer() {
   if (playBtn) {
     playBtn.addEventListener('click', () => {
       if (!state.currentTrack) return;
+      const localResume = _localPlaybackSuspended || Boolean(window.AoedeAndroid && state.audio.paused);
+      resumeLocalPlayback();
       if (_partyController?.isActive?.()) {
+        if (localResume) {
+          _partyController.resumeAudio();
+          return;
+        }
         _partyController.togglePlayback();
         return;
       }
@@ -1950,6 +1978,23 @@ export function setPartyController(controller) {
   _partyController = controller;
 }
 
+export function suspendLocalPlayback() {
+  _localPlaybackSuspended = true;
+  clearTimeout(_partyScheduledStartTimer);
+  _partyScheduledStartTimer = null;
+  _partyScheduledStartKey = null;
+  state.audio.pause();
+  state.setIsPlaying(false);
+  ui.updatePlayButton();
+  releasePlaybackLock();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
+}
+
+export function resumeLocalPlayback() {
+  _localPlaybackSuspended = false;
+  window.AoedeAndroid?.resumeLocal();
+}
+
 export function isPartyPlaybackActive() {
   return Boolean(_partyController?.isActive?.());
 }
@@ -1977,6 +2022,7 @@ function waitForPartyMediaReady(timeoutMs = 4000) {
 }
 
 export async function syncPartyPlayback(room) {
+  if (_localPlaybackSuspended || window.AoedeAndroid?.isPaused) return false;
   const track = room?.current_track;
   if (!track) {
     state.audio.pause();
@@ -2055,7 +2101,7 @@ export async function syncPartyPlayback(room) {
       _partyScheduledStartKey = startKey;
       _partyScheduledStartTimer = setTimeout(() => {
         _partyScheduledStartTimer = null;
-        if (_partyScheduledStartKey !== startKey || !_partyController?.isActive?.()) return;
+        if (_partyScheduledStartKey !== startKey || !_partyController?.isActive?.() || _localPlaybackSuspended) return;
         state.audio.play().catch((error) => {
           if (error?.name !== 'NotAllowedError') console.warn('[PARTY] Scheduled playback failed:', error);
         });
@@ -2067,6 +2113,7 @@ export async function syncPartyPlayback(room) {
   _partyScheduledStartTimer = null;
   _partyScheduledStartKey = null;
   if (!state.audio.paused) return true;
+  if (_localPlaybackSuspended || window.AoedeAndroid?.isPaused) return false;
   try {
     await state.audio.play();
     return true;

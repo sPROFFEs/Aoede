@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground">
+
+    <!-- Full-screen WebView — the app lives here -->
+    <FrameLayout
+        android:id="@+id/webview_container"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!--
+        Settings gear — only visible on the login / portal page.
+        Small, bottom-right, unobtrusive. Tapping opens SetupActivity
+        to change the server URL.
+    -->
+    <ImageButton
+        android:id="@+id/btn_settings"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="24dp"
+        android:src="@drawable/ic_settings"
+        android:background="@drawable/settings_btn_bg"
+        android:contentDescription="@string/main_btn_settings_desc"
+        android:padding="10dp"
+        android:visibility="gone"
+        android:elevation="4dp" />
+
+</FrameLayout>

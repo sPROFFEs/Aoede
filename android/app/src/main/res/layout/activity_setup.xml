@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:minHeight="500dp">
+
+        <!-- App icon -->
+        <ImageView
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:src="@mipmap/ic_launcher"
+            android:layout_marginBottom="28dp"
+            android:contentDescription="Aoede" />
+
+        <!--
+            Title and subtitle are set programmatically (welcome vs. change-server),
+            so we use placeholders here that will be overwritten in onCreate().
+            tools:text gives us a sane preview in the layout editor.
+        -->
+        <TextView
+            android:id="@+id/setup_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_welcome_title"
+            android:textSize="22sp"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:id="@+id/setup_subtitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_welcome_subtitle"
+            android:textSize="14sp"
+            android:textColor="#9AA3B2"
+            android:gravity="center"
+            android:layout_marginBottom="36dp" />
+
+        <!-- URL input -->
+        <EditText
+            android:id="@+id/url_input"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/setup_url_hint"
+            android:inputType="textUri"
+            android:imeOptions="actionDone"
+            android:background="@drawable/input_bg"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
+            android:textColor="#FFFFFF"
+            android:textColorHint="#4B5563"
+            android:textSize="15sp"
+            android:layout_marginBottom="20dp" />
+
+        <!-- Save button -->
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_btn_connect"
+            android:backgroundTint="#149A51"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            android:textSize="15sp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
+            android:layout_marginBottom="10dp" />
+
+        <!-- Cancel button (edit mode only) -->
+        <Button
+            android:id="@+id/btn_cancel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/setup_btn_cancel"
+            android:backgroundTint="#1F242A"
+            android:textColor="#9AA3B2"
+            android:textSize="15sp"
+            android:paddingTop="14dp"
+            android:paddingBottom="14dp"
+            android:visibility="gone" />
+
+    </LinearLayout>
+
+</ScrollView>

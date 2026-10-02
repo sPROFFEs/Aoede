@@ -1,0 +1,97 @@
+name: Android
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'android/**'
+      - 'scripts/package_android.py'
+      - 'scripts/test_android.mjs'
+      - '.github/workflows/android.yml'
+  pull_request:
+    paths: ['android/**', 'scripts/package_android.py', 'scripts/test_android.mjs', '.github/workflows/android.yml']
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release to update after validation (empty builds only)'
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      signed: ${{ steps.signing.outputs.signed }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Test the multimedia bridge and party interruptions
+        run: node --experimental-vm-modules scripts/test_android.mjs
+      - name: Test, lint and build Android
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease
+      - name: Sign with the distribution key when configured
+        id: signing
+        env:
+          AOEDE_ANDROID_KEYSTORE_BASE64: ${{ secrets.AOEDE_ANDROID_KEYSTORE_BASE64 }}
+          AOEDE_ANDROID_STORE_PASSWORD: ${{ secrets.AOEDE_ANDROID_STORE_PASSWORD }}
+          AOEDE_ANDROID_KEY_ALIAS: ${{ secrets.AOEDE_ANDROID_KEY_ALIAS }}
+          AOEDE_ANDROID_KEY_PASSWORD: ${{ secrets.AOEDE_ANDROID_KEY_PASSWORD }}
+        run: |
+          if [ -n "$AOEDE_ANDROID_KEYSTORE_BASE64" ]; then
+            export AOEDE_ANDROID_KEYSTORE="$RUNNER_TEMP/aoede-signing.jks"
+            printf '%s' "$AOEDE_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$AOEDE_ANDROID_KEYSTORE"
+            chmod 600 "$AOEDE_ANDROID_KEYSTORE"
+            trap 'rm -f "$AOEDE_ANDROID_KEYSTORE"' EXIT
+            (cd android && ./gradlew --no-daemon assembleRelease)
+            echo 'signed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'signed=false' >> "$GITHUB_OUTPUT"
+            echo 'Built an unsigned APK. Publishing requires the distribution signing key.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Package APK and complete source
+        run: python3 scripts/package_android.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aoede-android
+          path: android/dist/
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-test-results
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/reports/lint-results-release.*
+
+  publish:
+    needs: build
+    if: needs.build.outputs.signed == 'true' && (startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != ''))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aoede-android
+          path: artifacts
+      - name: Update Android assets in the existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AOEDE_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          AOEDE_REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release view "$AOEDE_RELEASE_TAG" --repo "$AOEDE_REPOSITORY"
+          gh release upload "$AOEDE_RELEASE_TAG" artifacts/aoede-android.apk artifacts/aoede-android-source.zip --clobber --repo "$AOEDE_REPOSITORY"

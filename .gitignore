@@ -72,6 +72,10 @@ build/
 dist/
 *.egg-info/
 desktop/dist/
+android/.gradle/
+android/local.properties
+*.keystore
+*.jks
 
 # Frontend / package managers
 node_modules/

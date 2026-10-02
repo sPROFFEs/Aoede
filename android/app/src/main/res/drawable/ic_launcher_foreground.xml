@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Adaptive icon foreground layer — white "N" lettermark.
+    The 108dp viewBox is the Android adaptive icon safe-zone spec.
+    Replace with a proper vector trace of the real logo if available.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M28,22 L28,86 L41,86 L41,52 L67,86 L80,86 L80,22 L67,22 L67,56 L41,22 Z" />
+</vector>

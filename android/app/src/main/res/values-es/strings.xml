@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spanish translation -->
+<resources>
+    <string name="app_name">Aoede</string>
+
+    <string name="setup_welcome_title">Bienvenido a Aoede</string>
+    <string name="setup_welcome_subtitle">Introduce la URL de tu servidor para empezar</string>
+    <string name="setup_change_title">Cambiar servidor</string>
+    <string name="setup_change_subtitle">La app cargará la nueva URL al guardar</string>
+    <string name="setup_btn_connect">Conectar</string>
+    <string name="setup_btn_cancel">Cancelar</string>
+
+    <string name="setup_error_empty_url">Introduce una URL</string>
+    <string name="setup_error_invalid_url">URL no válida</string>
+    <string name="setup_toast_saved">Servidor guardado</string>
+
+    <string name="main_btn_settings_desc">Configurar servidor</string>
+    <string name="main_update_webview">Actualiza Android System WebView para activar la reproducción en segundo plano y los controles multimedia.</string>
+    <string name="main_no_browser">No hay un navegador disponible para abrir este enlace.</string>
+
+    <string name="playback_channel_name">Reproducción</string>
+    <string name="playback_channel_desc">Mantiene la app activa para que la música no se corte en segundo plano</string>
+    <string name="playback_notif_title">Aoede</string>
+    <string name="playback_notif_text">Reproducción activa</string>
+
+    <string name="playback_action_play">Reproducir</string>
+    <string name="playback_action_pause">Pausar</string>
+    <string name="playback_action_next">Siguiente</string>
+    <string name="playback_action_prev">Anterior</string>
+</resources>

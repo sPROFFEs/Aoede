@@ -462,6 +462,7 @@ export function togglePlayback() {
 
 export async function resumeAudio() {
   if (!activeRoom) return;
+  player.resumeLocalPlayback();
   autoplayBlocked = !(await player.syncPartyPlayback(activeRoom));
   paintRoom(document.getElementById('view-container'));
 }
@@ -583,6 +584,7 @@ export const controller = {
   canAddSongs: () => Boolean(activeRoom && (activeRoom.is_owner || activeRoom.can_add_songs)),
   addTrack,
   control,
+  resumeAudio,
   togglePlayback,
   seekTo,
   handleEnded
