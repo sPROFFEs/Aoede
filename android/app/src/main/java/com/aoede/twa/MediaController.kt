@@ -116,7 +116,7 @@ class MediaController(private val app: AoedeApp) {
         if (value !in setOf("none", "paused", "playing", "buffering", "error")) return
         state = if (locallyPaused && value in setOf("playing", "buffering")) "paused" else value
         val boundedDuration = duration.coerceIn(0, 31L * 24 * 3600 * 1000)
-        positionMs = position.coerceIn(0, if (boundedDuration > 0) boundedDuration else Long.MAX_VALUE)
+        positionMs = position.coerceIn(0, if (boundedDuration > 0) boundedDuration else 31L * 24 * 3600 * 1000)
         if (durationMs != boundedDuration) {
             durationMs = boundedDuration
             emitMetadata()

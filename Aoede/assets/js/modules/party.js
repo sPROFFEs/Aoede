@@ -463,6 +463,10 @@ export function togglePlayback() {
 export async function resumeAudio() {
   if (!activeRoom) return;
   player.resumeLocalPlayback();
+  if (activeRoom.is_owner && activeRoom.playback_status === 'paused') {
+    await control('play');
+    return;
+  }
   autoplayBlocked = !(await player.syncPartyPlayback(activeRoom));
   paintRoom(document.getElementById('view-container'));
 }

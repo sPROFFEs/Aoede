@@ -7,6 +7,7 @@ import android.os.Looper
 import android.media.AudioManager
 import android.support.v4.media.session.PlaybackStateCompat
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,8 +22,19 @@ import java.time.Duration
 @Config(sdk = [21, 34], application = AoedeApp::class)
 class PlaybackTest {
     private val app get() = RuntimeEnvironment.getApplication() as AoedeApp
+    private var service: org.robolectric.android.controller.ServiceController<PlaybackService>? = null
 
-    @After fun cleanup() { app.destroyPlayer() }
+    @Before fun installedSignaturePermission() {
+        // Android grants this merged AndroidX signature permission at install time.
+        // Robolectric API 21 needs the install-time grant represented explicitly.
+        shadowOf(app).grantPermissions("${app.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
+    }
+
+    @After fun cleanup() {
+        app.destroyPlayer()
+        service?.destroy()
+        service = null
+    }
 
     @Test fun originsAndArtworkAreBounded() {
         val origin = ServerOrigin.from(Uri.parse("https://EXAMPLE.com"))
@@ -58,6 +70,7 @@ class PlaybackTest {
         media.setActionInvoker { action, _ -> calls.add(action) }
         media.updateState("playing", 1000, 9000)
         val lifecycle = Robolectric.buildService(PlaybackService::class.java).create()
+        service = lifecycle
         assertEquals(android.app.Service.START_NOT_STICKY, lifecycle.get().onStartCommand(null, 0, 1))
         app.sendBroadcast(Intent(AudioManager.ACTION_AUDIO_BECOMING_NOISY))
         shadowOf(Looper.getMainLooper()).idle()
@@ -68,6 +81,7 @@ class PlaybackTest {
         assertEquals(0f, media.mediaSession.controller.playbackState!!.playbackSpeed)
         shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(61))
         lifecycle.destroy()
+        service = null
         assertFalse(PlaybackService.running)
         media.command("play")
         media.updateState("playing", 3000, 9000)

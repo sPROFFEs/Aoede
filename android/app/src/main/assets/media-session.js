@@ -36,7 +36,7 @@
   };
   document.addEventListener('click', function (event) {
     if (!event.isTrusted || !blocked || !event.target.closest) return;
-    if (event.target.closest('#play-pause-btn,#fs-play-pause-btn,[onclick*="resumePartyAudio"],[onclick*="playTrack"],[onclick*="playNext"],[onclick*="playPrev"]')) {
+    if (event.target.closest('#play-pause-btn,#fs-play-pause-btn,[onclick*="resumePartyAudio"],[onclick*="playTrack"],[onclick*="playNext"],[onclick*="playPrev"],[onclick*="playFromView"],[onclick*="playPlaylist"],[onclick*="playFederatedTrack"],[onclick*="playRadio"],[onclick*="playSavedRadio"],[onclick*="playDiscoveryPreview"],[onclick*="handleCardClick"]')) {
       resumeLocal();
     }
   }, true);

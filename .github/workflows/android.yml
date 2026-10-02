@@ -63,6 +63,20 @@ jobs:
           fi
       - name: Package APK and complete source
         run: python3 scripts/package_android.py
+      - name: Verify installation compatibility with the existing release
+        if: steps.signing.outputs.signed == 'true' && github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AOEDE_RELEASE_TAG: ${{ inputs.release_tag }}
+          AOEDE_REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release download "$AOEDE_RELEASE_TAG" --pattern aoede-android.apk --dir "$RUNNER_TEMP/current-android" --repo "$AOEDE_REPOSITORY"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/current-android/aoede-android.apk" > "$RUNNER_TEMP/old-certificate.txt"
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs android/dist/aoede-android.apk > "$RUNNER_TEMP/new-certificate.txt"
+          sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/old-certificate.txt" > "$RUNNER_TEMP/old-digest.txt"
+          sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/new-certificate.txt" > "$RUNNER_TEMP/new-digest.txt"
+          test -s "$RUNNER_TEMP/new-digest.txt"
+          cmp "$RUNNER_TEMP/old-digest.txt" "$RUNNER_TEMP/new-digest.txt"
       - uses: actions/upload-artifact@v4
         with:
           name: aoede-android

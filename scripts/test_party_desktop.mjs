@@ -110,7 +110,7 @@ const party = await load('Aoede/assets/js/modules/party.js', {
 }, {
   './state.js': state,
   './ui.js': { escHtml: String, t: (_key, fallback) => fallback, refreshIcons() {}, homeTabsBar: () => '', confirmDialog: async () => { prompts++; return confirmed; } },
-  './player.js': { syncPartyPlayback: async (value) => { synced = value; return true; }, syncPlayerShellVisibility() {} }
+  './player.js': { syncPartyPlayback: async (value) => { synced = value; return true; }, syncPlayerShellVisibility() {}, resumeLocalPlayback() {} }
 });
 assert.match(party.renderHomeShelf([{ ...room, is_remote_federated: true, remote_instance_id: 7 }]), /'fed_7_2'/);
 await party.renderPartyRoom(container, 'fed_7_2');
