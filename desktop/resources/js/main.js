@@ -1,91 +1,65 @@
-// This is just a sample app. You can structure your Neutralinojs app code as you wish.
-// This example app is written with vanilla JavaScript and HTML.
-// Feel free to use any frontend framework you like :)
-// See more details: https://neutralino.js.org/docs/how-to/use-a-frontend-library
+const STORAGE_KEY = 'aoede_server_url';
+const setupView = document.getElementById('setup-view');
+const setupForm = document.getElementById('setup-form');
+const serverInput = document.getElementById('server-url');
+const setupError = document.getElementById('setup-error');
+let connecting = false;
 
-/*
-    Function to display information about the Neutralino app.
-    This function updates the content of the 'info' element in the HTML
-    with details regarding the running Neutralino application, including
-    its ID, port, operating system, and version information.
-*/
-function showInfo() {
-    document.getElementById('info').innerHTML = `
-        ${NL_APPID} is running on port ${NL_PORT} inside ${NL_OS}
-        <br/><br/>
-        <span>server: v${NL_VERSION} . client: v${NL_CVERSION}</span>
-        `;
+function showSetup(error = '') {
+  setupView.style.display = 'flex';
+  setupError.textContent = error;
+  setupError.hidden = !error;
+  serverInput.focus();
 }
 
-/*
-    Function to open the official Neutralino documentation in the default web browser.
-*/
-function openDocs() {
-    Neutralino.os.open("https://neutralino.js.org/docs");
-}
-
-/*
-    Function to open a tutorial video on Neutralino's official YouTube channel in the default web browser.
-*/
-function openTutorial() {
-    Neutralino.os.open("https://www.youtube.com/c/CodeZri");
-}
-
-/*
-    Function to set up a system tray menu with options specific to the window mode.
-    This function checks if the application is running in window mode, and if so,
-    it defines the tray menu items and sets up the tray accordingly.
-*/
-function setTray() {
-    // Tray menu is only available in window mode
-    if(NL_MODE != "window") {
-        console.log("INFO: Tray menu is only available in the window mode.");
-        return;
+async function loadServer(value) {
+  if (connecting) return;
+  connecting = true;
+  try {
+    let formatted = value.trim();
+    if (!/^[a-z][a-z\d+.-]*:/i.test(formatted)) formatted = 'https://' + formatted;
+    const url = new URL(formatted);
+    if (!['http:', 'https:'].includes(url.protocol) || !url.hostname || url.username || url.password) {
+      throw new Error('Enter an HTTP or HTTPS server URL without embedded credentials.');
     }
-
-    // Define tray menu items
-    let tray = {
-        icon: "/resources/icons/trayIcon.png",
-        menuItems: [
-            {id: "VERSION", text: "Get version"},
-            {id: "SEP", text: "-"},
-            {id: "QUIT", text: "Quit"}
-        ]
-    };
-
-    // Set the tray menu
-    Neutralino.os.setTray(tray);
+    if (url.search || url.hash) throw new Error('Enter the server address without a query or fragment.');
+    formatted = url.href.replace(/\/+$/, '');
+    serverInput.value = formatted;
+    let saved = false;
+    try {
+      await Neutralino.storage.setData(STORAGE_KEY, formatted);
+      saved = true;
+    } catch (_) { /* Browser storage remains a fallback when the native store is unavailable. */ }
+    try {
+      localStorage.setItem(STORAGE_KEY, formatted);
+      saved = true;
+    } catch (_) {}
+    if (!saved) throw new Error('Cannot save the server address. Check the app data directory permissions.');
+    window.location.replace(formatted);
+  } catch (error) {
+    showSetup(error.message || 'Could not connect to this server.');
+  } finally {
+    connecting = false;
+  }
 }
 
-/*
-    Function to handle click events on the tray menu items.
-    This function performs different actions based on the clicked item's ID,
-    such as displaying version information or exiting the application.
-*/
-function onTrayMenuItemClicked(event) {
-    switch(event.detail.id) {
-        case "VERSION":
-            // Display version information
-            Neutralino.os.showMessageBox("Version information",
-                `Neutralinojs server: v${NL_VERSION} | Neutralinojs client: v${NL_CVERSION}`);
-            break;
-        case "QUIT":
-            // Exit the application
-            Neutralino.app.exit();
-            break;
-    }
+async function initApp() {
+  try { Neutralino.init(); } catch (_) {}
+  let savedUrl;
+  try { savedUrl = await Neutralino.storage.getData(STORAGE_KEY); } catch (_) {}
+  if (!savedUrl) {
+    try { savedUrl = localStorage.getItem(STORAGE_KEY); } catch (_) {}
+  }
+  if (typeof savedUrl === 'string' && savedUrl.trim()) {
+    serverInput.value = savedUrl;
+    // --setup provides recovery even when the saved server is no longer reachable.
+    if (typeof NL_ARGS !== 'undefined' && NL_ARGS.includes('--setup')) showSetup();
+    else await loadServer(savedUrl);
+  } else showSetup();
 }
 
-// Initialize Neutralino
-Neutralino.init();
-
-// Register event listeners
-Neutralino.events.on("trayMenuItemClicked", onTrayMenuItemClicked);
-
-// Conditional initialization: Set up system tray if not running on macOS
-if(NL_OS != "Darwin") { // TODO: Fix https://github.com/neutralinojs/neutralinojs/issues/615
-    setTray();
-}
-
-// Display app information
-showInfo();
+setupForm.addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (serverInput.value) loadServer(serverInput.value);
+});
+initApp();

@@ -153,6 +153,7 @@ export function ensureInitialized() {
     _gainReplay.gain.value = 1.0;
     _gainFade.gain.value = 1.0;
     _gainVolume.gain.value = _MAC_WRAPPER ? (_volume ?? state.audio.volume) : 1;
+    if (_MAC_WRAPPER) state.audio.volume = 1;
     _source.connect(_gainReplay);
     _gainReplay.connect(_gainFade);
     _gainFade.connect(_gainVolume);

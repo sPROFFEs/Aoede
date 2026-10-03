@@ -35,6 +35,12 @@ for (const platform of ['MacIntel', 'Win32', 'Linux x86_64', 'iPhone']) {
     navigator: { platform, userAgent: `${platform} AoedeDesktop` },
     window: { AudioContext: Context }, console
   }, { './state.js': { audio } });
+  if (platform === 'MacIntel') {
+    assert.equal(engine.ensureInitialized(), true); // ReplayGain can initialize before volume restoration.
+    assert.equal(audio.volume, 1); // Do not attenuate once in the element and again in the gain node.
+    assert.equal(gains.at(-1).gain.value, 0.7);
+    await engine.resumeIfSuspended();
+  }
   engine.setVolume(0.3);
   assert.equal(engine.getVolume(), 0.3);
   if (platform === 'MacIntel') {
@@ -147,3 +153,23 @@ assert.equal(destination, '/admin/');
 await views.renderExternalView({}, '/user/settings');
 assert.equal(destination, 'https://aoede.example/login');
 console.log('PASS: app confirmation/cancellation, owner deletion, remote isolation, admin navigation, party streams and platform volume.');
+
+const notices = [];
+const fields = {
+  'fed-add-name': { value: 'Peer' }, 'fed-add-url': { value: 'https://peer.example' }, 'fed-add-token': { value: 'test' },
+  'fed-issue-name': { value: '' }, 'fed-issue-url': { value: 'https://peer.example' }
+};
+const admin = await load('Aoede/assets/js/modules/admin.js', {
+  document: { getElementById: (id) => fields[id] }, window: {},
+  alert() { throw new Error('A native JavaScript dialog must not be required'); },
+  fetch: async () => ({ ok: false, status: 400, json: async () => ({ detail: 'Server rejected the request' }) })
+}, { './state.js': {}, './ui.js': { showToast: (message, type) => notices.push({ message, type }) } });
+await admin.federationAddInstance({ preventDefault() {} });
+await admin.federationIssueToken({ preventDefault() {} });
+fields['fed-issue-name'].value = 'Peer';
+await admin.federationIssueToken({ preventDefault() {} });
+assert.deepEqual(notices.map(n => n.type), ['error', 'error', 'error']);
+assert.match(notices[0].message, /Failed to add peer/);
+assert.equal(notices[1].message, 'Peer name is required.');
+assert.match(notices[2].message, /Failed to issue token/);
+console.log('PASS: federation errors use in-app notices without native JavaScript dialogs.');

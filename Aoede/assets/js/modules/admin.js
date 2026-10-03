@@ -631,7 +631,7 @@ export async function federationAddInstance(e) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    alert('Failed to add peer: ' + (err.detail || res.status));
+    ui.showToast('Failed to add peer: ' + (err.detail || res.status), 'error');
     return;
   }
   document.getElementById('fed-add-name').value = '';
@@ -676,7 +676,7 @@ export async function federationIssueToken(e) {
   const name = document.getElementById('fed-issue-name').value.trim();
   const peer_url = document.getElementById('fed-issue-url').value.trim();
   if (!name) {
-    alert('Peer name is required.');
+    ui.showToast('Peer name is required.', 'error');
     return;
   }
 
@@ -688,7 +688,7 @@ export async function federationIssueToken(e) {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    alert('Failed to issue token: ' + (err.detail || res.status));
+    ui.showToast('Failed to issue token: ' + (err.detail || res.status), 'error');
     return;
   }
   const data = await res.json();

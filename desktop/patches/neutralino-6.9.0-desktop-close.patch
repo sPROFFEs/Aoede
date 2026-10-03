@@ -1,0 +1,105 @@
+--- a/api/window/window.cpp
++++ b/api/window/window.cpp
+@@ -732,29 +732,21 @@
+ 
+ void _close(int exitCode) {
+     if(nativeWindow) {
+-        #if defined(__APPLE__)
+-        dispatch_sync(dispatch_get_main_queue(), ^{
+-		#endif
+-        if(windowProps.useSavedState) {
+-            __saveWindowProps();
+-        }
+-        #if defined(_WIN32)
+-        if(windowHandle && originalWndProc) {
+-            DragAcceptFiles(windowHandle, FALSE);
+-            SetWindowLongPtr(windowHandle, GWLP_WNDPROC,
+-                             (LONG_PTR)originalWndProc);
+-            originalWndProc = nullptr;
+-        }
+-        #endif
+-        nativeWindow->terminate(exitCode);
+-		#if defined(__APPLE__)
+-		});
+-		#endif
+-        #if defined(_WIN32)
+-        FreeConsole();
+-        #endif
+-        delete nativeWindow;
+-        nativeWindow = nullptr;
++        // Keep the webview alive until its UI thread has finished native teardown.
++        nativeWindow->dispatch([exitCode] {
++            if(windowProps.useSavedState) {
++                __saveWindowProps();
++            }
++            #if defined(_WIN32)
++            if(windowHandle && originalWndProc) {
++                DragAcceptFiles(windowHandle, FALSE);
++                SetWindowLongPtr(windowHandle, GWLP_WNDPROC,
++                                 (LONG_PTR)originalWndProc);
++                originalWndProc = nullptr;
++            }
++            #endif
++            nativeWindow->terminate(exitCode);
++        });
+     }
+ }
+ 
+--- a/lib/webview/webview.h
++++ b/lib/webview/webview.h
+@@ -397,7 +397,6 @@
+   void run() { gtk_main(); }
+   void terminate(int exitCode = 0) {
+     processExitCode = exitCode;
+-    gtk_window_close(GTK_WINDOW(m_window));
+     gtk_widget_destroy(m_window);
+   }
+   void dispatch(std::function<void()> f) {
+@@ -792,9 +791,10 @@
+   void *wv() { return (void *)m_webview; }
+   void terminate(int exitCode = 0) {
+     close();
+-    ((void (*)(id, SEL, id))objc_msgSend)("NSApp"_cls, "terminate:"_sel,
+-                                          nullptr);
+-    std::exit(exitCode);
++    id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls,
++                                            "sharedApplication"_sel);
++    ((void (*)(id, SEL, id))objc_msgSend)(app, "terminate:"_sel, nullptr);
++    // Cocoa owns process termination; do not race its teardown with std::exit.
+   }
+   void run() {
+     id app = ((id(*)(id, SEL))objc_msgSend)("NSApplication"_cls,
+@@ -1433,28 +1433,12 @@
+   void *window() { return (void *)m_window; }
+   void *wv() { return (void *)m_browser->wv(); }
+   void terminate(int exitCode = 0) {
+-
+-    // event to wait for window close completion
+-    auto evtWindowClosed = CreateEvent(
+-        NULL,               // default security attributes
+-        TRUE,               // manual-reset event
+-        FALSE,              // initial state is nonsignaled
+-        TEXT("WindowClosedEvent")  // object name
+-    );
++    if (GetCurrentThreadId() != m_main_thread) {
++      dispatch([this, exitCode]() { terminate(exitCode); });
++      return;
++    }
+     processExitCode = exitCode;
+-
+-    dispatch([=]() {
+-        DestroyWindow(m_window);
+-        SetEvent(evtWindowClosed);
+-    });
+-
+-    // wait for dispatch() to complete
+-    /* TODO: Check why this method doesn't trigger a signal on Windows
+-    *        when "exitProcessOnClose" is true. (Previous value: 10000)
+-    *        This wait causes a delay when closing the program.
+-    */
+-    WaitForSingleObject(evtWindowClosed, 300);
+-    CloseHandle(evtWindowClosed);
++    DestroyWindow(m_window);
+     OleUninitialize();
+   }
+   void dispatch(dispatch_fn_t f) {

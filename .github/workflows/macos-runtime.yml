@@ -1,14 +1,32 @@
-name: Patched macOS Runtime
+name: Patched Desktop Runtime
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'desktop/patches/**'
+      - 'scripts/test_desktop_close.py'
+      - '.github/workflows/macos-runtime.yml'
 
 permissions:
   contents: read
 
 jobs:
   build:
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            platform: mac
+          - os: windows-latest
+            platform: win-x64
+          - os: ubuntu-22.04
+            platform: linux-x64
+          - os: ubuntu-22.04-arm
+            platform: linux-arm64
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -17,23 +35,56 @@ jobs:
           repository: neutralinojs/neutralinojs
           ref: 2cec764ac5e3ccc5b1b44d046d6e6d6c85c3099e
           path: native-runtime
-      - name: Apply macOS lifecycle fix to Neutralino 6.9.0
-        working-directory: native-runtime
-        run: git apply --check ../desktop/patches/neutralino-6.9.0-macos-close.patch && git apply ../desktop/patches/neutralino-6.9.0-macos-close.patch
-      - name: Build universal runtime
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Linux native dependencies
+        if: runner.os == 'Linux'
         run: |
-          cmake -S native-runtime -B native-runtime/build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
-          cmake --build native-runtime/build --parallel 3
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libxcb-xlib0-dev libxrandr-dev libxtst-dev libpng-dev libwebkit2gtk-4.1-0 libayatana-appindicator3-1 xvfb
+      - name: Apply the shared UI-thread lifecycle fix
+        working-directory: native-runtime
+        shell: bash
+        run: git apply --check ../desktop/patches/neutralino-6.9.0-desktop-close.patch && git apply ../desktop/patches/neutralino-6.9.0-desktop-close.patch
+      - name: Embed the Aoede Explorer and executable icon on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $icon = (Resolve-Path Aoede/assets/favicon.ico).Path.Replace('\', '/')
+          Set-Content native-runtime/aoede-icon.rc "32512 ICON `"$icon`""
+          Add-Content native-runtime/CMakeLists.txt 'enable_language(RC)'
+          Add-Content native-runtime/CMakeLists.txt 'target_sources(NeutralinoJS PRIVATE "${CMAKE_SOURCE_DIR}/aoede-icon.rc")'
+      - name: Configure native build
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then
+            cmake -S native-runtime -B native-runtime/build -DCMAKE_BUILD_TYPE=Release '-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64' -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15
+          else
+            cmake -S native-runtime -B native-runtime/build -DCMAKE_BUILD_TYPE=Release
+          fi
+      - name: Build production runtime
+        shell: bash
+        run: |
+          cmake --build native-runtime/build --config Release --parallel 3
           mkdir -p patched-runtime
-          cp native-runtime/bin/neutralino-mac_* patched-runtime/neutralino-mac_universal
-          lipo patched-runtime/neutralino-mac_universal -thin arm64 -output patched-runtime/neutralino-mac_arm64
-          lipo patched-runtime/neutralino-mac_universal -thin x86_64 -output patched-runtime/neutralino-mac_x64
-          codesign --force --sign - patched-runtime/neutralino-mac_universal
-          codesign --force --sign - patched-runtime/neutralino-mac_arm64
-          codesign --force --sign - patched-runtime/neutralino-mac_x64
-      - name: Test Cocoa window close, API exit, and application quit after remote navigation
-        run: python3 scripts/test_macos_close.py native-runtime desktop
+          if [ "$RUNNER_OS" = macOS ]; then
+            cp native-runtime/bin/neutralino-mac_* patched-runtime/neutralino-mac_universal
+            lipo patched-runtime/neutralino-mac_universal -thin arm64 -output patched-runtime/neutralino-mac_arm64
+            lipo patched-runtime/neutralino-mac_universal -thin x86_64 -output patched-runtime/neutralino-mac_x64
+            for binary in patched-runtime/*; do codesign --force --sign - "$binary"; done
+          else
+            cp native-runtime/bin/neutralino-* patched-runtime/
+          fi
+      - name: Test native window close and API exit after external navigation
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Linux ]; then
+            xvfb-run -a python scripts/test_desktop_close.py native-runtime desktop
+          else
+            python scripts/test_desktop_close.py native-runtime desktop
+          fi
       - uses: actions/upload-artifact@v4
         with:
-          name: patched-macos-runtime
-          path: patched-runtime/neutralino-mac_*
+          name: patched-desktop-runtime-${{ matrix.platform }}
+          path: patched-runtime/neutralino-*

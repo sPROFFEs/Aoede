@@ -63,65 +63,12 @@
                 <label for="server-url">Aoede Server URL</label>
                 <input type="url" id="server-url" placeholder="https://aoede.yourdomain.com" required autofocus>
                 <button type="submit">Connect to Server</button>
+                <p id="setup-error" role="alert" style="color:#ff8c8c;margin-top:16px" hidden></p>
             </form>
         </div>
     </div>
 
     <script src="js/neutralino.js"></script>
-    <script>
-        const STORAGE_KEY = 'aoede_server_url';
-        const setupView = document.getElementById('setup-view');
-        const setupForm = document.getElementById('setup-form');
-        const serverInput = document.getElementById('server-url');
-
-        async function initApp() {
-            try {
-                Neutralino.init();
-            } catch (e) {
-                console.warn('Running outside Neutralino runtime');
-            }
-
-            let savedUrl = null;
-            try {
-                savedUrl = await Neutralino.storage.getData(STORAGE_KEY);
-            } catch (e) {
-                savedUrl = localStorage.getItem(STORAGE_KEY);
-            }
-
-            if (savedUrl && savedUrl.trim()) {
-                loadServer(savedUrl.trim());
-            } else {
-                showSetup();
-            }
-        }
-
-        function showSetup() {
-            setupView.style.display = 'flex';
-            serverInput.focus();
-        }
-
-        function loadServer(url) {
-            let formatted = url.trim();
-            if (!formatted.startsWith('http://') && !formatted.startsWith('https://')) {
-                formatted = 'https://' + formatted;
-            }
-            formatted = formatted.replace(/\/+$/, '');
-
-            try {
-                Neutralino.storage.setData(STORAGE_KEY, formatted);
-            } catch(e) {}
-            localStorage.setItem(STORAGE_KEY, formatted);
-
-            window.location.replace(formatted);
-        }
-
-        setupForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const val = serverInput.value;
-            if (val) loadServer(val);
-        });
-
-        initApp();
-    </script>
+    <script src="js/main.js"></script>
 </body>
 </html>

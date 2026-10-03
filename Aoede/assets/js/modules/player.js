@@ -1833,6 +1833,9 @@ export function setupPlayer() {
   }
 
   audioEngine.setVolume(DEFAULT_VOLUME);
+  // WebKit requires AudioContext.resume inside the gesture, before asynchronous playback work.
+  document.addEventListener('pointerdown', () => audioEngine.resumeIfSuspended(), { capture: true });
+  document.addEventListener('keydown', () => audioEngine.resumeIfSuspended(), { capture: true });
   state.audio.addEventListener('play', () => audioEngine.resumeIfSuspended());
 
   // Initialize volume bar visual position to the default; restoreVolume()

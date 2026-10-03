@@ -28,6 +28,14 @@ def test_branding_assets_cover_browser_pwa_and_touch_icon_sizes():
     ico_sizes = {(ico[offset] or 256, ico[offset + 1] or 256) for offset in (6, 22)}
     assert ico_sizes == {(16, 16), (32, 32)}
 
+    from PIL import Image
+
+    for size in (16, 32):
+        image = Image.open(assets_root / f"favicon-{size}x{size}.png").convert("RGBA")
+        bounds = image.getchannel("A").point(lambda alpha: 255 if alpha > 32 else 0).getbbox()
+        assert bounds[2] - bounds[0] >= round(size * 0.9)
+        assert 0 < bounds[0] and bounds[2] < size  # Larger, with room for the antialiased edge.
+
     manifest = json.loads((assets_root / "site.webmanifest").read_text(encoding="utf-8"))
     manifest_icons = {icon["src"] for icon in manifest["icons"]}
     assert "/assets/android-chrome-192x192.png?v=2" in manifest_icons
