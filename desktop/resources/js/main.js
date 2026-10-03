@@ -29,7 +29,11 @@ async function loadServer(value) {
     try {
       await Neutralino.storage.setData(STORAGE_KEY, formatted);
       saved = true;
-    } catch (_) { /* Browser storage remains a fallback when the native store is unavailable. */ }
+    } catch (_) {
+      if (typeof NL_APPID !== 'undefined') {
+        throw new Error('Cannot save the server address. Check the app data directory permissions.');
+      }
+    }
     try {
       localStorage.setItem(STORAGE_KEY, formatted);
       saved = true;

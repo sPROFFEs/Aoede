@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source = await readFile(new URL('../desktop/resources/js/main.js', import.meta.url), 'utf8');
-function launch({ nativeRead = '', legacyRead = '', browserRead = '', failWrite = false, failBrowser = false, args = [] } = {}) {
+function launch({ nativeRead = '', legacyRead = '', browserRead = '', failWrite = false, failBrowser = false, runtime = false, args = [] } = {}) {
   const fields = Object.fromEntries(['setup-view', 'setup-form', 'server-url', 'setup-error'].map(id =>
     [id, { value: '', style: {}, focus() {}, addEventListener() {} }]));
   const locations = [];
@@ -30,6 +30,7 @@ function launch({ nativeRead = '', legacyRead = '', browserRead = '', failWrite 
       }
     } }
   });
+  if (runtime) context.NL_APPID = 'com.aoede.desktop';
   vm.runInContext(source, context);
   return { context, fields, locations, writes, finish: () => finishWrite() };
 }
@@ -63,6 +64,11 @@ await flush();
 await denied.context.loadServer('https://example.com');
 assert.equal(denied.locations.length, 0);
 assert.match(denied.fields['setup-error'].textContent, /Cannot save/);
+const nativeDenied = launch({ failWrite: true, runtime: true });
+await flush();
+await nativeDenied.context.loadServer('https://example.com');
+assert.equal(nativeDenied.locations.length, 0); // An ephemeral localhost origin cannot replace native persistence.
+assert.match(nativeDenied.fields['setup-error'].textContent, /Cannot save/);
 const recovery = launch({ nativeRead: 'https://offline.example', args: ['aoede', '--setup'] });
 await flush();
 assert.equal(recovery.locations.length, 0);
