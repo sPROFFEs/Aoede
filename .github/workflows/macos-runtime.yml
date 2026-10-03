@@ -44,6 +44,8 @@ jobs:
       - name: Install Linux native dependencies
         if: runner.os == 'Linux'
         shell: bash
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           prefix=()
           if [ "$(id -u)" != 0 ]; then prefix=(sudo); fi
