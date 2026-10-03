@@ -4,21 +4,24 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const source = await readFile(new URL('../desktop/resources/js/main.js', import.meta.url), 'utf8');
-function launch({ nativeRead = '', browserRead = '', failWrite = false, failBrowser = false, args = [] } = {}) {
+function launch({ nativeRead = '', legacyRead = '', browserRead = '', failWrite = false, failBrowser = false, args = [] } = {}) {
   const fields = Object.fromEntries(['setup-view', 'setup-form', 'server-url', 'setup-error'].map(id =>
     [id, { value: '', style: {}, focus() {}, addEventListener() {} }]));
   const locations = [];
   const writes = [];
   let finishWrite;
   const context = vm.createContext({
-    URL, console, NL_ARGS: args,
+    URL, console, NL_ARGS: args, NL_PATH: '/app',
     document: { getElementById: id => fields[id] },
     window: { location: { replace(url) { locations.push(url); } } },
     localStorage: {
       getItem() { if (failBrowser) throw new Error('Storage disabled'); return browserRead; },
       setItem() { if (failBrowser) throw new Error('Storage disabled'); }
     },
-    Neutralino: { init() {}, storage: {
+    Neutralino: { init() {}, filesystem: { async readFile(path) {
+      assert.equal(path, '/app/.storage/aoede_server_url.neustorage');
+      return legacyRead;
+    } }, storage: {
       async getData() { if (nativeRead instanceof Error) throw nativeRead; return nativeRead; },
       setData(key, url) {
         writes.push({ key, url });
@@ -65,4 +68,11 @@ await flush();
 assert.equal(recovery.locations.length, 0);
 assert.equal(recovery.fields['server-url'].value, 'https://offline.example');
 assert.equal(recovery.fields['setup-view'].style.display, 'flex');
+const migration = launch({ nativeRead: new Error('Missing'), legacyRead: 'https://old.example' });
+await flush();
+assert.equal(migration.writes[0].url, 'https://old.example');
+assert.equal(migration.locations.length, 0);
+migration.finish();
+await flush();
+assert.deepEqual(migration.locations, ['https://old.example']);
 console.log('PASS: desktop URL validation, awaited persistence, storage fallback and setup recovery.');

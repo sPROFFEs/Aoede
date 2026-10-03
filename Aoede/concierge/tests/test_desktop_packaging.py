@@ -17,6 +17,9 @@ def test_desktop_archives_include_consistent_macos_bundle(tmp_path, monkeypatch)
     spec.loader.exec_module(packaging)
     config = json.loads((root / "desktop/neutralino.config.json").read_text())
     assert config["modes"]["window"]["exitProcessOnClose"] is True
+    assert config["storageLocation"] == "system"
+    assert config["dataLocation"] == "system"
+    assert set(config["nativeAllowList"]) == {"storage.getData", "storage.setData", "filesystem.readFile"}
     assert config["modes"]["window"]["extendUserAgentWith"] == "AoedeDesktop"
     assert "nl_token" not in (root / "desktop/resources/index.html").read_text()
     desktop = tmp_path / "desktop"

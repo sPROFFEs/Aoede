@@ -8,17 +8,17 @@
   "url": "/",
   "enableServer": true,
   "enableNativeAPI": true,
+  "dataLocation": "system",
+  "storageLocation": "system",
   "tokenSecurity": "one-time",
   "logging": {
     "enabled": false,
     "writeToLogFile": false
   },
   "nativeAllowList": [
-    "app.*",
-    "os.*",
-    "storage.*",
-    "window.*",
-    "events.*"
+    "storage.getData",
+    "storage.setData",
+    "filesystem.readFile"
   ],
   "modes": {
     "window": {

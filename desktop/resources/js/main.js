@@ -47,6 +47,10 @@ async function initApp() {
   try { Neutralino.init(); } catch (_) {}
   let savedUrl;
   try { savedUrl = await Neutralino.storage.getData(STORAGE_KEY); } catch (_) {}
+  if (!savedUrl && typeof NL_PATH !== 'undefined') {
+    // Earlier packages stored preferences inside the install directory.
+    try { savedUrl = await Neutralino.filesystem.readFile(`${NL_PATH}/.storage/${STORAGE_KEY}.neustorage`); } catch (_) {}
+  }
   if (!savedUrl) {
     try { savedUrl = localStorage.getItem(STORAGE_KEY); } catch (_) {}
   }
