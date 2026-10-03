@@ -13,6 +13,11 @@ from pathlib import Path
 
 def main():
     source, desktop = (Path(arg).resolve() for arg in sys.argv[1:])
+    if sys.platform == "darwin":
+        binary = next((source / "bin").glob("neutralino-mac_*"))
+        commands = subprocess.check_output(["otool", "-l", str(binary)], text=True)
+        capture = [block for block in commands.split("Load command ") if "ScreenCaptureKit.framework" in block]
+        assert capture and all("LC_LOAD_WEAK_DYLIB" in block for block in capture)
     window = source / "api/window/window.cpp"
     original = window.read_text()
     hook = r"""
