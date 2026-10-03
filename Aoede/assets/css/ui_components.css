@@ -1996,7 +1996,7 @@
     border-radius: var(--radius-sm, 4px);
     font-weight: 500;
     font-size: 0.88rem;
-    max-width: 480px;
+    max-width: min(480px, calc(100vw - 32px));
     width: max-content;
     text-align: center;
     word-break: break-word;

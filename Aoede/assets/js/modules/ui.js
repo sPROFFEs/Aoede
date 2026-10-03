@@ -104,6 +104,7 @@ export function showToast(msg, type = 'info', action = null) {
   }
   const toast = document.createElement('div');
   toast.className = `toast-msg toast-${type}`;
+  toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
   if (action) toast.classList.add('toast-msg--action');
 
   const text = document.createElement('span');
