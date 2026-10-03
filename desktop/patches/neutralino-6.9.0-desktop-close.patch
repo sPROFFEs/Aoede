@@ -103,3 +103,16 @@
      OleUninitialize();
    }
    void dispatch(dispatch_fn_t f) {
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -240,8 +240,8 @@
+       ${SECURITY_FRAMEWORK}
+     )
+     if(SCREENCAPTUREKIT_FRAMEWORK)
+-      target_link_libraries(${PROJECT_NAME} PRIVATE
+-        ${SCREENCAPTUREKIT_FRAMEWORK}
++      target_link_options(${PROJECT_NAME} PRIVATE
++        "-Wl,-weak_framework,ScreenCaptureKit"
+       )
+     endif()
+     target_compile_options(${PROJECT_NAME} PRIVATE
