@@ -205,14 +205,7 @@ export function savePlaybackPrefs() {
 // === VIEW ROUTING ===
 
 function _canTrackSpaHistory(view) {
-  return ![
-    'settings_admin',
-    'system_monitor',
-    'admin_downloads',
-    'admin_delete_requests',
-    'settings_user',
-    'help'
-  ].includes(view);
+  return view !== 'settings_admin';
 }
 
 function _pushSpaHistory(view, param = null, replace = false) {
@@ -414,6 +407,17 @@ export async function renderExternalView(container, url) {
 export function initSpaHistory() {
   if (window.__aoedeSpaHistoryBound) return;
   window.__aoedeSpaHistoryBound = true;
+  if (!window.history.state?.aoedeView) {
+    const initialViews = {
+      '/admin/system': 'system_monitor',
+      '/admin/downloads': 'admin_downloads',
+      '/admin/song-delete-requests': 'admin_delete_requests',
+      '/user/settings': 'settings_user',
+      '/help': 'help'
+    };
+    const initial = initialViews[window.location.pathname];
+    if (initial) _pushSpaHistory(initial, null, true);
+  }
 
   window.addEventListener('popstate', (event) => {
     const historyState = event.state;

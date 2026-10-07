@@ -12,6 +12,7 @@ const APP_VERSION = '1.0';
 let _dbPromise = null;
 const _offlineTrackIdSet = new Set();
 let _isInitialized = false;
+let _isFlushing = false;
 
 /**
  * Open or upgrade the IndexedDB database
@@ -619,6 +620,7 @@ export async function queueAction(type, payload) {
 
     const actionRecord = {
       type,
+      username: window.USER_DATA?.username,
       payload,
       created_at: Date.now(),
       attempts: 0,
@@ -676,98 +678,100 @@ export async function removePendingAction(actionId) {
  * Flush pending offline actions when connectivity returns
  */
 export async function flushPendingActions() {
-  if (!navigator.onLine) return;
+  if (!navigator.onLine || _isFlushing || !window.USER_DATA?.username) return;
+  _isFlushing = true;
+  try {
+    const actions = await getPendingActions();
+    if (!actions.length) return;
 
-  const actions = await getPendingActions();
-  if (!actions.length) return;
+    console.log(`[OFFLINE-STORE] Flushing ${actions.length} pending offline actions...`);
 
-  console.log(`[OFFLINE-STORE] Flushing ${actions.length} pending offline actions...`);
+    for (const action of actions) {
+      // Legacy actions have no owner; keep them rather than replaying on another account.
+      if (action.username !== window.USER_DATA.username) continue;
+      try {
+        let success = false;
 
-  for (const action of actions) {
-    try {
-      let success = false;
-
-      if (action.type === 'toggle_favorite') {
-        const { trackId, liked } = action.payload;
-        const res = await fetch(`/api/favorites/${trackId}`, {
-          method: liked ? 'POST' : 'DELETE',
-          headers: { 'X-Idempotency-Key': action.idempotency_key }
-        });
-        success = res.ok || (res.status === 404 && !liked);
-      } else if (action.type === 'listen_progress' || action.type === 'track_completed') {
-        const res = await fetch('/api/activity/listen', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Idempotency-Key': action.idempotency_key
-          },
-          body: JSON.stringify(action.payload)
-        });
-        success = res.ok;
-      } else if (action.type === 'create_playlist') {
-        const res = await fetch('/api/playlists', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Idempotency-Key': action.idempotency_key
-          },
-          body: JSON.stringify(action.payload)
-        });
-        success = res.ok;
-      } else if (action.type === 'add_to_playlist') {
-        const { playlistId, trackId } = action.payload;
-        const res = await fetch(`/api/playlists/${playlistId}/add`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Idempotency-Key': action.idempotency_key
-          },
-          body: JSON.stringify({ track_id: trackId })
-        });
-        success = res.ok;
-      } else if (action.type === 'remove_from_playlist') {
-        const { playlistId, trackId } = action.payload;
-        const res = await fetch(`/api/playlists/${playlistId}/remove/${trackId}`, {
-          method: 'DELETE',
-          headers: { 'X-Idempotency-Key': action.idempotency_key }
-        });
-        success = res.ok || res.status === 404;
-      } else if (action.type === 'edit_playlist') {
-        const { playlistId, name } = action.payload;
-        const res = await fetch(`/api/playlists/${playlistId}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Idempotency-Key': action.idempotency_key
-          },
-          body: JSON.stringify({ name })
-        });
-        success = res.ok;
-      } else if (action.type === 'delete_playlist') {
-        const { playlistId } = action.payload;
-        const res = await fetch(`/api/playlists/${playlistId}`, {
-          method: 'DELETE',
-          headers: { 'X-Idempotency-Key': action.idempotency_key }
-        });
-        success = res.ok || res.status === 404;
-      } else {
-        // Unknown action type; drop to prevent blocking queue
-        success = true;
-      }
-
-      if (success) {
-        await removePendingAction(action.action_id);
-      } else {
-        action.attempts = (action.attempts || 0) + 1;
-        if (action.attempts > 5) {
-          // Drop after 5 persistent failures
-          await removePendingAction(action.action_id);
+        if (action.type === 'toggle_favorite') {
+          const { trackId, liked } = action.payload;
+          const res = await fetch(`/api/favorites/${trackId}`, {
+            method: liked ? 'POST' : 'DELETE',
+            headers: { 'X-Idempotency-Key': action.idempotency_key }
+          });
+          success = res.ok || (res.status === 404 && !liked);
+        } else if (action.type === 'listen_progress' || action.type === 'track_completed') {
+          const res = await fetch('/api/activity/listen', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': action.idempotency_key
+            },
+            body: JSON.stringify(action.payload)
+          });
+          success = res.ok;
+        } else if (action.type === 'create_playlist') {
+          const res = await fetch('/api/playlists', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': action.idempotency_key
+            },
+            body: JSON.stringify(action.payload)
+          });
+          success = res.ok;
+        } else if (action.type === 'add_to_playlist') {
+          const { playlistId, trackId } = action.payload;
+          const res = await fetch(`/api/playlists/${playlistId}/add`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': action.idempotency_key
+            },
+            body: JSON.stringify({ track_id: trackId })
+          });
+          success = res.ok;
+        } else if (action.type === 'remove_from_playlist') {
+          const { playlistId, trackId } = action.payload;
+          const res = await fetch(`/api/playlists/${playlistId}/remove/${trackId}`, {
+            method: 'DELETE',
+            headers: { 'X-Idempotency-Key': action.idempotency_key }
+          });
+          success = res.ok || res.status === 404;
+        } else if (action.type === 'edit_playlist') {
+          const { playlistId, name } = action.payload;
+          const res = await fetch(`/api/playlists/${playlistId}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Idempotency-Key': action.idempotency_key
+            },
+            body: JSON.stringify({ name })
+          });
+          success = res.ok;
+        } else if (action.type === 'delete_playlist') {
+          const { playlistId } = action.payload;
+          const res = await fetch(`/api/playlists/${playlistId}`, {
+            method: 'DELETE',
+            headers: { 'X-Idempotency-Key': action.idempotency_key }
+          });
+          success = res.ok || res.status === 404;
+        } else {
+          // Unknown action type; drop to prevent blocking queue
+          success = true;
         }
+
+        if (success) {
+          await removePendingAction(action.action_id);
+        } else {
+          break; // Keep failed actions and their order, including expired sessions.
+        }
+      } catch (err) {
+        console.warn('[OFFLINE-STORE] Failed to sync action:', action, err);
+        break; // Pause syncing until network stabilizes
       }
-    } catch (err) {
-      console.warn('[OFFLINE-STORE] Failed to sync action:', action, err);
-      break; // Pause syncing until network stabilizes
     }
+  } finally {
+    _isFlushing = false;
   }
 }
 

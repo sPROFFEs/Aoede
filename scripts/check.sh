@@ -35,4 +35,5 @@ npm run lint
 npm run format:check
 node --experimental-vm-modules scripts/test_party_desktop.mjs
 node scripts/test_desktop.mjs
+node --experimental-vm-modules scripts/test_webapp.mjs
 node --experimental-vm-modules scripts/test_android.mjs

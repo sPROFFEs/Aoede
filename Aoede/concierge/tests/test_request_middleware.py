@@ -99,3 +99,60 @@ def test_request_context_middleware_resets_language_after_client_disconnect():
         asyncio.run(middleware(_http_scope(cookie=b"lang=en"), _receive, disconnected_send))
 
     assert language_context.get() == "es"
+
+
+def test_proxy_slash_redirects_keep_client_scheme_port_and_post_body():
+    import httpx
+    import security
+    from fastapi import FastAPI, Request
+
+    app = FastAPI()
+    app.add_middleware(
+        RequestContextMiddleware,
+        language_context=ContextVar("redirect_language", default="es"),
+        supported_languages={"es"},
+        default_language="es",
+        validate_request=security.validate_same_origin,
+    )
+
+    @app.post("/api/example/")
+    async def endpoint(request: Request):
+        return {"body": (await request.body()).decode()}
+
+    async def check():
+        # Reproduce an HTTPS tunnel reaching the app via HTTP, preserving Host.
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="http://aoede.test:8443") as client:
+            headers = {"origin": "https://aoede.test:8443", "cookie": "access_token=local-test"}
+            response = await client.post("/api/example?x=1", headers=headers, content="payload")
+            assert response.status_code == 307
+            assert response.headers["location"] == "/api/example/?x=1"
+            response = await client.post("/api/example/", headers=headers, content="payload")
+            assert response.json() == {"body": "payload"}
+            response = await client.post("/api/example/", headers={**headers, "origin": "https://elsewhere.test"})
+            assert response.status_code == 403
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize(
+    "location", ["https://elsewhere.test/", "https://testserver:8443/", "https://testserver//elsewhere.test/"]
+)
+def test_redirect_middleware_preserves_external_authorities(location):
+    async def redirect(scope, receive, send):
+        await send({"type": "http.response.start", "status": 307, "headers": [(b"location", location.encode())]})
+        await send({"type": "http.response.body", "body": b""})
+
+    messages = []
+
+    async def capture(message):
+        messages.append(message)
+
+    middleware = RequestContextMiddleware(
+        redirect,
+        language_context=ContextVar("external_language", default="es"),
+        supported_languages={"es"},
+        default_language="es",
+        validate_request=lambda request: None,
+    )
+    asyncio.run(middleware(_http_scope(), _receive, capture))
+    assert Headers(raw=messages[0]["headers"])["location"] == location

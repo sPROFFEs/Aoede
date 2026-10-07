@@ -10,6 +10,36 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
+    <LinearLayout
+        android:id="@+id/connection_error"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:padding="32dp"
+        android:background="@color/colorBackground"
+        android:visibility="gone">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/main_connection_error"
+            android:textColor="@android:color/white"
+            android:textSize="22sp" />
+        <TextView
+            android:id="@+id/connection_error_detail"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:textColor="@android:color/white"
+            android:accessibilityLiveRegion="polite" />
+        <Button
+            android:id="@+id/btn_retry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:text="@string/main_retry" />
+    </LinearLayout>
+
     <!--
         Settings gear — only visible on the login / portal page.
         Small, bottom-right, unobtrusive. Tapping opens SetupActivity

@@ -8,7 +8,7 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v7';
+const CACHE = 'aoede-shell-v8';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
@@ -88,7 +88,7 @@ self.addEventListener('install', (event) => {
         return Promise.allSettled(
           PRECACHE_ASSETS.map((url) =>
             fetch(url, { credentials: 'same-origin' }).then((res) => {
-              if (res.ok) return cache.put(url, res);
+              if (res.ok && !res.redirected) return cache.put(url, res);
             })
           )
         );
@@ -117,7 +117,9 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches
       .keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      .then((keys) =>
+        Promise.all(keys.filter((k) => k.startsWith('aoede-shell-') && k !== CACHE).map((k) => caches.delete(k)))
+      )
       .then(() => _evictStaleEntries())
       .catch(() => {})
       .then(() => self.clients.claim())
@@ -127,35 +129,54 @@ self.addEventListener('activate', (event) => {
 // ── Fetch ──────────────────────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  if (request.method !== 'GET') return;
-
   const url = new URL(request.url);
 
   // Cross-origin → browser handles it
   if (url.origin !== self.location.origin) return;
 
+  if (url.pathname === '/logout' || (url.pathname === '/login' && request.method === 'POST')) {
+    event.waitUntil(caches.open(CACHE).then((cache) => cache.delete('/portal')));
+    return;
+  }
+  if (request.method !== 'GET') return;
+
   // Streams and audio downloads should not pollute the shell cache
   if (url.pathname.startsWith('/api/stream/')) return;
 
-  // 1. Navigation requests: Network-first with fallback to cached /portal shell
-  if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
+  // API responses must never be replaced by an HTML shell, including HTMX.
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/api/')) {
+    event.respondWith(
+      fetch(request).catch(
+        () =>
+          new Response(JSON.stringify({ offline: true, error: 'Network unavailable (offline mode)' }), {
+            status: 503,
+            headers: { 'Content-Type': 'application/json' }
+          })
+      )
+    );
+    return;
+  }
+
+  // Only the music shell can fall back to /portal. Never cache admin/login pages.
+  if (request.mode === 'navigate') {
+    const shellNavigation = ['/', '/portal', '/index.html'].includes(url.pathname);
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.ok) {
+          if (shellNavigation && response.ok && !response.redirected) {
             const copy = response.clone();
-            caches.open(CACHE).then((cache) => cache.put(request, copy));
+            event.waitUntil(caches.open(CACHE).then((cache) => cache.put('/portal', copy)));
+          } else if (shellNavigation && response.redirected) {
+            event.waitUntil(caches.open(CACHE).then((cache) => cache.delete('/portal')));
           }
           return response;
         })
         .catch(async () => {
-          const cachedNav = await caches.match(request);
-          if (cachedNav) return cachedNav;
-          const portalShell = await caches.match('/portal');
+          const portalShell = shellNavigation && (await caches.match('/portal'));
           if (portalShell) return portalShell;
           return new Response(
             '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Aoede Offline</title></head><body style="background:#121212;color:#fff;font-family:sans-serif;text-align:center;padding:40px;"><h1>Aoede Offline</h1><p>You are offline. Open Aoede while connected to sync the offline app shell.</p></body></html>',
-            { headers: { 'Content-Type': 'text/html' } }
+            { status: 503, headers: { 'Content-Type': 'text/html' } }
           );
         })
     );
@@ -163,16 +184,18 @@ self.addEventListener('fetch', (event) => {
   }
 
   // 2. Static assets (/assets/) → Cache-first with background revalidation
-  if (url.pathname.startsWith('/assets/') || url.hostname === 'unpkg.com') {
+  if (url.pathname.startsWith('/assets/')) {
     event.respondWith(
       caches.match(request).then((cached) => {
         if (cached) {
           if (_shouldRevalidate(cached)) {
-            fetch(request)
-              .then((res) => {
-                if (res.ok) caches.open(CACHE).then((c) => c.put(request, res));
-              })
-              .catch(() => {});
+            event.waitUntil(
+              fetch(request)
+                .then((res) => {
+                  if (res.ok) return caches.open(CACHE).then((c) => c.put(request, res));
+                })
+                .catch(() => {})
+            );
           }
           return cached;
         }
@@ -190,17 +213,5 @@ self.addEventListener('fetch', (event) => {
       })
     );
     return;
-  }
-
-  // 3. API endpoints → Network-first with structured offline JSON response
-  if (url.pathname.startsWith('/api/')) {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        return new Response(JSON.stringify({ offline: true, error: 'Network unavailable (offline mode)' }), {
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      })
-    );
   }
 });

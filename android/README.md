@@ -4,6 +4,8 @@ The Android app embeds the configured Aoede server in a WebView. The application
 
 Headphone/Bluetooth disconnection and Android media pause controls pause this device, including in party rooms. Playback remains locally paused until an explicit play action. Chromium manages audio focus; the wrapper does not request a competing audio focus owner. The bridge accepts messages only from the configured origin's main frame. HTTP servers remain supported when explicitly configured.
 
+Internal navigation stays inside the configured origin, including its port. Automatic redirects to another origin show a connection error instead of launching a browser; external links tapped by the user still open in the browser. Connection errors offer Retry and server configuration, while errors in subresources do not replace the page. HTTPS certificate errors remain blocked. Avatar, playlist-cover and cookie-file uploads use the system file picker, and login cookies are flushed after navigation.
+
 ## Build and checks
 
 Requires JDK 17, Android SDK 34 and an up-to-date Android System WebView on the device. Minimum Android version is 5.0 (API 21).
@@ -34,6 +36,9 @@ For GitHub Actions configure those three credentials and `AOEDE_ANDROID_KEYSTORE
 - Repeat as a party guest: local pause must survive room updates and must not pause the host.
 - Interrupt with another music app and a phone call; verify focus loss and appropriate resumption.
 - Check offline downloaded tracks, failed streams, long buffering and changing servers.
+- Open Admin from System Monitor behind an HTTPS tunnel and on a server with a custom port; verify navigation, form submission and Back stay in the app.
+- Upload an avatar, a playlist cover and a cookies file; cancel the file picker and try again.
+- Open an unreachable server, retry, then change its URL from the error screen. Check that an individual missing image does not trigger that screen.
 - Stop/dismiss playback and verify notification, CPU wake lock and noisy receiver cleanup.
 
 Force-stopping the application or Android stopping its process ends playback. Extremely old WebView versions without origin-scoped web messages require a WebView update for native background controls; no unrestricted JavaScript interface is enabled as a fallback.

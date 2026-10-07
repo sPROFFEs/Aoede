@@ -8,9 +8,14 @@ import android.content.MutableContextWrapper
 import android.net.Uri
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
+import android.webkit.CookieManager
 import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceError
+import android.webkit.WebResourceResponse
+import android.webkit.ValueCallback
+import android.webkit.SslErrorHandler
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -26,6 +31,8 @@ class AoedeApp : Application() {
     var player: WebView? = null
         private set
     private var playerUrl: String? = null
+    var connectionFailure: Pair<String, String>? = null
+        private set
     private var activity = WeakReference<MainActivity>(null)
 
     override fun onCreate() {
@@ -47,6 +54,7 @@ class AoedeApp : Application() {
         mediaController.serverOrigin = origin
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
         val view = WebView(MutableContextWrapper(owner))
+        CookieManager.getInstance().setAcceptCookie(true)
         player = view
         view.settings.apply {
             javaScriptEnabled = true
@@ -79,9 +87,13 @@ class AoedeApp : Application() {
             )
         }
         view.webViewClient = object : WebViewClient() {
-            private fun navigate(uri: Uri): Boolean {
+            private fun navigate(uri: Uri, userInitiated: Boolean = true): Boolean {
                 if (ServerOrigin.from(uri) == origin) return false
                 if (uri.scheme in setOf("https", "http")) {
+                    if (!userInitiated) {
+                        reportConnectionError(view.url ?: url, getString(R.string.main_external_redirect))
+                        return true
+                    }
                     try {
                         startActivity(Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                     } catch (_: ActivityNotFoundException) {
@@ -91,14 +103,42 @@ class AoedeApp : Application() {
                 return true
             }
             override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean =
-                if (request.isForMainFrame) navigate(request.url) else false
+                if (request.isForMainFrame) navigate(request.url, request.hasGesture()) else false
 
             @Deprecated("Needed on Android 5 and 6")
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = navigate(Uri.parse(url))
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 mediaController.reset()
+                connectionFailure = null
+                activity.get()?.clearConnectionError()
                 activity.get()?.updatePage(url)
+            }
+
+            override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
+                if (request.isForMainFrame) {
+                    reportConnectionError(request.url.toString(), error.description.toString())
+                }
+            }
+
+            @Deprecated("Needed on Android 5")
+            override fun onReceivedError(view: WebView, code: Int, description: String, failingUrl: String) {
+                if (android.os.Build.VERSION.SDK_INT < 23) {
+                    reportConnectionError(failingUrl, description)
+                }
+            }
+
+            override fun onReceivedHttpError(view: WebView, request: WebResourceRequest, response: WebResourceResponse) {
+                if (request.isForMainFrame) {
+                    reportConnectionError(request.url.toString(), "HTTP ${response.statusCode}")
+                }
+            }
+
+            override fun onReceivedSslError(view: WebView, handler: SslErrorHandler, error: android.net.http.SslError) {
+                handler.cancel()
+                if (error.url == view.url) {
+                    reportConnectionError(error.url, getString(R.string.main_tls_error))
+                }
             }
 
             override fun onPageFinished(view: WebView, url: String) {
@@ -107,6 +147,7 @@ class AoedeApp : Application() {
                     view.evaluateJavascript(shim, null)
                 }
                 activity.get()?.updatePage(url)
+                CookieManager.getInstance().flush()
             }
 
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
@@ -116,6 +157,12 @@ class AoedeApp : Application() {
             }
         }
         view.webChromeClient = object : WebChromeClient() {
+            override fun onShowFileChooser(view: WebView, callback: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
+                return activity.get()?.chooseFile(callback, params) ?: run {
+                    callback.onReceiveValue(null)
+                    true
+                }
+            }
             override fun onPermissionRequest(request: PermissionRequest) {
                 val allowed = request.resources.filter { it == PermissionRequest.RESOURCE_PROTECTED_MEDIA_ID }
                 if (ServerOrigin.from(request.origin) == origin && allowed.isNotEmpty()) {
@@ -138,6 +185,12 @@ class AoedeApp : Application() {
         activity.clear()
     }
 
+    private fun reportConnectionError(url: String, detail: String) {
+        if (ServerOrigin.from(Uri.parse(url)) != mediaController.serverOrigin) return
+        connectionFailure = url to detail
+        activity.get()?.showConnectionError(url, detail)
+    }
+
     fun destroyPlayer() {
         mediaController.setActionInvoker(null)
         mediaController.reset()
@@ -148,6 +201,7 @@ class AoedeApp : Application() {
         }
         player = null
         playerUrl = null
+        connectionFailure = null
     }
 
     fun ensurePlaybackService() {

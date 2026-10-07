@@ -21,6 +21,11 @@
     <string name="main_btn_settings_desc">Configure server</string>
     <string name="main_update_webview">Update Android System WebView to enable background playback and media controls.</string>
     <string name="main_no_browser">No browser is available to open this link.</string>
+    <string name="main_no_file_picker">No file picker is available.</string>
+    <string name="main_connection_error">Could not connect to Aoede</string>
+    <string name="main_retry">Retry</string>
+    <string name="main_tls_error">The server certificate could not be verified. Check its HTTPS configuration.</string>
+    <string name="main_external_redirect">The server redirected outside its configured address. Check the server URL and proxy configuration.</string>
 
     <!-- Playback foreground service -->
     <string name="playback_channel_name">Playback</string>

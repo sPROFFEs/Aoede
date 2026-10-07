@@ -17,6 +17,11 @@
     <string name="main_btn_settings_desc">Configurar servidor</string>
     <string name="main_update_webview">Actualiza Android System WebView para activar la reproducción en segundo plano y los controles multimedia.</string>
     <string name="main_no_browser">No hay un navegador disponible para abrir este enlace.</string>
+    <string name="main_no_file_picker">No hay un selector de archivos disponible.</string>
+    <string name="main_connection_error">No se ha podido conectar con Aoede</string>
+    <string name="main_retry">Reintentar</string>
+    <string name="main_tls_error">No se pudo verificar el certificado del servidor. Revisa su configuración HTTPS.</string>
+    <string name="main_external_redirect">El servidor redirigió fuera de la dirección configurada. Revisa la URL y la configuración del proxy.</string>
 
     <string name="playback_channel_name">Reproducción</string>
     <string name="playback_channel_desc">Mantiene la app activa para que la música no se corte en segundo plano</string>

@@ -1,8 +1,11 @@
 from collections.abc import Callable, Collection
 from contextvars import ContextVar
+from urllib.parse import urlsplit
 
 from starlette.datastructures import MutableHeaders
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
+from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 SECURITY_HEADERS = {
@@ -61,13 +64,28 @@ class RequestContextMiddleware:
         async def send_with_security_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
                 headers = MutableHeaders(scope=message)
+                # Routing slash redirects must keep the client's scheme/port,
+                # even when an HTTPS tunnel reaches the backend over HTTP.
+                if 300 <= message["status"] < 400 and "location" in headers:
+                    target = urlsplit(headers["location"])
+                    if (
+                        target.scheme in {"http", "https"}
+                        and target.netloc == request.url.netloc
+                        and not target.path.startswith("//")
+                    ):
+                        headers["location"] = target._replace(scheme="", netloc="").geturl()
                 for name, value in SECURITY_HEADERS.items():
                     if name not in headers:
                         headers[name] = value
             await send(message)
 
         try:
-            self.validate_request(request)
+            try:
+                self.validate_request(request)
+            except HTTPException as error:
+                response = JSONResponse({"detail": error.detail}, status_code=error.status_code, headers=error.headers)
+                await response(scope, receive, send_with_security_headers)
+                return
             await self.app(scope, receive, send_with_security_headers)
         finally:
             self.language_context.reset(token)

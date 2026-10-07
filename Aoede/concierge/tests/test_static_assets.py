@@ -38,6 +38,22 @@ def test_nginx_compresses_text_assets_and_keeps_streaming_unbuffered():
     assert "proxy_buffering off;" in nginx
 
 
+def test_proxies_preserve_host_ports_and_internal_navigation_uses_canonical_routes():
+    root = Path(__file__).resolve().parents[2]
+    for path in (root / "nginx.conf", root / "deployment-templates/domain/nginx.conf"):
+        source = path.read_text()
+        assert "proxy_set_header Host $http_host;" in source
+        assert "proxy_set_header Host $host;" not in source
+    templates = root / "concierge/templates"
+    for name in ("system_monitor.html", "admin_downloads.html", "admin_song_delete_requests.html"):
+        source = (templates / name).read_text()
+        assert 'href="/admin/"' in source
+        assert 'href="/admin"' not in source
+    source = (templates / "base.html").read_text()
+    assert 'href="/{{ username }}/"' in source
+    assert "https://aoede.{{ domain }}" not in source
+
+
 def test_first_party_frontend_stays_inside_download_budgets():
     assets_root = Path(__file__).resolve().parents[2] / "assets"
     javascript = [assets_root / "js" / "main.js", *(assets_root / "js" / "modules").glob("*.js")]
