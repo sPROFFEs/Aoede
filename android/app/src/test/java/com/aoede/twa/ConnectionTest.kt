@@ -112,5 +112,9 @@ class ConnectionTest {
         val cancel = requireNotNull(shadowOf(activity).nextStartedActivityForResult)
         shadowOf(activity).receiveResult(cancel.intent, Activity.RESULT_CANCELED, null)
         assertNull(values.last())
+        chrome.onShowFileChooser(view, callback, params)
+        val invalid = requireNotNull(shadowOf(activity).nextStartedActivityForResult)
+        shadowOf(activity).receiveResult(invalid.intent, Activity.RESULT_OK, Intent().setData(Uri.parse("file:///private.txt")))
+        assertNull(values.last())
     }
 }

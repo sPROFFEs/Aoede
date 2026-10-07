@@ -120,7 +120,7 @@ class AoedeApp : Application() {
             }
 
             override fun onReceivedError(view: WebView, request: WebResourceRequest, error: WebResourceError) {
-                if (request.isForMainFrame) {
+                if (android.os.Build.VERSION.SDK_INT >= 23 && request.isForMainFrame) {
                     reportConnectionError(request.url.toString(), error.description.toString())
                 }
             }

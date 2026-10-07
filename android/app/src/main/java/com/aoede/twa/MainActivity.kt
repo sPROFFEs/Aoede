@@ -1,8 +1,8 @@
 package com.aoede.twa
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
-import android.app.Activity
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
@@ -24,7 +24,7 @@ class MainActivity : AppCompatActivity() {
         val data = result.data
         val selected = if (result.resultCode == Activity.RESULT_OK && data != null) {
             val clip = data.clipData
-            if (clip != null) Array(clip.itemCount) { clip.getItemAt(it).uri }
+            if (clip != null) (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }.toTypedArray()
             else data.data?.let { arrayOf(it) }
         } else null
         val uris = selected?.filter { it.scheme == "content" }?.toTypedArray()
