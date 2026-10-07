@@ -51,25 +51,36 @@ class ConnectionTest {
     @Test fun internalEndpointsStayInAppAndRedirectsDoNotLaunchBrowsers() {
         val view = app.player!!
         val client = requireNotNull(shadowOf(view).webViewClient)
+        fun navigate(url: String): Boolean = if (android.os.Build.VERSION.SDK_INT >= 24) {
+            client.shouldOverrideUrlLoading(view, request(url))
+        } else client.shouldOverrideUrlLoading(view, url)
         for (path in listOf("/admin/", "/admin/system", "/api/party/rooms/2/join", "/login")) {
-            assertFalse(client.shouldOverrideUrlLoading(view, request("https://example.com:8443$path")))
+            assertFalse(navigate("https://example.com:8443$path"))
         }
-        assertFalse(client.shouldOverrideUrlLoading(view, request("https://youtube.com", main = false)))
-        assertTrue(client.shouldOverrideUrlLoading(view, request("http://example.com/admin/")))
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            assertFalse(client.shouldOverrideUrlLoading(view, request("https://youtube.com", main = false)))
+        }
+        assertTrue(navigate("http://example.com/admin/"))
         assertNull(shadowOf(app).nextStartedActivity)
         assertNotNull(app.connectionFailure)
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.btn_settings).visibility)
-        assertTrue(client.shouldOverrideUrlLoading(view, request("https://elsewhere.test", gesture = true)))
-        assertEquals(Intent.ACTION_VIEW, shadowOf(app).nextStartedActivity?.action)
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            assertTrue(client.shouldOverrideUrlLoading(view, request("https://elsewhere.test", gesture = true)))
+            assertEquals(Intent.ACTION_VIEW, shadowOf(app).nextStartedActivity?.action)
+        }
     }
 
     @Test fun subresourceErrorsDoNotHideThePageAndMainErrorsCanBeRetried() {
         val view = app.player!!
         val client = requireNotNull(shadowOf(view).webViewClient)
-        val error = WebResourceResponse("text/html", "UTF-8", 404, "Not Found", emptyMap(), null)
-        client.onReceivedHttpError(view, request("https://example.com:8443/assets/missing.png", main = false), error)
-        assertNull(app.connectionFailure)
-        client.onReceivedHttpError(view, request("https://example.com:8443/admin/system"), error)
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            val error = WebResourceResponse("text/html", "UTF-8", 404, "Not Found", emptyMap(), null)
+            client.onReceivedHttpError(view, request("https://example.com:8443/assets/missing.png", main = false), error)
+            assertNull(app.connectionFailure)
+            client.onReceivedHttpError(view, request("https://example.com:8443/admin/system"), error)
+        } else {
+            client.onReceivedError(view, android.webkit.WebViewClient.ERROR_CONNECT, "Cannot connect", "https://example.com:8443/admin/system")
+        }
         assertEquals(View.VISIBLE, activity.findViewById<View>(R.id.connection_error).visibility)
         activity.findViewById<View>(R.id.btn_retry).performClick()
         assertEquals("https://example.com:8443/admin/system", shadowOf(view).lastLoadedUrl)

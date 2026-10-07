@@ -2,6 +2,7 @@ package com.aoede.twa
 
 import android.content.Context
 import android.content.Intent
+import android.app.Activity
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
@@ -20,8 +21,13 @@ class MainActivity : AppCompatActivity() {
     private var failedUrl: String? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, result.data)
-            ?.filter { it.scheme == "content" }?.toTypedArray()
+        val data = result.data
+        val selected = if (result.resultCode == Activity.RESULT_OK && data != null) {
+            val clip = data.clipData
+            if (clip != null) Array(clip.itemCount) { clip.getItemAt(it).uri }
+            else data.data?.let { arrayOf(it) }
+        } else null
+        val uris = selected?.filter { it.scheme == "content" }?.toTypedArray()
         fileCallback?.onReceiveValue(uris?.takeIf { it.isNotEmpty() })
         fileCallback = null
     }

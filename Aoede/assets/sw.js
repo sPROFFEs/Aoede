@@ -163,7 +163,9 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (shellNavigation && response.ok && !response.redirected) {
+          const target = response.url && new URL(response.url);
+          const reachesPortal = target && target.origin === self.location.origin && target.pathname === '/portal';
+          if (shellNavigation && response.ok && (!response.redirected || reachesPortal)) {
             const copy = response.clone();
             event.waitUntil(caches.open(CACHE).then((cache) => cache.put('/portal', copy)));
           } else if (shellNavigation && response.redirected) {

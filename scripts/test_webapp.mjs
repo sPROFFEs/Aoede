@@ -43,9 +43,10 @@ async function event(name, request) {
 const request = (path, mode = 'cors', method = 'GET') => ({
   url: `https://aoede.test${path}`, mode, method, headers: new Headers({ accept: 'text/html' })
 });
-const redirected = () => {
+const redirected = (path = '/login') => {
   const response = new Response('login page');
   Object.defineProperty(response, 'redirected', { value: true });
+  Object.defineProperty(response, 'url', { value: `https://aoede.test${path}` });
   return response;
 };
 fetcher = async (url) => url === '/portal' ? redirected() : new Response('asset');
@@ -60,6 +61,10 @@ assert.ok(!stores.has('aoede-shell-old'));
 fetcher = async () => new Response('music shell');
 await event('fetch', request('/portal', 'navigate'));
 assert.equal(await (await caches.match('/portal')).text(), 'music shell');
+fetcher = async () => redirected('/portal');
+await event('fetch', request('/', 'navigate'));
+assert.ok(await caches.match('/portal')); // A normal / -> /portal redirect must preserve the offline shell.
+await (await caches.open(current)).put('/portal', new Response('music shell'));
 fetcher = async () => { throw new TypeError('offline'); };
 assert.equal(await (await event('fetch', request('/', 'navigate'))).text(), 'music shell');
 for (const path of ['/api/playlists', '/admin/api/system-stats']) {

@@ -134,6 +134,9 @@ function updateOfflineUIState(isOffline) {
 }
 
 function initOfflineAwareness() {
+  if (navigator.onLine) {
+    offlineStore.flushPendingActions().catch((error) => console.warn('[OFFLINE] Startup sync error:', error));
+  }
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     updateOfflineUIState(true);
   }

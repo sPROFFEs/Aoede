@@ -72,17 +72,6 @@ function initUserSettingsView(container) {
   const userSettingsShell = container.querySelector('.user-settings-shell');
   if (!userSettingsShell) return;
 
-  const avatarInput = userSettingsShell.querySelector('#avatar-input');
-  const avatarForm = userSettingsShell.querySelector('#avatar-form');
-  if (avatarInput && avatarForm && avatarInput.dataset.bound !== 'true') {
-    avatarInput.dataset.bound = 'true';
-    avatarInput.addEventListener('change', function () {
-      if (this.files && this.files.length > 0 && typeof htmx !== 'undefined') {
-        htmx.trigger(avatarForm, 'submit');
-      }
-    });
-  }
-
   userSettingsShell.querySelectorAll('.toggle-secret-btn').forEach((button) => {
     if (button.dataset.bound === 'true') return;
     button.dataset.bound = 'true';

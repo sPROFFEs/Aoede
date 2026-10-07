@@ -106,7 +106,11 @@ class AoedeApp : Application() {
                 if (request.isForMainFrame) navigate(request.url, request.hasGesture()) else false
 
             @Deprecated("Needed on Android 5 and 6")
-            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = navigate(Uri.parse(url))
+            override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean = navigate(
+                Uri.parse(url), view.hitTestResult?.type in setOf(
+                    WebView.HitTestResult.SRC_ANCHOR_TYPE, WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE
+                )
+            )
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
                 mediaController.reset()
