@@ -86,14 +86,16 @@ assert.equal(await caches.match('/portal'), undefined);
 // Execute the real router: imported settings/admin pages participate in Back history.
 const history = [];
 const handlers = new Map();
+const bodyHandlers = new Map();
 let navigation;
 const container = { children: [], style: {}, innerHTML: '' };
-const document = { body: { addEventListener() {} }, getElementById: () => container };
+const document = { body: { addEventListener(name, handler) { bodyHandlers.set(name, handler); } }, getElementById: () => container };
 const window = { location: { pathname: '/admin/system', assign(url) { navigation = url; } },
   history: { state: null, replaceState(value) { this.state = value; history.push(['replace', value]); },
     pushState(value) { this.state = value; history.push(['push', value]); } },
   addEventListener(name, handler) { handlers.set(name, handler); } };
 const context = vm.createContext({ window, document, console, URL, requestAnimationFrame(callback) { callback(); },
+  localStorage: { getItem(key) { return key === 'aoede.replaygain.enabled' ? '1' : '4'; } },
   fetch: async () => ({ redirected: true, url: 'https://aoede.test/login' }) });
 const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/views.js', import.meta.url), 'utf8'), { context });
 await module.link(name => {
@@ -115,6 +117,13 @@ await new Promise(setImmediate);
 assert.equal(history.length, count);
 await module.namespace.loadView('settings_admin');
 assert.equal(navigation, '/admin/');
+const replaygain = { checked: false };
+const savePrefs = { disabled: false };
+const prefElements = { '#pref-replaygain': replaygain, '#pref-crossfade-chips': { querySelectorAll: () => [] }, '#pref-save-btn': savePrefs };
+const settings = { querySelector: selector => prefElements[selector], querySelectorAll: () => [] };
+bodyHandlers.get('htmx:afterSwap')({ target: { id: 'view-container', querySelector: () => settings } });
+assert.equal(replaygain.checked, true); // Uploaded avatar/cookies replace settings; playback controls must be initialized again.
+assert.equal(savePrefs.disabled, true);
 console.log('PASS: proxy-independent navigation history, API offline errors, safe shell caching and logout invalidation.');
 
 // Deferred actions keep their account and order; a 401/503 cannot discard changes.

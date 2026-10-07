@@ -426,6 +426,7 @@ export function initSpaHistory() {
 
 document.body.addEventListener('htmx:afterSwap', (event) => {
   if (event.target?.id !== 'view-container') return;
+  initUserSettingsView(event.target);
   const username = window.USER_DATA?.username;
   if (!username) return;
   const timestamp = Date.now();
