@@ -5,6 +5,7 @@ import shutil
 
 import auth
 import database
+import federated_collections
 import spotify_service
 from aoede_config import settings
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
@@ -697,6 +698,10 @@ async def get_public_profile(username: str, request: Request, db: Session = Depe
     if not target_user:
         return {"error": "User not found"}
 
+    return serialize_public_profile(db, target_user, current_user)
+
+
+def serialize_public_profile(db, target_user, current_user):
     from routers.music.playlists import fetch_playlist_summaries
 
     # 1. Public Playlists
@@ -757,6 +762,7 @@ async def get_public_profile(username: str, request: Request, db: Session = Depe
     ]
 
     return {
+        "id": target_user.id,
         "username": target_user.username,
         "is_admin": bool(target_user.is_admin),
         "is_self": bool(target_user.id == current_user.id),
@@ -780,6 +786,10 @@ async def list_public_users(request: Request, db: Session = Depends(get_db)):
     if not current_user:
         return RedirectResponse("/login")
 
+    return list_local_users(db, current_user) + await federated_collections.list_remote(db, current_user, "users")
+
+
+def list_local_users(db, current_user):
     users = (
         db.query(database.User)
         .filter(
@@ -805,6 +815,7 @@ async def list_public_users(request: Request, db: Session = Depends(get_db)):
 
         result.append(
             {
+                "id": u.id,
                 "username": u.username,
                 "avatar_url": f"/user/avatar/{u.username}",
                 "is_admin": bool(u.is_admin),

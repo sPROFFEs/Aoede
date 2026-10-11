@@ -291,6 +291,9 @@ class Playlist(Base):
     owner = relationship("User", back_populates="new_playlists")
     items = relationship("PlaylistItem", back_populates="playlist", cascade="all, delete-orphan")
     collaborators = relationship("PlaylistCollaborator", cascade="all, delete-orphan")
+    remote_collaborators = relationship("FederatedPlaylistCollaborator", cascade="all, delete-orphan")
+    source_instance_id = Column(Integer, ForeignKey("federated_instances.id", ondelete="SET NULL"), nullable=True)
+    source_remote_playlist_id = Column(Integer, nullable=True)
 
 
 class PlaylistCollaborator(Base):
@@ -307,11 +310,29 @@ class PlaylistItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"))
     track_id = Column(Integer, ForeignKey("tracks.id", ondelete="CASCADE"))
+    federated_track_id = Column(Integer, ForeignKey("federated_tracks.id", ondelete="CASCADE"), nullable=True)
+    remote_instance_id = Column(Integer, ForeignKey("federated_instances.id", ondelete="CASCADE"), nullable=True)
+    remote_playlist_id = Column(Integer, nullable=True)
+    remote_item_id = Column(Integer, nullable=True)
+    remote_metadata_json = Column(String, nullable=True)
     position = Column(Integer, default=0)
     added_at = Column(DateTime, default=func.now())
 
     playlist = relationship("Playlist", back_populates="items")
     track = relationship("Track", back_populates="playlist_items")
+    federated_track = relationship("FederatedTrack")
+    remote_instance = relationship("FederatedInstance")
+
+
+class FederatedPlaylistCollaborator(Base):
+    __tablename__ = "federated_playlist_collaborators"
+
+    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="CASCADE"), primary_key=True)
+    user_key = Column(String, primary_key=True)
+    peer_id = Column(Integer, ForeignKey("federation_outbound_peers.id", ondelete="CASCADE"), nullable=False)
+    remote_user_id = Column(Integer, nullable=False)
+    username = Column(String, nullable=False)
+    peer = relationship("FederationOutboundPeer")
 
 
 class PartyRoom(Base):
@@ -559,8 +580,8 @@ class FederationOutboundPeer(Base):
 class FederatedTrack(Base):
     """Mirror of a track on a remote instance. We keep these in the
     same SQLite as local data for simple cross-table search merging,
-    but they are NEVER returned as `is_local=True` and never join
-    UserFavorite / Playlist / etc. Drop a federation = mass-delete of
+    but they are NEVER returned as `is_local=True`. Collections can
+    reference a mirror row; local favorites still reference Track. Drop a federation = mass-delete of
     rows where instance_id matches.
     """
 
@@ -581,5 +602,7 @@ class FederatedTrack(Base):
     # Lowercase keys for fast dedupe joins against local Track.
     title_norm = Column(String, index=True)
     artist_norm = Column(String, index=True)
+
+    instance = relationship("FederatedInstance")
 
     synced_at = Column(DateTime(timezone=True), server_default=func.now())

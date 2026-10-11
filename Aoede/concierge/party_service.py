@@ -225,6 +225,7 @@ def create_room(
     playlist_id: int | None = None,
     is_federated: bool = False,
     federated_peer_ids: list[int] | None = None,
+    queue_sources: list[dict] | None = None,
 ) -> database.PartyRoom:
     if not MIN_ROOM_USERS <= max_users <= MAX_ROOM_USERS:
         raise PartyError(f"User limit must be between {MIN_ROOM_USERS} and {MAX_ROOM_USERS}")
@@ -272,11 +273,22 @@ def create_room(
                     db.add(database.PartyRoomFederatedPeer(room_id=room.id, instance_id=peer.id))
 
         if playlist:
-            for position, playlist_item in enumerate(sorted(playlist.items, key=lambda item: item.position)):
+            sources = (
+                queue_sources
+                if queue_sources is not None
+                else [{"track_id": item.track_id} for item in sorted(playlist.items, key=lambda item: item.position)]
+            )
+            if len(sources) != len(playlist.items) or any(
+                not source.get("track_id") and not (source.get("fed_instance_id") and source.get("fed_remote_id"))
+                for source in sources
+            ):
+                db.rollback()
+                raise PartyError("A playlist song is unavailable", 409)
+            for position, source in enumerate(sources):
                 db.add(
                     database.PartyRoomQueueItem(
                         room_id=room.id,
-                        track_id=playlist_item.track_id,
+                        **source,
                         added_by_user_id=owner.id,
                         position=position,
                     )

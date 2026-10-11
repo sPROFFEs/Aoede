@@ -108,7 +108,7 @@ def test_new_party_room_schema_accepts_loading_status():
         ops_core._migration_024_party_rooms(conn)
         conn.execute(text("INSERT INTO party_rooms(owner_id, name, playback_status) VALUES (1, 'New room', 'loading')"))
 
-    assert ops_core.MIGRATIONS[-1][0] == "032_collection_imports"
+    assert ops_core.MIGRATIONS[-1][0] == "033_federated_collections"
     engine.dispose()
 
 
@@ -241,4 +241,53 @@ def test_fresh_schema_uses_native_delete_actions():
         assert {key: actions.get(key) for key in expected} == expected
         assert conn.execute(text("PRAGMA foreign_key_check")).all() == []
 
+    engine.dispose()
+
+
+def test_federated_collection_migration_keeps_local_rows():
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+        for table in ("users", "tracks", "federated_instances", "federation_outbound_peers"):
+            conn.execute(text(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)"))
+        conn.execute(
+            text(
+                "CREATE TABLE federated_tracks (id INTEGER PRIMARY KEY, instance_id INTEGER REFERENCES federated_instances(id) ON DELETE CASCADE)"
+            )
+        )
+        conn.execute(text("INSERT INTO users VALUES (1)"))
+        conn.execute(text("INSERT INTO tracks VALUES (42)"))
+        ops_core._migration_004_playlists_and_sync_copy(conn)
+        conn.execute(text("CREATE INDEX ix_legacy_item_order ON playlist_items(playlist_id, position)"))
+        conn.execute(
+            text(
+                "CREATE TRIGGER legacy_item_cleanup BEFORE DELETE ON playlists BEGIN DELETE FROM playlist_items WHERE playlist_id=OLD.id; END"
+            )
+        )
+        conn.execute(text("INSERT INTO playlists(id, name, owner_id) VALUES (1, 'Existing', 1)"))
+        conn.execute(
+            text(
+                "INSERT INTO playlist_items(id, playlist_id, track_id, position, added_at) VALUES (7, 1, 42, 9, '2020-01-01')"
+            )
+        )
+        ops_core._migration_033_federated_collections(conn)
+        ops_core._migration_033_federated_collections(conn)
+        assert conn.execute(text("SELECT track_id, federated_track_id FROM playlist_items")).one() == (42, None)
+        assert conn.execute(text("SELECT id, position, added_at FROM playlist_items")).one() == (7, 9, "2020-01-01")
+        assert conn.execute(text("SELECT source_instance_id FROM playlists")).scalar() is None
+        assert conn.execute(text("SELECT COUNT(*) FROM federated_playlist_collaborators")).scalar() == 0
+        assert {row[1] for row in conn.execute(text("PRAGMA index_list(playlist_items)"))} >= {"ix_legacy_item_order"}
+        assert (
+            conn.execute(
+                text("SELECT COUNT(*) FROM sqlite_master WHERE type='trigger' AND name='legacy_item_cleanup'")
+            ).scalar()
+            == 1
+        )
+        conn.execute(text("INSERT INTO federated_instances VALUES (1)"))
+        conn.execute(text("INSERT INTO federated_tracks VALUES (1, 1)"))
+        conn.execute(text("INSERT INTO playlist_items(playlist_id, federated_track_id) VALUES (1, 1)"))
+        assert conn.execute(text("SELECT COUNT(*) FROM playlist_items")).scalar() == 2
+        conn.execute(text("DELETE FROM federated_instances WHERE id=1"))
+        assert conn.execute(text("SELECT track_id FROM playlist_items")).one() == (42,)
+        assert conn.execute(text("PRAGMA foreign_key_check")).fetchall() == []
     engine.dispose()

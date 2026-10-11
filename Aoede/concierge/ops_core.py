@@ -1546,6 +1546,68 @@ def _migration_032_collection_imports(conn):
         conn.execute(text("ALTER TABLE download_jobs ADD COLUMN target_position INTEGER"))
 
 
+def _migration_033_federated_collections(conn):
+    additions = {
+        "playlists": {
+            "source_instance_id": "INTEGER REFERENCES federated_instances(id) ON DELETE SET NULL",
+            "source_remote_playlist_id": "INTEGER",
+        },
+        "playlist_items": {
+            "federated_track_id": "INTEGER REFERENCES federated_tracks(id) ON DELETE CASCADE",
+            "remote_instance_id": "INTEGER REFERENCES federated_instances(id) ON DELETE CASCADE",
+            "remote_playlist_id": "INTEGER",
+            "remote_item_id": "INTEGER",
+            "remote_metadata_json": "TEXT",
+        },
+    }
+    for table, fields in additions.items():
+        columns = {row[1] for row in conn.execute(text(f"PRAGMA table_info({table})"))}
+        for name, definition in fields.items():
+            if name not in columns:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {name} {definition}"))
+    item_columns = list(conn.execute(text("PRAGMA table_info(playlist_items)")))
+    if any(row[1] == "track_id" and row[3] for row in item_columns):
+        # Migration 004 required local tracks. SQLite needs a rebuild to admit remote-only entries.
+        schema = list(
+            conn.execute(
+                text("""
+            SELECT type, name, sql FROM sqlite_master WHERE sql IS NOT NULL AND (
+                (type = 'index' AND tbl_name = 'playlist_items') OR
+                (type = 'trigger' AND lower(sql) LIKE '%playlist_items%')
+            )
+        """)
+            )
+        )
+        conn.execute(
+            text("""
+            CREATE TABLE playlist_items_federated (
+                id INTEGER PRIMARY KEY,
+                playlist_id INTEGER NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+                track_id INTEGER REFERENCES tracks(id) ON DELETE CASCADE,
+                position INTEGER DEFAULT 0,
+                added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                federated_track_id INTEGER REFERENCES federated_tracks(id) ON DELETE CASCADE,
+                remote_instance_id INTEGER REFERENCES federated_instances(id) ON DELETE CASCADE,
+                remote_playlist_id INTEGER,
+                remote_item_id INTEGER,
+                remote_metadata_json TEXT
+            )
+        """)
+        )
+        columns = ", ".join(row[1] for row in item_columns)
+        conn.execute(text(f"INSERT INTO playlist_items_federated ({columns}) SELECT {columns} FROM playlist_items"))
+        for kind, name, _ in schema:
+            if kind == "trigger":
+                quoted_name = name.replace('"', '""')
+                conn.execute(text(f'DROP TRIGGER "{quoted_name}"'))
+        conn.execute(text("DROP TABLE playlist_items"))
+        conn.execute(text("ALTER TABLE playlist_items_federated RENAME TO playlist_items"))
+        for _, _, sql in schema:
+            conn.execute(text(sql))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_playlist_items_id ON playlist_items(id)"))
+    database.FederatedPlaylistCollaborator.__table__.create(bind=conn, checkfirst=True)
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1580,6 +1642,7 @@ MIGRATIONS = [
     ("030_collaborative_playlists", _migration_030_collaborative_playlists),
     ("031_federated_party_rooms", _migration_031_federated_party_rooms),
     ("032_collection_imports", _migration_032_collection_imports),
+    ("033_federated_collections", _migration_033_federated_collections),
 ]
 
 

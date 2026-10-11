@@ -474,7 +474,7 @@ function _renderQuickPicksGrid() {
       const thumb = data.thumbnail && !data.thumbnail.includes('default') ? data.thumbnail : '';
       const fallback = data.source_playlist_id ? 'refresh-cw' : data.is_public ? 'globe' : 'list-music';
       return `
-        <button class="quick-pick" onclick="loadView('playlist', ${data.id})" title="${name}">
+        <button class="quick-pick" onclick="loadView('playlist', '${ui.escJs(String(data.id))}')" title="${name}">
             <div class="quick-pick-cover">
                 ${
                   thumb
@@ -913,7 +913,7 @@ export function createCard(item) {
   const src = sourceMap[item.source] || sourceMap['local'];
   const sourceIcon = src.icon;
   const sourceColor = src.color;
-  const canAddToPlaylist = item.is_local && item.db_id;
+  const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
 
   return `<div class="card" onclick="handleCardClick('${data}', this)">
         <div class="card-img-container cover-loading">
@@ -926,8 +926,8 @@ export function createCard(item) {
             <div class="play-overlay">
                 <div style="display:flex;gap:8px;align-items:center;">
                     ${!item.is_local ? `<button class="play-btn-card" onclick="event.stopPropagation(); playPreview('${data}')" title="Preview" style="background:#444; color:white;"><i data-lucide="eye"></i></button>` : ''}
-                    <button class="play-btn-card" onclick="event.stopPropagation(); handleCardClick('${data}', this.closest('.card'))"><i data-lucide="${item.is_local ? 'play' : 'download'}"></i></button>
-                    ${canAddToPlaylist ? `<button class="play-btn-card play-btn-add-pl" onclick="event.stopPropagation(); showAddToPlaylistModal(${item.db_id})" title="Add to playlist"><i data-lucide="plus"></i></button>` : ''}
+                    <button class="play-btn-card" onclick="event.stopPropagation(); handleCardClick('${data}', this.closest('.card'))"><i data-lucide="${item.is_local || item.fed_instance_id != null ? 'play' : 'download'}"></i></button>
+                    ${canAddToPlaylist ? `<button class="play-btn-card play-btn-add-pl" onclick="event.stopPropagation(); showAddToPlaylistModal('${ui.escJs(String(item.db_id || item.id))}')" title="Add to playlist"><i data-lucide="plus"></i></button>` : ''}
                 </div>
             </div>
         </div>
@@ -942,15 +942,16 @@ export function createPlaylistCard(pl) {
   const thumb = pl.thumbnail || '/static/img/default_cover.png';
   const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
   const ownerLine = pl.owner_username && !pl.is_owner ? `By ${ui.escHtml(pl.owner_username)} - ` : '';
-  const visibilityLabel = pl.source_playlist_id ? 'Synced copy' : pl.is_public ? 'Public' : 'Private';
+  const visibilityLabel =
+    pl.source_playlist_id || pl.source_instance_id ? 'Synced copy' : pl.is_public ? 'Public' : 'Private';
 
-  return `<div class="card glass-hover" onclick="loadView('playlist', ${pl.id})">
+  return `<div class="card glass-hover" onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')">
         <div class="card-img-container playlist-card-bg">
             ${hasThumb ? `<img src="${ui.escHtml(thumb)}" class="card-img" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music" class="playlist-icon-large"></i>`}
         </div>
         <div class="playlist-card-copy">
             <div class="card-title">${ui.escHtml(pl.name)}</div>
-            <div class="card-subtitle">${pl.kind === 'album' ? 'Album · ' : ''}${ownerLine}${pl.track_count} tracks - ${visibilityLabel}</div>
+            <div class="card-subtitle">${pl.kind === 'album' ? 'Album · ' : ''}${ownerLine}${Number(pl.track_count) || 0} tracks - ${visibilityLabel}${pl.is_federated ? ` · ${ui.escHtml(pl.fed_instance_name)}` : ''}</div>
         </div>
     </div>`;
 }
@@ -1030,7 +1031,7 @@ export function createTrackRow(item, idx, playlistId = null) {
   const srcMeta = TRACK_SOURCE_ICONS[src] || TRACK_SOURCE_ICONS.local;
   const isLiked = state.userFavorites.has(item.db_id || item.id);
   const canLike = item.is_local && item.db_id;
-  const canAddToPlaylist = item.is_local && item.db_id;
+  const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
   const isActive = item.id === state.currentTrack?.id;
   const isOfflineAvailable = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
   const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -1046,7 +1047,7 @@ export function createTrackRow(item, idx, playlistId = null) {
     : item.is_local
       ? `playFromView(${idx})`
       : isFederated
-        ? `playFederatedTrack('${data}')`
+        ? `playFromView(${idx})`
         : `playPreview('${data}')`;
 
   const _safeTitle = ui.escJs(item.title || 'Unknown');
@@ -1088,18 +1089,20 @@ export function createTrackRow(item, idx, playlistId = null) {
             ${
               item.is_local
                 ? `<button class="action-btn ${isLiked ? 'liked' : ''}" onclick="toggleFavorite(${item.db_id || item.id}, this)"><i data-lucide="heart"></i></button>`
-                : `<button class="action-btn" onclick="triggerDownload('${data}')" title="Download to Library"><i data-lucide="download"></i></button>`
+                : item.fed_instance_id == null
+                  ? `<button class="action-btn" onclick="triggerDownload('${data}')" title="Download to Library"><i data-lucide="download"></i></button>`
+                  : ''
             }
 
-            ${item.is_local ? `<button class="action-btn" onclick="addToQueue('${data}')" title="Add to Queue"><i data-lucide="list-plus"></i></button>` : ''}
-            ${canAddToPlaylist ? `<button class="action-btn" onclick="showAddToPlaylistModal(${item.db_id})"><i data-lucide="plus"></i></button>` : ''}
+            ${item.is_local || item.fed_instance_id != null ? `<button class="action-btn" onclick="addToQueue('${data}')" title="Add to Queue"><i data-lucide="list-plus"></i></button>` : ''}
+            ${canAddToPlaylist ? `<button class="action-btn" onclick="showAddToPlaylistModal('${ui.escJs(String(item.db_id || item.id))}')"><i data-lucide="plus"></i></button>` : ''}
             ${
               item.is_local
                 ? `<button class="action-btn warning" onclick="showTrackDeleteRequestModal(${item.db_id || item.id}, '${_safeTitle}', '${_safeArtist}')" title="Request deletion"><i data-lucide="flag"></i></button>`
                 : ''
             }
 
-            ${playlistId ? `<button class="action-btn-danger" onclick="showRemoveFromPlaylistModal(${playlistId}, ${item.id}, '${_safeTitle}', ${Number(item.playlist_item_id) || 'null'})"><i data-lucide="trash-2"></i></button>` : ''}
+            ${playlistId ? `<button class="action-btn-danger" onclick="showRemoveFromPlaylistModal('${ui.escJs(String(playlistId))}', '${ui.escJs(String(item.id))}', '${_safeTitle}', ${Number(item.playlist_item_id) || 'null'})"><i data-lucide="trash-2"></i></button>` : ''}
 
             <!-- Mobile-only source-of-origin glyph; shown via CSS only at
                  <=768 px because desktop still has the full .track-source-col
@@ -1109,8 +1112,8 @@ export function createTrackRow(item, idx, playlistId = null) {
             </span>
 
             <!-- Three-dots: context menu on desktop, bottom sheet on mobile -->
-            <button class="action-btn action-btn-more"
-                    onclick="openTrackMenu('${data}', ${playlistId || 'null'}, this)"
+            <button class="action-btn action-btn-more" data-track="${data}" data-playlist="${ui.escHtml(playlistId || '')}"
+                    onclick="openTrackMenu('${data}', ${playlistId == null ? 'null' : `'${ui.escJs(String(playlistId))}'`}, this)"
                     title="More options">
                 <i data-lucide="more-vertical"></i>
             </button>
@@ -1129,7 +1132,7 @@ export function createPlaylistTrackRow(item, idx, playlistId = null) {
   const data = btoa(encodeURIComponent(JSON.stringify(item)));
   const src = item.source || 'local';
   const isLiked = state.userFavorites.has(item.db_id || item.id);
-  const canAddToPlaylist = item.is_local && item.db_id;
+  const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
   const isActive = item.id === state.currentTrack?.id;
   const isOfflineAvailable = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
   const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
@@ -1166,14 +1169,18 @@ export function createPlaylistTrackRow(item, idx, playlistId = null) {
         <div class="track-album-col" title="${ui.escHtml(item.album || '')}">${ui.escHtml(item.album || '')}</div>
         <div class="track-source-col"><span class="source-badge ${src}">${src}</span></div>
         <div class="track-duration-col" onclick="event.stopPropagation()">
-            <button class="action-btn-inline ${isLiked ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${item.db_id || item.id}, this)" title="${isLiked ? 'Unlike' : 'Like'}">
+            ${
+              item.is_local
+                ? `<button class="action-btn-inline ${isLiked ? 'liked' : ''}" onclick="event.stopPropagation(); toggleFavorite(${item.db_id || item.id}, this)" title="${isLiked ? 'Unlike' : 'Like'}">
                 <i data-lucide="heart"></i>
-            </button>
-            ${canAddToPlaylist ? `<button class="action-btn-inline" onclick="event.stopPropagation(); showAddToPlaylistModal(${item.db_id})" title="Add to playlist"><i data-lucide="plus"></i></button>` : ''}
-            ${playlistId ? `<button class="action-btn-inline danger" onclick="event.stopPropagation(); showRemoveFromPlaylistModal(${playlistId}, ${item.id}, '${_safeTitle}', ${Number(item.playlist_item_id) || 'null'})" title="Remove from playlist"><i data-lucide="trash-2"></i></button>` : ''}
+            </button>`
+                : ''
+            }
+            ${canAddToPlaylist ? `<button class="action-btn-inline" onclick="event.stopPropagation(); showAddToPlaylistModal('${ui.escJs(String(item.db_id || item.id))}')" title="Add to playlist"><i data-lucide="plus"></i></button>` : ''}
+            ${playlistId ? `<button class="action-btn-inline danger" onclick="event.stopPropagation(); showRemoveFromPlaylistModal('${ui.escJs(String(playlistId))}', '${ui.escJs(String(item.id))}', '${_safeTitle}', ${Number(item.playlist_item_id) || 'null'})" title="Remove from playlist"><i data-lucide="trash-2"></i></button>` : ''}
             <span class="track-duration">${duration}</span>
-            <button class="action-btn action-btn-more"
-                    onclick="event.stopPropagation(); openTrackMenu('${data}', ${playlistId || 'null'}, this)"
+            <button class="action-btn action-btn-more" data-track="${data}" data-playlist="${ui.escHtml(playlistId || '')}"
+                    onclick="event.stopPropagation(); openTrackMenu('${data}', ${playlistId == null ? 'null' : `'${ui.escJs(String(playlistId))}'`}, this)"
                     title="More options">
                 <i data-lucide="more-vertical"></i>
             </button>
@@ -1200,7 +1207,7 @@ export function showTrackActionsSheet(encodedData, playlistId) {
   const item = JSON.parse(decodeURIComponent(atob(encodedData)));
   const isLiked = state.userFavorites.has(item.db_id || item.id);
   const canLike = item.is_local && item.db_id;
-  const canAddToPlaylist = item.is_local && item.db_id;
+  const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
   const img = item.thumbnail || '/static/img/default_cover.png';
   const safeTitle = ui.escJs(item.title || 'Unknown');
   const safeArtist = ui.escJs(item.artist || 'Unknown');
@@ -1220,7 +1227,7 @@ export function showTrackActionsSheet(encodedData, playlistId) {
         <i data-lucide="heart"></i><span>${isLiked ? 'Unlike' : 'Like'}</span>
       </button>`);
   }
-  if (!item.is_local) {
+  if (!item.is_local && item.fed_instance_id == null) {
     actions.push(`
       <button class="tas-action-btn" onclick="triggerDownload('${encodedData}'); closeTrackActionsSheet()">
         <i data-lucide="download"></i><span>Download to Library</span>
@@ -1253,9 +1260,13 @@ export function showTrackActionsSheet(encodedData, playlistId) {
       `<button class="tas-action-btn" onclick="addLibraryTrackToParty('${encodedData}'); closeTrackActionsSheet()"><i data-lucide="radio-tower"></i><span>Add to Party Queue</span></button>`
     );
   }
+  if (item.fed_instance_id != null)
+    actions.push(
+      `<button class="tas-action-btn" onclick="addToQueue('${encodedData}'); closeTrackActionsSheet()"><i data-lucide="list-plus"></i><span>Add to Queue</span></button>`
+    );
   if (canAddToPlaylist) {
     actions.push(`
-      <button class="tas-action-btn" onclick="showAddToPlaylistModal(${item.db_id}); closeTrackActionsSheet()">
+      <button class="tas-action-btn" onclick="showAddToPlaylistModal('${ui.escJs(String(item.db_id || item.id))}'); closeTrackActionsSheet()">
         <i data-lucide="plus"></i><span>Add to Playlist</span>
       </button>`);
   }
@@ -1269,7 +1280,7 @@ export function showTrackActionsSheet(encodedData, playlistId) {
   if (playlistId) {
     actions.push(`
       <button class="tas-action-btn danger"
-              onclick="showRemoveFromPlaylistModal(${playlistId}, ${item.id}, '${safeTitle}', ${Number(item.playlist_item_id) || 'null'}); closeTrackActionsSheet()">
+              onclick="showRemoveFromPlaylistModal('${ui.escJs(String(playlistId))}', '${ui.escJs(String(item.id))}', '${safeTitle}', ${Number(item.playlist_item_id) || 'null'}); closeTrackActionsSheet()">
         <i data-lucide="trash-2"></i><span>Remove from Playlist</span>
       </button>`);
   }
@@ -1344,7 +1355,7 @@ export function showContextMenu(encodedData, playlistId, x, y) {
   const item = JSON.parse(decodeURIComponent(atob(encodedData)));
   const isLiked = state.userFavorites.has(item.db_id || item.id);
   const canLike = item.is_local && item.db_id;
-  const canAddToPlaylist = item.is_local && item.db_id;
+  const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
   const safeTitle = ui.escJs(item.title || 'Unknown');
   const safeArtist = ui.escJs(item.artist || 'Unknown');
   const img = item.thumbnail || '/static/img/default_cover.png';
@@ -1359,7 +1370,7 @@ export function showContextMenu(encodedData, playlistId, x, y) {
     actions.push(`<div class="ctx-item ${isLiked ? 'liked' : ''}" onclick="toggleFavorite(${item.db_id}, null); closeContextMenu()">
       <i data-lucide="heart"></i><span>${isLiked ? 'Remove from Liked' : 'Save to Liked'}</span></div>`);
   }
-  if (!item.is_local) {
+  if (!item.is_local && item.fed_instance_id == null) {
     actions.push(`<div class="ctx-item" onclick="triggerDownload('${encodedData}'); closeContextMenu()">
       <i data-lucide="download"></i><span>Download to Library</span></div>`);
   }
@@ -1384,8 +1395,12 @@ export function showContextMenu(encodedData, playlistId, x, y) {
       `<div class="ctx-item" onclick="addLibraryTrackToParty('${encodedData}'); closeContextMenu()"><i data-lucide="radio-tower"></i><span>Add to Party Queue</span></div>`
     );
   }
+  if (item.fed_instance_id != null)
+    actions.push(
+      `<div class="ctx-item" onclick="addToQueue('${encodedData}'); closeContextMenu()"><i data-lucide="list-plus"></i><span>Add to Queue</span></div>`
+    );
   if (canAddToPlaylist) {
-    actions.push(`<div class="ctx-item" onclick="openAddToPlaylistFlyout(${item.db_id}, this)">
+    actions.push(`<div class="ctx-item" onclick="openAddToPlaylistFlyout('${ui.escJs(String(item.db_id || item.id))}', this)">
       <i data-lucide="plus"></i><span>Add to Playlist</span></div>`);
   }
   // Smart radio + artist nav — available for any track
@@ -1400,7 +1415,7 @@ export function showContextMenu(encodedData, playlistId, x, y) {
   }
   if (playlistId) {
     actions.push(`<div class="ctx-sep"></div>`);
-    actions.push(`<div class="ctx-item danger" onclick="showRemoveFromPlaylistModal(${playlistId}, ${item.id}, '${safeTitle}', ${Number(item.playlist_item_id) || 'null'}); closeContextMenu()">
+    actions.push(`<div class="ctx-item danger" onclick="showRemoveFromPlaylistModal('${ui.escJs(String(playlistId))}', '${ui.escJs(String(item.id))}', '${safeTitle}', ${Number(item.playlist_item_id) || 'null'}); closeContextMenu()">
       <i data-lucide="trash-2"></i><span>Remove from Playlist</span></div>`);
   }
 
@@ -1438,15 +1453,9 @@ export function initContextMenu() {
     const row = e.target.closest('.track-row');
     if (!row) return;
     e.preventDefault();
-    // Extract the encoded track data from the three-dots button's
-    // onclick attribute. The regex grabs the first two arguments
-    // (encoded data + playlistId), ignoring the optional `this` arg.
     const moreBtn = row.querySelector('.action-btn-more');
-    if (moreBtn) {
-      const oc = moreBtn.getAttribute('onclick') || '';
-      const m = oc.match(/(?:openTrackMenu|showTrackActionsSheet)\('([^']+)',\s*(null|[\d]+)/);
-      if (m) showContextMenu(m[1], m[2] === 'null' ? null : Number(m[2]), e.clientX, e.clientY);
-    }
+    if (moreBtn?.dataset.track)
+      showContextMenu(moreBtn.dataset.track, moreBtn.dataset.playlist || null, e.clientX, e.clientY);
   });
 }
 
@@ -1503,7 +1512,7 @@ export function handleCardClick(data, cardElement) {
     }
   }
 
-  if (track.is_local) player.playTrack(track);
+  if (track.is_local || track.fed_instance_id != null) player.playTrack(track);
   else downloads.triggerDownload(track);
 }
 
@@ -1539,7 +1548,7 @@ function _sidebarPlaylistRow(pl) {
           : 'Playlist';
   return `
     <a class="sidebar-item" data-sb-key="playlist-${pl.id}"
-       onclick="loadView('playlist', ${pl.id})" title="${name}">
+       onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')" title="${name}">
         <div class="sidebar-cover">
             ${
               thumb
@@ -1694,6 +1703,7 @@ export async function refreshRecentActivity() {
 }
 
 export async function trackRecentPlaylist(playlistId) {
+  if (!/^\d+$/.test(String(playlistId))) return;
   if (!playlistId) return;
   try {
     await fetch(`${state.API}/recent-activity/playlist`, {
@@ -2427,7 +2437,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
             const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
             const count = pl.tracks ? pl.tracks.length : pl.track_count || 0;
             return `
-              <div class="offline-playlist-card" onclick="loadView('playlist', ${pl.id})">
+              <div class="offline-playlist-card" onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')">
                 <div class="offline-playlist-card-cover">
                   ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
                 </div>
@@ -2436,10 +2446,10 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
                   <div class="offline-playlist-card-sub">${count} ${count === 1 ? 'song' : 'songs'} · Offline</div>
                 </div>
                 <div class="offline-playlist-card-actions" onclick="event.stopPropagation()">
-                  <button class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', ${pl.id}).then(() => playPlaylistInOrder())" title="Play Playlist">
+                  <button class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', '${ui.escJs(String(pl.id))}').then(() => playPlaylistInOrder())" title="Play Playlist">
                     <i data-lucide="play" width="14" height="14"></i> Play
                   </button>
-                  <button class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', ${pl.id})" title="Open Playlist">
+                  <button class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', '${ui.escJs(String(pl.id))}')" title="Open Playlist">
                     <i data-lucide="external-link" width="14" height="14"></i> Open
                   </button>
                   <button class="btn-danger-outline" style="padding: 6px 10px; font-size: 0.8rem;" onclick="event.stopPropagation(); deleteOfflinePlaylistAction(${pl.id})" title="Remove Offline Copy">
@@ -2728,6 +2738,7 @@ export async function renderProfile(container, username) {
     return;
   }
 
+  username = profile.username || username;
   const stats = profile.stats || {};
   const playlists = profile.public_playlists || [];
   const favorites = profile.favorites || [];
@@ -2742,7 +2753,7 @@ export async function renderProfile(container, username) {
     playlistsHtml = `
       <section class="shelf-section home-shelf">
         <div class="shelf-header">
-          <h2 class="shelf-title">Public Playlists (${playlists.length})</h2>
+          <h2 class="shelf-title">Public Playlists & Albums (${playlists.length})</h2>
         </div>
         <div class="library-cards-grid">
           ${playlists.map(window.createPlaylistCard).join('')}
@@ -2781,7 +2792,7 @@ export async function renderProfile(container, username) {
             <button class="btn-secondary" onclick="loadView('artist', '${ui.escJs(a.artist)}')" style="display:inline-flex; align-items:center; gap:8px;">
               <i data-lucide="user-round" width="14" height="14"></i>
               <span>${ui.escHtml(a.artist)}</span>
-              <small style="opacity:0.65; margin-left:4px;">${a.count} plays</small>
+              <small style="opacity:0.65; margin-left:4px;">${Number(a.count) || 0} plays</small>
             </button>
           `
             )
@@ -2797,20 +2808,20 @@ export async function renderProfile(container, username) {
       </button>
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
         <div class="profile-avatar-large" style="width:116px; height:116px; border-radius:50%; overflow:hidden; border:2px solid rgba(255,255,255,0.18); flex-shrink:0; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
-          <img src="${avatarUrl}" alt="${ui.escHtml(username)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+          <img src="${ui.escHtml(avatarUrl)}" alt="${ui.escHtml(username)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
         </div>
         <div style="flex:1; min-width:220px;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
             <span class="hero-kicker" style="margin:0;">${ui.t('profile.profile', 'Profile')}</span>
             <span class="status-badge finished" style="font-size:0.75rem; text-transform:uppercase;">${profile.is_admin ? ui.t('common.admin', 'Admin') : ui.t('common.member', 'Member')}</span>
           </div>
-          <h1 class="hero-greeting" style="font-size: clamp(2rem, 4vw, 3rem); margin: 4px 0 10px 0;">${ui.escHtml(username)}</h1>
+          <h1 class="hero-greeting" style="font-size: clamp(2rem, 4vw, 3rem); margin: 4px 0 10px 0;">${ui.escHtml(username)}${profile.is_federated ? ` <small class="source-badge federation">${ui.escHtml(profile.fed_instance_name)}</small>` : ''}</h1>
           
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
             <div class="user-stat-chip"><i data-lucide="list-music" width="14" height="14"></i> <strong>${playlists.length}</strong> ${ui.t('library.playlists', 'Playlists')}</div>
             <div class="user-stat-chip"><i data-lucide="heart" width="14" height="14"></i> <strong>${favorites.length}</strong> ${ui.t('menu.liked', 'Favorites')}</div>
-            <div class="user-stat-chip"><i data-lucide="headphones" width="14" height="14"></i> <strong>${stats.total_listens || 0}</strong> ${ui.t('common.plays', 'Listens')}</div>
-            <div class="user-stat-chip"><i data-lucide="clock" width="14" height="14"></i> <strong>${stats.listening_minutes || 0}</strong> Mins</div>
+            <div class="user-stat-chip"><i data-lucide="headphones" width="14" height="14"></i> <strong>${Number(stats.total_listens) || 0}</strong> ${ui.t('common.plays', 'Listens')}</div>
+            <div class="user-stat-chip"><i data-lucide="clock" width="14" height="14"></i> <strong>${Number(stats.listening_minutes) || 0}</strong> Mins</div>
           </div>
 
           ${
@@ -2850,12 +2861,12 @@ export async function renderCommunity(container) {
 
   function renderUserCard(u) {
     return `
-      <div class="user-profile-card" onclick="loadView('profile', '${ui.escJs(u.username)}')">
+      <div class="user-profile-card" onclick="loadView('profile', '${ui.escJs(u.profile_key || u.username)}')">
         <div class="user-profile-card-avatar">
-          <img src="${u.avatar_url}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
+          <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
         </div>
         <div class="user-profile-card-name">
-          <span>${ui.escHtml(u.username)}</span>
+          <span>${ui.escHtml(u.username)}${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>
           ${u.is_admin ? `<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">${ui.t('common.admin', 'Admin')}</span>` : ''}
         </div>
         <div class="user-profile-card-meta">

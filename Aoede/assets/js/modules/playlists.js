@@ -15,7 +15,7 @@ let creatingKind = 'playlist';
 function collectionLabel(id) {
   const kind =
     document.getElementById(`playlist-title-${id}`)?.dataset?.kind ||
-    state.userPlaylists?.find((playlist) => Number(playlist.id) === Number(id))?.kind;
+    state.userPlaylists?.find((playlist) => String(playlist.id) === String(id))?.kind;
   return kind === 'album' ? 'Album' : 'Playlist';
 }
 document.addEventListener('aoede:modalclosed', () => {
@@ -50,17 +50,22 @@ export function startPlaylistCreation(collaborative, kind = 'playlist') {
 async function collaboratorsRequest(playlistId, method = 'GET', userId = null) {
   if (!navigator.onLine) throw new Error('Connect to manage collaborators.');
   const response = await fetch(
-    `${state.API}/playlists/${playlistId}/collaborators${userId === null ? '' : `/${userId}`}`,
+    api.playlistPath(playlistId, `/collaborators${userId === null ? '' : `/${encodeURIComponent(userId)}`}`),
     {
       method,
       headers: { 'Content-Type': 'application/json' },
       ...(method === 'POST'
-        ? { body: JSON.stringify({ username: document.getElementById('collaborator-username')?.value.trim() || '' }) }
+        ? {
+            body: JSON.stringify({
+              username: document.getElementById('collaborator-username')?.value.trim() || '',
+              profile_key: document.getElementById('collaborator-username')?.dataset.profileKey || undefined
+            })
+          }
         : {})
     }
   );
   const data = await response.json();
-  if (!response.ok) throw new Error(data.error || 'Unable to update collaborators.');
+  if (!response.ok) throw new Error(data.error || data.detail || 'Unable to update collaborators.');
   return data;
 }
 
@@ -72,10 +77,12 @@ export async function showCollaboratorsModal(playlistId) {
       collaboratorsRequest(playlistId),
       api.fetchUsersList().catch(() => [])
     ]);
-    const existingMemberNames = new Set(data.members.map((m) => m.username.toLowerCase()));
+    const existingMembers = new Set(data.members.map((m) => m.profile_key || m.username.toLowerCase()));
     const currentUser = (window.USER_DATA?.username || '').toLowerCase();
     cachedServerUsers = (usersList || []).filter(
-      (u) => !existingMemberNames.has(u.username.toLowerCase()) && u.username.toLowerCase() !== currentUser
+      (u) =>
+        !existingMembers.has(u.profile_key || u.username.toLowerCase()) &&
+        (u.is_federated || u.username.toLowerCase() !== currentUser)
     );
     const availableUsers = cachedServerUsers;
 
@@ -83,7 +90,7 @@ export async function showCollaboratorsModal(playlistId) {
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal modal-create" role="dialog" aria-modal="true" aria-labelledby="collaborators-title" style="max-width:520px; max-height:85vh; display:flex; flex-direction:column;">
           <div class="modal-header"><h2 id="collaborators-title">Collaborators</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
-          <p class="modal-subtitle" style="margin-bottom:14px;">Invite someone on this Aoede server. They can add, remove, and reorder songs. You control sharing and deletion.</p>
+          <p class="modal-subtitle" style="margin-bottom:14px;">Invite a listener on this server or a connected node. They can add, remove, and reorder songs. You control sharing and deletion.</p>
           
           ${
             data.is_owner
@@ -98,10 +105,10 @@ export async function showCollaboratorsModal(playlistId) {
               ${availableUsers
                 .map(
                   (u) => `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.username)}', ${playlistId})">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.profile_key || u.username)}', ${playlistId})">
                   <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="${u.avatar_url}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
-                    <span><strong>${ui.escHtml(u.username)}</strong></span>
+                    <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+                    <span><strong>${ui.escHtml(u.username)}</strong>${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>
                   </div>
                   <span class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;">Select</span>
                 </div>`
@@ -121,8 +128,8 @@ export async function showCollaboratorsModal(playlistId) {
                       .map(
                         (member) => `
                 <div class="collaborator-row" style="display:flex; align-items:center; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.03); border-radius:6px;">
-                  <span><strong>${ui.escHtml(member.username)}</strong></span>
-                  ${data.is_owner ? `<button class="btn-secondary" onclick="updateCollaborator(${playlistId}, 'DELETE', ${Number(member.id)})" aria-label="Remove ${ui.escHtml(member.username)}">Remove</button>` : ''}
+                  <span><strong>${ui.escHtml(member.username)}</strong>${member.is_federated ? ` @ ${ui.escHtml(member.fed_instance_name)}` : ''}</span>
+                  ${data.is_owner ? `<button class="btn-secondary" onclick="updateCollaborator(${playlistId}, 'DELETE', '${ui.escJs(String(member.id))}')" aria-label="Remove ${ui.escHtml(member.username)}">Remove</button>` : ''}
                 </div>`
                       )
                       .join('')
@@ -143,7 +150,11 @@ window.filterCollaboratorUsers = function (query, playlistId) {
   const suggestions = document.getElementById('collab-user-suggestions');
   if (!suggestions) return;
   const q = (query || '').trim().toLowerCase();
-  const filtered = cachedServerUsers.filter((u) => u.username.toLowerCase().includes(q));
+  const input = document.getElementById('collaborator-username');
+  if (input) delete input.dataset.profileKey;
+  const filtered = cachedServerUsers.filter((u) =>
+    `${u.username} ${u.fed_instance_name || ''}`.toLowerCase().includes(q)
+  );
 
   if (!filtered.length) {
     suggestions.style.display = 'none';
@@ -155,10 +166,10 @@ window.filterCollaboratorUsers = function (query, playlistId) {
   suggestions.innerHTML = filtered
     .map(
       (u) => `
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.username)}', ${playlistId})">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.profile_key || u.username)}', ${playlistId})">
       <div style="display:flex; align-items:center; gap:8px;">
-        <img src="${u.avatar_url}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
-        <span><strong>${ui.escHtml(u.username)}</strong></span>
+        <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+        <span><strong>${ui.escHtml(u.username)}</strong>${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>
       </div>
       <span class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;">Select</span>
     </div>`
@@ -166,9 +177,14 @@ window.filterCollaboratorUsers = function (query, playlistId) {
     .join('');
 };
 
-window.selectCollabUser = function (username, playlistId) {
+window.selectCollabUser = function (key, playlistId) {
+  const user = cachedServerUsers.find((u) => (u.profile_key || u.username) === key);
+  if (!user) return;
   const input = document.getElementById('collaborator-username');
-  if (input) input.value = username;
+  if (input) {
+    input.value = user.username;
+    input.dataset.profileKey = user.profile_key || '';
+  }
   if (typeof window.submitInviteCollaborator === 'function') {
     window.submitInviteCollaborator(playlistId);
   }
@@ -195,7 +211,13 @@ export async function updateCollaborator(playlistId, method, userId = null) {
 export async function leaveCollaborativePlaylist(playlistId) {
   try {
     const data = await collaboratorsRequest(playlistId);
-    const self = data.members.find((member) => member.username === window.USER_DATA?.username);
+    const self = data.members.find(
+      (member) =>
+        String(member.id) === String(data.viewer_member_id) ||
+        (!member.is_federated &&
+          !String(playlistId).startsWith('fed_') &&
+          member.username === window.USER_DATA?.username)
+    );
     if (!self || !(await ui.confirmDialog({ message: 'Leave this collaborative playlist?', confirmLabel: 'Leave' })))
       return;
     await collaboratorsRequest(playlistId, 'DELETE', self.id);
@@ -210,11 +232,11 @@ export async function leaveCollaborativePlaylist(playlistId) {
 
 export async function renderPlaylist(container, playlistId) {
   let data = null;
-  const numId = Number(playlistId);
+  const numId = /^fed_\d+_\d+$/.test(String(playlistId)) ? String(playlistId) : Number(playlistId);
 
   try {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
-      const res = await fetch(`${state.API}/playlists/${numId}`);
+      const res = await fetch(api.playlistPath(numId));
       if ([401, 403, 404].includes(res.status)) {
         container.innerHTML = '<div class="empty-state"><p>This playlist is no longer available to you.</p></div>';
         return;
@@ -263,12 +285,17 @@ export async function renderPlaylist(container, playlistId) {
     return;
   }
 
-  const tracks = (data.tracks || []).map((t) => ({
-    ...t,
-    db_id: t.track_id || t.id || t.db_id,
-    id: t.track_id || t.id || t.db_id,
-    is_local: true
-  }));
+  const tracks = (data.tracks || []).map((t) =>
+    t.fed_instance_id != null
+      ? t
+      : {
+          ...t,
+          db_id: t.track_id || t.db_id || t.id,
+          id: t.track_id || t.id || t.db_id,
+          is_local: true,
+          source: t.source || 'local'
+        }
+  );
   state.setCurrentViewList(tracks);
 
   const thumb = data.thumbnail || '/static/img/default_cover.png';
@@ -279,10 +306,12 @@ export async function renderPlaylist(container, playlistId) {
   const isEditable = Boolean(data.is_editable);
   const isSmart = Boolean(data.is_smart);
   playlistRevision = data.revision ?? null;
-  const isSyncedCopy = Boolean(data.source_playlist_id);
-  const sourcePlaylistAvailable = Boolean(data.source_playlist_exists && data.source_playlist_public);
+  const isSyncedCopy = Boolean(data.source_playlist_id || data.source_remote_playlist_id);
+  const sourcePlaylistAvailable = Boolean(
+    data.source_instance_id || (data.source_playlist_exists && data.source_playlist_public)
+  );
   const ownerLabel = data.owner_username
-    ? `By <a class="artist-link" onclick="loadView('profile', '${ui.escJs(data.owner_username)}')" style="cursor:pointer; font-weight:600;">${ui.escHtml(data.owner_username)}</a>`
+    ? `By <a class="artist-link" onclick="loadView('profile', '${ui.escJs(data.owner_profile_key || data.owner_username)}')" style="cursor:pointer; font-weight:600;">${ui.escHtml(data.owner_username)}</a>`
     : '';
   const sourceBadge = isSyncedCopy
     ? '<span class="source-badge musicbrainz" style="margin-left:8px;">Synced copy</span>'
@@ -338,7 +367,7 @@ export async function renderPlaylist(container, playlistId) {
   const copyButton =
     !isOwner && isPublic
       ? `
-        <button onclick="copyPublicPlaylist(${playlistId})" class="btn-secondary-lg playlist-action-btn" title="Create / Sync Copy" aria-label="Create / Sync Copy">
+        <button onclick="copyPublicPlaylist('${ui.escJs(String(playlistId))}')" class="btn-secondary-lg playlist-action-btn" title="Create / Sync Copy" aria-label="Create / Sync Copy">
             <i data-lucide="copy-plus" width="20" height="20"></i>
             <span class="playlist-btn-label">Create / Sync Copy</span>
         </button>`
@@ -349,7 +378,7 @@ export async function renderPlaylist(container, playlistId) {
         ${
           sourcePlaylistAvailable
             ? `
-        <button onclick="copyPublicPlaylist(${data.source_playlist_id})" class="btn-secondary-lg playlist-action-btn" title="Sync from Source" aria-label="Sync from Source">
+        <button onclick="copyPublicPlaylist('${ui.escJs(String(data.source_instance_id ? `fed_${data.source_instance_id}_${data.source_remote_playlist_id}` : data.source_playlist_id))}')" class="btn-secondary-lg playlist-action-btn" title="Sync from Source" aria-label="Sync from Source">
             <i data-lucide="refresh-cw" width="20" height="20"></i>
             <span class="playlist-btn-label">Sync from Source</span>
         </button>`
@@ -366,18 +395,19 @@ export async function renderPlaylist(container, playlistId) {
           <i data-lucide="refresh-cw" width="20" height="20"></i><span class="playlist-btn-label">Refresh</span>
         </button>`
       : '';
-  const downloadedInPlaylist = (data.tracks || []).filter((t) =>
+  const downloadableTracks = tracks.filter((track) => track.is_local && track.db_id);
+  const downloadedInPlaylist = downloadableTracks.filter((t) =>
     offlineStore.isTrackAvailableOfflineSync(t.track_id || t.id || t.db_id)
   );
-  const isFullyDownloaded = trackCount > 0 && downloadedInPlaylist.length === trackCount;
+  const isFullyDownloaded = downloadableTracks.length > 0 && downloadedInPlaylist.length === downloadableTracks.length;
   const isPartiallyDownloaded = downloadedInPlaylist.length > 0 && !isFullyDownloaded;
 
   const offlineButton =
-    trackCount > 0
+    downloadableTracks.length > 0
       ? `
         <button id="pl-offline-btn-${playlistId}" onclick="togglePlaylistOfflineDownload(${playlistId})" class="btn-secondary playlist-offline-btn ${isFullyDownloaded ? 'downloaded' : isPartiallyDownloaded ? 'partial' : ''}" title="${isFullyDownloaded ? 'Downloaded offline · Tap to manage' : `Download ${data.kind === 'album' ? 'album' : 'playlist'} for offline listening`}">
             <i data-lucide="${isFullyDownloaded ? 'check-circle' : 'arrow-down-circle'}" width="16" height="16"></i>
-            <span>${isFullyDownloaded ? 'Downloaded' : isPartiallyDownloaded ? `Download (${downloadedInPlaylist.length}/${trackCount})` : 'Download'}</span>
+            <span>${isFullyDownloaded ? 'Downloaded' : isPartiallyDownloaded ? `Download (${downloadedInPlaylist.length}/${downloadableTracks.length})` : downloadableTracks.length < trackCount ? 'Download local songs' : 'Download'}</span>
         </button>`
       : '';
 
@@ -393,20 +423,20 @@ export async function renderPlaylist(container, playlistId) {
         ${data.import_pending || data.import_failed ? `<p class="modal-subtitle" role="status">${Number(data.import_pending || 0)} songs still downloading · ${Number(data.import_failed || 0)} failed. <button class="btn-secondary" onclick="openDownloadsModal(${Number(playlistId)})">View downloads / retry</button></p>` : ''}
         <div class="playlist-header-section">
             <div class="playlist-cover-large">
-                ${hasThumb ? `<img src="${thumb}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
+                ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
                 ${coverControls}
             </div>
             <div class="playlist-info">
                 <p class="playlist-type">${data.kind === 'album' ? 'Album' : isSmart ? 'Smart playlist' : data.is_collaborative ? 'Collaborative playlist' : 'Playlist'}</p>
                 <div class="playlist-title-row">
-                    <h1 class="playlist-title" id="playlist-title-${playlistId}" data-kind="${data.kind === 'album' ? 'album' : 'playlist'}">${ui.escHtml(data.name || 'Playlist')}</h1>
+                    <h1 class="playlist-title" id="playlist-title-${playlistId}" data-revision="${Number(data.revision) || 0}" data-kind="${data.kind === 'album' ? 'album' : 'playlist'}">${ui.escHtml(data.name || 'Playlist')}</h1>
                     ${ownerControls}
                 </div>
                 <p class="playlist-stats">
                     ${ownerLabel ? `<span>${ownerLabel}</span><span class="playlist-stats-dot">·</span>` : ''}
                     <span>${trackCount} ${trackCount === 1 ? 'song' : 'songs'}</span>
                     ${totalLabel ? `<span class="playlist-stats-dot">·</span><span>${totalLabel}</span>` : ''}
-                    ${visibilityBadge}${sourceBadge}${smartBadge}
+                    ${visibilityBadge}${sourceBadge}${smartBadge}${data.is_federated ? `<span class="source-badge federation">${ui.escHtml(data.fed_instance_name)}</span>` : ''}
                 </p>
                 <div class="playlist-actions">
                     ${
@@ -427,7 +457,7 @@ export async function renderPlaylist(container, playlistId) {
                     ${syncButton}
                     ${smartRefreshButton}
                     ${isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="showCollaboratorsModal(${numId})"><i data-lucide="users" width="20"></i><span class="playlist-btn-label">Collaborators</span></button>` : ''}
-                    ${!isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="leaveCollaborativePlaylist(${numId})"><i data-lucide="log-out" width="20"></i><span class="playlist-btn-label">Leave ${data.kind === 'album' ? 'album' : 'playlist'}</span></button>` : ''}
+                    ${!isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="leaveCollaborativePlaylist('${ui.escJs(String(numId))}')"><i data-lucide="log-out" width="20"></i><span class="playlist-btn-label">Leave ${data.kind === 'album' ? 'album' : 'playlist'}</span></button>` : ''}
                     ${deleteButton}
                 </div>
             </div>
@@ -445,18 +475,14 @@ export async function renderPlaylist(container, playlistId) {
                 ${state.currentViewList
                   .map((t, i) =>
                     window.createPlaylistTrackRow
-                      ? window.createPlaylistTrackRow(
-                          { ...t, is_local: true, source: 'local' },
-                          i,
-                          isEditable ? playlistId : null
-                        )
+                      ? window.createPlaylistTrackRow(t, i, isEditable ? playlistId : null)
                       : ''
                   )
                   .join('')}
               </div>`
             : `<div class="empty-state glass-panel"><p>This ${data.kind === 'album' ? 'album' : 'playlist'} is empty.</p></div>`
         }`;
-  lucide.createIcons();
+  ui.refreshIcons(container);
   if (isEditable && trackCount > 0) {
     initPlaylistDragDrop(container, playlistId);
   }
@@ -561,7 +587,7 @@ function initPlaylistDragDrop(container, playlistId) {
     });
 
     // Persist to server
-    const items = newOrder.map((t, i) => ({ track_id: t.db_id || t.id, position: i + 1 }));
+    const items = newOrder.map((t, i) => ({ track_id: t.db_id || t.id, item_id: t.playlist_item_id, position: i + 1 }));
     const result = await api.reorderPlaylistApi(playlistId, items, playlistRevision);
     if (result?.ok) {
       playlistRevision = result.revision;
@@ -575,7 +601,7 @@ function initPlaylistDragDrop(container, playlistId) {
 
 function showReorderMenu(playlistId, index) {
   document.getElementById('modal-container').innerHTML =
-    `<div class="modal-overlay" onclick="if(event.target===this) closeModal()"><div class="modal" role="dialog" aria-modal="true" aria-label="Reorder song"><h2>Move song</h2><div class="modal-actions"><button class="btn-secondary" ${index === 0 ? 'disabled' : ''} onclick="movePlaylistTrack(${playlistId}, ${index}, -1)">Move up</button><button class="btn-secondary" ${index === state.currentViewList.length - 1 ? 'disabled' : ''} onclick="movePlaylistTrack(${playlistId}, ${index}, 1)">Move down</button><button class="btn-secondary" onclick="closeModal()">Cancel</button></div></div></div>`;
+    `<div class="modal-overlay" onclick="if(event.target===this) closeModal()"><div class="modal" role="dialog" aria-modal="true" aria-label="Reorder song"><h2>Move song</h2><div class="modal-actions"><button class="btn-secondary" ${index === 0 ? 'disabled' : ''} onclick="movePlaylistTrack('${ui.escJs(String(playlistId))}', ${index}, -1)">Move up</button><button class="btn-secondary" ${index === state.currentViewList.length - 1 ? 'disabled' : ''} onclick="movePlaylistTrack('${ui.escJs(String(playlistId))}', ${index}, 1)">Move down</button><button class="btn-secondary" onclick="closeModal()">Cancel</button></div></div></div>`;
   ui.focusModal();
 }
 
@@ -586,7 +612,7 @@ export async function movePlaylistTrack(playlistId, index, direction) {
   [tracks[index], tracks[target]] = [tracks[target], tracks[index]];
   const result = await api.reorderPlaylistApi(
     playlistId,
-    tracks.map((track, i) => ({ track_id: track.db_id || track.id, position: i + 1 })),
+    tracks.map((track, i) => ({ track_id: track.db_id || track.id, item_id: track.playlist_item_id, position: i + 1 })),
     playlistRevision
   );
   ui.closeModal();
@@ -631,7 +657,7 @@ export async function handlePlaylistCoverUpload(playlistId, input) {
   formData.append('cover_file', file);
 
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/cover/upload`, {
+    const res = await fetch(api.playlistPath(playlistId, `/cover/upload`), {
       method: 'POST',
       body: formData
     });
@@ -689,7 +715,7 @@ export function showPlaylistCoverTrackModal(playlistId) {
 
 export async function setPlaylistCoverFromTrack(playlistId, trackId) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/cover/track`, {
+    const res = await fetch(api.playlistPath(playlistId, `/cover/track`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ track_id: trackId })
@@ -711,7 +737,7 @@ export async function setPlaylistCoverFromTrack(playlistId, trackId) {
 
 export async function resetPlaylistCover(playlistId) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/cover`, { method: 'DELETE' });
+    const res = await fetch(api.playlistPath(playlistId, `/cover`), { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) {
       ui.showToast(data.error || 'Failed to reset cover', 'error');
@@ -808,7 +834,7 @@ export async function showAddToPlaylistModal(trackId, anchorEl = null) {
   // on those rows. Network call is local — ~10–50 ms — so we await
   // before rendering to avoid a flicker between the two states.
   _atpAlreadyIn = new Set();
-  if (trackId && editablePlaylists.length) {
+  if (/^\d+$/.test(String(trackId)) && editablePlaylists.length) {
     try {
       const r = await fetch(`${state.API}/tracks/${trackId}/playlists`, { credentials: 'include' });
       if (r.ok) {
@@ -840,7 +866,9 @@ function _renderAddToPlaylistModal(trackId, editablePlaylists) {
       : `<i data-lucide="plus-circle" class="modal-playlist-add-icon"></i>`;
     // Member rows are NOT clickable — we communicate "already added"
     // visually and avoid the dup-add backend error entirely.
-    const clickAttr = isMember ? '' : `onclick="addToPlaylist(${p.id}, ${trackId})"`;
+    const clickAttr = isMember
+      ? ''
+      : `onclick="addToPlaylist('${ui.escJs(String(p.id))}', '${ui.escJs(String(trackId))}')"`;
     const stateClass = isMember ? 'modal-playlist-item--member' : '';
     const safeName = ui.escHtml(p.name).replace(/"/g, '&quot;');
     return `
@@ -873,7 +901,7 @@ function _renderAddToPlaylistModal(trackId, editablePlaylists) {
             </div>
             <div class="modal-list" id="modal-playlist-list">${playlistItems}</div>
             <div class="modal-actions">
-                <button class="modal-btn-primary" onclick="showCreatePlaylistModal(${trackId})">
+                <button class="modal-btn-primary" onclick="showCreatePlaylistModal(${trackId == null ? 'null' : `'${ui.escJs(String(trackId))}'`})">
                     <i data-lucide="plus"></i> New Playlist
                 </button>
             </div>
@@ -938,7 +966,7 @@ function _renderAddToPlaylistFlyout(trackId, editablePlaylists, anchorRect) {
         <input type="text" id="atp-search-input" placeholder="Find a playlist" autocomplete="off">
       </div>
       <div class="atp-list" id="atp-list">${listHtml}</div>
-      <button class="atp-new-btn" onclick="showCreatePlaylistInline(${trackId})">
+      <button class="atp-new-btn" onclick="showCreatePlaylistInline(${trackId == null ? 'null' : `'${ui.escJs(String(trackId))}'`})">
         <i data-lucide="plus"></i> New playlist
       </button>
     </div>`;
@@ -986,7 +1014,9 @@ function _renderAtpItem(p) {
   const trailing = isMember
     ? `<i data-lucide="check" class="atp-item-check"></i>`
     : `<i data-lucide="plus" class="atp-item-add"></i>`;
-  const clickAttr = isMember ? '' : `onclick="addToPlaylist(${p.id}, ${_atpTrackId})"`;
+  const clickAttr = isMember
+    ? ''
+    : `onclick="addToPlaylist('${ui.escJs(String(p.id))}', '${ui.escJs(String(_atpTrackId))}')"`;
   const stateClass = isMember ? 'atp-item--member' : '';
   return `
     <div class="atp-item ${stateClass}" ${clickAttr} data-name="${safeName}">
@@ -1028,7 +1058,7 @@ export function showCreatePlaylistInline(trackIdToAdd = null) {
       <input type="text" id="atp-create-input" class="atp-create-input" maxlength="120" placeholder="Playlist name" autocomplete="off">
       <div class="atp-create-actions">
         <button class="atp-create-cancel" onclick="_atpBackToList()">Back</button>
-        <button class="atp-create-submit" onclick="createPlaylistInline(${trackIdToAdd ?? 'null'})">
+        <button class="atp-create-submit" onclick="createPlaylistInline(${trackIdToAdd == null ? 'null' : `'${ui.escJs(String(trackIdToAdd))}'`})">
           <i data-lucide="check"></i> Create
         </button>
       </div>
@@ -1106,7 +1136,7 @@ function _atpBackToList() {
       <input type="text" id="atp-search-input" placeholder="Find a playlist" autocomplete="off">
     </div>
     <div class="atp-list" id="atp-list">${listHtml}</div>
-    <button class="atp-new-btn" onclick="showCreatePlaylistInline(${_atpTrackId ?? 'null'})">
+    <button class="atp-new-btn" onclick="showCreatePlaylistInline(${_atpTrackId == null ? 'null' : `'${ui.escJs(String(_atpTrackId))}'`})">
       <i data-lucide="plus"></i> New playlist
     </button>`;
   lucide.createIcons();
@@ -1196,7 +1226,7 @@ export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') 
                                     <strong>${ui.escHtml(t.title || 'Unknown')}</strong>
                                     <span style="color:var(--text-sub);"> · ${ui.escHtml(t.artist || 'Unknown')}</span>
                                 </span>
-                                <button type="button" class="btn-icon-circle" style="width:20px; height:20px;" onclick="removeSingleImportTrack(${t.id})">
+                                <button type="button" class="btn-icon-circle" style="width:20px; height:20px;" onclick="removeSingleImportTrack('${ui.escJs(String(t.id))}')">
                                     <i data-lucide="x" style="width:12px; height:12px;"></i>
                                 </button>
                             </div>`
@@ -1211,7 +1241,7 @@ export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') 
             </div>
             <div class="modal-actions" style="margin-top: 20px;">
                 <button class="modal-btn-cancel" onclick="closeModal()">${ui.t('common.cancel', 'Cancel')}</button>
-                <button class="modal-btn-primary" onclick="createPlaylist(${trackIdToAdd})">
+                <button class="modal-btn-primary" onclick="createPlaylist(${trackIdToAdd == null ? 'null' : `'${ui.escJs(String(trackIdToAdd))}'`})">
                     <i data-lucide="check"></i> ${ui.t('library.add_button', 'Create')}
                 </button>
             </div>
@@ -1228,7 +1258,7 @@ window.clearSelectedImportTracks = function () {
 };
 
 window.removeSingleImportTrack = function (trackId) {
-  selectedImportTracks = selectedImportTracks.filter((t) => Number(t.id) !== Number(trackId));
+  selectedImportTracks = selectedImportTracks.filter((t) => String(t.id) !== String(trackId));
   showCreatePlaylistModal(null);
 };
 
@@ -1298,7 +1328,7 @@ window.loadSourceCollectionTracks = async function (sourceVal) {
       const res = await fetch(`${state.API}/favorites`);
       if (res.ok) loadedSourceTracks = await res.json();
     } else {
-      const res = await fetch(`${state.API}/playlists/${sourceVal}`);
+      const res = await fetch(api.playlistPath(sourceVal));
       if (res.ok) {
         const data = await res.json();
         loadedSourceTracks = data.tracks || [];
@@ -1313,17 +1343,17 @@ window.loadSourceCollectionTracks = async function (sourceVal) {
     return;
   }
 
-  const existingIds = new Set(selectedImportTracks.map((t) => Number(t.id)));
+  const existingIds = new Set(selectedImportTracks.map((t) => String(t.id)));
 
   list.innerHTML = loadedSourceTracks
     .map((t) => {
       const id = t.db_id || t.id;
-      const isChecked = existingIds.has(Number(id)) || existingIds.size === 0;
+      const isChecked = existingIds.has(String(id)) || existingIds.size === 0;
       const img = t.thumbnail || '/static/img/default_cover.png';
       return `
       <label style="display:flex; align-items:center; gap:10px; padding:8px; border-radius:6px; cursor:pointer; background:rgba(255,255,255,0.04); font-size:0.88rem; transition:background 0.15s;">
           <input type="checkbox" class="import-track-checkbox" value="${id}" ${isChecked ? 'checked' : ''} style="accent-color:var(--primary); width:16px; height:16px; cursor:pointer;">
-          <img src="${img}" style="width:34px; height:34px; border-radius:4px; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
+          <img src="${ui.escHtml(img)}" style="width:34px; height:34px; border-radius:4px; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
           <div style="flex:1; min-width:0;">
               <div style="font-weight:600; color:var(--text-main); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ui.escHtml(t.title || 'Unknown')}</div>
               <div style="color:var(--text-sub); font-size:0.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${ui.escHtml(t.artist || 'Unknown')} · ${ui.escHtml(t.album || '')}</div>
@@ -1341,10 +1371,10 @@ window.toggleAllImportPicker = function (select) {
 
 window.confirmImportSelectedTracks = function (playlistName) {
   const checkedBoxes = document.querySelectorAll('.import-track-checkbox:checked');
-  const checkedIds = new Set(Array.from(checkedBoxes).map((cb) => Number(cb.value)));
+  const checkedIds = new Set(Array.from(checkedBoxes).map((cb) => String(cb.value)));
 
   const selectedFromLoaded = loadedSourceTracks
-    .filter((t) => checkedIds.has(Number(t.db_id || t.id)))
+    .filter((t) => checkedIds.has(String(t.db_id || t.id)))
     .map((t) => ({
       id: t.db_id || t.id,
       title: t.title,
@@ -1356,7 +1386,7 @@ window.confirmImportSelectedTracks = function (playlistName) {
     // Merge without duplicates
     const combined = [...selectedImportTracks];
     selectedFromLoaded.forEach((track) => {
-      if (!combined.some((item) => Number(item.id) === Number(track.id))) {
+      if (!combined.some((item) => String(item.id) === String(track.id))) {
         combined.push(track);
       }
     });
@@ -1412,10 +1442,12 @@ export async function createPlaylist(trackIdToAdd = null) {
   if (trackIdToAdd) {
     trackIds = [trackIdToAdd];
   } else if (selectedImportTracks.length > 0) {
-    trackIds = selectedImportTracks.map((t) => Number(t.id)).filter(Boolean);
+    trackIds = selectedImportTracks.map((t) => t.db_id || t.id).filter(Boolean);
   }
 
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    if (trackIds.some((id) => String(id).startsWith('fed')))
+      return ui.showToast('Connect to add federated songs.', 'error');
     if (creatingCollaborative) return ui.showToast('Connect to create a collaborative playlist.', 'error');
     const tempId = -Math.floor(Date.now() / 1000);
     const pl = {
@@ -1471,6 +1503,9 @@ export async function createPlaylist(trackIdToAdd = null) {
 }
 
 export async function addToPlaylist(playlistId, trackId) {
+  const remote = String(playlistId).startsWith('fed_') || String(trackId).startsWith('fed');
+  if (remote && !navigator.onLine) return ui.showToast('Connect to edit federated collections.', 'error');
+  if (/^-?\d+$/.test(String(playlistId))) playlistId = Number(playlistId);
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     const next = state.userPlaylists.map((p) => {
       if (p.id !== playlistId) return p;
@@ -1486,7 +1521,7 @@ export async function addToPlaylist(playlistId, trackId) {
   }
 
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/add`, {
+    const res = await fetch(api.playlistPath(playlistId, `/add`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ track_id: trackId })
@@ -1517,13 +1552,14 @@ export async function addToPlaylist(playlistId, trackId) {
       const plName = pl ? pl.name : 'playlist';
       ui.showToast(`Added to ${plName}`, 'success', {
         label: 'Undo',
-        callback: () => _undoAddToPlaylist(playlistId, trackId)
+        callback: () => _undoAddToPlaylist(playlistId, trackId, payload.playlist_item_id)
       });
     } else {
       const err = await res.json();
-      ui.showToast(err.error || 'Failed', 'error');
+      ui.showToast(err.error || err.detail || 'Failed', 'error');
     }
   } catch (e) {
+    if (remote) return ui.showToast('Could not reach the collection host.', 'error');
     await offlineStore.queueAction('add_to_playlist', { playlistId, trackId });
     ui.showToast('Added to playlist (offline)', 'info');
   }
@@ -1562,7 +1598,7 @@ export async function downloadPlaylistOffline(playlistId) {
   let tracks = state.currentViewList || [];
 
   try {
-    const res = await fetch(`${state.API}/playlists/${numId}`);
+    const res = await fetch(api.playlistPath(numId));
     if (res.ok) {
       playlistData = await res.json();
       if (playlistData && Array.isArray(playlistData.tracks) && playlistData.tracks.length > 0) {
@@ -1583,7 +1619,7 @@ export async function downloadPlaylistOffline(playlistId) {
       id: t.track_id || t.id || t.db_id,
       is_local: true
     }))
-    .filter((t) => t.db_id && t.source !== 'federation' && !t.is_radio);
+    .filter((t) => t.db_id && t.fed_instance_id == null && t.source !== 'federation' && !t.is_radio);
 
   if (!localTracks.length) {
     ui.showToast('No downloadable tracks detected in this playlist', 'info');
@@ -1669,9 +1705,16 @@ export async function downloadPlaylistOffline(playlistId) {
 
 /** Undo callback for the add-to-playlist action toast. Re-removes the
  * track and shows a confirming toast so the user knows it was undone. */
-async function _undoAddToPlaylist(playlistId, trackId) {
+async function _undoAddToPlaylist(playlistId, trackId, itemId = null) {
+  if (/^-?\d+$/.test(String(playlistId))) playlistId = Number(playlistId);
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/remove/${trackId}`, { method: 'DELETE' });
+    const res = await fetch(
+      api.playlistPath(
+        playlistId,
+        `/remove/${encodeURIComponent(trackId)}${itemId ? `?item_id=${Number(itemId)}` : ''}`
+      ),
+      { method: 'DELETE' }
+    );
     if (res.ok) {
       const next = state.userPlaylists.map((p) => {
         if (p.id !== playlistId) return p;
@@ -1692,7 +1735,7 @@ export function showRemoveFromPlaylistModal(playlistId, trackId, trackTitle, ite
             <p style="color: var(--text-sub); margin-bottom: 24px;">Remove <strong style="color: white;">${ui.escHtml(trackTitle || 'this track')}</strong> from the ${collectionLabel(playlistId).toLowerCase()}?</p>
             <div class="modal-actions">
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn-danger" onclick="removeFromPlaylist(${playlistId}, ${trackId}, ${Number(itemId) || 'null'})">Remove</button>
+                <button class="modal-btn-danger" onclick="removeFromPlaylist('${ui.escJs(String(playlistId))}', '${ui.escJs(String(trackId))}', ${Number(itemId) || 'null'})">Remove</button>
             </div>
         </div>
     </div>`;
@@ -1700,6 +1743,9 @@ export function showRemoveFromPlaylistModal(playlistId, trackId, trackTitle, ite
 }
 
 export async function removeFromPlaylist(playlistId, trackId, itemId = null) {
+  const remote = String(playlistId).startsWith('fed_') || String(trackId).startsWith('fed');
+  if (remote && !navigator.onLine) return ui.showToast('Connect to edit federated collections.', 'error');
+  if (/^-?\d+$/.test(String(playlistId))) playlistId = Number(playlistId);
   ui.closeModal();
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     const next = state.userPlaylists.map((p) => {
@@ -1716,7 +1762,10 @@ export async function removeFromPlaylist(playlistId, trackId, itemId = null) {
 
   try {
     const res = await fetch(
-      `${state.API}/playlists/${playlistId}/remove/${trackId}${itemId ? `?item_id=${Number(itemId)}` : ''}`,
+      api.playlistPath(
+        playlistId,
+        `/remove/${encodeURIComponent(trackId)}${itemId ? `?item_id=${Number(itemId)}` : ''}`
+      ),
       { method: 'DELETE' }
     );
     if (res.ok) {
@@ -1724,9 +1773,10 @@ export async function removeFromPlaylist(playlistId, trackId, itemId = null) {
       ui.showToast('Removed from playlist', 'success');
     } else {
       const error = await res.json().catch(() => ({}));
-      ui.showToast(error.error || 'Could not remove the song.', 'error');
+      ui.showToast(error.error || error.detail || 'Could not remove the song.', 'error');
     }
   } catch (e) {
+    if (remote) return ui.showToast('Could not reach the collection host.', 'error');
     await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId, itemId });
     ui.showToast('Removed from playlist (offline)', 'info');
   }
@@ -1746,7 +1796,7 @@ export async function deletePlaylist(playlistId) {
   }
 
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}`, { method: 'DELETE' });
+    const res = await fetch(api.playlistPath(playlistId), { method: 'DELETE' });
     if (res.ok) {
       await fetch(`${state.API}/recent-activity/playlist/${playlistId}`, { method: 'DELETE' }).catch(() => null);
       const playlists = state.userPlaylists.filter((p) => p.id !== playlistId);
@@ -1785,7 +1835,7 @@ export async function editPlaylistName(id, newName) {
   }
 
   try {
-    const res = await fetch(`${state.API}/playlists/${id}`, {
+    const res = await fetch(api.playlistPath(id), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: newName.trim() })
@@ -1812,7 +1862,7 @@ export async function editPlaylistName(id, newName) {
 
 export async function togglePlaylistPublic(playlistId, shouldBePublic) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/public`, {
+    const res = await fetch(api.playlistPath(playlistId, `/public`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ is_public: Boolean(shouldBePublic) })
@@ -1833,12 +1883,12 @@ export async function togglePlaylistPublic(playlistId, shouldBePublic) {
 
 export async function copyPublicPlaylist(sourcePlaylistId) {
   try {
-    const res = await fetch(`${state.API}/playlists/${sourcePlaylistId}/copy`, {
+    const res = await fetch(api.playlistPath(sourcePlaylistId, `/copy`), {
       method: 'POST'
     });
     const data = await res.json();
     if (!res.ok) {
-      ui.showToast(data.error || 'Failed to sync playlist copy', 'error');
+      ui.showToast(data.error || data.detail || 'Failed to sync playlist copy', 'error');
       return;
     }
 
@@ -1853,11 +1903,11 @@ export async function copyPublicPlaylist(sourcePlaylistId) {
 // === ADD FROM CURRENT TRACK ===
 
 export function addToPlaylistCurrent() {
-  if (!state.currentTrack || !state.currentTrack.db_id) {
+  if (!state.currentTrack || (!state.currentTrack.db_id && state.currentTrack.fed_instance_id == null)) {
     ui.showToast('Cannot add this track (not in library)', 'error');
     return;
   }
-  showAddToPlaylistModal(state.currentTrack.db_id);
+  showAddToPlaylistModal(state.currentTrack.db_id || state.currentTrack.id);
 }
 
 export function showAddToPlaylistFromPlayer() {

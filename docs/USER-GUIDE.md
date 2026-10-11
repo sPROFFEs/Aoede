@@ -79,15 +79,27 @@ Create a playlist from the Library view or save one from a mix. Playlist owners 
 - upload a cover or choose a cover already present in the playlist;
 - switch the playlist between private and public.
 
-The **Public** Home tab lists playlists shared by users on the same server. You can save a read-only local copy of another user's playlist and sync that copy when its source changes. Synced copies cannot be edited or published as if they were the original; create a separate playlist if you want an independent version.
+The **Public** Home tab lists playlists and curated albums shared by users on this server and connected federation nodes. You can save a read-only local copy of another user's collection and sync that copy when its source changes. Synced copies cannot be edited or published as if they were the original; create a separate playlist if you want an independent version.
 
 ## Collaborative playlists
 
-Choose **Create → Collaborative playlist** on mobile, or use **New Playlist** in the Library to open the same creation menu. After naming the playlist, invite an existing user by their exact Aoede username. You can also open **Collaborators** on any ordinary playlist you own to invite users later.
+Choose **Create → Collaborative playlist** on mobile, or use **New Playlist** in the Library to open the same creation menu. After naming the playlist, select a user in the invitation picker. Remote listeners appear as **username @ node**; select that entry to invite the correct account. A typed username without a selected remote entry refers to a local user. You can also open **Collaborators** on any ordinary playlist or curated album you own to invite users later.
 
 Invited users see the shared playlist in their Library and in the Add to Playlist picker. They can add, remove, and reorder songs. On a phone, tap a song's reorder handle and choose **Move up** or **Move down**; desktop drag-and-drop is also supported. Changes appear for other users through the normal refresh cycle (up to 30 seconds while the app is visible). A stale reorder is rejected and the latest playlist is reloaded.
 
 The owner alone can rename, publish, change the cover, delete the playlist, or manage collaborators. Collaborators can leave using **Leave playlist**. Removing a collaborator immediately revokes editing access; public playlists remain viewable. Public visibility does not grant editing rights. Invitations require a connection, and smart playlists and synced copies cannot accept collaborators. Collaborative edits update the owner's Navidrome export; collaboration itself is managed in the Aoede webapp.
+
+## Federated community and collections
+
+From **1.2.8**, Community and user search include listeners from connected nodes. Open a remote profile to see its public playlists, curated albums, favorite songs and listening statistics. Node labels distinguish accounts with the same username; a remote profile never becomes your local account.
+
+Public collections can be played in order, shuffled, queued and copied into your Library. A synchronized copy keeps the original type and ordered entries, including repeated songs. **Sync from Source** refreshes its contents; it does not download the remote audio. The source must remain reachable and accessible. Making a source private or removing an invitation stops further access through that collection.
+
+For collaboration, both servers must run **1.2.8 or newer** and their administrators must connect federation in both directions with matching public peer URLs. An invited listener sees the collection in Library and the Add to Playlist picker, can add songs from either connected pool, remove a specific entry, reorder songs or leave. The owning server checks every edit. Public sharing and invitations remain separate: a private collection is visible to its collaborators but does not enter the public feed.
+
+Songs retain their source node when added to another collection or a federated party. A party host must also subscribe to each song's source node; missing catalogue entries are fetched when needed. Collections containing remote songs require a federated party when used as its initial queue.
+
+These controls use the same web interface in browsers, Android APK and desktop wrappers. Federated audio and edits require a connection; offline audio downloads and Navidrome/Subsonic M3U exports currently contain local pool files only. Older or unavailable nodes are omitted from discovery without hiding local content. See [Administration](ADMINISTRATION.md#federation-beta) for setup.
 
 ## Smart playlists
 

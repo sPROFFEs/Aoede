@@ -3,6 +3,7 @@
  */
 
 import * as state from './state.js';
+import * as api from './api.js';
 import * as ui from './ui.js';
 import * as offlineStore from './offline_store.js';
 
@@ -109,6 +110,21 @@ export async function checkSyncState() {
     }
 
     state.setLastSyncVersion(syncState.version);
+    if (
+      state.currentViewName === 'playlist' &&
+      /^fed_\d+_\d+$/.test(String(state.currentViewParam)) &&
+      !document.querySelector('#modal-container .modal, .track-row.dragging')
+    ) {
+      const title = document.getElementById(`playlist-title-${state.currentViewParam}`);
+      const res = await fetch(api.playlistPath(state.currentViewParam));
+      if ([403, 404].includes(res.status))
+        await window.loadView('playlist', state.currentViewParam, { pushHistory: false });
+      else if (res.ok && title) {
+        const data = await res.json();
+        if (Number(data.revision) !== Number(title.dataset.revision))
+          await window.loadView('playlist', state.currentViewParam, { pushHistory: false });
+      }
+    }
   } catch (e) {
     // Heartbeat is non-critical.
   }

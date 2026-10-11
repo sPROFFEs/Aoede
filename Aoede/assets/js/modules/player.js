@@ -1031,8 +1031,8 @@ export async function playTrack(track, options = {}) {
 //   - forwards Range headers so seeking still works
 //
 // We treat the federation source as "library-like" for queue/state
-// purposes but never set is_local=true, which keeps favorites /
-// download / "add to playlist" disabled for these rows.
+// purposes but never set is_local=true. Collection references keep their
+// authorized stream URL; local favorites and offline downloads use local IDs.
 
 export async function playFederatedTrack(data, options = {}) {
   if (!allowPrivatePlayback()) return;
@@ -1060,7 +1060,8 @@ export async function playFederatedTrack(data, options = {}) {
   // Stop any ongoing playback before swapping src.
   if (state.ytPlayer && state.ytPlayer.stopVideo) state.ytPlayer.stopVideo();
 
-  const proxyUrl = `${state.API}/federation/proxy/${track.fed_instance_id}/stream/${track.fed_remote_id}`;
+  const proxyUrl =
+    track.stream_url || `${state.API}/federation/proxy/${track.fed_instance_id}/stream/${track.fed_remote_id}`;
 
   state.setCurrentTrack(track);
   updatePlayerUIForPreview(track);

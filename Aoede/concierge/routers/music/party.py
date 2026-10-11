@@ -5,6 +5,7 @@ import json
 import re
 
 import database
+import federated_collections
 import httpx
 import party_service
 from fastapi import APIRouter, Depends, Request
@@ -27,6 +28,7 @@ class CreateRoomRequest(BaseModel):
 
 
 class AddTrackRequest(BaseModel):
+    track_reference: str | None = Field(default=None, max_length=100)
     track_id: int | None = None
     fed_instance_id: int | None = None
     fed_remote_id: int | None = None
@@ -62,20 +64,31 @@ def _room_payload(room: database.PartyRoom, user: database.User, include_queue: 
     return payload
 
 
-async def relay_party_request(instance, user, room_id: int, path: str, request: Request, payload: bytes | None = None):
-    """Relay only party operations to a configured peer; keep its token server-side."""
+async def relay_party_request(
+    instance,
+    user,
+    room_id: int,
+    path: str,
+    request: Request,
+    payload: bytes | None = None,
+    *,
+    upstream_path: str | None = None,
+):
+    """Relay scoped operations to a configured peer; keep its token server-side."""
     headers = {
         "Authorization": f"Bearer {instance.api_token}",
         "User-Agent": "Aoede-Federation/1.0",
-        "X-Party-User-Id": str(user.id),
-        "X-Party-Username": user.username.encode("utf-8").hex(),
         "Content-Type": "application/json",
     }
+    if upstream_path:
+        headers["X-Federation-Depth"] = str(getattr(request.state, "federation_depth", 0) + 1)
+    if isinstance(user.id, int):
+        headers.update({"X-Party-User-Id": str(user.id), "X-Party-Username": user.username.encode("utf-8").hex()})
     if request.headers.get("range"):
         headers["Range"] = request.headers["range"]
     client = httpx.AsyncClient(timeout=httpx.Timeout(30, read=None if path == "events" else 30))
-    url = f"{instance.base_url.rstrip('/')}/api/federation/parties/{room_id}"
-    if path:
+    url = f"{instance.base_url.rstrip('/')}/api/federation/{upstream_path or f'parties/{room_id}'}"
+    if path and not upstream_path:
         url += f"/{path}"
     try:
         upstream = await client.send(
@@ -90,7 +103,10 @@ async def relay_party_request(instance, user, room_id: int, path: str, request: 
         )
     except httpx.HTTPError:
         await client.aclose()
-        return JSONResponse({"error": "Could not reach the party host"}, status_code=502)
+        return JSONResponse(
+            {"error": "Could not reach the federated host" if upstream_path else "Could not reach the party host"},
+            status_code=502,
+        )
 
     async def close():
         try:
@@ -139,6 +155,15 @@ async def remote_room(instance_id: int, room_id: int, request: Request, path: st
             data = AddTrackRequest(**await request.json())
         except (ValueError, TypeError):
             return JSONResponse({"error": "Invalid party payload"}, status_code=422)
+        if data.track_reference:
+            source = await federated_collections.resolve_party_song(
+                db, user, data.track_reference, str(request.base_url)
+            )
+            data.track_id = source.get("track_id")
+            data.fed_instance_id = source.get("fed_instance_id")
+            data.fed_remote_id = source.get("fed_remote_id")
+            data.track_reference = None
+            data.origin_url = "library"
         if data.origin_url == "library":
             if data.track_id is not None:
                 track = db.get(database.Track, data.track_id)
@@ -233,6 +258,40 @@ async def create_room(payload: CreateRoomRequest, request: Request, db: Session 
     if response:
         return response
     try:
+        queue_sources = None
+        if payload.playlist_id:
+            from . import playlists
+
+            playlist = db.query(database.Playlist).filter_by(id=payload.playlist_id, owner_id=user.id).first()
+            if playlist and any(not item.track_id for item in playlist.items):
+                if not payload.is_federated:
+                    raise party_service.PartyError(
+                        "Choose a federated room for a collection containing remote songs", 409
+                    )
+                queue_sources = []
+                for item in sorted(playlist.items, key=lambda item: (item.position, item.id)):
+                    track = playlists.serialize_playlist_track(item)
+                    if not track:
+                        raise party_service.PartyError("A collection song is unavailable", 404)
+                    source = await federated_collections.resolve_party_song(
+                        db, user, track["id"], str(request.base_url)
+                    )
+                    if source.get("fed_instance_id"):
+                        if payload.federated_peer_ids and source["fed_instance_id"] not in payload.federated_peer_ids:
+                            raise party_service.PartyError("Invite every song's source node to the party", 403)
+                        mirror = (
+                            db.query(database.FederatedTrack)
+                            .filter_by(instance_id=source["fed_instance_id"], remote_id=source["fed_remote_id"])
+                            .one()
+                        )
+                        source.update(
+                            remote_title=mirror.title,
+                            remote_artist=mirror.artist,
+                            remote_album=mirror.album,
+                            remote_duration=mirror.duration,
+                            remote_thumbnail=mirror.cover_url,
+                        )
+                    queue_sources.append(source)
         room = party_service.create_room(
             db,
             user,
@@ -240,6 +299,7 @@ async def create_room(payload: CreateRoomRequest, request: Request, db: Session 
             payload.max_users,
             payload.allow_guests_queue,
             payload.playlist_id,
+            queue_sources=queue_sources,
             is_federated=payload.is_federated,
             federated_peer_ids=payload.federated_peer_ids,
         )
@@ -316,6 +376,18 @@ async def add_queue_track(room_id: int, payload: AddTrackRequest, request: Reque
     try:
         room = party_service.get_room(db, room_id)
         party_service.require_membership(room, user)
+        if payload.track_reference:
+            source = await federated_collections.resolve_party_song(
+                db, user, payload.track_reference, str(request.base_url)
+            )
+            payload.track_id = source.get("track_id")
+            payload.fed_instance_id = source.get("fed_instance_id")
+            payload.fed_remote_id = source.get("fed_remote_id")
+        if payload.track_id is None and payload.fed_instance_id and payload.fed_remote_id:
+            instance = db.query(database.FederatedInstance).filter_by(id=payload.fed_instance_id, enabled=True).first()
+            if not instance:
+                raise party_service.PartyError("Federated song source unavailable", 404)
+            await federated_collections.ensure_catalog_track(db, instance, payload.fed_remote_id)
         party_service.add_track(
             db,
             room,

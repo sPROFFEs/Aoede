@@ -26,19 +26,23 @@ Three groups of endpoints:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
+import re
 import secrets
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 
 import database
+import federated_collections
 import federation_service
 import httpx
 import party_service
 from auth import get_current_user, get_password_hash
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
@@ -255,6 +259,331 @@ def _verify_federation_token(
 # ============================================================================
 # PUBLISH ENDPOINTS (called BY remote peers)
 # ============================================================================
+
+
+def _peer_viewer(peer, request, *, required=False):
+    try:
+        depth = int(request.headers.get("x-federation-depth", "0"))
+    except ValueError:
+        raise HTTPException(400, "Invalid federation depth")
+    if depth < 0 or depth >= 8:
+        raise HTTPException(508, "Federated collection reference loop")
+    request.state.federation_depth = depth
+    try:
+        user_id = int(request.headers.get("x-party-user-id", "0"))
+        username = bytes.fromhex(request.headers.get("x-party-username", "")).decode("utf-8")
+        if user_id < 0 or (required and user_id == 0) or (user_id > 0 and not username) or len(username) > 200:
+            raise ValueError
+    except (ValueError, UnicodeError):
+        raise HTTPException(400, "Invalid remote user")
+    return SimpleNamespace(
+        id=f"peer:{peer.id}:{user_id}",
+        username=username,
+        is_service_account=False,
+        peer_id=peer.id,
+        remote_user_id=user_id,
+    )
+
+
+@router.get("/api/federation/users")
+@router.get("/api/federation/users/{user_id}")
+async def federation_users(
+    request: Request,
+    user_id: int | None = None,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    from . import user as user_routes
+
+    peer = _verify_federation_token(db, request, authorization)
+    viewer = _peer_viewer(peer, request)
+    if user_id is None:
+        return {"users": user_routes.list_local_users(db, viewer)}
+    user = db.query(database.User).filter_by(id=user_id, is_active=True, is_service_account=False).first()
+    if not user:
+        raise HTTPException(404, "User not found")
+    return user_routes.serialize_public_profile(db, user, viewer)
+
+
+@router.get("/api/federation/collections")
+async def federation_collections(
+    request: Request,
+    shared: bool = False,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    from .music import playlists
+
+    peer = _verify_federation_token(db, request, authorization)
+    viewer = _peer_viewer(peer, request, required=shared)
+    items = playlists.fetch_playlist_summaries(
+        db, viewer_id=viewer.id, owner_id=viewer.id if shared else None, include_shared=shared, public_only=not shared
+    )
+    for item in items:
+        item["is_editable"] = playlists.playlist_is_editable_by_user(db.get(database.Playlist, item["id"]), viewer)
+    return {"collections": items}
+
+
+async def _collection_item_response(playlist_id, item_id, request, db, *, image=False):
+    from .music import playlists, streaming
+
+    user = request.state.federation_user
+    playlist = playlists.get_playlist_or_404(db, playlist_id, user)
+    if not playlist:
+        raise HTTPException(404, "Collection not found")
+    item = next((item for item in playlist.items if item.id == item_id), None)
+    if not item:
+        raise HTTPException(404, "Song not in collection")
+    if item.track_id:
+        if image:
+            response = await streaming.get_cover(item.track_id, request, db)
+            if isinstance(response, RedirectResponse):
+                return FileResponse(
+                    Path(__file__).resolve().parents[2] / "assets/img/default_cover.png", media_type="image/png"
+                )
+            return response
+        return streaming.stream_track_authorized(item.track_id, request, db)
+    if item.federated_track:
+        track = item.federated_track
+        if not image:
+            return await _proxy_federated_stream(track.instance_id, track.remote_id, request, db)
+        instance = federated_collections.get_instance(db, track.instance_id)
+        upstream = f"images/track/{track.remote_id}"
+    elif item.remote_instance:
+        instance = federated_collections.get_instance(db, item.remote_instance_id)
+        upstream = f"collections/{item.remote_playlist_id}/{'images' if image else 'stream'}/{item.remote_item_id}"
+    else:
+        raise HTTPException(404, "Song source unavailable")
+    return await party_routes.relay_party_request(instance, user, 0, "", request, upstream_path=upstream)
+
+
+@router.get("/api/federation/images/{kind}/{item_id}")
+async def federation_image(
+    kind: str,
+    item_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    from . import user as user_routes
+    from .music import playlists, streaming
+
+    peer = _verify_federation_token(db, request, authorization)
+    request.state.federation_user = _peer_viewer(peer, request)
+    if kind == "avatar":
+        user = db.query(database.User).filter_by(id=item_id, is_active=True, is_service_account=False).first()
+        if not user:
+            raise HTTPException(404, "User not found")
+        response = await user_routes.get_avatar(user.username, db)
+    elif kind == "track":
+        response = await streaming.get_cover(item_id, request, db)
+    elif kind == "collection":
+        collection = playlists.get_playlist_or_404(db, item_id, request.state.federation_user)
+        if not collection:
+            raise HTTPException(404, "Collection not found")
+        first = min(collection.items, key=lambda item: (item.position, item.id), default=None)
+        if first and not first.track_id and not collection.cover_track_id and not collection.cover_path:
+            return await _collection_item_response(item_id, first.id, request, db, image=True)
+        response = await playlists.get_playlist_cover(item_id, request, db)
+        if isinstance(response, RedirectResponse) and re.fullmatch(r"/api/cover/\d+", response.headers["location"]):
+            response = await streaming.get_cover(int(response.headers["location"].rsplit("/", 1)[1]), request, db)
+    else:
+        raise HTTPException(404, "Image not found")
+    if isinstance(response, RedirectResponse):
+        return FileResponse(
+            Path(__file__).resolve().parents[2] / "assets/img/default_cover.png", media_type="image/png"
+        )
+    return response
+
+
+@router.api_route("/api/federation/collections/{playlist_id}", methods=["GET"])
+@router.api_route("/api/federation/collections/{playlist_id}/{path:path}", methods=["GET", "POST", "DELETE", "PATCH"])
+async def federation_collection(
+    playlist_id: int,
+    request: Request,
+    path: str = "",
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+):
+    from .music import playlists
+
+    peer = _verify_federation_token(db, request, authorization)
+    viewer = _peer_viewer(peer, request, required=request.method != "GET")
+    request.state.federation_user = viewer
+    playlist = playlists.get_playlist_or_404(db, playlist_id, viewer)
+    if not playlist or not playlist.owner.is_active or playlist.owner.is_service_account:
+        raise HTTPException(404, "Collection not found")
+    if request.method == "GET" and not path:
+        response = await playlists.get_playlist(playlist_id, request, db)
+        data = json.loads(response.body)
+        data["viewer_member_id"] = viewer.id
+        return JSONResponse(data)
+    if request.method == "GET" and path == "collaborators":
+        return await playlists.list_collaborators(playlist_id, request, db)
+    match = re.fullmatch(r"(stream|images)/(\d+)", path)
+    if request.method == "GET" and match:
+        return await _collection_item_response(playlist_id, int(match[2]), request, db, image=match[1] == "images")
+    try:
+        if request.method == "POST" and path == "add":
+            payload = await request.json()
+            if not isinstance(payload, dict):
+                raise ValueError
+            if payload.get("origin_url"):
+                origin_url = peer.peer_url if payload["origin_url"] == "listener" else payload["origin_url"]
+                if payload["origin_url"] == "host":
+                    original = playlists.get_playlist_or_404(db, int(payload["remote_playlist_id"]), viewer)
+                    original_item = (
+                        next((item for item in original.items if item.id == int(payload["remote_item_id"])), None)
+                        if original
+                        else None
+                    )
+                    if not original_item:
+                        raise HTTPException(404, "Song source unavailable")
+                    reference = playlists.serialize_playlist_track(original_item)["id"]
+                else:
+                    origin = federated_collections.instance_for_url(db, origin_url)
+                    reference = (
+                        f"fedpl_{origin.id}_{int(payload['remote_playlist_id'])}_{int(payload['remote_item_id'])}"
+                        if payload.get("remote_playlist_id")
+                        else f"fed_{origin.id}_{int(payload['fed_remote_id'])}"
+                    )
+                payload = {"track_id": reference}
+            return await playlists.add_to_playlist(playlist_id, playlists.AddToPlaylistRequest(**payload), request, db)
+        if request.method == "PATCH" and path == "reorder":
+            return await playlists.reorder_playlist_tracks(
+                playlist_id, playlists.ReorderRequest(**await request.json()), request, db
+            )
+    except (ValidationError, ValueError, TypeError, KeyError):
+        raise HTTPException(422, "Invalid collection operation")
+    if request.method == "DELETE" and path.startswith("remove/"):
+        try:
+            item_id = int(request.query_params.get("item_id", "0"))
+        except ValueError:
+            raise HTTPException(422, "Invalid collection item")
+        item = next((item for item in playlist.items if item.id == item_id), None)
+        if not item or not playlists.serialize_playlist_track(item):
+            raise HTTPException(404, "Song not in collection")
+        return await playlists.remove_from_playlist(
+            playlist_id,
+            str((playlists.serialize_playlist_track(item) or {}).get("id", "")),
+            request,
+            db,
+            item_id=item_id,
+        )
+    if request.method == "DELETE" and path.startswith("collaborators/"):
+        return await playlists.remove_collaborator(playlist_id, path.removeprefix("collaborators/"), request, db)
+    raise HTTPException(403, "Only the collection owner can change sharing, invitations or delete it")
+
+
+@router.get("/api/federation/proxy/{instance_id}/users/{user_id}")
+async def federation_proxy_user(instance_id: int, user_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user or user.is_service_account:
+        raise HTTPException(401, "Unauthorized")
+    instance = federated_collections.get_instance(db, instance_id)
+    data = await federated_collections.fetch_remote(instance, f"users/{user_id}", user)
+    try:
+        result = federated_collections.user_summary(instance, data)
+        collections = [
+            federated_collections.collection_summary(instance, item)
+            for item in data.get("public_playlists", [])
+            if isinstance(item, dict) and item.get("is_public")
+        ]
+        favorites = [
+            {
+                **federated_collections.track_metadata(track),
+                "id": f"fed_{instance.id}_{int(track['id'])}",
+                "db_id": None,
+                "fed_instance_id": instance.id,
+                "fed_remote_id": int(track["id"]),
+                "fed_instance_name": instance.name,
+                "fed_instance_status": instance.status,
+                "source": "federation",
+                "is_local": False,
+                "thumbnail": f"/api/federation/proxy/{instance.id}/images/track/{int(track['id'])}",
+            }
+            for track in data.get("favorites", [])
+            if int(track["id"]) > 0
+        ]
+        return {**result, "public_playlists": collections, "favorites": favorites, "stats": data.get("stats") or {}}
+    except (ValueError, TypeError, KeyError, OverflowError):
+        raise HTTPException(502, "Invalid remote profile")
+
+
+@router.get("/api/federation/proxy/{instance_id}/images/{kind}/{item_id}")
+async def federation_proxy_image(
+    instance_id: int, kind: str, item_id: int, request: Request, db: Session = Depends(get_db)
+):
+    user = get_current_user(request, db)
+    if not user or user.is_service_account:
+        raise HTTPException(401, "Unauthorized")
+    if kind not in {"avatar", "collection", "track"} or item_id <= 0:
+        raise HTTPException(404, "Image not found")
+    instance = federated_collections.get_instance(db, instance_id)
+    return await party_routes.relay_party_request(
+        instance, user, 0, "", request, upstream_path=f"images/{kind}/{item_id}"
+    )
+
+
+@router.api_route("/api/federation/proxy/{instance_id}/collections/{playlist_id}", methods=["GET"])
+@router.api_route(
+    "/api/federation/proxy/{instance_id}/collections/{playlist_id}/{path:path}",
+    methods=["GET", "POST", "DELETE", "PATCH"],
+)
+async def federation_proxy_collection(
+    instance_id: int, playlist_id: int, request: Request, path: str = "", db: Session = Depends(get_db)
+):
+    user = get_current_user(request, db)
+    if not user or user.is_service_account:
+        raise HTTPException(401, "Unauthorized")
+    instance = federated_collections.get_instance(db, instance_id)
+    if playlist_id <= 0:
+        raise HTTPException(404, "Collection not found")
+    if request.method == "GET" and not path:
+        return await federated_collections.get_remote_collection(instance, playlist_id, user)
+    if request.method == "GET" and path == "collaborators":
+        data = await federated_collections.fetch_remote(instance, f"collections/{playlist_id}/collaborators", user)
+        return {**data, "is_owner": False}
+    if request.method == "POST" and path == "copy":
+        return await federated_collections.copy_remote(db, user, instance, playlist_id)
+    payload = None
+    if request.method == "POST" and path == "add":
+        try:
+            data = await request.json()
+            reference = str(data["track_id"])
+            match = re.fullmatch(r"fed(?:pl)?_(\d+)_(\d+)(?:_(\d+))?", reference)
+            if match:
+                origin = federated_collections.get_instance(db, int(match[1]))
+                if match[3]:
+                    data = {
+                        "origin_url": "host" if origin.id == instance.id else origin.base_url,
+                        "remote_playlist_id": int(match[2]),
+                        "remote_item_id": int(match[3]),
+                    }
+                else:
+                    data = (
+                        {"track_id": int(match[2])}
+                        if origin.id == instance.id
+                        else {"origin_url": origin.base_url, "fed_remote_id": int(match[2])}
+                    )
+            elif reference.isdigit() and int(reference) > 0 and db.get(database.Track, int(reference)):
+                data = {"origin_url": "listener", "fed_remote_id": int(reference)}
+            else:
+                raise ValueError
+            payload = json.dumps(data).encode()
+        except (ValueError, TypeError, KeyError):
+            raise HTTPException(422, "Invalid song reference")
+    allowed = (
+        (request.method == "GET" and re.fullmatch(r"(stream|images)/\d+", path))
+        or (request.method == "POST" and path == "add")
+        or (request.method == "PATCH" and path == "reorder")
+        or (request.method == "DELETE" and (path.startswith("remove/") or path.startswith("collaborators/")))
+    )
+    if not allowed:
+        raise HTTPException(403, "Collection operation not allowed")
+    return await party_routes.relay_party_request(
+        instance, user, 0, "", request, payload, upstream_path=f"collections/{playlist_id}/{path}"
+    )
 
 
 @router.get("/api/federation/parties")

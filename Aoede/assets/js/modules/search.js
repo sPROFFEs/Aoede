@@ -95,12 +95,12 @@ function renderResults(container, bodyHtml) {
 
 function userProfileCard(u) {
   return `
-    <div class="user-profile-card" onclick="loadView('profile', '${ui.escJs(u.username)}')">
+    <div class="user-profile-card" onclick="loadView('profile', '${ui.escJs(u.profile_key || u.username)}')">
       <div class="user-profile-card-avatar">
-        <img src="${u.avatar_url}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
+        <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
       </div>
       <div class="user-profile-card-name">
-        <span>${ui.escHtml(u.username)}</span>
+        <span>${ui.escHtml(u.username)}${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>
         ${u.is_admin ? `<span class="status-badge finished" style="font-size:0.65rem; padding:2px 6px;">${ui.t('common.admin', 'Admin')}</span>` : ''}
       </div>
       <div class="user-profile-card-meta">
@@ -132,7 +132,9 @@ export async function executeSearch(query) {
       if (controller.signal.aborted || state.searchAbortController !== controller) return;
 
       const filtered = query
-        ? allUsers.filter((u) => u.username.toLowerCase().includes(query.toLowerCase()))
+        ? allUsers.filter((u) =>
+            `${u.username} ${u.fed_instance_name || ''}`.toLowerCase().includes(query.toLowerCase())
+          )
         : allUsers;
 
       if (!filtered.length) {
@@ -232,7 +234,9 @@ export async function executeSearch(query) {
       return;
     }
 
-    const matchingUsers = (usersList || []).filter((u) => u.username.toLowerCase().includes(query.toLowerCase()));
+    const matchingUsers = (usersList || []).filter((u) =>
+      `${u.username} ${u.fed_instance_name || ''}`.toLowerCase().includes(query.toLowerCase())
+    );
 
     let usersSectionHtml = '';
     if (matchingUsers.length > 0) {

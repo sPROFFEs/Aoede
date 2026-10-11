@@ -149,7 +149,9 @@ export async function renderPartyList(container) {
 }
 
 export async function showCreateModal() {
-  const playlists = state.userPlaylists || [];
+  const playlists = (state.userPlaylists || []).filter(
+    (playlist) => playlist.is_owner !== false && /^\d+$/.test(String(playlist.id))
+  );
   let availablePeers = [];
   try {
     const peerRes = await request('/peers');
@@ -543,6 +545,7 @@ export function addLibraryTrack(encodedData) {
     const track = JSON.parse(decodeURIComponent(atob(encodedData)));
     return addTrack(track.is_local ? track.db_id || track.id : null, {
       origin_url: 'library',
+      track_reference: String(track.id).startsWith('fedpl_') ? String(track.id) : undefined,
       fed_instance_id: track.fed_instance_id,
       fed_remote_id: track.fed_remote_id
     });

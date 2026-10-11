@@ -290,6 +290,8 @@ assert.equal(plays, 1);
 assert.equal(playback.isPlaying, true);
 assert.ok(mediaActions.includes('pause'));
 assert.deepEqual(routingGains, [null, null]);
+await player.api.playTrack({ ...remoteTrack, stream_url: '/api/federation/proxy/12/collections/8/stream/23' }, { autoplay: false });
+assert.equal(audio.src, '/api/federation/proxy/12/collections/8/stream/23');
 await player.api.playPreview({ id: 'abcdefghijk', source: 'youtube', title: 'Song', artist: 'Artist' });
 assert.match(audio.src, /url=https%3A%2F%2Fwww.youtube.com%2Fwatch%3Fv%3Dabcdefghijk&title=Artist\+Song/);
 await player.api.playPreview({ id: 'a'.repeat(22), source: 'spotify', title: 'Song' });
@@ -298,6 +300,13 @@ await player.api.playTrack({ is_radio: true, title: 'Station', stream_url: '/api
 assert.equal(audio.src, '/api/proxy/radio?url=station');
 assert.equal(playback.isPlaying, true);
 
+
+const socialApi = (await load('api.js', {}, { './state.js': { API: '/api' }, './offline_store.js': {}, './sync.js': {} })).api;
+const playlistPath = socialApi.playlistPath;
+assert.equal(playlistPath(5, '/add'), '/api/playlists/5/add');
+assert.equal(playlistPath('fed_2_3', '/reorder'), '/api/federation/proxy/2/collections/3/reorder');
+
+modal.dataset = {};
 const collaboratorWindow = { USER_DATA: { username: 'owner' } };
 const suggestions = { style: {} };
 const collaboratorNotices = [];
@@ -309,7 +318,7 @@ const collaborators = (await load('playlists.js', {
     : { ok: false, status: 403, json: async () => ({ error: 'No permission' }) }
 }, { './state.js': { API: '/api', userPlaylists: [{ id: 5, kind: 'album' }] },
   './ui.js': { ...ui, refreshIcons() {}, focusModal() {}, closeModal() {}, showToast: message => collaboratorNotices.push(message) },
-  './api.js': { fetchUsersList: async () => ['owner', 'member', 'new user'].map(username => ({ username })) },
+  './api.js': { playlistPath, fetchUsersList: async () => ['owner', 'member', 'new user'].map(username => ({ username })) },
   './player.js': {}, './offline_store.js': { getLibrarySnapshot: async () => null, listOfflinePlaylists: async () => [],
     listOfflineTracks: async () => [{ title: 'Other private song', playlist_ids: [5], playlist_names: { 5: 'Other private album' } }],
     queueAction() { throw new Error('Permission failures must not be queued as offline edits'); } } })).api;
@@ -372,7 +381,7 @@ const albumDownloader = (await load('playlists.js', {
   fetch: async () => ({ ok: true, json: async () => ({ id: 5, name: 'Album', kind: 'album', is_editable: true,
     tracks: [{ id: 1, title: 'First' }, { id: 2, title: 'Second' }] }) })
 }, { './state.js': { API: '/api' }, './ui.js': { refreshIcons() {}, showToast: (message, type) => offlineNotices.push({ message, type }) },
-  './api.js': {}, './player.js': {}, './offline_store.js': {
+  './api.js': { playlistPath }, './player.js': {}, './offline_store.js': {
     saveOfflinePlaylist: async value => { savedAlbum = value; }, isTrackAvailableOfflineSync: id => cachedAudio.has(id),
     downloadTrack: async track => { if (track.id === 1 && shouldFail) throw new Error('Connection failed'); cachedAudio.add(track.id); }
   } })).api;
@@ -387,3 +396,38 @@ await albumDownloader.downloadPlaylistOffline(5);
 assert.match(offlineButton.className, /downloaded/);
 assert.equal(offlineNotices.at(-1).type, 'success');
 console.log('PASS: offline albums retain their type and failed downloads stay partial until a successful retry.');
+
+// Remote collections retain scoped IDs in playback and every inline editing action.
+let renderedTracks;
+const federationHtml = { querySelector: () => null };
+const federatedData = { id: 'fed_2_3', name: 'Together', kind: 'album', is_public: false, is_editable: true, is_owner: false,
+  is_federated: true, fed_instance_name: 'Remote', owner_username: 'listener', owner_profile_key: 'fed:2:1', revision: 4,
+  tracks: [{ id: 'fedpl_2_3_17', title: 'Remote song', is_local: false, source: 'federation', db_id: null, playlist_item_id: 17,
+    fed_instance_id: 2, fed_remote_id: 17, stream_url: '/api/federation/proxy/2/collections/3/stream/17' }] };
+const remotePlaylists = (await load('playlists.js', { navigator: { onLine: true }, window: { createPlaylistTrackRow: () => '', innerWidth: 600 },
+  document: { addEventListener() {}, getElementById: () => ({ innerHTML: '', dataset: {} }) },
+  fetch: async url => { assert.equal(url, playlistPath('fed_2_3')); return Response.json(federatedData); }
+}, { './state.js': { API: '/api', currentViewList: [], setCurrentViewList: tracks => { renderedTracks = tracks; } }, './ui.js': { ...ui, refreshIcons() {} },
+  './api.js': { playlistPath }, './player.js': {}, './offline_store.js': { saveLibrarySnapshot() {}, isTrackAvailableOfflineSync: () => false } })).api;
+await remotePlaylists.renderPlaylist(federationHtml, 'fed_2_3');
+assert.equal(renderedTracks[0].is_local, false);
+assert.equal(renderedTracks[0].db_id, null);
+assert.equal(renderedTracks[0].stream_url, federatedData.tracks[0].stream_url);
+assert.match(federationHtml.innerHTML, /leaveCollaborativePlaylist\('fed_2_3'\)/);
+assert.match(federationHtml.innerHTML, /loadView\('profile', 'fed:2:1'\)/);
+assert.equal(federationHtml.innerHTML.includes('togglePlaylistOfflineDownload'), false);
+assert.equal(federationHtml.innerHTML.includes('NaN'), false);
+const rowDeps = { ...viewDependencies, './ui.js': { ...ui, fmtTime: () => '1:30' }, './state.js': { userFavorites: new Set() },
+  './offline_store.js': { isTrackAvailableOfflineSync: () => false } };
+const socialRows = (await load('views.js', { btoa, document: { body: { addEventListener() {} } }, navigator: { onLine: true }, window: {} }, rowDeps)).api;
+const row = socialRows.createPlaylistTrackRow(federatedData.tracks[0], 0, 'fed_2_3');
+assert.match(row, /showRemoveFromPlaylistModal\('fed_2_3', 'fedpl_2_3_17',/);
+assert.match(row, /showAddToPlaylistModal\('fedpl_2_3_17'\)/);
+assert.equal(row.includes('toggleFavorite('), false);
+console.log('PASS: federated album playback, owner/profile links, scoped editing controls and unavailable offline actions.');
+
+let clickedSong;
+const playableRows = (await load('views.js', { atob, document: { body: { addEventListener() {} } }, window: {} }, { ...rowDeps,
+  './player.js': { playTrack: track => { clickedSong = track; } }, './downloads.js': { triggerDownload() { throw new Error('Federated cards must play, not download a provider URL'); } } })).api;
+playableRows.handleCardClick(btoa(encodeURIComponent(JSON.stringify(federatedData.tracks[0]))));
+assert.equal(clickedSong.id, 'fedpl_2_3_17');

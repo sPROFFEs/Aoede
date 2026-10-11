@@ -13,6 +13,7 @@ from typing import Literal
 
 import database
 import deletion_service
+import federated_collections
 import library_service
 import manager
 from aoede_config import settings
@@ -47,12 +48,13 @@ def _smart_rule_summary(raw_rules: str | None) -> str | None:
 class CreatePlaylistRequest(PydanticBaseModel):
     name: str
     kind: Literal["playlist", "album"] = "playlist"
-    track_ids: list[int] | None = None
+    track_ids: list[int | str] | None = None
     is_collaborative: bool = False
 
 
 class CollaboratorRequest(PydanticBaseModel):
     username: str
+    profile_key: str | None = None
 
 
 class PlaylistUpdateRequest(PydanticBaseModel):
@@ -60,7 +62,7 @@ class PlaylistUpdateRequest(PydanticBaseModel):
 
 
 class AddToPlaylistRequest(PydanticBaseModel):
-    track_id: int
+    track_id: int | str
 
 
 class PublishPlaylistRequest(PydanticBaseModel):
@@ -72,8 +74,9 @@ class PlaylistCoverTrackRequest(PydanticBaseModel):
 
 
 class ReorderItemSchema(PydanticBaseModel):
-    track_id: int
+    track_id: int | str
     position: int
+    item_id: int | None = None
 
 
 class ReorderRequest(PydanticBaseModel):
@@ -110,15 +113,23 @@ def playlist_is_editable_by_user(playlist, user) -> bool:
     return (
         (playlist.owner_id == user.id or playlist_has_collaborator(playlist, user.id))
         and playlist.source_playlist_id is None
+        and playlist.source_remote_playlist_id is None
         and playlist.smart_rules_json is None
     )
 
 
 def playlist_has_collaborator(playlist, user_id):
-    return playlist.is_collaborative and any(member.user_id == user_id for member in playlist.collaborators)
+    return playlist.is_collaborative and (
+        any(member.user_id == user_id for member in playlist.collaborators)
+        or any(member.user_key == user_id and not member.peer.revoked for member in playlist.remote_collaborators)
+    )
 
 
 def accessible_playlist_filter(user_id):
+    if isinstance(user_id, str):
+        return database.Playlist.is_collaborative & database.Playlist.remote_collaborators.any(
+            database.FederatedPlaylistCollaborator.user_key == user_id
+        )
     return or_(
         database.Playlist.owner_id == user_id,
         database.Playlist.is_collaborative
@@ -132,6 +143,66 @@ def sync_edited_playlist(db, playlist):
     generate_m3u_for_playlist(db, playlist, playlist.owner.username)
     schedule_playlist_sync(db, playlist.owner)
     schedule_navidrome_sync(playlist.owner_id, playlist.owner.username, delay_seconds=2.0)
+
+
+def serialize_playlist_track(item):
+    if item.track:
+        track = item.track
+        result = {
+            "id": track.id,
+            "catalog_remote_id": track.id,
+            "catalog_source_url": "",
+            "db_id": track.id,
+            "title": track.title,
+            "artist": track.artist,
+            "album": track.album,
+            "duration": track.duration,
+            "thumbnail": f"/api/cover/{track.id}",
+            "is_local": True,
+            "source": "local",
+        }
+    elif item.federated_track:
+        track = item.federated_track
+        result = {
+            **federated_collections.track_metadata(vars(track)),
+            "id": f"fed_{track.instance_id}_{track.remote_id}",
+            "catalog_remote_id": track.remote_id,
+            "catalog_source_url": track.instance.base_url.rstrip("/"),
+            "db_id": None,
+            "fed_instance_id": track.instance_id,
+            "fed_instance_name": track.instance.name,
+            "fed_instance_status": track.instance.status,
+            "fed_remote_id": track.remote_id,
+            "is_local": False,
+            "source": "federation",
+            "thumbnail": f"/api/federation/proxy/{track.instance_id}/images/track/{track.remote_id}",
+        }
+    elif item.remote_instance:
+        result = federated_collections.remote_track(
+            item.remote_instance,
+            item.remote_playlist_id,
+            {
+                **json.loads(item.remote_metadata_json or "{}"),
+                "playlist_item_id": item.remote_item_id,
+            },
+        )
+    else:
+        return None
+    return {**result, "position": item.position, "playlist_item_id": item.id}
+
+
+def playlist_item_source(item):
+    return {
+        field: getattr(item, field)
+        for field in (
+            "track_id",
+            "federated_track_id",
+            "remote_instance_id",
+            "remote_playlist_id",
+            "remote_item_id",
+            "remote_metadata_json",
+        )
+    }
 
 
 def _playlist_cover_dir(username: str) -> str:
@@ -187,6 +258,10 @@ def get_playlist_thumbnail(db: Session, playlist) -> str:
     )
     if first_item and first_item.track:
         return f"/api/cover/{first_item.track.id}"
+    if first_item:
+        data = serialize_playlist_track(first_item)
+        if data:
+            return data["thumbnail"]
     return "/static/img/default_cover.png"
 
 
@@ -218,6 +293,8 @@ def fetch_playlist_summaries(
             database.Playlist.is_public.label("is_public"),
             database.Playlist.is_collaborative.label("is_collaborative"),
             database.Playlist.source_playlist_id.label("source_playlist_id"),
+            database.Playlist.source_instance_id.label("source_instance_id"),
+            database.Playlist.source_remote_playlist_id.label("source_remote_playlist_id"),
             database.Playlist.cover_path.label("cover_path"),
             database.Playlist.cover_track_id.label("cover_track_id"),
             database.Playlist.smart_rules_json.label("smart_rules_json"),
@@ -236,8 +313,14 @@ def fetch_playlist_summaries(
         query = query.filter(
             accessible_playlist_filter(owner_id) if include_shared else database.Playlist.owner_id == owner_id
         )
+    if public_only or isinstance(viewer_id, str):
+        query = query.filter(database.User.is_active.is_(True), database.User.is_service_account.is_(False))
     if public_only:
-        query = query.filter(database.Playlist.is_public == True)
+        query = query.filter(
+            database.Playlist.is_public == True,
+            database.User.is_active.is_(True),
+            database.User.is_service_account.is_(False),
+        )
 
     member_ids = (
         {
@@ -258,6 +341,7 @@ def fetch_playlist_summaries(
         summaries.append(
             {
                 "id": row.id,
+                "owner_id": row.owner_id,
                 "name": row.name,
                 "kind": row.kind,
                 "track_count": int(row.track_count or 0),
@@ -267,10 +351,13 @@ def fetch_playlist_summaries(
                 "is_public": bool(row.is_public),
                 "is_collaborative": bool(row.is_collaborative),
                 "source_playlist_id": row.source_playlist_id,
+                "source_instance_id": row.source_instance_id,
+                "source_remote_playlist_id": row.source_remote_playlist_id,
                 "owner_username": owner_username,
                 "source_owner_username": source_owner_username,
                 "is_owner": viewer_id == row.owner_id if viewer_id is not None else False,
                 "is_editable": row.source_playlist_id is None
+                and row.source_remote_playlist_id is None
                 and (viewer_id == row.owner_id or (row.is_collaborative and row.id in member_ids))
                 and row.smart_rules_json is None
                 if viewer_id is not None
@@ -300,6 +387,7 @@ def serialize_playlist_summary(db: Session, playlist, viewer_id: int | None = No
     )
     return {
         "id": playlist.id,
+        "owner_id": playlist.owner_id,
         "name": playlist.name,
         "kind": playlist.kind,
         "track_count": track_count,
@@ -307,10 +395,13 @@ def serialize_playlist_summary(db: Session, playlist, viewer_id: int | None = No
         "is_public": bool(playlist.is_public),
         "is_collaborative": bool(playlist.is_collaborative),
         "source_playlist_id": playlist.source_playlist_id,
+        "source_instance_id": playlist.source_instance_id,
+        "source_remote_playlist_id": playlist.source_remote_playlist_id,
         "owner_username": owner_name,
         "source_owner_username": source_owner_name,
         "is_owner": viewer_id == playlist.owner_id if viewer_id is not None else False,
         "is_editable": playlist.source_playlist_id is None
+        and playlist.source_remote_playlist_id is None
         and playlist.smart_rules_json is None
         and (viewer_id == playlist.owner_id or playlist_has_collaborator(playlist, viewer_id))
         if viewer_id is not None
@@ -329,7 +420,7 @@ def sync_playlist_copy_contents(db: Session, source_playlist, target_playlist):
     for source_item in sorted(source_playlist.items, key=lambda x: x.position):
         db.add(
             database.PlaylistItem(
-                playlist_id=target_playlist.id, track_id=source_item.track_id, position=source_item.position
+                playlist_id=target_playlist.id, **playlist_item_source(source_item), position=source_item.position
             )
         )
     db.commit()
@@ -374,6 +465,7 @@ def generate_m3u_for_playlist(db: Session, playlist, username: str):
             f.write("#EXTM3U\n")
             for item in sorted(playlist.items, key=lambda x: x.position):
                 track = item.track
+                # ponytail: Navidrome exports local files; federated audio uses Aoede's authenticated proxy.
                 if track and track.filepath:
                     if "/pool/" in track.filepath:
                         rel_path = "../Library/" + track.filepath.split("/pool/")[-1]
@@ -489,7 +581,8 @@ async def list_playlists(request: Request, db: Session = Depends(get_db)):
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    return JSONResponse(fetch_playlist_summaries(db, viewer_id=user.id, owner_id=user.id, include_shared=True))
+    local = fetch_playlist_summaries(db, viewer_id=user.id, owner_id=user.id, include_shared=True)
+    return JSONResponse(local + await federated_collections.list_remote(db, user, "collections?shared=true"))
 
 
 @router.get("/api/playlists/{playlist_id}/collaborators")
@@ -500,10 +593,30 @@ async def list_collaborators(playlist_id: int, request: Request, db: Session = D
     playlist = get_playlist_or_404(db, playlist_id, user)
     if not playlist or (playlist.owner_id != user.id and not playlist_has_collaborator(playlist, user.id)):
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
+    instances = db.query(database.FederatedInstance).all()
     return JSONResponse(
         {
             "is_owner": playlist.owner_id == user.id,
-            "members": [{"id": member.user_id, "username": member.user.username} for member in playlist.collaborators],
+            "viewer_member_id": user.id,
+            "members": [{"id": member.user_id, "username": member.user.username} for member in playlist.collaborators]
+            + [
+                {
+                    "id": member.user_key,
+                    "username": member.username,
+                    "profile_key": next(
+                        (
+                            f"fed:{instance.id}:{member.remote_user_id}"
+                            for instance in instances
+                            if instance.base_url.rstrip("/") == (member.peer.peer_url or "").rstrip("/")
+                        ),
+                        member.user_key,
+                    ),
+                    "is_federated": True,
+                    "fed_instance_name": member.peer.name,
+                }
+                for member in playlist.remote_collaborators
+                if not member.peer.revoked
+            ],
         }
     )
 
@@ -520,6 +633,12 @@ async def add_collaborator(
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
     if not playlist_is_editable_by_user(playlist, user):
         return JSONResponse({"error": "Smart playlists and synced copies cannot have collaborators."}, status_code=403)
+    if payload.profile_key:
+        await federated_collections.invite_remote(db, playlist, payload.profile_key)
+        playlist.is_collaborative = True
+        playlist.revision = database.Playlist.revision + 1
+        db.commit()
+        return JSONResponse({"status": "added"})
     member = (
         db.query(database.User)
         .filter_by(username=payload.username.strip(), is_service_account=False, is_active=True)
@@ -538,14 +657,18 @@ async def add_collaborator(
 
 
 @router.delete("/api/playlists/{playlist_id}/collaborators/{user_id}")
-async def remove_collaborator(playlist_id: int, user_id: int, request: Request, db: Session = Depends(get_db)):
+async def remove_collaborator(playlist_id: int, user_id: str, request: Request, db: Session = Depends(get_db)):
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     playlist = db.get(database.Playlist, playlist_id)
-    if not playlist or (playlist.owner_id != user.id and user.id != user_id):
+    member_id = int(user_id) if str(user_id).isdigit() else user_id
+    if not playlist or (playlist.owner_id != user.id and user.id != member_id):
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
-    member = db.get(database.PlaylistCollaborator, (playlist_id, user_id))
+    member = db.get(
+        database.PlaylistCollaborator if isinstance(member_id, int) else database.FederatedPlaylistCollaborator,
+        (playlist_id, member_id),
+    )
     if not member:
         return JSONResponse({"error": "Collaborator not found"}, status_code=404)
     db.delete(member)
@@ -561,7 +684,10 @@ async def list_public_playlists(request: Request, db: Session = Depends(get_db))
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
-    return JSONResponse(fetch_playlist_summaries(db, viewer_id=user.id, public_only=True))
+    return JSONResponse(
+        fetch_playlist_summaries(db, viewer_id=user.id, public_only=True)
+        + await federated_collections.list_remote(db, user, "collections")
+    )
 
 
 @router.post("/api/playlists")
@@ -576,32 +702,21 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
+    sources = []
+    for reference in dict.fromkeys(req.track_ids or []):
+        # A saved local collection can outlive a pool song; preserve the existing skip behavior.
+        if str(reference).isdigit() and not db.get(database.Track, int(reference)):
+            continue
+        sources.append(await federated_collections.item_source(db, user, reference))
     try:
         playlist = database.Playlist(
             name=playlist_name, kind=req.kind, owner_id=user.id, is_collaborative=req.is_collaborative
         )
         db.add(playlist)
+        db.flush()
+        for position, source in enumerate(sources, 1):
+            db.add(database.PlaylistItem(playlist_id=playlist.id, position=position, **source))
         db.commit()
-        db.refresh(playlist)
-
-        # If initial track_ids were provided (e.g. from existing playlist or favorites)
-        if req.track_ids:
-            # Validate track ownership or existence in user's library
-            unique_ids = []
-            for tid in req.track_ids:
-                if isinstance(tid, int) and tid not in unique_ids:
-                    unique_ids.append(tid)
-
-            # Tracks belong to the shared pool, not to individual users.
-            valid_tracks = db.query(database.Track).filter(database.Track.id.in_(unique_ids)).all()
-            valid_track_ids = {t.id for t in valid_tracks}
-            pos = 1
-            for tid in unique_ids:
-                if tid in valid_track_ids:
-                    item = database.PlaylistItem(playlist_id=playlist.id, track_id=tid, position=pos)
-                    db.add(item)
-                    pos += 1
-            db.commit()
 
         # Generate M3U
         generate_m3u_for_playlist(db, playlist, user.username)
@@ -634,7 +749,7 @@ async def set_playlist_public(
     if not playlist:
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
 
-    if playlist.source_playlist_id is not None:
+    if playlist.source_playlist_id is not None or playlist.source_remote_playlist_id is not None:
         return JSONResponse({"error": "Synced copies cannot be published directly."}, status_code=403)
 
     playlist.is_public = bool(payload.is_public)
@@ -732,17 +847,9 @@ async def get_playlist(playlist_id: int, request: Request, db: Session = Depends
     thumbnail = get_playlist_thumbnail(db, playlist)
     tracks = []
     for item in sorted(playlist.items, key=lambda x: x.position):
-        t = item.track
-        track_data = {
-            "id": t.id,
-            "title": t.title,
-            "artist": t.artist,
-            "album": t.album,
-            "duration": t.duration,
-            "thumbnail": f"/api/cover/{t.id}",
-            "position": item.position,
-            "playlist_item_id": item.id,
-        }
+        track_data = serialize_playlist_track(item)
+        if not track_data:
+            continue
         tracks.append(track_data)
         if tracks and thumbnail == "/static/img/default_cover.png":
             thumbnail = track_data["thumbnail"]
@@ -760,6 +867,9 @@ async def get_playlist(playlist_id: int, request: Request, db: Session = Depends
     return JSONResponse(
         {
             "id": playlist.id,
+            "owner_id": playlist.owner_id,
+            "source_instance_id": playlist.source_instance_id,
+            "source_remote_playlist_id": playlist.source_remote_playlist_id,
             "name": playlist.name,
             "kind": playlist.kind,
             "tracks": tracks,
@@ -981,17 +1091,12 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
             {"error": "This playlist is read-only. Sync it from the public source instead."}, status_code=403
         )
 
-    # Check if track exists
-    track = db.query(database.Track).filter(database.Track.id == req.track_id).first()
-    if not track:
-        return JSONResponse({"error": "Track not found"}, status_code=404)
-
-    # Check if already in playlist
-    existing = (
-        db.query(database.PlaylistItem)
-        .filter(database.PlaylistItem.playlist_id == playlist_id, database.PlaylistItem.track_id == req.track_id)
-        .first()
-    )
+    source = await federated_collections.item_source(db, user, req.track_id)
+    query = db.query(database.PlaylistItem).filter_by(playlist_id=playlist_id)
+    for field, value in source.items():
+        if field != "remote_metadata_json":
+            query = query.filter(getattr(database.PlaylistItem, field) == value)
+    existing = query.first()
 
     if existing:
         return JSONResponse({"error": "Track already in playlist"}, status_code=400)
@@ -1013,7 +1118,7 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
     )
     max_pos = max(max_pos, reserved_pos)
 
-    item = database.PlaylistItem(playlist_id=playlist_id, track_id=req.track_id, position=max_pos + 1)
+    item = database.PlaylistItem(playlist_id=playlist_id, **source, position=max_pos + 1)
     db.add(item)
     playlist.revision = database.Playlist.revision + 1
     db.commit()
@@ -1029,12 +1134,14 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
         db.query(func.count(database.PlaylistItem.id)).filter(database.PlaylistItem.playlist_id == playlist_id).scalar()
         or 0
     )
-    return JSONResponse({"status": "added", "position": max_pos + 1, "track_count": int(track_count)})
+    return JSONResponse(
+        {"status": "added", "position": max_pos + 1, "track_count": int(track_count), "playlist_item_id": item.id}
+    )
 
 
 @router.delete("/api/playlists/{playlist_id}/remove/{track_id}")
 async def remove_from_playlist(
-    playlist_id: int, track_id: int, request: Request, db: Session = Depends(get_db), item_id: int | None = None
+    playlist_id: int, track_id: str, request: Request, db: Session = Depends(get_db), item_id: int | None = None
 ):
     """Remove track from playlist"""
     user = get_current_user_safe(db, request)
@@ -1051,12 +1158,15 @@ async def remove_from_playlist(
             {"error": "This playlist is read-only. Sync it from the public source instead."}, status_code=403
         )
 
-    query = db.query(database.PlaylistItem).filter(
-        database.PlaylistItem.playlist_id == playlist_id, database.PlaylistItem.track_id == track_id
+    item = next(
+        (
+            item
+            for item in sorted(playlist.items, key=lambda item: (item.position, item.id))
+            if (item_id is None or item.id == item_id)
+            and str((serialize_playlist_track(item) or {}).get("id")) == str(track_id)
+        ),
+        None,
     )
-    if item_id is not None:
-        query = query.filter(database.PlaylistItem.id == item_id)
-    item = query.order_by(database.PlaylistItem.position, database.PlaylistItem.id).first()
 
     if not item:
         return JSONResponse({"error": "Track not in playlist"}, status_code=404)
@@ -1193,9 +1303,12 @@ async def reorder_playlist_tracks(
 
     if playlist.is_collaborative and body.revision is None:
         return JSONResponse({"error": "Reload this playlist before reordering."}, status_code=409)
-    ids = [item.track_id for item in body.items]
+    use_item_ids = all(item.item_id is not None for item in body.items)
+    ids = [item.item_id if use_item_ids else str(item.track_id) for item in body.items]
     positions = [item.position for item in body.items]
-    current_ids = [item.track_id for item in playlist.items]
+    current_ids = [
+        item.id if use_item_ids else str((serialize_playlist_track(item) or {}).get("id")) for item in playlist.items
+    ]
     if Counter(ids) != Counter(current_ids) or sorted(positions) != list(range(1, len(ids) + 1)):
         return JSONResponse(
             {"error": "Reorder must contain every song once with consecutive positions."}, status_code=400
@@ -1209,9 +1322,9 @@ async def reorder_playlist_tracks(
 
     by_track = defaultdict(list)
     for item in sorted(playlist.items, key=lambda item: (item.position, item.id)):
-        by_track[item.track_id].append(item)
+        by_track[item.id if use_item_ids else str((serialize_playlist_track(item) or {}).get("id"))].append(item)
     for item in body.items:
-        by_track[item.track_id].pop(0).position = item.position
+        by_track[item.item_id if use_item_ids else str(item.track_id)].pop(0).position = item.position
 
     db.commit()
     sync_edited_playlist(db, playlist)

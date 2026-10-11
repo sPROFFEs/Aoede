@@ -220,6 +220,8 @@ Playlists can be:
 
 Playlist owners retain control over publishing, artwork, collaborators and deletion.
 
+In **1.2.8**, public playlists, curated albums and community profiles are also available across connected federation nodes. Owners can invite listeners from another node to edit a collection together; songs keep their source node when played, copied or added to a party. See the [User Guide](docs/USER-GUIDE.md#federated-community-and-collections) and [federation setup](docs/ADMINISTRATION.md#federation-beta).
+
 ---
 
 ## Party Rooms
@@ -383,7 +385,7 @@ This allows people to follow playlists without turning every shared playlist int
 
 ## 🤝 Collaborative playlists
 
-Playlist owners can invite other Aoede users as collaborators.
+Playlist and curated album owners can invite other Aoede users as collaborators, including listeners on reciprocally connected federation nodes. The invitation picker distinguishes users by node, even when their usernames match.
 
 Collaborators can:
 

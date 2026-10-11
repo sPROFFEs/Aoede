@@ -44,6 +44,8 @@ def get_db():
 def get_current_user_safe(db: Session, request: Request):
     """Retrieves user or returns None if something fails"""
     try:
+        if getattr(request.state, "federation_user", None):
+            return request.state.federation_user
         return auth.get_current_user(request, db)
     except HTTPException:
         return None

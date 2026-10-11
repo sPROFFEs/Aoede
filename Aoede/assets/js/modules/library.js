@@ -20,20 +20,26 @@ function playlistCard(pl) {
         ? 'Smart playlist'
         : pl.is_collaborative
           ? 'Collaborative playlist'
-          : pl.source_playlist_id
+          : pl.source_playlist_id || pl.source_instance_id
             ? 'Synced playlist'
             : 'Playlist';
   const icon =
-    pl.kind === 'album' ? 'disc-3' : pl.is_smart ? 'sparkles' : pl.source_playlist_id ? 'refresh-cw' : 'list-music';
+    pl.kind === 'album'
+      ? 'disc-3'
+      : pl.is_smart
+        ? 'sparkles'
+        : pl.source_playlist_id || pl.source_instance_id
+          ? 'refresh-cw'
+          : 'list-music';
   const thumb = pl.thumbnail || '/static/img/default_cover.png';
   const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
   return `
-    <button class="library-card" onclick="loadView('playlist', ${pl.id})">
+    <button class="library-card" onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')">
       <div class="library-card-cover">
         ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="${icon}"></i>`}
       </div>
       <div class="library-card-name" title="${ui.escHtml(pl.name || 'Playlist')}">${ui.escHtml(pl.name || 'Playlist')}</div>
-      <div class="library-card-sub">${type} · ${ui.escHtml(pl.owner_username || window.USER_DATA?.username || '')} · ${tracks} ${tracks === 1 ? 'song' : 'songs'}</div>
+      <div class="library-card-sub">${type} · ${ui.escHtml(pl.owner_username || window.USER_DATA?.username || '')}${pl.is_federated ? ` @ ${ui.escHtml(pl.fed_instance_name)}` : ''} · ${tracks} ${tracks === 1 ? 'song' : 'songs'}</div>
     </button>`;
 }
 

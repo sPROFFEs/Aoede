@@ -124,11 +124,22 @@ If you use a copied deployment template, pay attention to merge conflicts in the
 
 ## Federation (beta)
 
-Federation lets two Aoede servers search and stream from one another without copying the remote catalog locally. It is off until an administrator configures it.
+Federation lets Aoede servers discover and stream each other's music pools. Catalogue metadata is mirrored locally; audio remains on its source server. It is off until an administrator configures it. Version **1.2.8** also publishes active community profiles, their public collections and favorites/statistics to authorized peers, and supports invited collaborators across nodes.
 
 To allow another server to access this one, issue a named federation token and give it securely to the remote administrator. To consume a remote catalog, add its Aoede URL and the token it issued to you, then run a sync. Connections can be disabled, resynchronized or removed, and issued tokens can be revoked.
 
 Only federate with administrators you trust. Use HTTPS, transmit tokens through a private channel, and revoke a token when the relationship ends.
+
+For cross-node collaboration:
+
+1. Upgrade both nodes to **1.2.8 or newer**. Startup runs migration `033_federated_collections`, preserving existing playlists and adding remote membership/source references.
+2. On node A, issue a token for B and set that peer's URL to B's public Aoede base URL. B subscribes to A using the token.
+3. On B, issue a token for A with A's public URL. A subscribes to B using that token. Peer URLs must match the subscription URLs; a different hostname, protocol or base path does not identify the same node.
+4. Check that both subscriptions are enabled and healthy/degraded, then invite a remote listener from the collection's **Collaborators** picker.
+
+A one-way subscription is sufficient to browse profiles and public collections and stream their songs. Collaboration needs both directions so the collection owner can verify the invited account's node and access its music. Tokens identify nodes; remote users have identities scoped to the issuing peer and user ID. Peer administrators assert their own users' identities, so this is a trust relationship rather than shared passwords or shared admin access.
+
+Private collections stay off public discovery. The owning node validates access to collection details, media and every edit. Revoking a peer token blocks its requests and invitations; disabling a subscription blocks its local proxies. Copies are read-only references and do not preserve access after a source becomes private or unavailable. Remote audio is played through authenticated Aoede proxies, including artwork and seek ranges; bearer tokens are never sent to clients. Navidrome exports contain local files only.
 
 ## Backups
 

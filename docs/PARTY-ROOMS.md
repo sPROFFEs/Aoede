@@ -51,7 +51,9 @@ When you leave, Aoede restores the personal playback context that was active bef
 
 A federated room's queue is managed by its host server. Remote listeners can search the host's local library and its enabled federation catalogue, then add songs when the host allows guest queue edits. Song names containing quotes or other punctuation work through the same controls.
 
-**Add to party** from a listener's own library also identifies the song's source server. Local numeric song IDs are not interchangeable between servers. The host must subscribe to that source and have an up-to-date catalogue before a listener-owned or third-server song can be queued. A missing subscription/catalogue produces an actionable error instead of selecting a different song with the same ID.
+**Add to party** from a listener's own library also identifies the song's source server. Local numeric song IDs are not interchangeable between servers. The host must subscribe to that source before a listener-owned or third-server song can be queued. From **1.2.8**, missing catalogue entries are fetched on demand, and songs selected from federated playlists/albums resolve to their actual pool song rather than treating a collection entry ID as a track ID. A missing subscription produces an actionable error instead of selecting a different song with the same ID.
+
+A collection containing remote songs can seed a federated room. Invite each song's source node when restricting the room to selected peers. Such a collection cannot seed a local-only room, because that room cannot use federated songs.
 
 Update both the room host and listener servers to use this origin-aware flow. A host running an older party API can still return 404 on join/queue endpoints; updating only the listener does not add endpoints to the host. Remote listeners remain guests: only the local room owner can delete the room or control playback.
 

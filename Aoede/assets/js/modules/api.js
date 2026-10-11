@@ -75,6 +75,13 @@ export async function submitTrackDeleteRequest(trackId, reason) {
 
 // === PLAYLISTS API ===
 
+export function playlistPath(id, suffix = '') {
+  const remote = /^fed_(\d+)_(\d+)$/.exec(String(id));
+  return remote
+    ? `${state.API}/federation/proxy/${remote[1]}/collections/${remote[2]}${suffix}`
+    : `${state.API}/playlists/${encodeURIComponent(id)}${suffix}`;
+}
+
 export async function fetchPlaylists() {
   const res = await fetch(`${state.API}/playlists`);
   if (!res.ok) throw new Error(`Could not load collections (HTTP ${res.status})`);
@@ -83,7 +90,7 @@ export async function fetchPlaylists() {
 
 export async function fetchPlaylist(playlistId) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}`);
+    const res = await fetch(playlistPath(playlistId));
     if (res.ok) return await res.json();
   } catch (e) {
     console.error('[PLAYLIST] Fetch error:', e);
@@ -161,7 +168,7 @@ export async function createPlaylistApi(name) {
 
 export async function addToPlaylistApi(playlistId, trackId) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/add`, {
+    const res = await fetch(playlistPath(playlistId, `/add`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ track_id: trackId })
@@ -175,7 +182,7 @@ export async function addToPlaylistApi(playlistId, trackId) {
 
 export async function reorderPlaylistApi(playlistId, items, revision = null) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/reorder`, {
+    const res = await fetch(playlistPath(playlistId, `/reorder`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ items, revision })
@@ -188,11 +195,14 @@ export async function reorderPlaylistApi(playlistId, items, revision = null) {
   }
 }
 
-export async function removeFromPlaylistApi(playlistId, trackId) {
+export async function removeFromPlaylistApi(playlistId, trackId, itemId = null) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/remove/${trackId}`, {
-      method: 'DELETE'
-    });
+    const res = await fetch(
+      playlistPath(playlistId, `/remove/${encodeURIComponent(trackId)}${itemId ? `?item_id=${Number(itemId)}` : ''}`),
+      {
+        method: 'DELETE'
+      }
+    );
     return res.ok;
   } catch (e) {
     console.error('[PLAYLIST] Remove error:', e);
@@ -202,7 +212,7 @@ export async function removeFromPlaylistApi(playlistId, trackId) {
 
 export async function deletePlaylistApi(playlistId) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}`, { method: 'DELETE' });
+    const res = await fetch(playlistPath(playlistId), { method: 'DELETE' });
     return res.ok;
   } catch (e) {
     console.error('[PLAYLIST] Delete error:', e);
@@ -212,7 +222,7 @@ export async function deletePlaylistApi(playlistId) {
 
 export async function updatePlaylistNameApi(playlistId, name) {
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}`, {
+    const res = await fetch(playlistPath(playlistId), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name })
@@ -525,7 +535,12 @@ export function recordListenEvent(payload) {
 
 export async function fetchUserProfile(username) {
   try {
-    const res = await fetch(`/user/profile/${encodeURIComponent(username)}`);
+    const remote = /^fed:(\d+):(\d+)$/.exec(String(username));
+    const res = await fetch(
+      remote
+        ? `${state.API}/federation/proxy/${remote[1]}/users/${remote[2]}`
+        : `/user/profile/${encodeURIComponent(username)}`
+    );
     if (res.ok) return await res.json();
   } catch (e) {
     console.error('[PROFILE] Fetch error:', e);
