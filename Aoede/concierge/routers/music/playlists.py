@@ -8,6 +8,8 @@ import json
 import logging
 import os
 import uuid
+from collections import Counter, defaultdict
+from typing import Literal
 
 import database
 import deletion_service
@@ -18,7 +20,7 @@ from fastapi import APIRouter, Depends, File, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from http_client import http_client
 from PIL import Image
-from playlist_files import normalize_playlist_name, playlist_m3u_filename
+from playlist_files import MAX_PLAYLIST_NAME_LENGTH, normalize_playlist_name, playlist_m3u_filename
 from pydantic import BaseModel as PydanticBaseModel
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, aliased
@@ -44,6 +46,7 @@ def _smart_rule_summary(raw_rules: str | None) -> str | None:
 
 class CreatePlaylistRequest(PydanticBaseModel):
     name: str
+    kind: Literal["playlist", "album"] = "playlist"
     track_ids: list[int] | None = None
     is_collaborative: bool = False
 
@@ -210,6 +213,7 @@ def fetch_playlist_summaries(
         db.query(
             database.Playlist.id.label("id"),
             database.Playlist.name.label("name"),
+            database.Playlist.kind.label("kind"),
             database.Playlist.owner_id.label("owner_id"),
             database.Playlist.is_public.label("is_public"),
             database.Playlist.is_collaborative.label("is_collaborative"),
@@ -255,6 +259,7 @@ def fetch_playlist_summaries(
             {
                 "id": row.id,
                 "name": row.name,
+                "kind": row.kind,
                 "track_count": int(row.track_count or 0),
                 "thumbnail": _playlist_cover_url(row.id, row.cover_path)
                 if (row.cover_path or row.cover_track_id or int(row.track_count or 0) > 0)
@@ -296,6 +301,7 @@ def serialize_playlist_summary(db: Session, playlist, viewer_id: int | None = No
     return {
         "id": playlist.id,
         "name": playlist.name,
+        "kind": playlist.kind,
         "track_count": track_count,
         "thumbnail": get_playlist_thumbnail(db, playlist),
         "is_public": bool(playlist.is_public),
@@ -331,7 +337,7 @@ def sync_playlist_copy_contents(db: Session, source_playlist, target_playlist):
 
 
 def build_unique_copy_name(db: Session, user_id: int, base_name: str, exclude_playlist_id: int | None = None) -> str:
-    candidate = base_name.strip() or "Public Playlist"
+    candidate = (base_name.strip() or "Public Playlist")[:MAX_PLAYLIST_NAME_LENGTH]
     query = db.query(database.Playlist.name).filter(database.Playlist.owner_id == user_id)
     if exclude_playlist_id is not None:
         query = query.filter(database.Playlist.id != exclude_playlist_id)
@@ -340,9 +346,12 @@ def build_unique_copy_name(db: Session, user_id: int, base_name: str, exclude_pl
         return candidate
 
     suffix = 2
-    while f"{candidate} ({suffix})" in existing_names:
+    while True:
+        ending = f" ({suffix})"
+        name = f"{candidate[: MAX_PLAYLIST_NAME_LENGTH - len(ending)]}{ending}"
+        if name not in existing_names:
+            return name
         suffix += 1
-    return f"{candidate} ({suffix})"
 
 
 # --- M3U GENERATION ---
@@ -568,7 +577,9 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
         return JSONResponse({"error": str(exc)}, status_code=400)
 
     try:
-        playlist = database.Playlist(name=playlist_name, owner_id=user.id, is_collaborative=req.is_collaborative)
+        playlist = database.Playlist(
+            name=playlist_name, kind=req.kind, owner_id=user.id, is_collaborative=req.is_collaborative
+        )
         db.add(playlist)
         db.commit()
         db.refresh(playlist)
@@ -581,11 +592,8 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
                 if isinstance(tid, int) and tid not in unique_ids:
                     unique_ids.append(tid)
 
-            valid_tracks = (
-                db.query(database.Track)
-                .filter(database.Track.id.in_(unique_ids), database.Track.user_id == user.id)
-                .all()
-            )
+            # Tracks belong to the shared pool, not to individual users.
+            valid_tracks = db.query(database.Track).filter(database.Track.id.in_(unique_ids)).all()
             valid_track_ids = {t.id for t in valid_tracks}
             pos = 1
             for tid in unique_ids:
@@ -665,13 +673,18 @@ async def copy_public_playlist(playlist_id: int, request: Request, db: Session =
     if not local_copy:
         copy_name = build_unique_copy_name(db, user.id, canonical_name)
         local_copy = database.Playlist(
-            name=copy_name, owner_id=user.id, source_playlist_id=source_playlist.id, is_public=False
+            name=copy_name,
+            kind=source_playlist.kind,
+            owner_id=user.id,
+            source_playlist_id=source_playlist.id,
+            is_public=False,
         )
         db.add(local_copy)
         db.commit()
         db.refresh(local_copy)
         action = "copied"
     else:
+        local_copy.kind = source_playlist.kind
         next_name = build_unique_copy_name(db, user.id, canonical_name, exclude_playlist_id=local_copy.id)
         if local_copy.name != next_name:
             old_name = local_copy.name
@@ -728,15 +741,27 @@ async def get_playlist(playlist_id: int, request: Request, db: Session = Depends
             "duration": t.duration,
             "thumbnail": f"/api/cover/{t.id}",
             "position": item.position,
+            "playlist_item_id": item.id,
         }
         tracks.append(track_data)
         if tracks and thumbnail == "/static/img/default_cover.png":
             thumbnail = track_data["thumbnail"]
 
+    import_states = {
+        job.target_position: job.status
+        for job in db.query(database.DownloadJob)
+        .filter(
+            database.DownloadJob.target_modern_playlist_id == playlist.id,
+            database.DownloadJob.target_position.isnot(None),
+        )
+        .order_by(database.DownloadJob.id)
+        .all()
+    }
     return JSONResponse(
         {
             "id": playlist.id,
             "name": playlist.name,
+            "kind": playlist.kind,
             "tracks": tracks,
             "thumbnail": thumbnail,
             "owner_username": playlist.owner.username if playlist.owner else "Unknown",
@@ -751,6 +776,10 @@ async def get_playlist(playlist_id: int, request: Request, db: Session = Depends
             "is_read_only": not playlist_is_editable_by_user(playlist, user),
             "cover_track_id": playlist.cover_track_id,
             "has_custom_cover": bool(playlist.cover_path),
+            "import_pending": sum(
+                status in ("pending", "processing", "downloading") for status in import_states.values()
+            ),
+            "import_failed": sum(status in ("failed", "error") for status in import_states.values()),
             "is_smart": playlist.smart_rules_json is not None,
             "smart_rules": json.loads(playlist.smart_rules_json) if playlist.smart_rules_json else None,
             "smart_updated_at": playlist.smart_updated_at.isoformat() if playlist.smart_updated_at else None,
@@ -974,6 +1003,15 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
         .scalar()
         or 0
     )
+    reserved_pos = (
+        db.query(func.max(database.DownloadJob.target_position))
+        .filter(
+            database.DownloadJob.target_modern_playlist_id == playlist_id,
+        )
+        .scalar()
+        or 0
+    )
+    max_pos = max(max_pos, reserved_pos)
 
     item = database.PlaylistItem(playlist_id=playlist_id, track_id=req.track_id, position=max_pos + 1)
     db.add(item)
@@ -995,7 +1033,9 @@ async def add_to_playlist(playlist_id: int, req: AddToPlaylistRequest, request: 
 
 
 @router.delete("/api/playlists/{playlist_id}/remove/{track_id}")
-async def remove_from_playlist(playlist_id: int, track_id: int, request: Request, db: Session = Depends(get_db)):
+async def remove_from_playlist(
+    playlist_id: int, track_id: int, request: Request, db: Session = Depends(get_db), item_id: int | None = None
+):
     """Remove track from playlist"""
     user = get_current_user_safe(db, request)
     if not user:
@@ -1011,11 +1051,12 @@ async def remove_from_playlist(playlist_id: int, track_id: int, request: Request
             {"error": "This playlist is read-only. Sync it from the public source instead."}, status_code=403
         )
 
-    item = (
-        db.query(database.PlaylistItem)
-        .filter(database.PlaylistItem.playlist_id == playlist_id, database.PlaylistItem.track_id == track_id)
-        .first()
+    query = db.query(database.PlaylistItem).filter(
+        database.PlaylistItem.playlist_id == playlist_id, database.PlaylistItem.track_id == track_id
     )
+    if item_id is not None:
+        query = query.filter(database.PlaylistItem.id == item_id)
+    item = query.order_by(database.PlaylistItem.position, database.PlaylistItem.id).first()
 
     if not item:
         return JSONResponse({"error": "Track not in playlist"}, status_code=404)
@@ -1140,12 +1181,22 @@ async def reorder_playlist_tracks(
     if not body.items:
         return JSONResponse({"ok": True})
 
+    if (
+        db.query(database.DownloadJob.id)
+        .filter(
+            database.DownloadJob.target_modern_playlist_id == playlist_id,
+            database.DownloadJob.status.in_(("pending", "processing", "downloading")),
+        )
+        .first()
+    ):
+        return JSONResponse({"error": "Wait for the collection import to finish before reordering."}, status_code=409)
+
     if playlist.is_collaborative and body.revision is None:
         return JSONResponse({"error": "Reload this playlist before reordering."}, status_code=409)
     ids = [item.track_id for item in body.items]
     positions = [item.position for item in body.items]
-    current_ids = {item.track_id for item in playlist.items}
-    if len(set(ids)) != len(ids) or set(ids) != current_ids or sorted(positions) != list(range(1, len(ids) + 1)):
+    current_ids = [item.track_id for item in playlist.items]
+    if Counter(ids) != Counter(current_ids) or sorted(positions) != list(range(1, len(ids) + 1)):
         return JSONResponse(
             {"error": "Reorder must contain every song once with consecutive positions."}, status_code=400
         )
@@ -1156,11 +1207,11 @@ async def reorder_playlist_tracks(
         db.rollback()
         return JSONResponse({"error": "Playlist changed. Reload and try again."}, status_code=409)
 
+    by_track = defaultdict(list)
+    for item in sorted(playlist.items, key=lambda item: (item.position, item.id)):
+        by_track[item.track_id].append(item)
     for item in body.items:
-        db.query(database.PlaylistItem).filter(
-            database.PlaylistItem.playlist_id == playlist_id,
-            database.PlaylistItem.track_id == item.track_id,
-        ).update({"position": item.position})
+        by_track[item.track_id].pop(0).position = item.position
 
     db.commit()
     sync_edited_playlist(db, playlist)

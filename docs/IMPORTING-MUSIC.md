@@ -1,6 +1,24 @@
 # Importing Music
 
-Aoede includes a bulk importer for moving an existing host music collection into the shared pool.
+Aoede can import online albums/playlists through the web app, or move an existing host music collection into the shared pool with the command-line importer.
+
+## Import an online album or playlist
+
+1. Open **Search** and enable **Albums / Playlists** to search Spotify and YouTube collections. This mode is off by default and replaces ordinary song searches while enabled. Alternatively, paste a Spotify album/playlist, YouTube playlist, or YouTube Music album URL in **Downloads**.
+2. Select a result to preview its ordered songs, unavailable entries, name, and collection type.
+3. Choose **Album** or **Playlist**, optionally change the name, and select **Import**.
+
+Aoede creates a private collection owned by the signed-in user. Songs are downloaded into the shared pool using the existing downloader, or reused when already available. The collection keeps source order and repeated songs; it appears in **Your Library → Albums** or **Playlists**. Albums support the same playback, editing, covers, sharing, collaboration, and offline downloads as playlists. A curated album does not change the tags of songs already in the pool.
+
+Imports support up to **500 source entries**, with at most **500 active downloads per importing user**. Unavailable/private/deleted entries are reported in the preview and skipped. Failed downloads leave the collection intact: open its **Downloads** button and retry the failed songs. Retries keep their original positions. Reordering is disabled while songs are being imported and becomes available once the active jobs finish. Interrupted jobs are marked failed after a server restart and can be retried.
+
+Spotify collection lookup requires the Spotify credentials in **Settings** and API access to the requested collection. Private playlists are not available through the app's client-credentials authentication. Spotify development-mode restrictions can also prevent playlist lookup; Aoede reports the provider error without creating an empty collection. See [Spotify's February 2026 migration guide](https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide). YouTube imports require a playlist/album visible to the server without signing in.
+
+Collection searches are cached for an hour and previews for ten minutes. Turning off **Albums / Playlists** returns to ordinary song search without issuing collection searches.
+
+If you reorder a partially failed import before retrying it, a retried song whose original position is occupied is appended to preserve your edits. Retry failed songs before reordering to retain the source structure exactly.
+
+## Import local files
 
 > [!WARNING]
 > The importer **moves** supported audio files into the Aoede pool. Do not point it at your only copy of a library until you have verified your backup strategy.

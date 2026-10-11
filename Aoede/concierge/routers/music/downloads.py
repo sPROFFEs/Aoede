@@ -4,18 +4,24 @@ Download management endpoints.
 
 import logging
 import os
+from typing import Literal
 from urllib.parse import parse_qs, urlparse
 
+import collection_service
 import database
 import downloader_service
 import manager
 import metadata_service
 import source_registry
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
-from pydantic import BaseModel
+from limiter import limiter
+from playlist_files import MAX_PLAYLIST_NAME_LENGTH, normalize_playlist_name
+from pydantic import BaseModel, Field
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from . import playlists
 from .core import get_current_user_safe, get_db
 
 router = APIRouter()
@@ -34,6 +40,12 @@ class DownloadRequest(BaseModel):
     artist: str = None
     album: str = None
     source: str = None
+
+
+class CollectionDownloadRequest(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+    kind: Literal["playlist", "album"] | None = None
+    name: str | None = Field(default=None, max_length=MAX_PLAYLIST_NAME_LENGTH)
 
 
 def _infer_source_label(raw_source: str | None, raw_url: str | None) -> str:
@@ -74,6 +86,7 @@ def _serialize_download_job(job, target: str | None = None):
         "fallback_reason": job.fallback_reason,
         "error_type": job.error_type,
         "target_playlist_id": job.target_modern_playlist_id,
+        "target_position": job.target_position,
         "detail": job.current_file,
         "error": job.error_log,
         "target": target,
@@ -136,16 +149,41 @@ async def run_download_in_background(job_id: int, user_id: int):
     try:
         dm = downloader_service.DownloadManager(bg_db, user_id)
         await dm.process_download(job_id)
+        if job := bg_db.get(database.DownloadJob, job_id):
+            if job.target_modern_playlist and job.status in ("completed", "finished"):
+                playlists.sync_edited_playlist(bg_db, job.target_modern_playlist)
     except Exception as e:
         logger.warning("Background task error: %s", e)
     finally:
         bg_db.close()
 
 
+async def run_collection_downloads(job_ids: list[int], user_id: int):
+    # ponytail: sequential batch, existing semaphore still bounds simultaneous users.
+    for job_id in job_ids:
+        await run_download_in_background(job_id, user_id)
+
+
 def _prune_terminal_download_jobs(db: Session, user_id: int, keep: int = DOWNLOAD_JOB_HISTORY_LIMIT):
+    imported_position = (
+        db.query(database.PlaylistItem.id)
+        .filter(
+            database.PlaylistItem.playlist_id == database.DownloadJob.target_modern_playlist_id,
+            database.PlaylistItem.position == database.DownloadJob.target_position,
+        )
+        .exists()
+    )
     terminal_jobs = (
         db.query(database.DownloadJob.id)
         .filter(database.DownloadJob.user_id == user_id, database.DownloadJob.status.in_(TERMINAL_DOWNLOAD_STATUSES))
+        .filter(
+            or_(
+                database.DownloadJob.target_position.is_(None),
+                database.DownloadJob.target_modern_playlist_id.is_(None),
+                database.DownloadJob.status.notin_(("failed", "error")),
+                imported_position,
+            )
+        )
         .order_by(database.DownloadJob.created_at.desc(), database.DownloadJob.id.desc())
         .all()
     )
@@ -196,6 +234,103 @@ def mark_stuck_download_jobs_failed(db: Session) -> int:
 # --- ENDPOINTS ---
 
 
+@router.get("/api/collections/search")
+@limiter.limit("30/minute")
+async def collection_search(
+    request: Request, q: str = Query(default="", max_length=200), source: str = "all", db: Session = Depends(get_db)
+):
+    user = get_current_user_safe(db, request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try:
+        return await collection_service.search_collections(user, q, source)
+    except collection_service.CollectionError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=exc.status_code)
+
+
+@router.get("/api/collections/resolve")
+@limiter.limit("15/minute")
+async def collection_preview(request: Request, url: str = Query(max_length=2048), db: Session = Depends(get_db)):
+    user = get_current_user_safe(db, request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try:
+        return await collection_service.resolve_collection(user, url)
+    except collection_service.CollectionError as exc:
+        return JSONResponse({"error": str(exc)}, status_code=exc.status_code)
+
+
+@router.post("/api/download/collection")
+@limiter.limit("10/minute")
+async def import_collection(
+    req: CollectionDownloadRequest, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)
+):
+    user = get_current_user_safe(db, request)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    used, limit, _ = manager.get_pool_status(db)
+    if used >= limit:
+        return JSONResponse({"error": "Global pool limit reached. Please delete some tracks."}, status_code=403)
+    try:
+        collection = await collection_service.resolve_collection(user, req.url)
+        name = normalize_playlist_name(
+            req.name or (collection.get("name") or "Imported collection")[:MAX_PLAYLIST_NAME_LENGTH]
+        )
+    except (collection_service.CollectionError, ValueError) as exc:
+        return JSONResponse({"error": str(exc)}, status_code=getattr(exc, "status_code", 400))
+    active_jobs = (
+        db.query(database.DownloadJob)
+        .filter(
+            database.DownloadJob.user_id == user.id, database.DownloadJob.status.in_(NON_TERMINAL_DOWNLOAD_STATUSES)
+        )
+        .count()
+    )
+    if active_jobs + len(collection["tracks"]) > collection_service.MAX_COLLECTION_TRACKS:
+        return JSONResponse(
+            {"error": "Your download queue is full. Wait for current downloads to finish."}, status_code=409
+        )
+    playlist = database.Playlist(
+        name=playlists.build_unique_copy_name(db, user.id, name), owner_id=user.id, kind=req.kind or collection["kind"]
+    )
+    try:
+        db.add(playlist)
+        db.flush()
+        jobs = [
+            database.DownloadJob(
+                user_id=user.id,
+                input_url=track["url"],
+                original_input_url=track["url"],
+                requested_title=track["title"],
+                requested_artist=track["artist"],
+                requested_album=track["album"],
+                requested_source=collection["source"],
+                resolution_mode=f"{collection['source']}-collection",
+                target_modern_playlist_id=playlist.id,
+                target_position=track["position"],
+                status="pending",
+                progress_percent=0,
+                current_file="Queued for collection import",
+            )
+            for track in collection["tracks"]
+        ]
+        db.add_all(jobs)
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Could not queue collection import")
+        return JSONResponse({"error": "Could not queue collection import."}, status_code=500)
+    background_tasks.add_task(run_collection_downloads, [job.id for job in jobs], user.id)
+    return {
+        "status": "queued",
+        "playlist_id": playlist.id,
+        "name": playlist.name,
+        "kind": playlist.kind,
+        "track_count": len(jobs),
+        "skipped": collection["skipped"],
+        "message": f"{len(jobs)} songs queued in {playlist.name}",
+    }
+
+
 @router.post("/api/download")
 async def trigger_download(
     req: DownloadRequest, background_tasks: BackgroundTasks, request: Request, db: Session = Depends(get_db)
@@ -204,6 +339,9 @@ async def trigger_download(
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
+
+    if collection_service.parse_collection_url(req.url):
+        return await import_collection(CollectionDownloadRequest(url=req.url), background_tasks, request, db)
 
     _prune_terminal_download_jobs(db, user.id)
 
@@ -277,13 +415,35 @@ async def retry_download(
     if (job.status or "").lower() not in ("failed", "error"):
         return JSONResponse({"error": "Only failed downloads can be retried"}, status_code=400)
 
+    if job.target_position is not None and job.target_modern_playlist_id is not None:
+        latest = (
+            db.query(database.DownloadJob)
+            .filter(
+                database.DownloadJob.user_id == user.id,
+                database.DownloadJob.target_modern_playlist_id == job.target_modern_playlist_id,
+                database.DownloadJob.target_position == job.target_position,
+            )
+            .order_by(database.DownloadJob.id.desc())
+            .first()
+        )
+        if latest.status not in ("failed", "error"):
+            return JSONResponse({"error": "This song has already been retried."}, status_code=409)
+        active_jobs = (
+            db.query(database.DownloadJob)
+            .filter(
+                database.DownloadJob.user_id == user.id,
+                database.DownloadJob.status.in_(NON_TERMINAL_DOWNLOAD_STATUSES),
+            )
+            .count()
+        )
+        if active_jobs >= collection_service.MAX_COLLECTION_TRACKS:
+            return JSONResponse({"error": "Your download queue is full."}, status_code=409)
+
     pool_usage = manager.get_pool_status(db)
     if pool_usage[0] >= pool_usage[1]:
         return JSONResponse(
             {"error": f"Global pool limit reached ({pool_usage[1]}GB). Please delete some tracks."}, status_code=403
         )
-
-    _prune_terminal_download_jobs(db, user.id)
 
     new_job = database.DownloadJob(
         user_id=user.id,
@@ -298,11 +458,14 @@ async def retry_download(
         progress_percent=0.0,
         new_playlist_name=job.new_playlist_name,
         target_modern_playlist_id=job.target_modern_playlist_id,
+        target_position=job.target_position,
         current_file="Queued for retry",
     )
     db.add(new_job)
     db.commit()
     db.refresh(new_job)
+
+    _prune_terminal_download_jobs(db, user.id)
 
     background_tasks.add_task(run_download_in_background, new_job.id, user.id)
     return {"status": "queued", "job_id": new_job.id, "message": "Download requeued"}
@@ -432,7 +595,7 @@ async def start_download(
 
 
 @router.get("/api/jobs")
-async def list_download_jobs(request: Request, db: Session = Depends(get_db)):
+async def list_download_jobs(request: Request, db: Session = Depends(get_db), playlist_id: int | None = None):
     """Get status of all download jobs for the user"""
     user = get_current_user_safe(db, request)
     if not user:
@@ -440,9 +603,32 @@ async def list_download_jobs(request: Request, db: Session = Depends(get_db)):
 
     _prune_terminal_download_jobs(db, user.id)
 
-    jobs = (
+    if playlist_id is not None:
+        jobs = (
+            db.query(database.DownloadJob)
+            .filter(
+                database.DownloadJob.user_id == user.id, database.DownloadJob.target_modern_playlist_id == playlist_id
+            )
+            .order_by(database.DownloadJob.id)
+            .all()
+        )
+        latest = {}
+        for job in jobs:
+            latest[job.target_position if job.target_position is not None else f"job:{job.id}"] = job
+        return JSONResponse([_serialize_download_job(job) for job in latest.values()])
+
+    # Show in-flight jobs even when a large import has newer queued rows.
+    active = (
         db.query(database.DownloadJob)
-        .filter(database.DownloadJob.user_id == user.id)
+        .filter(
+            database.DownloadJob.user_id == user.id, database.DownloadJob.status.in_(NON_TERMINAL_DOWNLOAD_STATUSES)
+        )
+        .order_by(database.DownloadJob.id)
+        .all()
+    )
+    jobs = active + (
+        db.query(database.DownloadJob)
+        .filter(database.DownloadJob.user_id == user.id, database.DownloadJob.status.in_(TERMINAL_DOWNLOAD_STATUSES))
         .order_by(database.DownloadJob.created_at.desc())
         .limit(50)
         .all()

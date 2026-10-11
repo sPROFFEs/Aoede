@@ -47,6 +47,14 @@ When you leave, Aoede restores the personal playback context that was active bef
 | Remove songs | Yes | No |
 | Delete room | Yes | No |
 
+## Federated rooms and songs
+
+A federated room's queue is managed by its host server. Remote listeners can search the host's local library and its enabled federation catalogue, then add songs when the host allows guest queue edits. Song names containing quotes or other punctuation work through the same controls.
+
+**Add to party** from a listener's own library also identifies the song's source server. Local numeric song IDs are not interchangeable between servers. The host must subscribe to that source and have an up-to-date catalogue before a listener-owned or third-server song can be queued. A missing subscription/catalogue produces an actionable error instead of selecting a different song with the same ID.
+
+Update both the room host and listener servers to use this origin-aware flow. A host running an older party API can still return 404 on join/queue endpoints; updating only the listener does not add endpoints to the host. Remote listeners remain guests: only the local room owner can delete the room or control playback.
+
 ## Persistence and limits
 
 - Rooms and queues survive application restarts.
@@ -55,7 +63,7 @@ When you leave, Aoede restores the personal playback context that was active bef
 - A short disconnect grace period prevents a refresh or brief network interruption from immediately stopping the room.
 - Multiple tabs from the same account count as one listener.
 - A room queue supports up to **500 songs**.
-- Party search is limited to music already stored in the shared Aoede library; it does not initiate remote searches/downloads.
+- Party search includes music in the host's shared library and enabled federation catalogue; it does not initiate provider searches or downloads.
 - Party endpoints require an authenticated regular user; service accounts and anonymous requests are rejected.
 
 ## Good screenshot for the README

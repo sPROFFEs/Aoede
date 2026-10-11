@@ -60,9 +60,15 @@ A job can move to **Failed** from any active stage; its details explain the erro
 
 Aoede reuses matching content already in the shared pool when possible, so two users do not need separate copies of the same track.
 
+To import a complete collection, enable **Albums / Playlists** in Search or paste a collection URL into Downloads. Preview it, choose its name and type, and import its ordered songs into a private collection under your account. The collection's Downloads button shows progress and failed songs that can be retried. See [Importing Music](IMPORTING-MUSIC.md) for provider requirements and limits.
+
 ## Browse the library
 
 **Your Library** provides searchable, paginated views for playlists, artists, albums and genres. Open an item to play its tracks or use the available track actions. Favorites remain available from the heart shortcut in the side rail.
+
+Choose **Create → Album** to create a curated album manually. **Albums** shows your curated albums separately from albums grouped by the pool's song tags. Curated albums use the same editing, collaboration, sharing, and offline controls as playlists.
+
+Offline library metadata is saved separately for each account. After upgrading from an older version, connect once to refresh that account's saved metadata; previously downloaded audio remains on the device.
 
 ## Normal playlists
 

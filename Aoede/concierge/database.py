@@ -276,6 +276,7 @@ class Playlist(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String)
+    kind = Column(String, default="playlist", server_default="playlist", nullable=False)
     owner_id = Column(Integer, ForeignKey("users.id"))
     is_public = Column(Boolean, default=False, nullable=False)
     source_playlist_id = Column(Integer, nullable=True, index=True)
@@ -401,6 +402,7 @@ class DownloadJob(Base):
     fallback_reason = Column(Text, nullable=True)
     error_type = Column(String, nullable=True)
     target_modern_playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True)
+    target_position = Column(Integer, nullable=True)
     new_playlist_name = Column(String, nullable=True)
     status = Column(String, default="pending")
     progress_percent = Column(Integer, default=0)

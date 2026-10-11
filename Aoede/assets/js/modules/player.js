@@ -794,6 +794,13 @@ export function updatePlayerUIForPreview(track) {
   if (likeBtn && !track.is_local) {
     likeBtn.style.display = 'none';
   }
+  const addBtn = document.getElementById('player-add-btn');
+  if (addBtn && !track.is_local) addBtn.style.display = 'none';
+  const fsFavorite = document.getElementById('fs-btn-favorite');
+  if (fsFavorite && !track.is_local) {
+    fsFavorite.style.opacity = '0.3';
+    fsFavorite.style.pointerEvents = 'none';
+  }
 
   // Sync Fullscreen Player
   const fsTitle = document.getElementById('fs-title');
@@ -808,12 +815,20 @@ export function updatePlayerUIForPreview(track) {
 
 // === MAIN PLAY TRACK FUNCTION ===
 
+export function allowPrivatePlayback() {
+  if (isPartyPlaybackActive()) {
+    ui.showToast('Leave the party room before starting private playback', 'error');
+    return false;
+  }
+  return true;
+}
+
 export async function playTrack(track, options = {}) {
   if (!track) return;
-  if (_partyController?.isActive?.() && !options.party) {
-    ui.showToast('Leave the party room before starting private playback', 'error');
-    return;
-  }
+  if (!options.party && !allowPrivatePlayback()) return;
+  if (!options.party && track.fed_instance_id != null) return playFederatedTrack(track, options);
+  if (!options.party && options.autoplay !== false) resumeLocalPlayback();
+  window.__discoveryPreviewAudio?.pause();
 
   _trackTransitionInFlight = Boolean(state.currentTrack?.db_id && track.db_id);
 
@@ -823,7 +838,8 @@ export async function playTrack(track, options = {}) {
   if (state.ytPlayer && state.ytPlayer.stopVideo) state.ytPlayer.stopVideo();
 
   state.setCurrentTrack(track);
-  updatePlayerUI(track);
+  if (track.is_radio) updatePlayerUIForPreview(track);
+  else updatePlayerUI(track);
   persistPlaybackSession();
 
   // Notify the lyrics panel — it self-skips when closed so this is
@@ -843,10 +859,26 @@ export async function playTrack(track, options = {}) {
 
   if (window.renderQueue) window.renderQueue();
 
-  if (options.party && track.stream_url) {
+  if ((options.party || track.is_radio) && track.stream_url) {
     state.audio.src = track.stream_url;
     ensureMediaSessionHandlers();
     updateMediaSessionMetadata(track);
+    audioEngine.resetFade();
+    audioEngine.applyReplayGain(options.party && track.db_id ? track.db_id : null);
+    if (!options.party && options.autoplay !== false) {
+      try {
+        await state.audio.play();
+        if (state.currentTrack !== track) return;
+        state.setIsPlaying(true);
+        ui.updatePlayButton();
+        audioEngine.resumeIfSuspended();
+      } catch (error) {
+        if (error.name === 'AbortError' || state.currentTrack !== track) return;
+        state.setIsPlaying(false);
+        ui.updatePlayButton();
+        ui.showToast('Could not play this radio stream.', 'error');
+      }
+    }
     return;
   }
 
@@ -1002,7 +1034,9 @@ export async function playTrack(track, options = {}) {
 // purposes but never set is_local=true, which keeps favorites /
 // download / "add to playlist" disabled for these rows.
 
-export async function playFederatedTrack(data) {
+export async function playFederatedTrack(data, options = {}) {
+  if (!allowPrivatePlayback()) return;
+  window.__discoveryPreviewAudio?.pause();
   let track = data;
   if (typeof data === 'string') {
     try {
@@ -1015,6 +1049,13 @@ export async function playFederatedTrack(data) {
     ui.showToast('Federated track is missing routing info', 'error');
     return;
   }
+
+  finalizeListenSession('track_switch');
+  if (_currentBlobUrl) {
+    URL.revokeObjectURL(_currentBlobUrl);
+    _currentBlobUrl = null;
+  }
+  if (options.autoplay !== false) resumeLocalPlayback();
 
   // Stop any ongoing playback before swapping src.
   if (state.ytPlayer && state.ytPlayer.stopVideo) state.ytPlayer.stopVideo();
@@ -1031,14 +1072,28 @@ export async function playFederatedTrack(data) {
   // and aborted on transient blips that the player itself would have
   // tolerated.)
   state.audio.src = proxyUrl;
+  ensureMediaSessionHandlers();
+  updateMediaSessionMetadata(track);
+  audioEngine.resetFade();
+  audioEngine.applyReplayGain(null);
+  if (options.autoplay === false) {
+    state.setIsPlaying(false);
+    ui.updatePlayButton();
+    return;
+  }
 
   // One-shot error handler scoped to this play attempt. We probe the
   // status ourselves only AFTER we know playback failed, so we can
   // tell the user "offline" vs. generic "could not play".
+  let errorReported = false;
   const onErr = async () => {
     state.audio.removeEventListener('error', onErr);
+    if (errorReported || state.currentTrack !== track) return;
+    errorReported = true;
     try {
       const probe = await fetch(proxyUrl, { method: 'GET', headers: { Range: 'bytes=0-1' } });
+      if (probe.status !== 502 || state.currentTrack !== track) await probe.body?.cancel();
+      if (state.currentTrack !== track) return;
       if (probe.status === 503) {
         ui.showToast('That track is on a server that is currently offline.', 'error');
         return;
@@ -1049,15 +1104,16 @@ export async function playFederatedTrack(data) {
       if (probe.status === 502) {
         try {
           const body = await probe.json();
+          if (state.currentTrack !== track) return;
           ui.showToast(body.error || 'Federated source unreachable', 'error');
         } catch {
-          ui.showToast('Federated source unreachable', 'error');
+          if (state.currentTrack === track) ui.showToast('Federated source unreachable', 'error');
         }
         return;
       }
       ui.showToast(`Could not play federated track (HTTP ${probe.status})`, 'error');
     } catch {
-      ui.showToast('Could not reach federated source', 'error');
+      if (state.currentTrack === track) ui.showToast('Could not reach federated source', 'error');
     }
   };
   state.audio.addEventListener('error', onErr, { once: true });
@@ -1067,20 +1123,29 @@ export async function playFederatedTrack(data) {
     // Success — drop the error listener so we don't react to later
     // (unrelated) audio errors as if this play attempt failed.
     state.audio.removeEventListener('error', onErr);
+    if (state.currentTrack !== track) return;
     state.setIsPlaying(true);
     ui.updatePlayButton();
     if (window.onLyricsTrackChange) window.onLyricsTrackChange(track);
+    audioEngine.resumeIfSuspended();
   } catch (e) {
-    if (e.name === 'AbortError') return;
+    state.audio.removeEventListener('error', onErr);
+    if (e.name === 'AbortError' || state.currentTrack !== track) return;
+    state.setIsPlaying(false);
+    ui.updatePlayButton();
+    if (e.name === 'NotAllowedError') {
+      ui.showToast('Tap play to start listening.', 'error');
+      return;
+    }
     console.error('Federated playback error:', e);
-    // Fall through — `onErr` will handle the toast if the audio
-    // element also fired an error event.
+    await onErr();
   }
 }
 
 // === PREVIEW PLAYBACK ===
 
 export async function playPreview(data) {
+  if (!allowPrivatePlayback()) return;
   let track = data;
   if (typeof data === 'string') {
     try {
@@ -1089,23 +1154,48 @@ export async function playPreview(data) {
       return;
     }
   }
+  if (!track) return;
+  if (track.fed_instance_id != null) return playFederatedTrack(track);
+  window.__discoveryPreviewAudio?.pause();
+  finalizeListenSession('preview_switch');
+  if (_currentBlobUrl) {
+    URL.revokeObjectURL(_currentBlobUrl);
+    _currentBlobUrl = null;
+  }
+  if (state.ytPlayer?.stopVideo) state.ytPlayer.stopVideo();
+  resumeLocalPlayback();
+  audioEngine.resetFade();
+  audioEngine.applyReplayGain(null);
 
   state.setCurrentTrack(track);
   updatePlayerUIForPreview(track);
 
-  finalizeListenSession('preview_switch');
-
   // Use proxy endpoint. Reassigning src is enough to swap source without
   // tearing down the active MediaSession — avoid the previous src='' reset
   // and explicit load() which interrupted Android background playback.
-  const previewUrl = `${state.API}/playback/preview?url=${encodeURIComponent(track.id)}`;
+  const rawUrl = track.url || track.id || '';
+  const url =
+    track.source === 'youtube' && /^[A-Za-z0-9_-]{11}$/.test(rawUrl)
+      ? `https://www.youtube.com/watch?v=${rawUrl}`
+      : track.source === 'spotify' && /^[A-Za-z0-9]{22}$/.test(rawUrl)
+        ? `https://open.spotify.com/track/${rawUrl}`
+        : rawUrl;
+  const params = new URLSearchParams({ url });
+  if (track.title) params.set('title', [track.artist, track.title].filter(Boolean).join(' '));
+  const previewUrl = `${state.API}/playback/preview?${params}`;
 
   try {
     state.audio.src = previewUrl;
+    ensureMediaSessionHandlers();
+    updateMediaSessionMetadata(track);
     await state.audio.play();
+    if (state.currentTrack !== track) return;
     state.setIsPlaying(true);
     ui.updatePlayButton();
   } catch (e) {
+    if (e.name === 'AbortError' || state.currentTrack !== track) return;
+    state.setIsPlaying(false);
+    ui.updatePlayButton();
     console.error('Preview playback failed:', e);
     ui.showToast('Preview not available', 'error');
   }
@@ -1115,6 +1205,7 @@ export async function playPreview(data) {
 
 export function playFromView(index) {
   if (!state.currentViewList || !state.currentViewList[index]) return;
+  if (!allowPrivatePlayback()) return;
 
   state.setContextQueue([...state.currentViewList]);
   state.setOriginalContextQueue([...state.currentViewList]);

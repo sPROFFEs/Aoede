@@ -319,6 +319,27 @@ async def federation_party(
     try:
         if method == "POST" and path == "queue":
             payload = party_routes.AddTrackRequest(**await request.json())
+            if payload.origin_url:
+                origin_url = peer.peer_url if payload.origin_url == "listener" else payload.origin_url
+                origin = (
+                    db.query(database.FederatedInstance)
+                    .filter(
+                        database.FederatedInstance.base_url.in_([origin_url.rstrip("/"), origin_url.rstrip("/") + "/"]),
+                        database.FederatedInstance.enabled.is_(True),
+                    )
+                    .first()
+                    if origin_url
+                    else None
+                )
+                if not origin or not payload.fed_remote_id:
+                    return JSONResponse(
+                        {
+                            "error": "The party host must subscribe to the song's source server. Refresh its federation catalogue first."
+                        },
+                        status_code=409,
+                    )
+                payload.track_id = None
+                payload.fed_instance_id = origin.id
             return await party_routes.add_queue_track(room_id, payload, request, db)
         if method == "POST" and path == "control":
             payload = party_routes.ControlRequest(**await request.json())

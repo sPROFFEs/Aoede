@@ -5,11 +5,13 @@
 
 import * as state from './state.js';
 import * as ui from './ui.js';
+import * as collections from './collections.js';
 
 // Jobs seen in an active state, so we can toast exactly once when each
 // flips to a terminal state — even while the downloads modal is closed
 // (polling keeps running while any job is active).
 const activeJobTracker = new Map();
+let collectionFilter = null;
 
 function notifyFinishedJobs(jobs) {
   for (const j of jobs) {
@@ -25,6 +27,10 @@ function notifyFinishedJobs(jobs) {
         ui.showToast(`Download failed: ${title}`, 'error');
       }
     }
+  }
+  const returnedIds = new Set(jobs.map((job) => job.id));
+  for (const id of activeJobTracker.keys()) {
+    if (!returnedIds.has(id)) activeJobTracker.delete(id); // Finished rows can leave the bounded history.
   }
 }
 
@@ -146,7 +152,7 @@ function buildDownloadResolutionLines(job) {
     .join('');
 }
 
-function ensureDownloadPolling() {
+export function ensureDownloadPolling() {
   if (!state.downloadPolling) {
     state.setDownloadPolling(setInterval(refreshJobs, 3000));
   }
@@ -187,7 +193,8 @@ async function refreshDeleteResponsesBadge() {
 
 // === OPEN/CLOSE MODAL ===
 
-export async function openDownloadsModal() {
+export async function openDownloadsModal(playlistId = null) {
+  collectionFilter = playlistId;
   const modal = document.getElementById('downloads-modal');
   if (modal) modal.classList.remove('hidden');
   refreshDeleteResponsesBadge();
@@ -199,12 +206,10 @@ export async function openDownloadsModal() {
 }
 
 export function closeDownloadsModal() {
+  collectionFilter = null;
   const modal = document.getElementById('downloads-modal');
   if (modal) modal.classList.add('hidden');
-  if (state.downloadPolling) {
-    clearInterval(state.downloadPolling);
-    state.setDownloadPolling(null);
-  }
+  if (!activeJobTracker.size) stopDownloadPolling();
 }
 
 export async function openDeleteResponsesModal() {
@@ -317,7 +322,13 @@ export async function refreshJobs() {
     refreshDeleteResponsesBadge();
     if (isDeleteResponsesModalOpen()) refreshDeleteResponses();
 
-    const res = await fetch(`${state.API}/jobs`, { signal: controller.signal });
+    const filter = collectionFilter;
+    const [res, filteredResponse] = await Promise.all([
+      fetch(`${state.API}/jobs`, { signal: controller.signal }),
+      filter === null
+        ? Promise.resolve(null)
+        : fetch(`${state.API}/jobs?playlist_id=${encodeURIComponent(filter)}`, { signal: controller.signal })
+    ]);
 
     // Stale-response guard: a newer refreshJobs may have superseded us
     // between fetch dispatch and resolution. AbortController covers the
@@ -339,7 +350,7 @@ export async function refreshJobs() {
       return;
     }
 
-    const jobs = await res.json();
+    let jobs = await res.json();
     if (controller.signal.aborted || state.jobsRefreshController !== controller) return;
     if (!Array.isArray(jobs)) return; // defensive: backend should never send this
 
@@ -371,24 +382,35 @@ export async function refreshJobs() {
     if (!container) return;
     if (!isDownloadsModalOpen()) return;
 
+    if (filteredResponse) {
+      if (!filteredResponse.ok)
+        throw new Error(`Could not load collection downloads (HTTP ${filteredResponse.status})`);
+      jobs = await filteredResponse.json();
+      if (controller.signal.aborted || state.jobsRefreshController !== controller) return;
+    }
+
     if (!jobs.length) {
       container.innerHTML = '<p style="text-align:center; color: #666; margin-top:20px;">No downloads yet.</p>';
       return;
     }
 
-    container.innerHTML = jobs
-      .map((j) => {
-        const uiState = getJobUiState(j);
-        const statusIcon = uiState.icon;
-        const isSpinning = uiState.active ? 'style="animation: spin 2s linear infinite;"' : '';
-        const detail = ui.escHtml(j.error || j.detail || j.filename || j.url || '');
-        const title = ui.escHtml(
-          j.resolved_track_title || j.resolved_title || j.track_title || j.filename || j.url || 'Untitled download'
-        );
-        const source = ui.escHtml(formatSourceLabel(j.source));
-        const resolutionLines = buildDownloadResolutionLines(j);
+    container.innerHTML =
+      (filter === null
+        ? ''
+        : '<p>Showing this collection · <button class="btn-secondary" onclick="openDownloadsModal()">All downloads</button></p>') +
+      jobs
+        .map((j) => {
+          const uiState = getJobUiState(j);
+          const statusIcon = uiState.icon;
+          const isSpinning = uiState.active ? 'style="animation: spin 2s linear infinite;"' : '';
+          const detail = ui.escHtml(j.error || j.detail || j.filename || j.url || '');
+          const title = ui.escHtml(
+            j.resolved_track_title || j.resolved_title || j.track_title || j.filename || j.url || 'Untitled download'
+          );
+          const source = ui.escHtml(formatSourceLabel(j.source));
+          const resolutionLines = buildDownloadResolutionLines(j);
 
-        return `
+          return `
             <div class="job-item">
                 <div class="job-header">
                     <div>
@@ -421,12 +443,16 @@ export async function refreshJobs() {
                     <span>${new Date(j.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
             </div>`;
-      })
-      .join('');
+        })
+        .join('');
     if (window.lucide?.createIcons) lucide.createIcons();
   } catch (e) {
-    if (e.name === 'AbortError') return; // expected on supersede
+    if (e.name === 'AbortError' || controller.signal.aborted || state.jobsRefreshController !== controller) return;
     console.error('Refresh jobs failed:', e);
+    const container = document.getElementById('jobs-list');
+    if (container && isDownloadsModalOpen()) {
+      container.innerHTML = `<p role="status" class="modal-subtitle">${ui.escHtml(e.message || 'Could not connect to downloads. Retrying…')}</p>`;
+    }
   } finally {
     if (state.jobsRefreshController === controller) {
       state.setJobsRefreshController(null);
@@ -459,6 +485,12 @@ export async function handleModalDownload() {
   const input = document.getElementById('dl-modal-url');
   const url = input?.value?.trim();
   if (!url) return;
+
+  if (collections.isCollectionUrl(url)) {
+    closeDownloadsModal();
+    await collections.previewImport(url);
+    return;
+  }
 
   // Check for duplicate
   try {

@@ -20,6 +20,7 @@ import track_identity
 import utils
 import yt_dlp
 from aoede_config import settings
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 # Límite global de descargas simultáneas (ej. 3)
@@ -157,22 +158,28 @@ class DownloadManager:
 
         return None
 
-    def _link_track_to_playlist(self, playlist, track):
+    def _link_track_to_playlist(self, playlist, track, position=None):
         if not playlist or not track:
             return False
 
+        if not self.db.query(database.Playlist.id).filter_by(id=playlist.id).first():
+            return False  # The owner may delete a collection while its downloads are running.
+        query = self.db.query(database.PlaylistItem).filter_by(playlist_id=playlist.id)
         item_exists = (
-            self.db.query(database.PlaylistItem)
-            .filter_by(
-                playlist_id=playlist.id,
-                track_id=track.id,
-            )
-            .first()
+            query.filter_by(position=position).first()
+            if position is not None
+            else query.filter_by(track_id=track.id).first()
         )
         if item_exists:
-            return False
+            if position is None or item_exists.track_id == track.id:
+                return False
+            position = None  # Preserve an owner's intervening edits instead of replacing a song.
 
-        pos = self.db.query(database.PlaylistItem).filter_by(playlist_id=playlist.id).count() + 1
+        pos = (
+            position
+            if position is not None
+            else (query.with_entities(func.max(database.PlaylistItem.position)).scalar() or 0) + 1
+        )
         self.db.add(
             database.PlaylistItem(
                 playlist_id=playlist.id,
@@ -180,6 +187,7 @@ class DownloadManager:
                 position=pos,
             )
         )
+        playlist.revision = database.Playlist.revision + 1
         self.db.commit()
         return True
 
@@ -410,7 +418,7 @@ class DownloadManager:
 
                 # Link existing track to the target playlist ONLY if one was requested
                 if target_playlist:
-                    if self._link_track_to_playlist(target_playlist, existing_track):
+                    if self._link_track_to_playlist(target_playlist, existing_track, job.target_position):
                         logger.info(f"Linked existing track to playlist '{target_playlist.name}'")
 
                 job.status = "finished"
@@ -446,9 +454,9 @@ class DownloadManager:
                     file_name = os.path.basename(filepath)
 
                     # A. Extraer Metadatos y Hash
-                    artist = "Unknown Artist"
-                    title = os.path.splitext(file_name)[0]
-                    album = "Unknown Album"
+                    artist = job.requested_artist or "Unknown Artist"
+                    title = job.requested_title or os.path.splitext(file_name)[0]
+                    album = job.requested_album or "Unknown Album"
                     source_id = None
                     identity = None
 
@@ -586,7 +594,7 @@ class DownloadManager:
 
                     # E. Link to Playlist (Only if requested)
                     if target_playlist:
-                        self._link_track_to_playlist(target_playlist, track)
+                        self._link_track_to_playlist(target_playlist, track, job.target_position)
 
                     processed_count += 1
                     last_display_title = (

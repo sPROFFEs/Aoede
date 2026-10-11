@@ -6,6 +6,29 @@
 import * as state from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
+import * as collections from './collections.js';
+export { previewImport as previewCollectionImport } from './collections.js';
+
+export let collectionSearchEnabled = false;
+
+export function setCollectionSearch(enabled) {
+  collectionSearchEnabled = Boolean(enabled);
+  if (collectionSearchEnabled && !['all', 'spotify', 'youtube'].includes(state.currentSource)) {
+    state.setCurrentSource('all');
+    document
+      .querySelectorAll('.source-chips .chip')
+      .forEach((chip) => chip.classList.toggle('active', chip.getAttribute('onclick').includes("'all'")));
+  }
+  if (state.searchDebounce) clearTimeout(state.searchDebounce);
+  state.setSearchDebounce(null);
+  return executeSearch(
+    (
+      document.getElementById('topbar-search-input')?.value ||
+      document.getElementById('m-search-input')?.value ||
+      ''
+    ).trim()
+  );
+}
 
 // === SEARCH INPUT HANDLER ===
 
@@ -31,6 +54,11 @@ export function setSource(el, src) {
     state.setSearchDebounce(null);
   }
   state.setCurrentSource(src);
+  if (!['all', 'spotify', 'youtube'].includes(src)) {
+    collectionSearchEnabled = false;
+    const toggle = document.getElementById('collection-search-toggle');
+    if (toggle) toggle.checked = false;
+  }
   document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
   el.classList.add('active');
   // The search query can come from any of (in priority order):
@@ -67,7 +95,7 @@ function renderResults(container, bodyHtml) {
 
 function userProfileCard(u) {
   return `
-    <div class="user-profile-card" onclick="loadView('profile', '${ui.escHtml(u.username).replace(/'/g, "\\'")}')">
+    <div class="user-profile-card" onclick="loadView('profile', '${ui.escJs(u.username)}')">
       <div class="user-profile-card-avatar">
         <img src="${u.avatar_url}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
       </div>
@@ -162,13 +190,20 @@ export async function executeSearch(query) {
   }
 
   try {
-    const url = `${state.API}/search?q=${encodeURIComponent(query)}&source=${encodeURIComponent(state.currentSource)}`;
+    const collectionMode = collectionSearchEnabled;
+    const url = `${state.API}/${collectionMode ? 'collections/search' : 'search'}?q=${encodeURIComponent(query)}&source=${encodeURIComponent(state.currentSource)}`;
 
     // In 'all' mode, also search server users in parallel
     const [searchRes, usersList] = await Promise.all([
       fetch(url, { signal: controller.signal }),
-      state.currentSource === 'all' ? api.fetchUsersList().catch(() => []) : Promise.resolve([])
+      !collectionMode && state.currentSource === 'all' ? api.fetchUsersList().catch(() => []) : Promise.resolve([])
     ]);
+    if (
+      controller.signal.aborted ||
+      state.searchAbortController !== controller ||
+      results !== document.getElementById('search-results')
+    )
+      return;
 
     if (!searchRes.ok) {
       const msg =
@@ -182,7 +217,20 @@ export async function executeSearch(query) {
     }
 
     const data = await searchRes.json();
-    if (controller.signal.aborted || state.searchAbortController !== controller) return;
+    if (
+      controller.signal.aborted ||
+      state.searchAbortController !== controller ||
+      results !== document.getElementById('search-results')
+    )
+      return;
+
+    if (collectionMode) {
+      state.setCurrentViewList([]);
+      renderResults(results, collections.resultsHtml(data));
+      collections.bindResults(results, data.items || []);
+      ui.refreshIcons(results);
+      return;
+    }
 
     const matchingUsers = (usersList || []).filter((u) => u.username.toLowerCase().includes(query.toLowerCase()));
 
@@ -223,7 +271,7 @@ export async function executeSearch(query) {
     );
     if (window.lucide?.createIcons) lucide.createIcons();
   } catch (e) {
-    if (e.name === 'AbortError') return;
+    if (e.name === 'AbortError' || controller.signal.aborted || state.searchAbortController !== controller) return;
     console.error('[SEARCH] Error:', e);
     renderResults(
       results,
@@ -247,9 +295,21 @@ export async function downloadUrl() {
     ui.showToast('Please enter a URL', 'error');
     return;
   }
+  if (collections.isCollectionUrl(url)) {
+    await collections.previewImport(url);
+    return;
+  }
   // Accept all sources the backend actually supports (U-09)
   const SUPPORTED_DOMAINS = ['youtube.com', 'youtu.be', 'spotify.com', 'soundcloud.com', 'audius.co', 'jamendo.com'];
-  const isSupported = SUPPORTED_DOMAINS.some((d) => url.includes(d));
+  let isSupported = false;
+  try {
+    const parsed = new URL(url);
+    isSupported =
+      ['http:', 'https:'].includes(parsed.protocol) &&
+      !parsed.username &&
+      !parsed.password &&
+      SUPPORTED_DOMAINS.some((d) => parsed.hostname === d || parsed.hostname.endsWith(`.${d}`));
+  } catch (_) {}
   if (!isSupported) {
     ui.showToast('Invalid URL. Supported: YouTube, Spotify, SoundCloud, Audius, Jamendo.', 'error');
     return;

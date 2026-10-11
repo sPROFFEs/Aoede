@@ -8,6 +8,7 @@ let activeRoom = null;
 let eventSource = null;
 let autoplayBlocked = false;
 let searchTimer = null;
+let searchController = null;
 let personalPlayback = null;
 let reconnectProbeTimer = null;
 let streamGeneration = 0;
@@ -327,6 +328,7 @@ export async function renderPartyRoom(container, roomId) {
       repeatMode: state.repeatMode
     };
     state.audio.pause();
+    window.__discoveryPreviewAudio?.pause();
   }
   if (activeRoom?.id !== data.room.id) {
     closeStream();
@@ -348,7 +350,7 @@ function paintRoom(container) {
   container.innerHTML = `
     ${ui.homeTabsBar('party')}
     <section class="party-room-hero">
-      <div class="party-now-cover">${current ? `<img src="${current.thumbnail}" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="radio-tower"></i>`}</div>
+      <div class="party-now-cover">${current ? `<img src="${ui.escHtml(current.thumbnail)}" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="radio-tower"></i>`}</div>
       <div class="party-room-title"><span class="hero-kicker">Live party · <span id="party-connection-status">Connected</span></span><h1>${ui.escHtml(room.name)}</h1>
         <p>Hosted by ${ui.escHtml(room.owner_username)} · ${room.active_users}/${room.max_users} listening</p>
         <div class="party-participants">${participants.map((p) => `<span><i data-lucide="user-round"></i>${ui.escHtml(p.username)}</span>`).join('') || '<span>Connecting listeners…</span>'}</div>
@@ -377,7 +379,7 @@ function paintRoom(container) {
                 .map(
                   (item, index) => `<div class="party-queue-row${index === room.current_index ? ' current' : ''}">
                     <span class="party-queue-index">${index === room.current_index ? '<i data-lucide="volume-2"></i>' : index + 1}</span>
-                    <img src="${item.track.thumbnail}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">
+                    <img src="${ui.escHtml(item.track.thumbnail)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">
                     <span class="party-queue-copy"><strong>${ui.escHtml(item.track.title)}</strong><small>${ui.escHtml(item.track.artist)}${item.added_by ? ` · added by ${ui.escHtml(item.added_by)}` : ''}</small></span>
                     ${room.is_owner ? `<button class="party-row-remove" onclick="removePartyTrack(${item.item_id})" aria-label="Remove"><i data-lucide="x"></i></button>` : ''}
                   </div>`
@@ -473,26 +475,50 @@ export async function resumeAudio() {
 
 export function searchTracks(query) {
   clearTimeout(searchTimer);
+  searchController?.abort();
+  const roomId = activeRoom?.id;
   searchTimer = setTimeout(async () => {
     const results = document.getElementById('party-search-results');
-    if (!results || !activeRoom) return;
+    if (!results || !roomId || activeRoom?.id !== roomId) return;
+    const controller = new AbortController();
+    searchController = controller;
     try {
-      const data = await request(`/rooms/${activeRoom.id}/tracks?q=${encodeURIComponent(query)}`);
+      const data = await request(`/rooms/${roomId}/tracks?q=${encodeURIComponent(query)}`, {
+        signal: controller.signal
+      });
+      if (controller.signal.aborted || activeRoom?.id !== roomId || !results.isConnected) return;
       results.innerHTML = data.tracks
-        .map((track) => {
+        .map((track, index) => {
           const isFed = track.source === 'federated';
           const badge = isFed
             ? `<span style="font-size:0.65rem; background:rgba(255,255,255,0.12); padding:1px 5px; border-radius:4px; margin-left:4px;">🌐 ${ui.escHtml(track.origin_label || 'Federated')}</span>`
             : '';
-          const addArg = isFed
-            ? `null, { fed_instance_id: ${track.fed_instance_id}, fed_remote_id: ${track.fed_remote_id}, remote_title: '${ui.escHtml(track.title).replace(/'/g, "\\'")}', remote_artist: '${ui.escHtml(track.artist).replace(/'/g, "\\'")}', remote_album: '${ui.escHtml(track.album || '').replace(/'/g, "\\'")}', remote_duration: ${track.duration || 0}, remote_thumbnail: '${ui.escHtml(track.thumbnail).replace(/'/g, "\\'")}' }`
-            : `${track.db_id}`;
-
-          return `<button class="party-search-row" onclick="addPartyTrack(${addArg})"><img src="${track.thumbnail}" onerror="this.src='/static/img/default_cover.png'"><span><strong>${ui.escHtml(track.title)}</strong>${badge}<small>${ui.escHtml(track.artist)}</small></span><i data-lucide="plus"></i></button>`;
+          return `<button class="party-search-row" data-track-index="${index}"><img src="${ui.escHtml(track.thumbnail)}" onerror="this.src='/static/img/default_cover.png'"><span><strong>${ui.escHtml(track.title)}</strong>${badge}<small>${ui.escHtml(track.artist)}</small></span><i data-lucide="plus"></i></button>`;
         })
         .join('');
+      results.querySelectorAll('[data-track-index]').forEach((button) => {
+        const track = data.tracks[Number(button.dataset.trackIndex)];
+        button.addEventListener('click', async () => {
+          if (activeRoom?.id !== roomId || button.disabled) return;
+          button.disabled = true;
+          try {
+            await addTrack(
+              track.db_id,
+              track.source === 'federated'
+                ? {
+                    fed_instance_id: track.fed_instance_id,
+                    fed_remote_id: track.fed_remote_id
+                  }
+                : null
+            );
+          } finally {
+            button.disabled = false;
+          }
+        });
+      });
       ui.refreshIcons(results);
     } catch (error) {
+      if (controller.signal.aborted || activeRoom?.id !== roomId) return;
       results.innerHTML = `<p class="party-search-error">${ui.escHtml(error.message)}</p>`;
     }
   }, 250);
@@ -501,7 +527,7 @@ export function searchTracks(query) {
 export async function addTrack(trackId = null, fedData = null) {
   if (!activeRoom) return;
   try {
-    const bodyPayload = trackId ? { track_id: trackId } : fedData || {};
+    const bodyPayload = trackId ? { ...fedData, track_id: trackId } : fedData || {};
     await request(`/rooms/${activeRoom.id}/queue`, {
       method: 'POST',
       body: JSON.stringify(bodyPayload)
@@ -509,6 +535,19 @@ export async function addTrack(trackId = null, fedData = null) {
     ui.showToast('Added to the party queue', 'success');
   } catch (error) {
     ui.showToast(error.message, 'error');
+  }
+}
+
+export function addLibraryTrack(encodedData) {
+  try {
+    const track = JSON.parse(decodeURIComponent(atob(encodedData)));
+    return addTrack(track.is_local ? track.db_id || track.id : null, {
+      origin_url: 'library',
+      fed_instance_id: track.fed_instance_id,
+      fed_remote_id: track.fed_remote_id
+    });
+  } catch (_) {
+    ui.showToast('Could not read the selected song.', 'error');
   }
 }
 
@@ -544,6 +583,9 @@ export async function deleteRoom() {
 }
 
 export function leave(navigate = true) {
+  clearTimeout(searchTimer);
+  searchController?.abort();
+  searchController = null;
   closeStream();
   // Pause while the controller is still active so the party track is never
   // written into the listener's personal playback session.

@@ -131,7 +131,7 @@ export async function adminSearchLibrary() {
                         </div>
                         <div class="admin-result-side">
                             <span class="admin-source-badge">${ui.escHtml(t.source_provider || 'unknown')}</span>
-                            <button onclick="showDeleteTrackModal(${t.id}, '${ui.escHtml(t.title).replace(/'/g, "\\'")}')" class="admin-icon-btn danger" title="Delete track">
+                            <button onclick="showDeleteTrackModal(${t.id}, '${ui.escJs(t.title)}')" class="admin-icon-btn danger" title="Delete track">
                                 <i data-lucide="trash-2" width="16" height="16"></i>
                             </button>
                         </div>

@@ -11,8 +11,16 @@ import * as offlineStore from './offline_store.js';
 
 let playlistRevision = null;
 let creatingCollaborative = false;
+let creatingKind = 'playlist';
+function collectionLabel(id) {
+  const kind =
+    document.getElementById(`playlist-title-${id}`)?.dataset?.kind ||
+    state.userPlaylists?.find((playlist) => Number(playlist.id) === Number(id))?.kind;
+  return kind === 'album' ? 'Album' : 'Playlist';
+}
 document.addEventListener('aoede:modalclosed', () => {
   creatingCollaborative = false;
+  creatingKind = 'playlist';
 });
 
 export function showCreateMenu() {
@@ -22,6 +30,7 @@ export function showCreateMenu() {
     <div class="modal-overlay create-menu-overlay" onclick="if(event.target===this) closeModal()">
       <div class="modal create-menu" role="dialog" aria-modal="true" aria-label="Create">
         <button class="create-option" onclick="startPlaylistCreation(false)"><span class="create-option-icon"><i data-lucide="music"></i></span><span><strong>Playlist</strong><small>Create a playlist with your favorite songs</small></span></button>
+        <button class="create-option" onclick="startPlaylistCreation(false, 'album')"><span class="create-option-icon"><i data-lucide="disc-3"></i></span><span><strong>Album</strong><small>Create an album with ordered songs</small></span></button>
         <button class="create-option" onclick="startPlaylistCreation(true)"><span class="create-option-icon"><i data-lucide="users"></i></span><span><strong>Collaborative playlist</strong><small>Create a playlist together with friends</small></span></button>
         <button class="create-option" onclick="showCreateSmartPlaylistModal()"><span class="create-option-icon"><i data-lucide="sparkles"></i></span><span><strong>Smart playlist</strong><small>Let your library build a mix from your rules</small></span></button>
         <button class="create-menu-close" onclick="closeModal()" aria-label="Close create menu"><i data-lucide="x"></i></button>
@@ -31,8 +40,9 @@ export function showCreateMenu() {
   ui.focusModal();
 }
 
-export function startPlaylistCreation(collaborative) {
+export function startPlaylistCreation(collaborative, kind = 'playlist') {
   creatingCollaborative = collaborative;
+  creatingKind = kind === 'album' ? 'album' : 'playlist';
   selectedImportTracks = [];
   showCreatePlaylistModal();
 }
@@ -62,13 +72,12 @@ export async function showCollaboratorsModal(playlistId) {
       collaboratorsRequest(playlistId),
       api.fetchUsersList().catch(() => [])
     ]);
-    cachedServerUsers = usersList || [];
-
     const existingMemberNames = new Set(data.members.map((m) => m.username.toLowerCase()));
     const currentUser = (window.USER_DATA?.username || '').toLowerCase();
-    const availableUsers = cachedServerUsers.filter(
+    cachedServerUsers = (usersList || []).filter(
       (u) => !existingMemberNames.has(u.username.toLowerCase()) && u.username.toLowerCase() !== currentUser
     );
+    const availableUsers = cachedServerUsers;
 
     document.getElementById('modal-container').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
@@ -89,7 +98,7 @@ export async function showCollaboratorsModal(playlistId) {
               ${availableUsers
                 .map(
                   (u) => `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escHtml(u.username).replace(/'/g, "\\'")}', ${playlistId})">
+                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.username)}', ${playlistId})">
                   <div style="display:flex; align-items:center; gap:8px;">
                     <img src="${u.avatar_url}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
                     <span><strong>${ui.escHtml(u.username)}</strong></span>
@@ -146,7 +155,7 @@ window.filterCollaboratorUsers = function (query, playlistId) {
   suggestions.innerHTML = filtered
     .map(
       (u) => `
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escHtml(u.username).replace(/'/g, "\\'")}', ${playlistId})">
+    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.username)}', ${playlistId})">
       <div style="display:flex; align-items:center; gap:8px;">
         <img src="${u.avatar_url}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
         <span><strong>${ui.escHtml(u.username)}</strong></span>
@@ -233,9 +242,10 @@ export async function renderPlaylist(container, playlistId) {
       const allOfflineTracks = await offlineStore.listOfflineTracks();
       const plTracks = allOfflineTracks.filter((t) => t.playlist_ids && t.playlist_ids.includes(numId));
 
-      if (matchedPl || plTracks.length > 0) {
+      if (matchedPl) {
         data = {
           id: numId,
+          kind: matchedPl.kind || 'playlist',
           name: matchedPl?.name || plTracks[0]?.playlist_names?.[numId] || 'Offline Playlist',
           thumbnail: matchedPl?.thumbnail || '',
           tracks: plTracks,
@@ -272,7 +282,7 @@ export async function renderPlaylist(container, playlistId) {
   const isSyncedCopy = Boolean(data.source_playlist_id);
   const sourcePlaylistAvailable = Boolean(data.source_playlist_exists && data.source_playlist_public);
   const ownerLabel = data.owner_username
-    ? `By <a class="artist-link" onclick="loadView('profile', '${ui.escHtml(data.owner_username).replace(/'/g, "\\'")}')" style="cursor:pointer; font-weight:600;">${ui.escHtml(data.owner_username)}</a>`
+    ? `By <a class="artist-link" onclick="loadView('profile', '${ui.escJs(data.owner_username)}')" style="cursor:pointer; font-weight:600;">${ui.escHtml(data.owner_username)}</a>`
     : '';
   const sourceBadge = isSyncedCopy
     ? '<span class="source-badge musicbrainz" style="margin-left:8px;">Synced copy</span>'
@@ -365,7 +375,7 @@ export async function renderPlaylist(container, playlistId) {
   const offlineButton =
     trackCount > 0
       ? `
-        <button id="pl-offline-btn-${playlistId}" onclick="togglePlaylistOfflineDownload(${playlistId})" class="btn-secondary playlist-offline-btn ${isFullyDownloaded ? 'downloaded' : isPartiallyDownloaded ? 'partial' : ''}" title="${isFullyDownloaded ? 'Downloaded offline · Tap to manage' : 'Download playlist for offline listening'}">
+        <button id="pl-offline-btn-${playlistId}" onclick="togglePlaylistOfflineDownload(${playlistId})" class="btn-secondary playlist-offline-btn ${isFullyDownloaded ? 'downloaded' : isPartiallyDownloaded ? 'partial' : ''}" title="${isFullyDownloaded ? 'Downloaded offline · Tap to manage' : `Download ${data.kind === 'album' ? 'album' : 'playlist'} for offline listening`}">
             <i data-lucide="${isFullyDownloaded ? 'check-circle' : 'arrow-down-circle'}" width="16" height="16"></i>
             <span>${isFullyDownloaded ? 'Downloaded' : isPartiallyDownloaded ? `Download (${downloadedInPlaylist.length}/${trackCount})` : 'Download'}</span>
         </button>`
@@ -380,15 +390,16 @@ export async function renderPlaylist(container, playlistId) {
     : '';
 
   container.innerHTML = `
+        ${data.import_pending || data.import_failed ? `<p class="modal-subtitle" role="status">${Number(data.import_pending || 0)} songs still downloading · ${Number(data.import_failed || 0)} failed. <button class="btn-secondary" onclick="openDownloadsModal(${Number(playlistId)})">View downloads / retry</button></p>` : ''}
         <div class="playlist-header-section">
             <div class="playlist-cover-large">
                 ${hasThumb ? `<img src="${thumb}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
                 ${coverControls}
             </div>
             <div class="playlist-info">
-                <p class="playlist-type">${isSmart ? 'Smart playlist' : data.is_collaborative ? 'Collaborative playlist' : 'Playlist'}</p>
+                <p class="playlist-type">${data.kind === 'album' ? 'Album' : isSmart ? 'Smart playlist' : data.is_collaborative ? 'Collaborative playlist' : 'Playlist'}</p>
                 <div class="playlist-title-row">
-                    <h1 class="playlist-title" id="playlist-title-${playlistId}">${ui.escHtml(data.name || 'Playlist')}</h1>
+                    <h1 class="playlist-title" id="playlist-title-${playlistId}" data-kind="${data.kind === 'album' ? 'album' : 'playlist'}">${ui.escHtml(data.name || 'Playlist')}</h1>
                     ${ownerControls}
                 </div>
                 <p class="playlist-stats">
@@ -416,7 +427,7 @@ export async function renderPlaylist(container, playlistId) {
                     ${syncButton}
                     ${smartRefreshButton}
                     ${isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="showCollaboratorsModal(${numId})"><i data-lucide="users" width="20"></i><span class="playlist-btn-label">Collaborators</span></button>` : ''}
-                    ${!isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="leaveCollaborativePlaylist(${numId})"><i data-lucide="log-out" width="20"></i><span class="playlist-btn-label">Leave playlist</span></button>` : ''}
+                    ${!isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="leaveCollaborativePlaylist(${numId})"><i data-lucide="log-out" width="20"></i><span class="playlist-btn-label">Leave ${data.kind === 'album' ? 'album' : 'playlist'}</span></button>` : ''}
                     ${deleteButton}
                 </div>
             </div>
@@ -443,7 +454,7 @@ export async function renderPlaylist(container, playlistId) {
                   )
                   .join('')}
               </div>`
-            : '<div class="empty-state glass-panel"><p>This playlist is empty.</p></div>'
+            : `<div class="empty-state glass-panel"><p>This ${data.kind === 'album' ? 'album' : 'playlist'} is empty.</p></div>`
         }`;
   lucide.createIcons();
   if (isEditable && trackCount > 0) {
@@ -984,7 +995,7 @@ function _renderAtpItem(p) {
       </div>
       <div class="atp-item-info">
         <span class="atp-item-name">${ui.escHtml(p.name)}</span>
-        <span class="atp-item-count">Playlist · ${trackCount} song${trackCount !== 1 ? 's' : ''}</span>
+        <span class="atp-item-count">${p.kind === 'album' ? 'Album' : 'Playlist'} · ${trackCount} song${trackCount !== 1 ? 's' : ''}</span>
       </div>
       ${trailing}
     </div>`;
@@ -1007,6 +1018,8 @@ function _atpScrollGuard(e) {
  * list fades out and a name field + Create button appears in the
  * same panel. No second modal. */
 export function showCreatePlaylistInline(trackIdToAdd = null) {
+  creatingKind = 'playlist';
+  creatingCollaborative = false;
   const body = document.getElementById('atp-body');
   if (!body) return;
 
@@ -1148,11 +1161,11 @@ export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') 
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 520px;">
             <div class="modal-header">
-                <h2><i data-lucide="folder-plus"></i> ${creatingCollaborative ? 'Collaborative playlist' : ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
+                <h2><i data-lucide="folder-plus"></i> ${creatingKind === 'album' ? 'Create Album' : creatingCollaborative ? 'Collaborative playlist' : ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
                 <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <label class="modal-label">${ui.t('library.smart_playlist_name', 'Playlist Name')}</label>
+                <label class="modal-label">${creatingKind === 'album' ? 'Album Name' : ui.t('library.smart_playlist_name', 'Playlist Name')}</label>
                 <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" value="${ui.escHtml(nameVal)}" placeholder="${ui.t('library.playlist_name_placeholder', 'My awesome playlist...')}" autofocus>
 
                 ${
@@ -1227,7 +1240,7 @@ window.openPlaylistSourceModal = function () {
         <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 580px; max-height: 85vh; display:flex; flex-direction:column;">
             <div class="modal-header">
                 <h2><i data-lucide="list-music"></i> ${ui.t('library.select_source_title', 'Choose Songs to Import')}</h2>
-                <button class="modal-close" onclick="showCreatePlaylistModal(null, '${ui.escHtml(currentName).replace(/'/g, "\\'")}')"><i data-lucide="x"></i></button>
+                <button class="modal-close" onclick="showCreatePlaylistModal(null, '${ui.escJs(currentName)}')"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body" style="overflow-y:auto; flex:1; padding-right:4px;">
                 <label class="modal-label">${ui.t('library.create_from_source', 'Source Collection')}</label>
@@ -1250,8 +1263,8 @@ window.openPlaylistSourceModal = function () {
                 </div>
             </div>
             <div class="modal-actions" style="margin-top: 16px;">
-                <button class="modal-btn-cancel" onclick="showCreatePlaylistModal(null, '${ui.escHtml(currentName).replace(/'/g, "\\'")}')">${ui.t('common.cancel', 'Cancel')}</button>
-                <button class="modal-btn-primary" onclick="confirmImportSelectedTracks('${ui.escHtml(currentName).replace(/'/g, "\\'")}')">
+                <button class="modal-btn-cancel" onclick="showCreatePlaylistModal(null, '${ui.escJs(currentName)}')">${ui.t('common.cancel', 'Cancel')}</button>
+                <button class="modal-btn-primary" onclick="confirmImportSelectedTracks('${ui.escJs(currentName)}')">
                     <i data-lucide="check"></i> ${ui.t('library.done', 'Done')}
                 </button>
             </div>
@@ -1356,7 +1369,7 @@ window.confirmImportSelectedTracks = function (playlistName) {
 export function showDeletePlaylistModal(playlistId, playlistName) {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal" onclick="event.stopPropagation()">
-            <h2 style="margin-bottom: 16px;">Delete Playlist</h2>
+            <h2 style="margin-bottom: 16px;">Delete ${collectionLabel(playlistId)}</h2>
             <p style="color: var(--text-sub); margin-bottom: 24px;">Are you sure you want to permanently delete <strong style="color: white;">${ui.escHtml(playlistName)}</strong>? This action cannot be undone.</p>
             <div class="modal-actions">
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
@@ -1370,8 +1383,8 @@ export function showDeletePlaylistModal(playlistId, playlistName) {
 export function showEditPlaylistModal(id, currentName) {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal" onclick="event.stopPropagation()">
-            <h2 style="margin-bottom: 16px;">Rename Playlist</h2>
-            <input type="text" id="edit-playlist-name-input" class="modal-input" value="${ui.escHtml(currentName)}" maxlength="120" placeholder="New playlist name" style="margin-bottom: 24px;">
+            <h2 style="margin-bottom: 16px;">Rename ${collectionLabel(id)}</h2>
+            <input type="text" id="edit-playlist-name-input" class="modal-input" value="${ui.escHtml(currentName)}" maxlength="120" placeholder="New ${collectionLabel(id).toLowerCase()} name" style="margin-bottom: 24px;">
             <div class="modal-actions">
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
                 <button class="modal-btn-primary" onclick="editPlaylistName('${id}', document.getElementById('edit-playlist-name-input').value)">Save</button>
@@ -1386,6 +1399,7 @@ export function showEditPlaylistModal(id, currentName) {
 
 export async function createPlaylist(trackIdToAdd = null) {
   const collaborative = creatingCollaborative;
+  const kind = creatingKind;
   const input = document.getElementById('new-playlist-name');
   const name = input?.value?.trim();
   if (!name) {
@@ -1404,10 +1418,18 @@ export async function createPlaylist(trackIdToAdd = null) {
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     if (creatingCollaborative) return ui.showToast('Connect to create a collaborative playlist.', 'error');
     const tempId = -Math.floor(Date.now() / 1000);
-    const pl = { id: tempId, name, track_count: trackIds.length, is_owner: true, is_editable: true, is_public: false };
+    const pl = {
+      id: tempId,
+      name,
+      kind,
+      track_count: trackIds.length,
+      is_owner: true,
+      is_editable: true,
+      is_public: false
+    };
     const playlists = [...state.userPlaylists, pl];
     state.setUserPlaylists(playlists);
-    await offlineStore.queueAction('create_playlist', { name, track_ids: trackIds });
+    await offlineStore.queueAction('create_playlist', { name, kind, track_ids: trackIds });
     await offlineStore.saveLibrarySnapshot('playlists', playlists);
     if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
     selectedImportTracks = [];
@@ -1422,21 +1444,21 @@ export async function createPlaylist(trackIdToAdd = null) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name,
+        kind,
         track_ids: trackIds.length ? trackIds : undefined,
-        is_collaborative: creatingCollaborative
+        is_collaborative: collaborative
       })
     });
     const pl = await res.json();
     if (res.ok) {
-      const plWithCount = { ...pl, track_count: trackIds.length };
-      const playlists = [...state.userPlaylists, plWithCount];
+      const playlists = [...state.userPlaylists, pl];
       state.setUserPlaylists(playlists);
       offlineStore.saveLibrarySnapshot('playlists', playlists);
       if (window.trackRecentPlaylist) await window.trackRecentPlaylist(pl.id);
       else if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
       selectedImportTracks = [];
       ui.closeModal();
-      ui.showToast('Playlist created!', 'success');
+      ui.showToast(`${kind === 'album' ? 'Album' : 'Playlist'} created!`, 'success');
       if (state.currentViewName === 'library' && window.loadView) window.loadView('library');
       if (collaborative) await showCollaboratorsModal(pl.id);
       creatingCollaborative = false;
@@ -1513,7 +1535,7 @@ export async function togglePlaylistOfflineDownload(playlistId) {
 
   if (btn && btn.classList.contains('downloaded')) {
     const shouldRemove = await ui.confirmDialog({
-      message: 'Remove this playlist and its downloaded songs from offline storage?',
+      message: `Remove this ${collectionLabel(playlistId).toLowerCase()} and its downloaded songs from offline storage?`,
       confirmLabel: 'Remove'
     });
     if (shouldRemove) {
@@ -1577,6 +1599,7 @@ export async function downloadPlaylistOffline(playlistId) {
 
   // Save playlist snapshot in offline store
   await offlineStore.saveOfflinePlaylist({
+    ...playlistData,
     id: numId,
     name: plName,
     thumbnail: playlistData?.thumbnail || '',
@@ -1623,6 +1646,17 @@ export async function downloadPlaylistOffline(playlistId) {
     }
   }
 
+  downloadedCount = localTracks.filter((track) => offlineStore.isTrackAvailableOfflineSync(track.db_id)).length;
+  if (downloadedCount < total) {
+    if (btn) {
+      btn.className = 'btn-secondary playlist-offline-btn partial';
+      btn.innerHTML = `<i data-lucide="arrow-down-circle" width="16" height="16"></i><span>Resume (${downloadedCount}/${total})</span>`;
+      ui.refreshIcons(btn);
+    }
+    ui.showToast(`Saved ${downloadedCount}/${total} songs. Tap Resume to retry failed downloads.`, 'error');
+    return;
+  }
+
   if (btn) {
     btn.className = 'btn-secondary playlist-offline-btn downloaded';
     btn.innerHTML = `<i data-lucide="check-circle" width="16" height="16"></i><span>Downloaded</span>`;
@@ -1651,21 +1685,21 @@ async function _undoAddToPlaylist(playlistId, trackId) {
   }
 }
 
-export function showRemoveFromPlaylistModal(playlistId, trackId, trackTitle) {
+export function showRemoveFromPlaylistModal(playlistId, trackId, trackTitle, itemId = null) {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal" onclick="event.stopPropagation()">
-            <h2 style="margin-bottom: 16px;">Remove from Playlist</h2>
-            <p style="color: var(--text-sub); margin-bottom: 24px;">Remove <strong style="color: white;">${ui.escHtml(trackTitle || 'this track')}</strong> from the playlist?</p>
+            <h2 style="margin-bottom: 16px;">Remove from ${collectionLabel(playlistId)}</h2>
+            <p style="color: var(--text-sub); margin-bottom: 24px;">Remove <strong style="color: white;">${ui.escHtml(trackTitle || 'this track')}</strong> from the ${collectionLabel(playlistId).toLowerCase()}?</p>
             <div class="modal-actions">
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn-danger" onclick="removeFromPlaylist(${playlistId}, ${trackId})">Remove</button>
+                <button class="modal-btn-danger" onclick="removeFromPlaylist(${playlistId}, ${trackId}, ${Number(itemId) || 'null'})">Remove</button>
             </div>
         </div>
     </div>`;
   document.getElementById('modal-container').innerHTML = html;
 }
 
-export async function removeFromPlaylist(playlistId, trackId) {
+export async function removeFromPlaylist(playlistId, trackId, itemId = null) {
   ui.closeModal();
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
     const next = state.userPlaylists.map((p) => {
@@ -1673,7 +1707,7 @@ export async function removeFromPlaylist(playlistId, trackId) {
       return { ...p, track_count: Math.max(0, (Number(p.track_count) || 1) - 1) };
     });
     state.setUserPlaylists(next);
-    await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId });
+    await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId, itemId });
     await offlineStore.saveLibrarySnapshot('playlists', next);
     if (window.loadView) window.loadView('playlist', playlistId);
     ui.showToast('Removed from playlist (queued for sync)', 'info');
@@ -1681,13 +1715,19 @@ export async function removeFromPlaylist(playlistId, trackId) {
   }
 
   try {
-    const res = await fetch(`${state.API}/playlists/${playlistId}/remove/${trackId}`, { method: 'DELETE' });
+    const res = await fetch(
+      `${state.API}/playlists/${playlistId}/remove/${trackId}${itemId ? `?item_id=${Number(itemId)}` : ''}`,
+      { method: 'DELETE' }
+    );
     if (res.ok) {
       if (window.loadView) window.loadView('playlist', playlistId);
       ui.showToast('Removed from playlist', 'success');
+    } else {
+      const error = await res.json().catch(() => ({}));
+      ui.showToast(error.error || 'Could not remove the song.', 'error');
     }
   } catch (e) {
-    await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId });
+    await offlineStore.queueAction('remove_from_playlist', { playlistId, trackId, itemId });
     ui.showToast('Removed from playlist (offline)', 'info');
   }
 }
@@ -1716,6 +1756,9 @@ export async function deletePlaylist(playlistId) {
       if (window.refreshRecentActivity) window.refreshRecentActivity();
       if (window.loadView) window.loadView('home');
       ui.showToast('Playlist deleted', 'success');
+    } else {
+      const error = await res.json().catch(() => ({}));
+      ui.showToast(error.error || 'Could not delete the collection.', 'error');
     }
   } catch (e) {
     await offlineStore.queueAction('delete_playlist', { playlistId });

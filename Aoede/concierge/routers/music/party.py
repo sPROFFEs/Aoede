@@ -1,6 +1,7 @@
 """Authenticated party-room API and server-sent event stream."""
 
 import asyncio
+import json
 import re
 
 import database
@@ -34,6 +35,7 @@ class AddTrackRequest(BaseModel):
     remote_album: str | None = None
     remote_duration: float | None = None
     remote_thumbnail: str | None = None
+    origin_url: str | None = Field(default=None, max_length=2048)
 
 
 class ControlRequest(BaseModel):
@@ -60,7 +62,7 @@ def _room_payload(room: database.PartyRoom, user: database.User, include_queue: 
     return payload
 
 
-async def relay_party_request(instance, user, room_id: int, path: str, request: Request):
+async def relay_party_request(instance, user, room_id: int, path: str, request: Request, payload: bytes | None = None):
     """Relay only party operations to a configured peer; keep its token server-side."""
     headers = {
         "Authorization": f"Bearer {instance.api_token}",
@@ -78,7 +80,11 @@ async def relay_party_request(instance, user, room_id: int, path: str, request: 
     try:
         upstream = await client.send(
             client.build_request(
-                request.method, url, headers=headers, params=request.query_params, content=await request.body()
+                request.method,
+                url,
+                headers=headers,
+                params=request.query_params,
+                content=payload if payload is not None else await request.body(),
             ),
             stream=True,
         )
@@ -127,7 +133,36 @@ async def remote_room(instance_id: int, room_id: int, request: Request, path: st
     instance = db.query(database.FederatedInstance).filter_by(id=instance_id, enabled=True).first()
     if not instance:
         return JSONResponse({"error": "Instance not found"}, status_code=404)
-    return await relay_party_request(instance, user, room_id, path, request)
+    payload = None
+    if request.method == "POST" and path == "queue":
+        try:
+            data = AddTrackRequest(**await request.json())
+        except (ValueError, TypeError):
+            return JSONResponse({"error": "Invalid party payload"}, status_code=422)
+        if data.origin_url == "library":
+            if data.track_id is not None:
+                track = db.get(database.Track, data.track_id)
+                if not track:
+                    return JSONResponse({"error": "Track not found"}, status_code=404)
+                data.fed_remote_id = track.id
+                data.origin_url = "listener"
+            else:
+                origin = db.query(database.FederatedInstance).filter_by(id=data.fed_instance_id, enabled=True).first()
+                if not origin or not data.fed_remote_id:
+                    return JSONResponse({"error": "Federated song unavailable"}, status_code=404)
+                if origin.id == instance.id:
+                    # The library's federated song is actually local to the party host.
+                    data.track_id = data.fed_remote_id
+                    data.origin_url = None
+                else:
+                    data.origin_url = origin.base_url.rstrip("/")
+            if data.origin_url:
+                data.track_id = None
+            data.fed_instance_id = None
+            payload = json.dumps(data.model_dump()).encode()
+        elif data.origin_url:
+            return JSONResponse({"error": "Invalid song origin"}, status_code=400)
+    return await relay_party_request(instance, user, room_id, path, request, payload)
 
 
 @router.get("/peers")

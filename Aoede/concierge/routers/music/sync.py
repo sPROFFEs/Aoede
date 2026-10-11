@@ -50,7 +50,23 @@ async def get_sync_state(request: Request, db: Session = Depends(get_db)):
         playlist_count = len(playlists)
         playlist_ids = [row[0] for row in playlists]
         playlist_item_counts = {}
+        import_state = []
         if playlist_ids:
+            import_state = [
+                tuple(row)
+                for row in db.query(
+                    database.DownloadJob.target_modern_playlist_id,
+                    database.DownloadJob.status,
+                    func.count(database.DownloadJob.id),
+                )
+                .filter(
+                    database.DownloadJob.target_modern_playlist_id.in_(playlist_ids),
+                    database.DownloadJob.target_position.isnot(None),
+                )
+                .group_by(database.DownloadJob.target_modern_playlist_id, database.DownloadJob.status)
+                .order_by(database.DownloadJob.target_modern_playlist_id, database.DownloadJob.status)
+                .all()
+            ]
             playlist_item_counts = {
                 int(row[0]): int(row[1] or 0)
                 for row in (
@@ -67,7 +83,7 @@ async def get_sync_state(request: Request, db: Session = Depends(get_db)):
         )
 
         # Create version hash
-        state_str = f"favs:{fav_id_list}|playlists:{playlist_state}"
+        state_str = f"favs:{fav_id_list}|playlists:{playlist_state}|imports:{import_state}"
         version_hash = hashlib.md5(state_str.encode()).hexdigest()[:12]
 
         return JSONResponse(

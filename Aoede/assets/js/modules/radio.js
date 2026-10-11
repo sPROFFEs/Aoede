@@ -84,8 +84,8 @@ export async function renderSavedRadios(container) {
         ${radios
           .map((r) => {
             const radioName = ui.escHtml(r.name || 'Saved Radio');
-            const radioNameJs = String(r.name || 'Saved Radio').replace(/'/g, "\\'");
-            const radioIdJs = String(r.id || '').replace(/'/g, "\\'");
+            const radioNameJs = ui.escJs(r.name || 'Saved Radio');
+            const radioIdJs = ui.escJs(r.id || '');
             return `
                 <div class="saved-radio-row">
                     <button class="saved-radio-main" onclick="playSavedRadio('${encodeURIComponent(r.streamUrl || '')}', '${radioNameJs}', '${radioIdJs}')">
@@ -118,7 +118,7 @@ export async function loadRadioPlaylists() {
     container.innerHTML = playlists
       .map(
         (pl) => `
-            <div class="card" onclick="loadRadioPlaylist('${pl.page.url}', '${ui.escHtml(pl.title)}')">
+            <div class="card" onclick="loadRadioPlaylist('${ui.escJs(pl.page.url)}', '${ui.escJs(pl.title)}')">
                 <div class="card-img-container">
                     <img src="${pl.image}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">
                 </div>
@@ -205,7 +205,7 @@ export function drawRadioGrid(stations) {
         const id = s.url.split('/').pop();
         if (id === 'channels' || id.length < 5) return '';
         const safeTitle = ui.escHtml(s.title || 'Unknown');
-        const jsSafeTitle = (s.title || 'Unknown').replace(/'/g, "\\'");
+        const jsSafeTitle = ui.escJs(s.title || 'Unknown');
         const safeSub = ui.escHtml(s.subtitle || 'Streaming');
         return `
           <div class="saved-radio-row">
@@ -233,7 +233,7 @@ export function drawRadioGrid(stations) {
         if (!s || !s.url) return '';
         const id = s.url.split('/').pop();
         if (id === 'channels' || id.length < 5) return '';
-        const title = (s.title || 'Unknown').replace(/'/g, "\\'");
+        const title = ui.escJs(s.title || 'Unknown');
         return `
           <div class="card glass-hover"
                onclick="document.querySelectorAll('#radio-results .card.active-mobile').forEach(c=>c!==this&&c.classList.remove('active-mobile')); this.classList.toggle('active-mobile')">
@@ -262,33 +262,18 @@ export function drawRadioGrid(stations) {
 
 // === PLAY RADIO STREAM ===
 
-export function playRadioStream(id, name) {
+export async function playRadioStream(id, name) {
+  if (!player.allowPrivatePlayback()) return;
   const streamUrl = `https://radio.garden/api/ara/content/listen/${id}/channel.mp3`;
-  const proxyUrl = `/api/proxy/radio?url=${encodeURIComponent(streamUrl)}`;
-
-  state.setCurrentTrack({
+  const track = {
     title: name,
     artist: 'Live Radio',
     thumbnail: '/static/img/default_cover.png',
-    is_radio: true
-  });
-
-  document.getElementById('player-title').textContent = name;
-  document.getElementById('player-artist').textContent = 'Live Radio';
-  document.getElementById('player-cover').src = '/static/img/default_cover.png';
-
-  player.syncPlayerShellVisibility(state.currentTrack);
-
-  const fsTitle = document.getElementById('fs-title');
-  const fsArtist = document.getElementById('fs-artist');
-  const fsCover = document.getElementById('fs-cover');
-  if (fsTitle) fsTitle.textContent = name;
-  if (fsArtist) fsArtist.textContent = 'Live Radio';
-  if (fsCover) fsCover.src = '/static/img/default_cover.png';
-
-  state.audio.src = proxyUrl;
-  state.audio.play().catch((e) => console.error('Play error', e));
-  ui.showToast(`Playing: ${name}`, 'success');
+    is_radio: true,
+    stream_url: `/api/proxy/radio?url=${encodeURIComponent(streamUrl)}`
+  };
+  await player.playTrack(track);
+  if (state.currentTrack === track && state.isPlaying) ui.showToast(`Playing: ${name}`, 'success');
 }
 
 // === INJECT TO NAVIDROME ===
@@ -330,38 +315,16 @@ export async function loadSidebarRadios() {
 // === PLAY SAVED RADIO ===
 
 export async function playSavedRadio(encodedUrl, name, radioId = '') {
-  const proxyUrl = `/api/proxy/radio?url=${encodedUrl}`;
-
-  state.setCurrentTrack({
+  if (!player.allowPrivatePlayback()) return;
+  const track = {
     title: name,
     artist: 'Saved Radio',
     thumbnail: '/static/img/default_cover.png',
-    is_radio: true
-  });
-
-  document.getElementById('player-title').textContent = name;
-  document.getElementById('player-artist').textContent = 'Saved Radio';
-  document.getElementById('player-cover').src = '/static/img/default_cover.png';
-
-  player.syncPlayerShellVisibility(state.currentTrack);
-
-  const fsTitle = document.getElementById('fs-title');
-  const fsArtist = document.getElementById('fs-artist');
-  const fsCover = document.getElementById('fs-cover');
-  if (fsTitle) fsTitle.textContent = name;
-  if (fsArtist) fsArtist.textContent = 'Saved Radio';
-  if (fsCover) fsCover.src = '/static/img/default_cover.png';
-
-  state.audio.pause();
-  state.audio.removeAttribute('src');
-  state.audio.load();
-
-  state.audio.src = proxyUrl;
-  state.audio.play().catch((e) => {
-    if (e.name === 'AbortError') return;
-    console.error('[RADIO] Play error:', e);
-    ui.showToast(`Error playing ${name}. The stream might be offline.`, 'error');
-  });
+    is_radio: true,
+    stream_url: `/api/proxy/radio?url=${encodedUrl}`
+  };
+  await player.playTrack(track);
+  if (state.currentTrack !== track || !state.isPlaying) return;
   ui.showToast(`Playing Saved Radio: ${name}`, 'success');
 
   if (radioId) {
@@ -414,7 +377,7 @@ export function showDeleteRadioModal(id, name) {
             <p style="color: var(--text-sub); margin-bottom: 24px;">Remove <strong style="color: white;">${ui.escHtml(name)}</strong> from your saved radios?</p>
             <div class="modal-actions">
                 <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn-danger" onclick="deleteSavedRadio('${id}', '${ui.escHtml(name)}')">Remove</button>
+                <button class="modal-btn-danger" onclick="deleteSavedRadio('${ui.escJs(id)}', '${ui.escJs(name)}')">Remove</button>
             </div>
         </div>
     </div>`;

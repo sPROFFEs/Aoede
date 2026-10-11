@@ -91,6 +91,11 @@ for (const outcome of ['confirm', 'cancel', 'escape', 'backdrop']) {
 }
 
 const paths = [];
+const queueBodies = [];
+const song = { db_id: null, source: 'federated', fed_instance_id: 12, fed_remote_id: 777,
+  title: `Song's "name"`, artist: 'Artist', thumbnail: 'cover' };
+const addButton = { dataset: { trackIndex: '0' }, addEventListener(_event, callback) { this.click = callback; } };
+const searchResults = { isConnected: true, querySelectorAll: () => [addButton] };
 const deletions = [];
 let confirmed = false;
 let prompts = 0;
@@ -110,12 +115,17 @@ class EventSource {
 }
 let synced;
 const party = await load('Aoede/assets/js/modules/party.js', {
-  fetch: async (path, options) => { paths.push(path); if (options.method === 'DELETE') deletions.push(path); return { ok: true, json: async () => ({ room }) }; },
-  document: { getElementById: () => container, querySelector: () => null },
-  window: { loadView: async () => { navigations++; }, confirm() { throw new Error('Native dialog must not be used'); } }, EventSource, clearTimeout, setTimeout, console
+  fetch: async (path, options) => {
+    paths.push(path);
+    if (options.method === 'DELETE') deletions.push(path);
+    if (path.endsWith('/queue')) queueBodies.push(JSON.parse(options.body));
+    return { ok: true, json: async () => path.includes('/tracks?') ? { tracks: [song] } : ({ room }) };
+  },
+  document: { getElementById: id => id === 'party-search-results' ? searchResults : container, querySelector: () => null },
+  window: { loadView: async () => { navigations++; }, confirm() { throw new Error('Native dialog must not be used'); } }, EventSource, clearTimeout, setTimeout, console, AbortController, atob
 }, {
   './state.js': state,
-  './ui.js': { escHtml: String, t: (_key, fallback) => fallback, refreshIcons() {}, homeTabsBar: () => '', confirmDialog: async () => { prompts++; return confirmed; } },
+  './ui.js': { escHtml: ui.escHtml, t: (_key, fallback) => fallback, refreshIcons() {}, showToast() {}, homeTabsBar: () => '', confirmDialog: async () => { prompts++; return confirmed; } },
   './player.js': { syncPartyPlayback: async (value) => { synced = value; return true; }, syncPlayerShellVisibility() {}, resumeLocalPlayback() {} }
 });
 assert.match(party.renderHomeShelf([{ ...room, is_remote_federated: true, remote_instance_id: 7 }]), /'fed_7_2'/);
@@ -128,6 +138,14 @@ assert.equal(synced.current_track.db_id, null);
 assert.equal(synced.is_owner, false);
 await party.control('ready', 9);
 assert.equal(paths.at(-1), '/api/party/remote/7/rooms/2/control');
+party.searchTracks("Song's name");
+await new Promise(resolve => setTimeout(resolve, 300));
+assert.equal(searchResults.innerHTML.includes('onclick='), false);
+assert.match(searchResults.innerHTML, /&quot;/);
+await addButton.click();
+assert.deepEqual(queueBodies.at(-1), { fed_instance_id: 12, fed_remote_id: 777 }); // Room search IDs belong to the host.
+await party.addLibraryTrack(btoa(encodeURIComponent(JSON.stringify({ id: 777, is_local: true }))));
+assert.deepEqual(queueBodies.at(-1), { origin_url: 'library', track_id: 777 }); // Library IDs need explicit origin translation.
 await party.deleteRoom();
 assert.equal(prompts, 0); // A remote guest cannot delete the host's room.
 room.is_owner = true;

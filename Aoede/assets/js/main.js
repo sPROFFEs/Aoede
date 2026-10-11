@@ -203,6 +203,8 @@ window.renderQueue = queue.renderQueue;
 // Search
 window.handleSearch = search.handleSearch;
 window.setSource = search.setSource;
+window.setCollectionSearch = search.setCollectionSearch;
+window.previewCollectionImport = search.previewCollectionImport;
 window.executeSearch = search.executeSearch;
 window.downloadUrl = search.downloadUrl;
 
@@ -284,6 +286,7 @@ window.refreshSmartPlaylist = library.refreshSmartPlaylist;
 
 // Downloads
 window.openDownloadsModal = downloads.openDownloadsModal;
+window.ensureDownloadPolling = downloads.ensureDownloadPolling;
 window.closeDownloadsModal = downloads.closeDownloadsModal;
 window.openDeleteResponsesModal = downloads.openDeleteResponsesModal;
 window.closeDeleteResponsesModal = downloads.closeDeleteResponsesModal;
@@ -301,7 +304,7 @@ window.createPlaylistCard = views.createPlaylistCard;
 window.createTrackRow = views.createTrackRow;
 window.createPlaylistTrackRow = views.createPlaylistTrackRow;
 window.handleCardClick = views.handleCardClick;
-window.playPreview = views.playPreview;
+window.playPreview = player.playPreview;
 window.renderSidebarPlaylists = views.renderSidebarPlaylists;
 window.refreshRecentActivity = views.refreshRecentActivity;
 window.trackRecentPlaylist = views.trackRecentPlaylist;
@@ -336,6 +339,7 @@ window.partyControl = party.control;
 window.resumePartyAudio = party.resumeAudio;
 window.searchPartyTracks = party.searchTracks;
 window.addPartyTrack = party.addTrack;
+window.addLibraryTrackToParty = party.addLibraryTrack;
 window.removePartyTrack = party.removeTrack;
 window.deletePartyRoom = party.deleteRoom;
 window.leavePartyRoom = party.leave;
@@ -356,16 +360,11 @@ window.audioEngineSetCrossfade = audioEngine.setCrossfadeSeconds;
 window.startSearchAndDownload = async function (query) {
   if (!query) return;
   await views.loadView('search');
-  const input = document.getElementById('search-input');
-  if (input) {
-    input.value = query;
-    if (typeof window.executeSearch === 'function') {
-      window.executeSearch(query);
-    } else {
-      // Fallback: trigger an input event so search.js picks it up.
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    }
+  for (const id of ['topbar-search-input', 'm-search-input', 'search-input']) {
+    const input = document.getElementById(id);
+    if (input) input.value = query;
   }
+  search.executeSearch(query);
 };
 
 // Admin — dynamically loaded for is_admin users only so non-admins don't

@@ -387,6 +387,7 @@ export async function saveOfflinePlaylist(playlist) {
   const existingIdx = manifest.findIndex((p) => Number(p.id) === numId);
   const summary = {
     id: numId,
+    kind: playlist.kind || 'playlist',
     name: playlist.name || 'Playlist',
     thumbnail: playlist.thumbnail || '',
     track_count: playlist.tracks ? playlist.tracks.length : playlist.track_count || 0,
@@ -568,11 +569,12 @@ export async function clearOfflineData() {
  * Save a cached snapshot of server metadata (library, favorites, playlists, etc.)
  */
 export async function saveLibrarySnapshot(snapshotName, payload, serverVersion = null) {
-  if (!snapshotName) return;
+  const username = window.USER_DATA?.username;
+  if (!snapshotName || !username) return;
   try {
     const db = await getDB();
     const record = {
-      snapshot_name: snapshotName,
+      snapshot_name: JSON.stringify([username, snapshotName]),
       payload,
       updated_at: Date.now(),
       server_version: serverVersion
@@ -592,12 +594,13 @@ export async function saveLibrarySnapshot(snapshotName, payload, serverVersion =
  * Retrieve cached snapshot
  */
 export async function getLibrarySnapshot(snapshotName) {
-  if (!snapshotName) return null;
+  const username = window.USER_DATA?.username;
+  if (!snapshotName || !username) return null;
   try {
     const db = await getDB();
     return new Promise((resolve) => {
       const tx = db.transaction('library_snapshots', 'readonly');
-      const req = tx.objectStore('library_snapshots').get(snapshotName);
+      const req = tx.objectStore('library_snapshots').get(JSON.stringify([username, snapshotName]));
       req.onsuccess = () => resolve(req.result ? req.result.payload : null);
       req.onerror = () => resolve(null);
     });
@@ -731,11 +734,14 @@ export async function flushPendingActions() {
           });
           success = res.ok;
         } else if (action.type === 'remove_from_playlist') {
-          const { playlistId, trackId } = action.payload;
-          const res = await fetch(`/api/playlists/${playlistId}/remove/${trackId}`, {
-            method: 'DELETE',
-            headers: { 'X-Idempotency-Key': action.idempotency_key }
-          });
+          const { playlistId, trackId, itemId } = action.payload;
+          const res = await fetch(
+            `/api/playlists/${playlistId}/remove/${trackId}${itemId ? `?item_id=${Number(itemId)}` : ''}`,
+            {
+              method: 'DELETE',
+              headers: { 'X-Idempotency-Key': action.idempotency_key }
+            }
+          );
           success = res.ok || res.status === 404;
         } else if (action.type === 'edit_playlist') {
           const { playlistId, name } = action.payload;

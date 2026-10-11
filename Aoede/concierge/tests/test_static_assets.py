@@ -1,5 +1,17 @@
+import json
 import re
 from pathlib import Path
+
+from jinja2 import Environment
+
+
+def test_client_account_identity_preserves_quotes_and_escapes_script_markup():
+    template = (Path(__file__).resolve().parents[1] / "templates/base.html").read_text()
+    identity = re.search(r"window.USER_DATA = (\{.*?\});", template, re.S)[1]
+    username = 'name" & </script> \\ café'
+    rendered = Environment(autoescape=True).from_string(identity).render(username=username, is_admin=False)
+    assert json.loads(re.search(r"username: (.*),", rendered)[1]) == username
+    assert "</script>" not in rendered
 
 
 def test_base_template_versions_every_javascript_module_without_new_runtime_globals():

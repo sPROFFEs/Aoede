@@ -257,3 +257,55 @@ def test_collaboration_migration_preserves_existing_playlists_and_cascades():
         conn.execute(text("DELETE FROM playlists WHERE id=1"))
         assert conn.execute(text("SELECT count(*) FROM playlist_collaborators")).scalar() == 0
     engine.dispose()
+
+
+def test_album_creation_with_shared_pool_tracks_and_repeated_song_reorder(db_session, collaboration):
+    users, tracks, _, _, _, request = collaboration
+    created = payload(
+        run(
+            playlists.create_playlist,
+            playlists.CreatePlaylistRequest(name="Album", kind="album", track_ids=[tracks[1].id, tracks[0].id, 999999]),
+            request,
+            db_session,
+        )
+    )
+    assert created["kind"] == "album" and created["owner_username"] == "owner" and created["track_count"] == 2
+    album = db_session.get(database.Playlist, created["id"])
+    assert [item.track_id for item in sorted(album.items, key=lambda item: item.position)] == [
+        tracks[1].id,
+        tracks[0].id,
+    ]
+    db_session.add(database.PlaylistItem(playlist_id=album.id, track_id=tracks[1].id, position=3))
+    db_session.commit()
+    db_session.expire(album, ["items"])
+    order = [tracks[1].id, tracks[1].id, tracks[0].id]
+    response = run(
+        playlists.reorder_playlist_tracks,
+        album.id,
+        playlists.ReorderRequest(items=[{"track_id": tid, "position": pos} for pos, tid in enumerate(order, 1)]),
+        request,
+        db_session,
+    )
+    assert response.status_code == 200
+    detail = payload(run(playlists.get_playlist, album.id, request, db_session))
+    assert detail["kind"] == "album" and [track["id"] for track in detail["tracks"]] == order
+    assert playlists.fetch_playlist_summaries(db_session, viewer_id=users[0].id)[0]["kind"] == "album"
+    duplicate_id = detail["tracks"][1]["playlist_item_id"]
+    removed = run(playlists.remove_from_playlist, album.id, tracks[1].id, request, db_session, duplicate_id)
+    assert removed.status_code == 200
+    remaining = payload(run(playlists.get_playlist, album.id, request, db_session))["tracks"]
+    assert [track["position"] for track in remaining] == [1, 3]  # Removes the clicked duplicate, not the first one.
+
+
+def test_collection_migration_preserves_old_playlists_and_jobs():
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE playlists (id INTEGER PRIMARY KEY, name TEXT)"))
+        conn.execute(text("CREATE TABLE download_jobs (id INTEGER PRIMARY KEY, status TEXT)"))
+        conn.execute(text("INSERT INTO playlists VALUES (1, 'Existing')"))
+        conn.execute(text("INSERT INTO download_jobs VALUES (2, 'pending')"))
+        ops_core._migration_032_collection_imports(conn)
+        ops_core._migration_032_collection_imports(conn)
+        assert conn.execute(text("SELECT name, kind FROM playlists")).one() == ("Existing", "playlist")
+        assert conn.execute(text("SELECT status, target_position FROM download_jobs")).one() == ("pending", None)
+    engine.dispose()

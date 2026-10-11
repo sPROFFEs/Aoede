@@ -1537,6 +1537,15 @@ def _migration_031_federated_party_rooms(conn):
     database.PartyRoomFederatedPeer.__table__.create(bind=conn, checkfirst=True)
 
 
+def _migration_032_collection_imports(conn):
+    playlist_cols = {r[1] for r in conn.execute(text("PRAGMA table_info(playlists)"))}
+    job_cols = {r[1] for r in conn.execute(text("PRAGMA table_info(download_jobs)"))}
+    if "kind" not in playlist_cols:
+        conn.execute(text("ALTER TABLE playlists ADD COLUMN kind TEXT NOT NULL DEFAULT 'playlist'"))
+    if "target_position" not in job_cols:
+        conn.execute(text("ALTER TABLE download_jobs ADD COLUMN target_position INTEGER"))
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1570,6 +1579,7 @@ MIGRATIONS = [
     ("029_delete_reference_cleanup", _migration_029_delete_reference_cleanup),
     ("030_collaborative_playlists", _migration_030_collaborative_playlists),
     ("031_federated_party_rooms", _migration_031_federated_party_rooms),
+    ("032_collection_imports", _migration_032_collection_imports),
 ]
 
 

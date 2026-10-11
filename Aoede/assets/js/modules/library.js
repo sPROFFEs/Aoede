@@ -13,14 +13,18 @@ let facetLimit = 50;
 
 function playlistCard(pl) {
   const tracks = Number(pl.track_count || 0);
-  const type = pl.is_smart
-    ? 'Smart playlist'
-    : pl.is_collaborative
-      ? 'Collaborative playlist'
-      : pl.source_playlist_id
-        ? 'Synced playlist'
-        : 'Playlist';
-  const icon = pl.is_smart ? 'sparkles' : pl.source_playlist_id ? 'refresh-cw' : 'list-music';
+  const type =
+    pl.kind === 'album'
+      ? 'Album'
+      : pl.is_smart
+        ? 'Smart playlist'
+        : pl.is_collaborative
+          ? 'Collaborative playlist'
+          : pl.source_playlist_id
+            ? 'Synced playlist'
+            : 'Playlist';
+  const icon =
+    pl.kind === 'album' ? 'disc-3' : pl.is_smart ? 'sparkles' : pl.source_playlist_id ? 'refresh-cw' : 'list-music';
   const thumb = pl.thumbnail || '/static/img/default_cover.png';
   const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
   return `
@@ -63,7 +67,7 @@ function shell(content, browsing = false, total = 0, hasMore = false) {
               <i data-lucide="sparkles" width="16" height="16"></i> ${ui.t('library.smart_playlist', 'Smart Playlist')}
             </button>
             <button class="btn-primary" onclick="showCreateMenu()" title="${ui.t('library.new_playlist', 'New Playlist')}">
-              <i data-lucide="plus" width="16" height="16"></i> ${ui.t('library.new_playlist', 'New Playlist')}
+              <i data-lucide="plus" width="16" height="16"></i> Create
             </button>
           </div>
         </div>
@@ -107,7 +111,10 @@ export async function renderLibrary(container, kind = null) {
         playlists = (await offlineStore.getLibrarySnapshot('playlists')) || [];
       }
       container.innerHTML = shell(
-        `<div class="library-list-heading"><i data-lucide="arrow-down-wide-narrow" width="16"></i><span>Recently created</span></div><div class="library-cards-grid"><button class="library-card library-liked" onclick="loadView('favorites')"><div class="library-card-cover"><i data-lucide="heart"></i></div><div class="library-card-name">Liked Songs</div><div class="library-card-sub">Playlist · ${ui.escHtml(window.USER_DATA?.username || 'You')}</div></button>${playlists.map(playlistCard).join('')}</div>`
+        `<div class="library-list-heading"><i data-lucide="arrow-down-wide-narrow" width="16"></i><span>Recently created</span></div><div class="library-cards-grid"><button class="library-card library-liked" onclick="loadView('favorites')"><div class="library-card-cover"><i data-lucide="heart"></i></div><div class="library-card-name">Liked Songs</div><div class="library-card-sub">Playlist · ${ui.escHtml(window.USER_DATA?.username || 'You')}</div></button>${playlists
+          .filter((pl) => pl.kind !== 'album')
+          .map(playlistCard)
+          .join('')}</div>`
       );
     } else {
       let page = { items: [], total: 0, has_more: false };
@@ -121,11 +128,25 @@ export async function renderLibrary(container, kind = null) {
           has_more: false
         };
       }
+      let albumsHtml = '';
+      if (activeKind === 'albums') {
+        let collections;
+        if (navigator.onLine) {
+          collections = await api.fetchPlaylists();
+          state.setUserPlaylists(collections);
+          await offlineStore.saveLibrarySnapshot('playlists', collections);
+        } else {
+          collections = (await offlineStore.getLibrarySnapshot('playlists')) || [];
+        }
+        const albums = collections.filter((collection) => collection.kind === 'album');
+        albumsHtml = `<h2>Your albums</h2><div class="library-cards-grid">${albums.map(playlistCard).join('')}</div>${albums.length ? '' : '<p class="modal-subtitle">Create an album or import one from Search / Downloads.</p>'}<h2>Albums in the pool</h2>`;
+      }
       const facets = page.items || [];
       container.innerHTML = shell(
-        facets.length
-          ? `<div class="library-cards-grid">${facets.map((facet) => facetCard(activeKind, facet)).join('')}</div>`
-          : `<div class="empty-state"><p>No ${activeKind} with metadata found.</p></div>`,
+        albumsHtml +
+          (facets.length
+            ? `<div class="library-cards-grid">${facets.map((facet) => facetCard(activeKind, facet)).join('')}</div>`
+            : `<div class="empty-state"><p>No ${activeKind} with metadata found.</p></div>`),
         true,
         page.total || 0,
         Boolean(page.has_more)
@@ -135,7 +156,10 @@ export async function renderLibrary(container, kind = null) {
   } catch (error) {
     const cached = await offlineStore.getLibrarySnapshot('playlists');
     if (cached && cached.length) {
-      container.innerHTML = shell(`<div class="library-cards-grid">${cached.map(playlistCard).join('')}</div>`);
+      const collections = cached.filter((pl) => (activeKind === 'albums' ? pl.kind === 'album' : pl.kind !== 'album'));
+      container.innerHTML = shell(
+        `<p role="status">Showing saved collections. The server could not be reached.</p><div class="library-cards-grid">${collections.map(playlistCard).join('')}</div>`
+      );
       ui.refreshIcons(container);
     } else {
       container.innerHTML = '<div class="empty-state glass-panel"><p>Failed to load your library.</p></div>';

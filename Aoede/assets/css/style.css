@@ -3935,4 +3935,29 @@ select.modal-input option {
     animation: spin-anim 1s linear infinite;
 }
 
+.collection-search-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 12px 0 20px;
+    color: var(--text-sub);
+    cursor: pointer;
+}
+.collection-search-toggle input {
+    width: 20px;
+    height: 20px;
+    accent-color: var(--primary);
+    flex-shrink: 0;
+}
+.collection-preview-tracks {
+    max-height: 30vh;
+    overflow-y: auto;
+    padding-left: 30px;
+    overflow-wrap: anywhere;
+    color: var(--text-sub);
+}
+.collection-preview-tracks li {
+    padding: 5px 0;
+}
+
 

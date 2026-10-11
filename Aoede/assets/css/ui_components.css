@@ -1247,6 +1247,10 @@
     gap: 8px;
 }
 .artist-album-cover-link {
+    padding: 0;
+    border: 0;
+    width: 100%;
+    cursor: pointer;
     display: block;
     aspect-ratio: 1;
     overflow: hidden;

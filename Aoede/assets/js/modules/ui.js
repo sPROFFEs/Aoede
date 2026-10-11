@@ -30,7 +30,24 @@ export function getGreeting() {
 }
 
 export function escHtml(str) {
-  return str ? str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/** String content inside a single-quoted JS argument in an HTML attribute. */
+export function escJs(value) {
+  return escHtml(
+    String(value ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\r/g, '\\r')
+      .replace(/\n/g, '\\n')
+      .replace(/\u2028/g, '\\u2028')
+      .replace(/\u2029/g, '\\u2029')
+  );
 }
 
 // Scoped lucide icon refresh. lucide.createIcons() with no args walks the

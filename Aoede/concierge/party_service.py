@@ -91,6 +91,11 @@ def _ordered_items(room: database.PartyRoom) -> list[database.PartyRoomQueueItem
     return sorted(room.queue_items, key=lambda item: (item.position, item.id))
 
 
+def _item_duration_ms(item: database.PartyRoomQueueItem) -> int:
+    duration = item.track.duration if item.track else item.remote_duration
+    return max(0, int(duration or 0) * 1000)
+
+
 def _effective_position_ms(room: database.PartyRoom, now: datetime | None = None) -> int:
     position = max(0, int(room.playback_position_ms or 0))
     if room.playback_status != "playing" or not room.playback_started_at:
@@ -125,8 +130,7 @@ def normalize_playback(room: database.PartyRoom, now: datetime | None = None) ->
     changed = False
     while room.current_index < len(items):
         item = items[room.current_index]
-        dur = item.track.duration if item.track else item.remote_duration
-        duration_ms = max(0, int(dur or 0) * 1000)
+        duration_ms = _item_duration_ms(item)
         if not duration_ms or position_ms < duration_ms:
             break
         position_ms -= duration_ms
@@ -135,9 +139,8 @@ def normalize_playback(room: database.PartyRoom, now: datetime | None = None) ->
 
     if room.current_index >= len(items):
         room.current_index = len(items) - 1
-        last_dur = items[-1].track.duration if items[-1].track else items[-1].remote_duration
         room.playback_status = "paused"
-        room.playback_position_ms = max(0, int(last_dur or 0) * 1000)
+        room.playback_position_ms = _item_duration_ms(items[-1])
         room.playback_started_at = None
     else:
         if changed:
@@ -303,11 +306,35 @@ def add_track(
         raise PartyError("Only the room owner can add songs", 403)
 
     if track_id is not None:
+        fed_instance_id = fed_remote_id = None
         track = db.query(database.Track).filter(database.Track.id == track_id).first()
         if not track:
             raise PartyError("Track not found", 404)
     elif not (fed_instance_id and fed_remote_id):
         raise PartyError("Either track_id or federated track details must be provided", 400)
+    else:
+        peer_ids = [p.instance_id for p in room.federated_peers]
+        if not room.is_federated or (peer_ids and fed_instance_id not in peer_ids):
+            raise PartyError("This peer is not participating in the room", 403)
+        federated_track = (
+            db.query(database.FederatedTrack)
+            .join(database.FederatedInstance, database.FederatedInstance.id == database.FederatedTrack.instance_id)
+            .filter(
+                database.FederatedTrack.instance_id == fed_instance_id,
+                database.FederatedTrack.remote_id == fed_remote_id,
+                database.FederatedInstance.enabled.is_(True),
+                database.FederatedInstance.status != "offline",
+            )
+            .first()
+        )
+        if not federated_track:
+            raise PartyError("Federated song unavailable. Refresh the room search.", 404)
+        # IDs belong to the host's catalogue; never trust a guest's supplied metadata.
+        remote_title = federated_track.title
+        remote_artist = federated_track.artist
+        remote_album = federated_track.album
+        remote_duration = federated_track.duration
+        remote_thumbnail = federated_track.cover_url
 
     with _write_lock:
         position = db.query(database.PartyRoomQueueItem).filter_by(room_id=room.id).count()
@@ -445,7 +472,7 @@ def control_room(
                 room.current_index = 0
                 room.playback_position_ms = 0
             else:
-                duration_ms = max(0, int(items[room.current_index].track.duration or 0) * 1000)
+                duration_ms = _item_duration_ms(items[room.current_index])
                 if duration_ms and room.playback_position_ms >= duration_ms:
                     # A room paused at the natural end should restart the
                     # queue, not briefly play an already-finished resource.
@@ -460,7 +487,7 @@ def control_room(
         elif action == "seek":
             if not items or room.current_index < 0:
                 raise PartyError("Nothing is playing")
-            duration_ms = max(0, int(items[room.current_index].track.duration or 0) * 1000)
+            duration_ms = _item_duration_ms(items[room.current_index])
             room.playback_position_ms = min(max(0, position_ms), duration_ms or max(0, position_ms))
             room.playback_started_at = _utcnow() if room.playback_status == "playing" else None
         elif action in {"next", "previous", "ended"}:
@@ -472,14 +499,14 @@ def control_room(
                     # The server clock or another end event already moved the
                     # room. Treat retries as success without advancing twice.
                     return
-                if user.id != room.owner_id and int(current_item.track.duration or 0) > 0:
+                if user.id != room.owner_id and _item_duration_ms(current_item) > 0:
                     # Guests may only resolve tracks whose duration is unknown
                     # to the server. Known-duration tracks advance by the
                     # authoritative room clock and remain host-controlled.
                     raise PartyError("Only the room owner can control playback", 403)
                 if room.current_index + 1 >= len(items):
                     room.playback_status = "paused"
-                    room.playback_position_ms = max(0, int(current_item.track.duration or 0) * 1000)
+                    room.playback_position_ms = _item_duration_ms(current_item)
                     room.playback_started_at = None
                 else:
                     room.current_index += 1
@@ -568,7 +595,11 @@ def search_tracks(db: Session, query: str, limit: int = 20, room: database.Party
     # 2. If room is federated, also search cached federated tracks from participating peers
     if room and room.is_federated:
         peer_ids = [p.instance_id for p in room.federated_peers] if room.federated_peers else []
-        fed_q = db.query(database.FederatedTrack)
+        fed_q = (
+            db.query(database.FederatedTrack)
+            .join(database.FederatedInstance, database.FederatedInstance.id == database.FederatedTrack.instance_id)
+            .filter(database.FederatedInstance.enabled.is_(True), database.FederatedInstance.status != "offline")
+        )
         if peer_ids:
             fed_q = fed_q.filter(database.FederatedTrack.instance_id.in_(peer_ids))
         if term:
@@ -577,6 +608,9 @@ def search_tracks(db: Session, query: str, limit: int = 20, room: database.Party
                 or_(database.FederatedTrack.title.ilike(fed_pattern), database.FederatedTrack.artist.ilike(fed_pattern))
             )
         fed_tracks = fed_q.limit(limit).all()
+        # Do not let a full page of local results hide every participating peer.
+        if fed_tracks:
+            results = results[: max(1, limit // 2)]
         for ft in fed_tracks:
             peer = db.query(database.FederatedInstance).filter(database.FederatedInstance.id == ft.instance_id).first()
             peer_label = peer.name if peer else "Federated"

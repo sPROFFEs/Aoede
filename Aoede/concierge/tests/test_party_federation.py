@@ -11,8 +11,41 @@ from types import SimpleNamespace
 import database
 import httpx
 import party_service
+import pytest
 from fastapi import FastAPI, HTTPException, Response
 from test_party_lifecycle import _hub_for, _load_party_router_module, _room_fixture
+
+
+def test_federated_song_play_seek_and_ended_use_remote_duration(db_session):
+    owner, guests, _, room = _room_fixture(db_session, track_count=0)
+    room.is_federated = True
+    instance = database.FederatedInstance(name="Songs", base_url="https://songs.example", enabled=True)
+    db_session.add(instance)
+    db_session.flush()
+    db_session.add(database.FederatedTrack(instance_id=instance.id, remote_id=777, title="Song", duration=120))
+    db_session.commit()
+    party_service.add_track(db_session, room, owner, fed_instance_id=instance.id, fed_remote_id=777)
+    item = party_service._ordered_items(room)[0]
+    assert item.track is None
+    party_service.control_room(db_session, room, owner, "play")
+    assert room.playback_status == "loading"
+    party_service.control_room(db_session, room, owner, "ready", expected_item_id=item.id)
+    party_service.control_room(db_session, room, owner, "seek", position_ms=999999)
+    assert room.playback_position_ms == 120000
+    party_service.control_room(db_session, room, owner, "play")
+    assert room.playback_position_ms == 0
+    with pytest.raises(party_service.PartyError, match="Only the room owner"):
+        party_service.control_room(
+            db_session, room, guests[0], "ended", expected_item_id=item.id, allow_guest_ended=True
+        )
+    party_service.control_room(db_session, room, owner, "ended", expected_item_id=item.id)
+    assert room.playback_status == "paused" and room.playback_position_ms == 120000
+    party_service.control_room(db_session, room, owner, "play")
+    assert room.playback_status == "loading" and room.playback_position_ms == 0
+    item.remote_duration = 0
+    db_session.commit()
+    party_service.control_room(db_session, room, guests[0], "ended", expected_item_id=item.id, allow_guest_ended=True)
+    assert room.playback_status == "paused" and room.playback_position_ms == 0
 
 
 def _federation_routes(party):
@@ -66,6 +99,13 @@ def test_remote_join_queue_and_permissions(db_session, monkeypatch):
     instance.api_token = "test-party-token"
     db_session.add(instance)
     db_session.commit()
+    origin = database.FederatedInstance(name="Remote", base_url=peer.peer_url, enabled=True)
+    db_session.add(origin)
+    db_session.flush()
+    db_session.add(
+        database.FederatedTrack(instance_id=origin.id, remote_id=777, title="Guest's song", artist="Remote artist")
+    )
+    db_session.commit()
     # Same numeric ID as the host's owner must still be a guest.
     routes.get_current_user_safe = lambda _db, _request: owner
     streaming = types.ModuleType("party_federation_testpkg.music.streaming")
@@ -98,6 +138,24 @@ def test_remote_join_queue_and_permissions(db_session, monkeypatch):
             added = await client.post(f"{base}/queue", json={"track_id": tracks[0].id})
             assert added.status_code == 201, added.text
             assert room.queue_items[-1].added_by_user_id is None
+            # Library IDs are scoped to the listener server, not to the host DB.
+            local_song = database.Track(id=777, title="Guest's song", filepath="/pool/guest.mp3")
+            db_session.add(local_song)
+            db_session.commit()
+            added = await client.post(f"{base}/queue", json={"track_id": 777, "origin_url": "library"})
+            assert added.status_code == 201, added.text
+            assert room.queue_items[-1].track_id is None
+            assert room.queue_items[-1].fed_instance_id == origin.id
+            assert room.queue_items[-1].fed_remote_id == 777
+            assert room.queue_items[-1].remote_title == "Guest's song"
+            # A song federated from the host back to this listener is local on the host.
+            added = await client.post(
+                f"{base}/queue",
+                json={"fed_instance_id": instance.id, "fed_remote_id": tracks[0].id, "origin_url": "library"},
+            )
+            assert added.status_code == 201, added.text
+            assert room.queue_items[-1].track_id == tracks[0].id
+            assert room.queue_items[-1].fed_instance_id is None
             assert (await client.post(f"{base}/control", json={"action": "play"})).status_code == 403
             assert (await client.delete(f"{base}/queue/{room.queue_items[0].id}")).status_code == 403
             assert (await client.post(f"{base}/control", json={"position_ms": -1})).status_code == 422
@@ -135,6 +193,13 @@ def test_party_search_uses_federated_catalog_columns(db_session):
     found = party_service.search_tracks(db_session, "Remote Song", room=room)
     assert found[0]["fed_remote_id"] == 42
     assert found[0]["thumbnail"] == "https://catalog.example/cover/42"
+    party_service.add_track(
+        db_session, room, room.owner, fed_instance_id=instance.id, fed_remote_id=42, remote_title="Forged metadata"
+    )
+    assert room.queue_items[-1].remote_title == "Remote Song"
+    instance.enabled = False
+    db_session.commit()
+    assert party_service.search_tracks(db_session, "Remote Song", room=room) == []
 
 
 def test_peer_visibility_and_event_membership(db_session, monkeypatch):

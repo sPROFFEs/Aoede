@@ -76,13 +76,9 @@ export async function submitTrackDeleteRequest(trackId, reason) {
 // === PLAYLISTS API ===
 
 export async function fetchPlaylists() {
-  try {
-    const res = await fetch(`${state.API}/playlists`);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    console.error('[PLAYLISTS] Fetch error:', e);
-  }
-  return [];
+  const res = await fetch(`${state.API}/playlists`);
+  if (!res.ok) throw new Error(`Could not load collections (HTTP ${res.status})`);
+  return res.json();
 }
 
 export async function fetchPlaylist(playlistId) {

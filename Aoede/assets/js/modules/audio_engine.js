@@ -37,6 +37,7 @@ let _gainVolume = null;
 let _volume = null;
 let _initialized = false;
 let _initFailed = false;
+let _gainRequest = 0;
 
 // iOS detection (covers iPhone, iPad in legacy mode, and iPadOS which
 // disguises itself as MacIntel with touch points). Browser-only check;
@@ -100,6 +101,7 @@ export function setReplayGainEnabled(on) {
     localStorage.setItem(RG_KEY, on ? '1' : '0');
   } catch {}
   if (on) ensureInitialized();
+  else applyReplayGain(null);
 }
 
 export function getCrossfadeSeconds() {
@@ -197,6 +199,11 @@ export async function resumeIfSuspended() {
 // === REPLAYGAIN ============================================================
 
 export async function applyReplayGain(trackId) {
+  const request = ++_gainRequest;
+  if (_gainReplay) {
+    _gainReplay.gain.cancelScheduledValues(_ctx.currentTime);
+    _gainReplay.gain.value = 1.0;
+  }
   if (!isReplayGainEnabled()) {
     if (_gainReplay) _gainReplay.gain.value = 1.0;
     return;
@@ -224,7 +231,7 @@ export async function applyReplayGain(trackId) {
     // track is already mid-playback. Re-check `_ctx` because Safari
     // can close it on visibility change between the fetch await and
     // here.
-    if (!_ctx || !_gainReplay) return;
+    if (!_ctx || !_gainReplay || request !== _gainRequest || !isReplayGainEnabled()) return;
     const now = _ctx.currentTime;
     _gainReplay.gain.cancelScheduledValues(now);
     _gainReplay.gain.linearRampToValueAtTime(linear, now + 0.05);
