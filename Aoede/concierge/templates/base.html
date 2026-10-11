@@ -469,10 +469,11 @@
                 <button onclick="closeDownloadsModal()" class="modal-close"><i data-lucide="x"></i></button>
             </div>
 
-            <div style="display:flex; gap:12px; margin-bottom:24px; align-items: flex-start;">
+            <label class="collection-search-toggle"><input type="checkbox" id="dl-modal-collection" onchange="updateDownloadMode()"> Album / playlist URL (Spotify / YouTube)</label>
+            <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px; align-items: flex-start;">
                 <input type="text" id="dl-modal-url" class="modal-input" placeholder="{{ _('downloads.modal_placeholder') if _ else 'Paste YouTube/Spotify URL...' }}"
-                    style="margin-bottom:0;">
-                <button onclick="handleModalDownload()" class="modal-btn-primary">{{ _('downloads.modal_download_btn') if _ else 'Download' }}</button>
+                    aria-label="Download URL" style="margin-bottom:0; flex:1 1 220px; min-width:0;">
+                <button id="dl-modal-submit" onclick="handleModalDownload()" class="modal-btn-primary" data-download-label="{{ _('downloads.modal_download_btn') if _ else 'Download' }}">{{ _('downloads.modal_download_btn') if _ else 'Download' }}</button>
             </div>
 
             <div id="jobs-list" class="downloads-container">

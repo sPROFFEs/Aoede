@@ -205,7 +205,7 @@ export async function executeSearch(query) {
     )
       return;
 
-    if (!searchRes.ok) {
+    if (!searchRes.ok && !collectionMode) {
       const msg =
         searchRes.status === 401
           ? 'Your session expired. Reload the page to log in.'
@@ -216,7 +216,7 @@ export async function executeSearch(query) {
       return;
     }
 
-    const data = await searchRes.json();
+    const data = collectionMode ? await collections.readResponse(searchRes) : await searchRes.json();
     if (
       controller.signal.aborted ||
       state.searchAbortController !== controller ||

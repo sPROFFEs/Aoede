@@ -481,12 +481,20 @@ export async function retryDownload(jobId) {
 
 // === HANDLE MODAL DOWNLOAD ===
 
+export function updateDownloadMode() {
+  const button = document.getElementById('dl-modal-submit');
+  if (button)
+    button.textContent = document.getElementById('dl-modal-collection')?.checked
+      ? 'Preview collection'
+      : button.dataset.downloadLabel;
+}
+
 export async function handleModalDownload() {
   const input = document.getElementById('dl-modal-url');
   const url = input?.value?.trim();
   if (!url) return;
 
-  if (collections.isCollectionUrl(url)) {
+  if (document.getElementById('dl-modal-collection')?.checked || collections.isCollectionUrl(url)) {
     closeDownloadsModal();
     await collections.previewImport(url);
     return;

@@ -291,6 +291,7 @@ window.closeDownloadsModal = downloads.closeDownloadsModal;
 window.openDeleteResponsesModal = downloads.openDeleteResponsesModal;
 window.closeDeleteResponsesModal = downloads.closeDeleteResponsesModal;
 window.handleModalDownload = downloads.handleModalDownload;
+window.updateDownloadMode = downloads.updateDownloadMode;
 window.triggerDownload = downloads.triggerDownload;
 window.showDownloadConfirmModal = downloads.showDownloadConfirmModal;
 window.executeDownload = downloads.executeDownload;

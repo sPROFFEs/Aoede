@@ -11,6 +11,8 @@ import yt_dlp
 from ytmusicapi import YTMusic
 
 MAX_COLLECTION_TRACKS = 500
+# Return a JSON error before the deployment proxy's 60-second read timeout.
+COLLECTION_TIMEOUT_SECONDS = 40
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "music.youtube.com", "m.youtube.com", "youtu.be"}
 
 
@@ -186,8 +188,7 @@ def _youtube_collection(kind, identifier, url):
                 "artist": _names(entry.get("artists"))
                 or (_names(data.get("artists")) if kind == "album" else "")
                 or entry.get("uploader", ""),
-                "album": (entry.get("album") or {}).get("name", "")
-                or (data.get("title", "") if kind == "album" else ""),
+                "album": _names(entry.get("album")) or (data.get("title", "") if kind == "album" else ""),
                 "position": position,
             }
         )
@@ -204,11 +205,15 @@ async def resolve_collection(user, url):
     if cached and cached.get("expires_at", 0) > time.time():
         return cached["data"]
     try:
-        data = (
-            await _spotify_collection(user, kind, identifier)
-            if source == "spotify"
-            else await asyncio.to_thread(_youtube_collection, kind, identifier, canonical)
-        )
+        async with asyncio.timeout(COLLECTION_TIMEOUT_SECONDS):
+            data = (
+                await _spotify_collection(user, kind, identifier)
+                if source == "spotify"
+                else await asyncio.to_thread(_youtube_collection, kind, identifier, canonical)
+            )
+    except TimeoutError:
+        provider = "YouTube" if source == "youtube" else "Spotify"
+        raise CollectionError(f"{provider} took too long to load this collection. Please try again.", 504)
     except CollectionError:
         raise
     except Exception:
@@ -281,14 +286,19 @@ async def search_collections(user, query, source):
         calls["youtube"] = asyncio.to_thread(_youtube_search, query)
     if source in {"all", "spotify"}:
         calls["spotify"] = search_spotify()
-    payloads = await asyncio.gather(*calls.values(), return_exceptions=True)
+    payloads = await asyncio.gather(
+        *(asyncio.wait_for(call, COLLECTION_TIMEOUT_SECONDS) for call in calls.values()), return_exceptions=True
+    )
     result = {"items": [], "warnings": []}
     for provider, payload in zip(calls, payloads):
+        provider_name = "YouTube" if provider == "youtube" else "Spotify"
         if isinstance(payload, Exception):
             result["warnings"].append(
-                str(payload)
+                f"{provider_name} search took too long. Please try again."
+                if isinstance(payload, TimeoutError)
+                else str(payload)
                 if isinstance(payload, CollectionError)
-                else f"{provider.title()} search is temporarily unavailable."
+                else f"{provider_name} search is temporarily unavailable."
             )
         else:
             result["items"].extend(payload)

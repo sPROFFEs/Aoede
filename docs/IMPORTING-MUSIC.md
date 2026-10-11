@@ -4,7 +4,7 @@ Aoede can import online albums/playlists through the web app, or move an existin
 
 ## Import an online album or playlist
 
-1. Open **Search** and enable **Albums / Playlists** to search Spotify and YouTube collections. This mode is off by default and replaces ordinary song searches while enabled. Alternatively, paste a Spotify album/playlist, YouTube playlist, or YouTube Music album URL in **Downloads**.
+1. Open **Search** and enable **Albums / Playlists** to search Spotify and YouTube collections. This mode is off by default and replaces ordinary song searches while enabled. Alternatively, in **Downloads**, enable **Album / playlist URL**, paste a Spotify album/playlist, YouTube playlist, or YouTube Music album URL, and select **Preview collection**. Recognized collection URLs also open the preview when the toggle is off.
 2. Select a result to preview its ordered songs, unavailable entries, name, and collection type.
 3. Choose **Album** or **Playlist**, optionally change the name, and select **Import**.
 

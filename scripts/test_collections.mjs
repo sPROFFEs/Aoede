@@ -40,6 +40,16 @@ const html = collections.resultsHtml({ items: [{ name: '<Unsafe>', kind: 'album'
 assert.match(html, /&lt;Unsafe&gt;/);
 assert.match(html, /data-collection-index="0"/);
 assert.equal(html.includes('onclick='), false);
+for (const status of [200, 404, 502, 504, 524]) {
+  await assert.rejects(collections.readResponse(new Response('<!DOCTYPE html><title>Proxy error</title>', { status })), error => {
+    assert.equal(error.message.includes('Unexpected token'), false);
+    assert.match(error.message, status === 404 ? /Update the Aoede server/ : new RegExp(`HTTP ${status}`));
+    return true;
+  });
+}
+await assert.rejects(collections.readResponse({ ok: true, status: 200, redirected: true, url: 'https://aoede.test/login', json: async () => { throw new SyntaxError('HTML'); } }), /session expired/);
+await assert.rejects(collections.readResponse(Response.json({ error: 'YouTube took too long' }, { status: 504 })), /YouTube took too long/);
+await assert.rejects(collections.readResponse(Response.json(null)), /unexpected collection response/);
 
 let source;
 const values = { API: '/api', currentSource: 'all', searchAbortController: null, searchDebounce: null,
@@ -53,6 +63,7 @@ const search = await load('search.js', { document, window: {}, console, URL, Abo
   fetch: async url => {
     calls.push(url);
     if (url.includes('q=slow')) return new Promise(resolve => { slow = resolve; });
+    if (url.includes('q=html-error')) return new Response('<!DOCTYPE html><title>Challenge</title>');
     return { ok: true, json: async () => url.includes('/collections/') ? { items: [], warnings: [] } : [] };
   }
 }, { './state.js': values, './ui.js': { ...ui, refreshIcons() {} }, './api.js': { fetchUsersList: async () => { profiles++; return []; } }, './collections.js': collections });
@@ -62,6 +73,9 @@ assert.deepEqual(calls, ['/api/search?q=Album&source=all']); // No collection re
 await search.api.setCollectionSearch(true);
 assert.equal(calls.at(-1), '/api/collections/search?q=Album&source=all');
 assert.equal(profiles, 1); // Collection mode doesn't make user/profile requests either.
+await search.api.executeSearch('html-error');
+assert.match(results.innerHTML, /unexpected collection response/);
+assert.equal(results.innerHTML.includes('Unexpected token'), false);
 const stale = search.api.executeSearch('slow');
 await Promise.resolve();
 await search.api.executeSearch('new');
@@ -92,6 +106,7 @@ let polling = 0;
 const previewData = { name: '<Album>', url: 'https://www.youtube.com/playlist?list=PL1234567890', kind: 'album', source: 'youtube', track_count: 2, skipped: 1,
   tracks: [{ title: "Song's name", artist: 'Artist', position: 1 }, { title: 'Last', artist: 'Artist', position: 3 }] };
 let deferredPreview;
+const importNotices = [];
 const importer = (await load('collections.js', {
   document: { getElementById: id => fields[id] }, window: { USER_DATA: { username: 'collector' }, ensureDownloadPolling() { polling++; }, loadView: async (view, id) => { navigated = [view, id]; } }, navigator: { onLine: true }, URL,
   fetch: async (url, options) => {
@@ -100,9 +115,14 @@ const importer = (await load('collections.js', {
       return new Promise(resolve => { finishImport = resolve; });
     }
     if (url.includes('cancel')) return new Promise(resolve => { deferredPreview = resolve; });
+    if (url.includes('html-error')) return new Response('<!DOCTYPE html><title>Gateway error</title>', { status: 502 });
     return { ok: true, json: async () => previewData };
   }
-}, { './state.js': { API: '/api' }, './ui.js': { ...ui, focusModal() {}, refreshIcons() {}, showToast() {}, closeModal() { modal.innerHTML = ''; } } })).api;
+}, { './state.js': { API: '/api' }, './ui.js': { ...ui, focusModal() {}, refreshIcons() {}, showToast: message => importNotices.push(message), closeModal() { modal.innerHTML = ''; } } })).api;
+await importer.previewImport('html-error');
+assert.equal(modal.html, '');
+assert.match(importNotices.at(-1), /HTTP 502/);
+assert.equal(importNotices.at(-1).includes('Unexpected token'), false);
 await importer.previewImport(previewData.url);
 assert.match(modal.html, /&lt;Album&gt;/);
 assert.match(modal.html, /1 unavailable/);
@@ -113,6 +133,13 @@ finishImport({ ok: true, json: async () => ({ playlist_id: 5, message: 'Queued' 
 await submitted;
 assert.deepEqual(navigated, ['playlist', 5]);
 assert.equal(polling, 1);
+importButton.disabled = false; // The next preview creates a fresh button in the browser.
+await importer.previewImport(previewData.url);
+const failedImport = importButton.click();
+finishImport(new Response('<!DOCTYPE html><title>Gateway timeout</title>', { status: 504 }));
+await failedImport;
+assert.match(importNotices.at(-1), /HTTP 504/);
+assert.equal(importButton.disabled, false); // A failed request must leave the import retryable.
 const cancelled = importer.previewImport('cancel');
 modal.innerHTML = '';
 deferredPreview({ ok: true, json: async () => previewData });
@@ -130,13 +157,17 @@ const hidden = new Set(['hidden']);
 const modalElement = { classList: { contains: name => hidden.has(name), remove: name => hidden.delete(name), add: name => hidden.add(name) } };
 const jobList = {};
 const badge = { style: {} };
-const downloader = await load('downloads.js', { window: {}, document: { getElementById: id => ({ 'downloads-modal': modalElement, 'jobs-list': jobList, 'download-badge': badge })[id] }, AbortController, console,
+const downloadInput = { value: 'https://www.youtube.com/watch?v=abcdefghijk' };
+const collectionToggle = { checked: false };
+const downloadButton = { dataset: { downloadLabel: 'Download' }, textContent: 'Download' };
+const urlPreviews = [];
+const downloader = await load('downloads.js', { window: {}, document: { getElementById: id => ({ 'downloads-modal': modalElement, 'jobs-list': jobList, 'download-badge': badge, 'dl-modal-url': downloadInput, 'dl-modal-collection': collectionToggle, 'dl-modal-submit': downloadButton })[id] }, AbortController, console,
   setInterval: () => 7, clearInterval: id => intervalClears.push(id),
   fetch: async url => {
     downloadCalls.push(url);
     return { ok: true, json: async () => url.includes('/jobs') ? [{ id: 1, status: running ? 'pending' : 'completed', progress: 0, requested_title: 'Song', target_playlist_id: 5 }] : {} };
   }
-}, { './state.js': downloadValues, './ui.js': { ...ui, showToast() {} }, './collections.js': collections });
+}, { './state.js': downloadValues, './ui.js': { ...ui, showToast() {} }, './collections.js': { ...collections, previewImport: async url => urlPreviews.push(url) } });
 downloadState = downloader.imports['./state.js'];
 await downloader.api.openDownloadsModal(5);
 assert.ok(downloadCalls.includes('/api/jobs?playlist_id=5'));
@@ -145,7 +176,25 @@ assert.deepEqual(intervalClears, []); // Closing the modal must keep active down
 running = false;
 await downloader.api.refreshJobs();
 assert.deepEqual(intervalClears, [7]);
-console.log('PASS: safe string handlers, opt-in collection searches, stale failures, previews/cancellation, imports and background download polling.');
+collectionToggle.checked = true;
+downloader.api.updateDownloadMode();
+assert.equal(downloadButton.textContent, 'Preview collection');
+const requestsBeforePreview = downloadCalls.length;
+await downloader.api.handleModalDownload();
+assert.deepEqual(urlPreviews, ['https://www.youtube.com/watch?v=abcdefghijk']); // Explicit collection mode routes through server validation, never the single-song downloader.
+assert.equal(downloadCalls.length, requestsBeforePreview);
+collectionToggle.checked = false;
+downloader.api.updateDownloadMode();
+assert.equal(downloadButton.textContent, 'Download');
+downloadInput.value = previewData.url;
+await downloader.api.handleModalDownload();
+assert.equal(urlPreviews.at(-1), previewData.url); // Automatic detection works with the toggle off too.
+assert.equal(downloadCalls.length, requestsBeforePreview);
+downloadInput.value = 'https://www.youtube.com/watch?v=abcdefghijk';
+await downloader.api.handleModalDownload();
+assert.ok(downloadCalls.includes('/api/download')); // Ordinary song downloads are preserved.
+assert.equal(downloadInput.value, '');
+console.log('PASS: safe string handlers, collection searches/previews/URL toggle, HTML errors, imports and background download polling.');
 
 // ReplayGain from an old song cannot overwrite the current song or a disabled toggle.
 const gainNodes = [];

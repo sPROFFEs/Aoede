@@ -108,9 +108,9 @@ def test_youtube_album_search_and_ordered_metadata(importer, monkeypatch):
                 "title": "Album",
                 "artists": [{"name": "Artist"}],
                 "tracks": [
-                    {"videoId": "abcdefghijk", "title": "First", "artists": [{"name": "Artist"}]},
+                    {"videoId": "abcdefghijk", "title": "First", "album": "Album", "artists": [{"name": "Artist"}]},
                     {"videoId": "lmnopqrstuv", "title": "Unavailable", "isAvailable": False},
-                    {"videoId": "abcdefghijk", "title": "First again"},
+                    {"videoId": "abcdefghijk", "title": "First again", "album": {"name": "Album"}},
                 ],
             }
 
@@ -120,6 +120,7 @@ def test_youtube_album_search_and_ordered_metadata(importer, monkeypatch):
     album = asyncio.run(collections.resolve_collection(user, search["items"][0]["url"]))
     assert [track["position"] for track in album["tracks"]] == [1, 3]
     assert album["skipped"] == 1 and album["tracks"][0]["album"] == "Album"
+    assert album["tracks"][1]["album"] == "Album"
     assert album["tracks"][1]["artist"] == "Artist"  # Album-level metadata covers sparse track entries.
 
 
@@ -131,6 +132,46 @@ def test_spotify_restrictions_are_visible_without_breaking_youtube(importer, mon
     assert "Configure Spotify" in data["warnings"][0]
     with pytest.raises(collections.CollectionError, match="Configure Spotify"):
         asyncio.run(collections.resolve_collection(user, "https://open.spotify.com/album/" + "a" * 22))
+
+
+def test_collection_routes_return_json_on_provider_timeout_and_keep_other_search_results(
+    db_session, importer, monkeypatch
+):
+    async def stalled_provider(*_):
+        await asyncio.Event().wait()
+
+    async def spotify_search(*_):
+        return {"albums": {"items": [{"id": "a" * 22, "name": "Available album"}]}}
+
+    async def get_db():
+        return db_session
+
+    monkeypatch.setattr(collections.asyncio, "to_thread", stalled_provider)
+    monkeypatch.setattr(collections, "COLLECTION_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr(collections, "_spotify_get", spotify_search)
+    app = FastAPI()
+    app.state.limiter = downloads.limiter
+    app.include_router(downloads.router)
+    app.dependency_overrides[downloads.get_db] = get_db
+
+    async def exercise():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            response = await client.get("/api/collections/search", params={"q": "Album", "source": "all"})
+            assert response.status_code == 200
+            assert response.json()["items"][0]["name"] == "Available album"
+            assert "YouTube search took too long" in response.json()["warnings"][0]
+            url = "https://music.youtube.com/browse/MPREb_123456789"
+            responses = [
+                await client.get("/api/collections/resolve", params={"url": url}),
+                await client.post("/api/download/collection", json={"url": url}),
+            ]
+            for response in responses:
+                assert response.status_code == 504
+                assert response.headers["content-type"].startswith("application/json")
+                assert "YouTube took too long" in response.json()["error"]
+
+    asyncio.run(exercise())
+    assert db_session.query(database.Playlist).count() == db_session.query(database.DownloadJob).count() == 0
 
 
 def test_import_ownership_job_order_retry_and_pool_reuse(db_session, importer, monkeypatch):

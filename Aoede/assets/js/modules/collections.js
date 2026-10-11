@@ -2,6 +2,26 @@
 import * as state from './state.js';
 import * as ui from './ui.js';
 
+export async function readResponse(response) {
+  const fallback =
+    response.status === 401 || (response.redirected && /\/login(?:[/?#]|$)/.test(response.url))
+      ? 'Your session expired. Reload Aoede to log in.'
+      : response.status === 404
+        ? 'Collection API unavailable. Update the Aoede server and reload.'
+        : [502, 503, 504, 524].includes(response.status)
+          ? `Collection request failed (HTTP ${response.status}). The server or proxy could not complete it. Please try again.`
+          : `The server returned an unexpected collection response (HTTP ${response.status}). Reload Aoede and check the server or proxy.`;
+  let data;
+  try {
+    data = await response.json();
+  } catch (_) {
+    throw new Error(fallback);
+  }
+  if (!response.ok) throw new Error(data?.error || (typeof data?.detail === 'string' && data.detail) || fallback);
+  if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error(fallback);
+  return data;
+}
+
 export function isCollectionUrl(value) {
   try {
     const url = new URL(value);
@@ -48,9 +68,8 @@ export async function previewImport(url) {
   ui.focusModal();
   try {
     const response = await fetch(`${state.API}/collections/resolve?url=${encodeURIComponent(url)}`);
-    const data = await response.json();
+    const data = await readResponse(response);
     if (container.firstElementChild !== overlay) return;
-    if (!response.ok) throw new Error(data.error || `Collection unavailable (HTTP ${response.status})`);
     container.innerHTML = `<div class="modal-overlay" onclick="if(event.target===this) closeModal()">
       <div class="modal modal-create" role="dialog" aria-modal="true" aria-labelledby="collection-title">
         <div class="modal-header"><h2 id="collection-title">Import collection</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
@@ -78,8 +97,7 @@ export async function previewImport(url) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: data.url, name, kind })
         });
-        const queued = await result.json();
-        if (!result.ok) throw new Error(queued.error || 'Could not queue the collection.');
+        const queued = await readResponse(result);
         ui.showToast(queued.message, 'success');
         window.ensureDownloadPolling?.();
         if (container.firstElementChild === importOverlay) {
