@@ -274,9 +274,11 @@ window.renderOfflineDownloads = views.renderOfflineDownloads;
 
 // Library
 window.switchLibraryKind = library.switchLibraryKind;
+window.toggleLibraryAlbumMetadata = library.toggleLibraryAlbumMetadata;
 window.openLibraryFacet = library.openLibraryFacet;
 window.reloadLibraryFacets = library.reloadLibraryFacets;
 window.loadMoreLibraryFacets = library.loadMoreLibraryFacets;
+window.previousLibraryPage = library.previousLibraryPage;
 window.showCreateSmartPlaylistModal = library.showCreateSmartPlaylistModal;
 window.showEditSmartPlaylistModal = library.showEditSmartPlaylistModal;
 window.previewSmartPlaylist = library.previewSmartPlaylist;
@@ -416,6 +418,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initOfflineAwareness();
   views.initSpaHistory();
   views.initContextMenu();
+  ui.initSettingsTabs(document);
 
   // YouTube IFrame API is loaded lazily on first preview to avoid an
   // unconditional cross-origin script on app boot. See player.playPreview.

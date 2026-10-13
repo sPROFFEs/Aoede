@@ -2433,3 +2433,43 @@
     width: 16px;
     height: 16px;
 }
+/* Shared task navigation for account settings and administration. */
+.settings-tabbar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, .12);
+    scrollbar-width: thin;
+    overscroll-behavior-x: contain;
+}
+.settings-tabbar button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 0 auto;
+    padding: 11px 16px;
+    min-height: 44px;
+    border: 1px solid transparent;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--text-sub, #aaa);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+.settings-tabbar button[aria-selected="true"] {
+    color: var(--primary, #1db954);
+    border-color: rgba(29, 185, 84, .3);
+    background: rgba(29, 185, 84, .1);
+}
+.settings-tabbar button:hover { background: rgba(255, 255, 255, .06); }
+.settings-tabbar button:focus-visible { outline: 2px solid var(--primary, #1db954); outline-offset: -2px; }
+.settings-tabbar svg { width: 18px; height: 18px; }
+[data-settings-panel][hidden] { display: none !important; }
+.admin-shell[data-settings-tabs], .system-monitor[data-settings-tabs], .user-settings-shell[data-settings-tabs] { gap: 24px; }
+.user-settings-panel[data-settings-panel="playback"], .user-settings-panel[data-settings-panel="integrations"] { grid-column: 1 / -1; }
+
+.library-pagination { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 20px; }
+.library-pagination .library-facet-count { flex: 1; margin: 0; }
+.library-pagination button:disabled { opacity: .4; cursor: default; }

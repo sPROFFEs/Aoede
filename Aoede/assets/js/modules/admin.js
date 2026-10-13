@@ -102,6 +102,17 @@ export async function resetPassword(userId, username) {
 
 // === LIBRARY MANAGEMENT ===
 
+function trackDetails(track) {
+  const song = {
+    ...track,
+    id: Number(track.id),
+    db_id: Number(track.id),
+    is_local: true,
+    thumbnail: `/api/cover/${Number(track.id)}`
+  };
+  return `<details class="admin-track-details"><summary>Listen / file details</summary>${track.file_exists !== false ? `<button type="button" class="admin-secondary-btn" data-action="play-admin-track" data-track="${ui.escHtml(encodeURIComponent(JSON.stringify(song)))}">Listen</button>` : ''}<code>${ui.escHtml(track.filepath || 'File unavailable')}</code></details>`;
+}
+
 export async function adminSearchLibrary() {
   const input = document.getElementById('library-search-input');
   const q = input ? input.value.trim() : '';
@@ -127,7 +138,8 @@ export async function adminSearchLibrary() {
                     <article class="admin-result-row">
                         <div class="admin-result-main">
                             <div class="admin-result-title">${ui.escHtml(t.title)}</div>
-                            <div class="admin-result-meta">${ui.escHtml(t.artist)}</div>
+                            <div class="admin-result-meta">${ui.escHtml(t.artist)} · ${ui.escHtml(t.album || 'No album tag')} · ${ui.fmtTime(t.duration)}</div>
+                            ${trackDetails(t)}
                         </div>
                         <div class="admin-result-side">
                             <span class="admin-source-badge">${ui.escHtml(t.source_provider || 'unknown')}</span>
@@ -140,6 +152,7 @@ export async function adminSearchLibrary() {
                   )
                   .join('')}
             </div>`;
+    bindAdminTrackHandlers(container);
     if (typeof lucide !== 'undefined') lucide.createIcons();
   } catch (e) {
     container.innerHTML = `<div class="admin-feedback error">Error: ${ui.escHtml(e.message)}</div>`;
@@ -162,22 +175,43 @@ function renderDuplicateScanStatus(container, job) {
         </div>`;
 }
 
-function bindDuplicateDeleteHandlers(container) {
-  if (container.dataset.duplicateDeleteBound === '1') return;
-  container.dataset.duplicateDeleteBound = '1';
+function bindAdminTrackHandlers(container) {
+  if (container.dataset.trackActionsBound === '1') return;
+  container.dataset.trackActionsBound = '1';
   container.addEventListener('click', (event) => {
+    const play = event.target.closest('[data-action="play-admin-track"]');
+    if (play && container.contains(play)) {
+      window.playTrack(JSON.parse(decodeURIComponent(play.dataset.track)));
+      return;
+    }
     const button = event.target.closest('[data-action="delete-duplicate"]');
     if (!button || !container.contains(button)) return;
     const trackId = Number(button.dataset.trackId);
     if (!Number.isFinite(trackId)) return;
     showDeleteTrackModal(trackId, button.dataset.trackTitle || 'Track');
   });
+  ['input', 'change'].forEach((name) =>
+    container.addEventListener(name, (event) => {
+      if (event.target.matches('[data-duplicate-filter]')) filterDuplicateGroups(container);
+    })
+  );
+}
+
+function filterDuplicateGroups(container) {
+  const type = container.querySelector('[data-duplicate-filter="type"]')?.value || 'all';
+  const query = (container.querySelector('[data-duplicate-filter="query"]')?.value || '').trim().toLocaleLowerCase();
+  const groups = Array.from(container.querySelectorAll('[data-duplicate-group]'));
+  groups.forEach((group) => {
+    group.hidden = (type !== 'all' && group.dataset.matchType !== type) || !group.dataset.search.includes(query);
+  });
+  const count = container.querySelector('[data-duplicate-visible]');
+  if (count)
+    count.textContent = `${groups.filter((group) => !group.hidden).length} of ${groups.length} displayed groups`;
 }
 
 function renderDuplicateScanResult(container, data) {
   if (!data?.count) {
-    container.innerHTML =
-      '<div class="admin-feedback success"><strong>Clean library.</strong> No duplicates found.</div>';
+    container.innerHTML = '<div class="admin-feedback success">No duplicate candidates found in this scan.</div>';
     return;
   }
 
@@ -186,22 +220,47 @@ function renderDuplicateScanResult(container, data) {
     : '';
 
   container.innerHTML = `
-        <div class="admin-duplicate-summary">${data.count} duplicate groups found</div>
+        <div class="admin-duplicate-summary">${data.count} candidate groups · ${Number(data.exact_count || 0)} exact · ${Number(data.possible_count || 0)} possible</div>
         ${truncatedNote}
+        ${data.scan_limited ? '<p class="admin-feedback">The scan reached its candidate limit. Review these groups and scan again after cleanup.</p>' : ''}
+        <div class="admin-library-actions">
+          <label>Match type<select data-duplicate-filter="type" class="modal-input"><option value="all">All candidates</option><option value="exact">Exact source / file matches</option><option value="possible">Possible metadata matches</option></select></label>
+          <label>Filter results<input data-duplicate-filter="query" class="modal-input" type="search" placeholder="Song, artist, album or filename"></label>
+          <span data-duplicate-visible role="status"></span>
+        </div>
+        <p class="admin-feedback-meta">Suggested to keep: an available file, then the song used in the most collections, then the oldest entry. Compare possible matches by listening. Deleting a pool song removes its playlist and favorite references.</p>
         <div class="admin-duplicate-groups">
             ${data.groups
               .map(
                 (group) => `
-                <section class="admin-duplicate-group">
-                    <div class="admin-duplicate-group-key">${ui.escHtml(group.key)}</div>
+                <section class="admin-duplicate-group" data-duplicate-group data-match-type="${group.match_type === 'exact' ? 'exact' : 'possible'}" data-search="${ui.escHtml(
+                  group.tracks
+                    .map((track) => `${track.title} ${track.artist} ${track.album || ''} ${track.filename || ''}`)
+                    .join(' ')
+                    .toLocaleLowerCase()
+                )}">
+                    <div class="admin-duplicate-group-key">${group.match_type === 'exact' ? 'Exact source / file match' : 'Possible metadata match'} · ${ui.escHtml(group.tracks[0]?.title || 'Unknown song')}</div>
+                    <div class="admin-feedback-meta">${Array.from(new Set(group.reasons || []))
+                      .map((reason) =>
+                        ui.escHtml(
+                          {
+                            source_id: 'Same source ID',
+                            file_hash: 'Identical file hash',
+                            semantic: 'Same artist, title and recognized version'
+                          }[reason] || reason
+                        )
+                      )
+                      .join(' · ')}</div>
                     <div class="admin-results-list compact">
                         ${group.tracks
                           .map(
                             (t) => `
                             <article class="admin-result-row compact">
                                 <div class="admin-result-main">
-                                    <div class="admin-result-title">${ui.escHtml(t.title)}</div>
-                                    <div class="admin-result-meta">${ui.escHtml(t.artist)}</div>
+                                    <div class="admin-result-title">#${Number(t.id)} · ${ui.escHtml(t.title)} ${Number(t.id) === Number(group.recommended_track_id) ? '<span class="admin-source-badge">Suggested to keep</span>' : ''}</div>
+                                    <div class="admin-result-meta">${ui.escHtml(t.artist)} · ${ui.escHtml(t.album || 'No album tag')} · ${ui.escHtml(t.version || 'original')}</div>
+                                    <div class="admin-result-meta">${t.file_exists ? `${ui.escHtml(t.format || 'Audio')} · ${(Number(t.file_size || 0) / 1048576).toFixed(1)} MB` : 'File missing'} · ${ui.fmtTime(t.duration)} · ${Number(t.playlist_count || 0)} collections · ${ui.escHtml(t.source_provider)}</div>
+                                    ${trackDetails(t)}
                                 </div>
                                 <div class="admin-result-side">
                                     <button type="button" data-action="delete-duplicate" data-track-id="${t.id}" data-track-title="${ui.escHtml(t.title)}" class="admin-icon-btn danger" title="Delete duplicate">
@@ -218,36 +277,39 @@ function renderDuplicateScanResult(container, data) {
               )
               .join('')}
         </div>`;
-  bindDuplicateDeleteHandlers(container);
+  bindAdminTrackHandlers(container);
+  filterDuplicateGroups(container);
   if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-async function pollDuplicateScanJob(jobId, container, attempt = 0) {
-  const res = await fetch(`/admin/api/system/jobs/${jobId}`);
-  const job = await res.json();
-  if (!res.ok) throw new Error(job.error || `HTTP ${res.status}`);
+async function pollDuplicateScanJob(jobId, container) {
+  for (let attempt = 0; attempt <= 180; attempt++) {
+    if (container.isConnected === false) return;
+    const res = await fetch(`/admin/api/system/jobs/${jobId}`);
+    const job = await res.json();
+    if (!res.ok) throw new Error(job.error || `HTTP ${res.status}`);
 
-  if (job.status === 'completed') {
-    renderDuplicateScanResult(container, job.details?.result);
-    return;
+    if (job.status === 'completed') {
+      renderDuplicateScanResult(container, job.details?.result);
+      return;
+    }
+
+    if (job.status === 'failed') {
+      throw new Error(job.message || job.details?.error || 'Duplicate scan failed');
+    }
+
+    renderDuplicateScanStatus(container, job);
+    if (attempt >= 180) throw new Error('Duplicate scan timed out');
+    await new Promise((resolve) => window.setTimeout(resolve, 1500));
   }
-
-  if (job.status === 'failed') {
-    throw new Error(job.message || job.details?.error || 'Duplicate scan failed');
-  }
-
-  renderDuplicateScanStatus(container, job);
-  if (attempt >= 180) throw new Error('Duplicate scan timed out');
-  window.setTimeout(() => {
-    pollDuplicateScanJob(jobId, container, attempt + 1).catch((e) => {
-      container.innerHTML = `<div class="admin-feedback error">Error: ${ui.escHtml(e.message)}</div>`;
-    });
-  }, 1500);
 }
 
 export async function adminFindDuplicates() {
-  const container = document.getElementById('library-results');
-  if (!container) return;
+  const container = document.getElementById('duplicate-results');
+  if (!container || container.dataset.scanRunning === 'true') return;
+  const button = document.getElementById('duplicate-scan-button');
+  if (button) button.disabled = true;
+  container.dataset.scanRunning = 'true';
 
   container.innerHTML = '<div class="admin-feedback">Starting duplicate scan...</div>';
 
@@ -258,6 +320,9 @@ export async function adminFindDuplicates() {
     await pollDuplicateScanJob(data.job_id, container);
   } catch (e) {
     container.innerHTML = `<div class="admin-feedback error">Error: ${ui.escHtml(e.message)}</div>`;
+  } finally {
+    delete container.dataset.scanRunning;
+    if (button) button.disabled = false;
   }
 }
 
@@ -297,6 +362,7 @@ function renderLibraryAudit(container, data) {
 }
 
 async function pollLibraryJob(jobId, container, onComplete, attempt = 0, opts = {}) {
+  if (container.isConnected === false) return;
   const maxAttempts = opts.maxAttempts || 180;
   const renderStatus = opts.renderStatus || renderDuplicateScanStatus;
   const res = await fetch(`/admin/api/system/jobs/${jobId}`);
@@ -319,7 +385,7 @@ async function pollLibraryJob(jobId, container, onComplete, attempt = 0, opts = 
 }
 
 async function startLibraryJob(path, onComplete) {
-  const container = document.getElementById('library-results');
+  const container = document.getElementById('maintenance-results');
   if (!container) return;
   container.innerHTML = '<div class="admin-feedback">Starting library operation...</div>';
   try {
@@ -365,7 +431,7 @@ function renderLoudnessScanStatus(container, job) {
 }
 
 export function adminLoudnessScan() {
-  const container = document.getElementById('library-results');
+  const container = document.getElementById('maintenance-results');
   if (!container) return;
   container.innerHTML = '<div class="admin-feedback">Starting loudness scan...</div>';
   fetch('/admin/api/library/loudness-scan/jobs', { method: 'POST' })
@@ -397,7 +463,7 @@ export function showDeleteTrackModal(id, title) {
   modal.innerHTML = `
         <div class="modal" onclick="event.stopPropagation()">
             <h2 style="margin-bottom: 16px;">Delete Track</h2>
-            <p style="color: var(--text-sub); margin-bottom: 24px;">Permanently delete <strong style="color: white;">${ui.escHtml(title)}</strong> from the library and disk?</p>
+            <p style="color: var(--text-sub); margin-bottom: 24px;">Permanently delete <strong style="color: white;">${ui.escHtml(title)}</strong> from the library and disk? This also removes its playlist and favorite references for every user.</p>
             <div class="modal-actions">
                 <button class="modal-btn-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
                 <button class="modal-btn-danger" onclick="adminDeleteTrack(${id}); this.closest('.modal-overlay').remove();">Delete</button>
@@ -411,9 +477,13 @@ export async function adminDeleteTrack(id) {
     const res = await fetch(`/admin/api/library/track/${id}`, { method: 'DELETE' });
     const data = await res.json();
 
-    if (data.success) {
-      ui.showToast('Track deleted successfully', 'success');
-      adminSearchLibrary();
+    if (res.ok && data.success) {
+      ui.showToast(data.warning || data.message || 'Track deleted successfully', data.warning ? 'warning' : 'success');
+      const tab = document.querySelector('[data-settings-tabs="admin"] [data-settings-tab][aria-selected="true"]')
+        ?.dataset.settingsTab;
+      if (tab === 'duplicates') await adminFindDuplicates();
+      else if (tab === 'maintenance') await adminAuditLibrary();
+      else await adminSearchLibrary();
     } else {
       ui.showToast(data.message || 'Failed to delete track', 'error');
     }

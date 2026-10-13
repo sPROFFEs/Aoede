@@ -75,6 +75,7 @@ export async function previewImport(url) {
         <div class="modal-header"><h2 id="collection-title">Import collection</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
         <div class="modal-body">
           <p class="modal-subtitle">${data.track_count} songs from ${ui.escHtml(data.source)}. Saved under ${ui.escHtml(window.USER_DATA?.username || 'your account')} in source order.</p>
+          <p class="modal-subtitle">Matching songs already in the pool are reused. Only missing songs are downloaded; repeated entries in the source keep their positions.</p>
           ${data.skipped ? `<p role="status" class="modal-subtitle">${data.skipped} unavailable entries will be skipped.</p>` : ''}
           <label class="modal-label" for="collection-name">Name</label><input id="collection-name" class="modal-input" maxlength="120" value="${ui.escHtml(data.name || 'Imported collection')}">
           <label class="modal-label" for="collection-kind">Save as</label><select id="collection-kind" class="modal-input"><option value="playlist"${data.kind === 'playlist' ? ' selected' : ''}>Playlist</option><option value="album"${data.kind === 'album' ? ' selected' : ''}>Album</option></select>

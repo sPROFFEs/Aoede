@@ -54,6 +54,7 @@ export function initSystemMonitor(root = document) {
       stopPolling();
       return;
     }
+    if (cpuValue?.closest('[data-settings-panel]')?.hidden) return;
     try {
       const res = await fetch('/admin/api/system-stats', { credentials: 'same-origin' });
       if (!res.ok) return;
@@ -149,6 +150,7 @@ export function initSystemMonitor(root = document) {
 
   async function refreshUserStatistics(force = false) {
     if (!userStatisticsBody || document.hidden || (!force && !document.body.contains(monitor))) return;
+    if (!force && userStatisticsBody.closest('[data-settings-panel]')?.hidden) return;
     userStatisticsController?.abort();
     const controller = new AbortController();
     userStatisticsController = controller;

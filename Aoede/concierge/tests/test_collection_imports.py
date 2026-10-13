@@ -6,6 +6,7 @@ import collection_service as collections
 import database
 import httpx
 import pytest
+import track_identity
 from fastapi import BackgroundTasks, FastAPI
 from starlette.requests import Request
 
@@ -244,6 +245,107 @@ def test_import_ownership_job_order_retry_and_pool_reuse(db_session, importer, m
         tracks[0].id,
     ]
     assert db_session.query(database.Track).count() == 2
+
+
+@pytest.mark.parametrize("source_id", ["youtube:abcdefghijk", "spotify:track:" + "a" * 22])
+def test_collection_reuses_pool_song_across_sources_without_duplicate_entries(
+    db_session, importer, monkeypatch, tmp_path, source_id
+):
+    user, request, _ = importer
+    audio = tmp_path / "existing.mp3"
+    audio.write_bytes(b"existing audio")
+    track = database.Track(
+        title="Song", artist="Artist", album="Original tags", filepath=str(audio), source_id=source_id
+    )
+    track_identity.apply_identity_fields(track)
+    album = database.Playlist(name="Imported album", kind="album", owner_id=user.id)
+    db_session.add_all([track, album])
+    db_session.commit()
+    jobs = [
+        database.DownloadJob(
+            user_id=user.id,
+            input_url="https://www.youtube.com/watch?v=abcdefghijk",
+            requested_title="Song",
+            requested_artist="ARTIST",
+            requested_album="Imported album",
+            target_modern_playlist_id=album.id,
+            target_position=position,
+        )
+        for position in (1, 3)
+    ]
+    db_session.add_all(jobs)
+    db_session.commit()
+    download = downloader_service.DownloadManager(db_session, user.id)
+    engine = MagicMock(side_effect=AssertionError("An existing song must not be downloaded again"))
+    monkeypatch.setattr(download, "_download_source", engine)
+    monkeypatch.setattr(playlists, "sync_edited_playlist", lambda *_: None)
+    for job in jobs:
+        download._process_download_sync(job.id)
+        download._process_download_sync(job.id)  # Retrying a completed position does not append a duplicate.
+        assert job.status == "finished" and job.engine_used == "dedupe" and job.resolved_track_id == track.id
+    engine.assert_not_called()
+    assert db_session.query(database.Track).count() == 1
+    assert [(item.position, item.track_id) for item in album.items] == [(1, track.id), (3, track.id)]
+    assert track.album == "Original tags" and audio.read_bytes() == b"existing audio"
+
+    # Imported albums expose the existing ordered collection controls, including
+    # removing one of the source's repeated entries without deleting the pool file.
+    reordered = asyncio.run(
+        playlists.reorder_playlist_tracks(
+            album.id,
+            playlists.ReorderRequest(
+                revision=album.revision,
+                items=[
+                    {"track_id": track.id, "item_id": item.id, "position": index + 1}
+                    for index, item in enumerate(reversed(album.items))
+                ],
+            ),
+            request,
+            db_session,
+        )
+    )
+    assert reordered.status_code == 200
+    first = min(album.items, key=lambda item: item.position)
+    removed = asyncio.run(
+        playlists.remove_from_playlist(album.id, str(track.id), request, db_session, item_id=first.id)
+    )
+    assert removed.status_code == 200
+    assert db_session.query(database.PlaylistItem).filter_by(playlist_id=album.id).count() == 1
+    assert db_session.get(database.Track, track.id) and audio.exists()
+
+
+@pytest.mark.parametrize("variant", ["missing_file", "live_version"])
+def test_collection_does_not_reuse_missing_audio_or_a_different_version(
+    db_session, importer, monkeypatch, tmp_path, variant
+):
+    user, _, _ = importer
+    audio = tmp_path / "existing.mp3"
+    if variant == "live_version":
+        audio.write_bytes(b"studio recording")
+    track = database.Track(title="Song", artist="Artist", filepath=str(audio), source_id="youtube:abcdefghijk")
+    track_identity.apply_identity_fields(track)
+    album = database.Playlist(name="Imported album", kind="album", owner_id=user.id)
+    db_session.add_all([track, album])
+    db_session.commit()
+    job = database.DownloadJob(
+        user_id=user.id,
+        input_url="https://www.youtube.com/watch?v=abcdefghijk"
+        if variant == "missing_file"
+        else "https://open.spotify.com/track/" + "b" * 22,
+        requested_title="Song" if variant == "missing_file" else "Song (Live)",
+        requested_artist="Artist",
+        target_modern_playlist_id=album.id,
+        target_position=1,
+    )
+    db_session.add(job)
+    db_session.commit()
+    download = downloader_service.DownloadManager(db_session, user.id)
+    engine = MagicMock(return_value=False)  # Isolated check: no actual provider request.
+    monkeypatch.setattr(download, "_download_source", engine)
+    download._process_download_sync(job.id)
+    engine.assert_called_once()
+    assert job.status == "failed" and job.engine_used != "dedupe"
+    assert db_session.query(database.PlaylistItem).count() == 0
 
 
 @pytest.mark.parametrize("track_count", [0, collections.MAX_COLLECTION_TRACKS + 1])

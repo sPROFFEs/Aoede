@@ -87,6 +87,7 @@ assert.equal(await caches.match('/portal'), undefined);
 const history = [];
 const handlers = new Map();
 const bodyHandlers = new Map();
+let settingsMounts = 0;
 let navigation;
 const container = { children: [], style: {}, innerHTML: '' };
 const document = { body: { addEventListener(name, handler) { bodyHandlers.set(name, handler); } }, getElementById: () => container };
@@ -100,6 +101,7 @@ const context = vm.createContext({ window, document, console, URL, requestAnimat
 const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/views.js', import.meta.url), 'utf8'), { context });
 await module.link(name => {
   const values = name === './state.js' ? { setCurrentViewName() {}, setCurrentViewParam() {} }
+    : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; } }
     : name === './system_monitor.js' ? { initSystemMonitor() {} }
     : name === './admin_downloads.js' ? { initDownloadManager() {} } : {};
   return new vm.SyntheticModule(Object.keys(values), function () {
@@ -122,6 +124,7 @@ const savePrefs = { disabled: false };
 const prefElements = { '#pref-replaygain': replaygain, '#pref-crossfade-chips': { querySelectorAll: () => [] }, '#pref-save-btn': savePrefs };
 const settings = { querySelector: selector => prefElements[selector], querySelectorAll: () => [] };
 bodyHandlers.get('htmx:afterSwap')({ target: { id: 'view-container', querySelector: () => settings } });
+assert.equal(settingsMounts, 1);
 assert.equal(replaygain.checked, true); // Uploaded avatar/cookies replace settings; playback controls must be initialized again.
 assert.equal(savePrefs.disabled, true);
 console.log('PASS: proxy-independent navigation history, API offline errors, safe shell caching and logout invalidation.');

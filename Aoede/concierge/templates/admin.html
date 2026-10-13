@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block title %}{{ _('admin.title') }}{% endblock %}
 {% block content %}
-<div class="admin-container admin-shell">
+<div class="admin-container admin-shell" data-settings-tabs="admin">
     <section class="admin-shell-header">
         <div>
-            <h1>{{ _('admin.user_management') }}</h1>
-            <p>Manage user accounts, credentials, and library maintenance without leaving the admin surface.</p>
+            <h1>{{ _('admin.title') }}</h1>
+            <p>Accounts, library tools and federation, organized by task.</p>
         </div>
         <div class="admin-shell-actions">
             <a href="/admin/downloads" onclick="loadView('admin_downloads'); return false;" class="admin-shell-btn">
@@ -40,7 +40,15 @@
     </div>
     {% endif %}
 
-    <section class="admin-panel">
+    <nav class="settings-tabbar" role="tablist" aria-label="Administration">
+        <button type="button" data-settings-tab="users"><i data-lucide="users"></i>Users</button>
+        <button type="button" data-settings-tab="library"><i data-lucide="library"></i>Library</button>
+        <button type="button" data-settings-tab="duplicates"><i data-lucide="copy"></i>Duplicates</button>
+        <button type="button" data-settings-tab="maintenance"><i data-lucide="stethoscope"></i>Maintenance</button>
+        <button type="button" data-settings-tab="federation"><i data-lucide="globe"></i>Federation</button>
+    </nav>
+
+    <section class="admin-panel" data-settings-panel="users">
         <div class="admin-panel-header">
             <div>
                 <h2>{{ _('admin.register_new') }}</h2>
@@ -78,7 +86,7 @@
         </div>
     </section>
 
-    <section class="admin-panel">
+    <section class="admin-panel" data-settings-panel="users">
         <div class="admin-panel-header">
             <div>
                 <h2>{{ _('admin.active_accounts') }}</h2>
@@ -155,11 +163,11 @@
         </div>
     </section>
 
-    <section class="admin-panel">
+    <section class="admin-panel" data-settings-panel="library">
         <div class="admin-panel-header">
             <div>
-                <h2>Library Management</h2>
-                <p>Search tracks, inspect duplicates, and remove broken or redundant entries.</p>
+                <h2>Library explorer</h2>
+                <p>Search by song, artist or album. Inspect a song before removing it from the shared pool.</p>
             </div>
         </div>
         <div class="admin-panel-body">
@@ -172,10 +180,30 @@
                     <i data-lucide="search" width="16" height="16"></i>
                     <span>Search</span>
                 </button>
-                <button onclick="adminFindDuplicates()" class="admin-danger-btn">
+            </div>
+            <div id="library-results" class="admin-library-results">
+                <div class="admin-empty-state">Search the shared music pool by song, artist or album.</div>
+            </div>
+        </div>
+    </section>
+
+    <section class="admin-panel" data-settings-panel="duplicates">
+        <div class="admin-panel-header"><div><h2>Find duplicates</h2><p>Compare exact matches and possible matches before deleting anything. Song versions are compared separately.</p></div></div>
+        <div class="admin-panel-body">
+            <div class="admin-library-actions">
+                <button id="duplicate-scan-button" onclick="adminFindDuplicates()" class="admin-submit">
                     <i data-lucide="copy" width="16" height="16"></i>
                     <span>Find Duplicates</span>
                 </button>
+            </div>
+            <div id="duplicate-results" class="admin-library-results"><div class="admin-empty-state">Run a scan to compare duplicate candidates. Nothing is deleted automatically.</div></div>
+        </div>
+    </section>
+
+    <section class="admin-panel" data-settings-panel="maintenance">
+        <div class="admin-panel-header"><div><h2>Library maintenance</h2><p>Audit missing files, refresh incomplete metadata, or measure playback loudness.</p></div></div>
+        <div class="admin-panel-body">
+            <div class="admin-library-actions">
                 <button onclick="adminAuditLibrary()" class="admin-secondary-btn">
                     <i data-lucide="stethoscope" width="16" height="16"></i>
                     <span>Audit Library</span>
@@ -189,8 +217,8 @@
                     <span>Volume Normalizer Scan</span>
                 </button>
             </div>
-            <div id="library-results" class="admin-library-results">
-                <div class="admin-empty-state">Search tracks, audit files and metadata, or run a duplicate scan.</div>
+            <div id="maintenance-results" class="admin-library-results">
+                <div class="admin-empty-state">Choose a maintenance task. Progress and results appear here.</div>
             </div>
         </div>
     </section>
@@ -199,7 +227,7 @@
     <!-- FEDERATION                                                        -->
     <!-- Phase 1: read-only catalog mirror + offline-aware playback proxy. -->
     <!-- ================================================================ -->
-    <section class="admin-panel" id="federation-panel">
+    <section class="admin-panel" id="federation-panel" data-settings-panel="federation">
         <div class="admin-panel-header">
             <div class="admin-panel-title">
                 <h2><i data-lucide="globe" width="22" height="22"></i> Federation <span class="admin-badge-beta">beta</span></h2>

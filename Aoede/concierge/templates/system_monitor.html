@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}{{ _("monitor.title") }}{% endblock %}
 {% block content %}
-<div class="admin-container system-monitor">
+<div class="admin-container system-monitor" data-settings-tabs="system">
     <section class="monitor-header">
         <div>
             <h1>{{ _("monitor.header") }}</h1>
@@ -11,11 +11,6 @@
             <a href="/admin/downloads" onclick="loadView('admin_downloads'); return false;" class="monitor-button">
                 <i data-lucide="download-cloud"></i><span>Download Manager</span>
             </a>
-            <form action="/admin/system/purge-storage" method="post" class="monitor-form" data-confirm="{{ _('monitor.purge_confirm') }}" data-title="Purge storage residue">
-                <button type="submit" class="monitor-warning">
-                    <i data-lucide="trash-2"></i><span>{{ _("monitor.purge_trash") }}</span>
-                </button>
-            </form>
             <a href="/admin/" onclick="loadView('settings_admin'); return false;" class="monitor-button">
                 <i data-lucide="users"></i><span>{{ _("monitor.admin_link") }}</span>
             </a>
@@ -35,7 +30,16 @@
     </div>
     {% endif %}
 
-    <section class="monitor-grid stats">
+    <nav class="settings-tabbar" role="tablist" aria-label="System tools">
+        <button type="button" data-settings-tab="overview"><i data-lucide="activity"></i>Overview</button>
+        <button type="button" data-settings-tab="statistics"><i data-lucide="chart-column"></i>Statistics</button>
+        <button type="button" data-settings-tab="updates"><i data-lucide="refresh-cw"></i>Updates</button>
+        <button type="button" data-settings-tab="backups"><i data-lucide="archive"></i>Backups</button>
+        <button type="button" data-settings-tab="wrapped"><i data-lucide="sparkles"></i>Wrapped</button>
+        <button type="button" data-settings-tab="jobs"><i data-lucide="list-checks"></i>Jobs</button>
+    </nav>
+
+    <section class="monitor-grid stats" data-settings-panel="overview">
         <article class="monitor-card">
             <div class="monitor-card-header">
                 <div class="monitor-card-label">CPU load</div>
@@ -68,7 +72,7 @@
         </article>
     </section>
 
-    <section class="monitor-panel monitor-user-statistics" id="user-statistics-panel">
+    <section class="monitor-panel monitor-user-statistics" id="user-statistics-panel" data-settings-panel="statistics">
         <div class="monitor-panel-header">
             <div>
                 <h2>User Statistics</h2>
@@ -125,7 +129,7 @@
         </div>
     </section>
 
-    <section class="monitor-grid columns-2">
+    <section class="monitor-grid columns-2" data-settings-panel="overview">
         <article class="monitor-panel">
             <div class="monitor-panel-header">
                 <div>
@@ -166,11 +170,14 @@
                     </div>
                     <div class="monitor-field-help">Sets the shared disk cap for the central media pool.</div>
                 </form>
+                <form action="/admin/system/purge-storage" method="post" class="monitor-form" data-confirm="{{ _('monitor.purge_confirm') }}" data-title="Purge storage residue">
+                    <button type="submit" class="monitor-warning"><i data-lucide="trash-2"></i><span>{{ _("monitor.purge_trash") }}</span></button>
+                </form>
             </div>
         </article>
     </section>
 
-    <section class="monitor-panel">
+    <section class="monitor-panel" data-settings-panel="updates">
         <div class="monitor-panel-header">
             <div>
                 <h2>Updates</h2>
@@ -210,7 +217,7 @@
         </div>
     </section>
 
-    <section class="monitor-panel">
+    <section class="monitor-panel" data-settings-panel="backups">
         <div class="monitor-panel-header">
             <div>
                 <h2>Backups</h2>
@@ -291,7 +298,7 @@
         </div>
     </section>
 
-    <section class="monitor-panel">
+    <section class="monitor-panel" data-settings-panel="wrapped">
         <div class="monitor-panel-header">
             <div>
                 <h2>Wrapped</h2>
@@ -372,7 +379,7 @@
         </div>
     </section>
 
-    <section class="monitor-panel">
+    <section class="monitor-panel" data-settings-panel="jobs">
         <div class="monitor-panel-header">
             <div>
                 <h2>Recent Admin Jobs</h2>

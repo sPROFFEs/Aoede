@@ -2031,3 +2031,11 @@
         justify-content: space-between;
     }
 }
+.admin-track-details { margin-top: 6px; color: var(--admin-muted); font-size: .85rem; }
+.admin-track-details summary { cursor: pointer; min-height: 32px; }
+.admin-track-details button { margin: 4px 0 8px; }
+.admin-track-details code { display: block; white-space: normal; overflow-wrap: anywhere; }
+.admin-duplicate-group .admin-result-meta { white-space: normal; overflow-wrap: anywhere; }
+[data-duplicate-group][hidden] { display: none !important; }
+.admin-library-actions > label { display: grid; gap: 6px; flex: 1; min-width: min(220px, 100%); }
+.admin-library-actions > [role="status"] { color: var(--admin-muted); font-size: .85rem; }

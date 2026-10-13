@@ -1064,28 +1064,31 @@ def _serialize_track(track):
         "id": track.id,
         "title": track.title or "Unknown",
         "artist": track.artist or "Unknown",
+        "album": track.album or "",
+        "duration": track.duration or 0,
+        "version": track.version_tag or "original",
+        "source_id": track.source_id,
+        "file_hash": track.file_hash,
         "filepath": track.filepath,
         "source_provider": track.source_provider or "unknown",
     }
 
 
 def _append_duplicate_group(groups_by_members, reason, reason_key, tracks):
-    member_ids = tuple(sorted(track.id for track in tracks))
+    member_ids = {track.id for track in tracks}
     if len(member_ids) < 2:
         return
-
-    group = groups_by_members.get(member_ids)
-    if not group:
-        group = {
-            "member_ids": member_ids,
-            "reasons": [],
-            "keys": [],
-            "tracks": [_serialize_track(track) for track in tracks],
-        }
-        groups_by_members[member_ids] = group
-
-    group["reasons"].append(reason)
-    group["keys"].append(reason_key)
+    group = {"reasons": [reason], "keys": [reason_key]}
+    members = {track.id: _serialize_track(track) for track in tracks}
+    # ponytail: scans are bounded to 500 values per strategy; use union-find if that ceiling grows.
+    for ids in list(groups_by_members):
+        if member_ids.intersection(ids):
+            previous = groups_by_members.pop(ids)
+            members.update({track["id"]: track for track in previous["tracks"]})
+            group["reasons"].extend(previous["reasons"])
+            group["keys"].extend(previous["keys"])
+    group["tracks"] = sorted(members.values(), key=lambda track: track["id"])
+    groups_by_members[tuple(members)] = group
 
 
 def _group_tracks_by_value(tracks, attr_name):
@@ -1109,7 +1112,7 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
     source_id_dupes = [
         row[0]
         for row in db.query(Track.source_id)
-        .filter(Track.source_id.isnot(None))
+        .filter(Track.source_id.isnot(None), func.trim(Track.source_id) != "")
         .group_by(Track.source_id)
         .having(func.count() > 1)
         .order_by(func.count().desc())
@@ -1132,7 +1135,7 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
     hash_dupes = [
         row[0]
         for row in db.query(Track.file_hash)
-        .filter(Track.file_hash.isnot(None))
+        .filter(Track.file_hash.isnot(None), func.trim(Track.file_hash) != "")
         .group_by(Track.file_hash)
         .having(func.count() > 1)
         .order_by(func.count().desc())
@@ -1157,6 +1160,7 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
         for row in db.query(Track.fingerprint)
         .filter(
             Track.fingerprint.isnot(None),
+            func.trim(Track.fingerprint) != "",
             Track.artist_norm.isnot(None),
             Track.title_norm.isnot(None),
         )
@@ -1186,13 +1190,45 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
             _append_duplicate_group(groups_by_members, "semantic", f"semantic:{fingerprint}", tracks)
 
     report("Preparing duplicate groups", "summarize", 90)
+    references = dict(
+        db.query(database.PlaylistItem.track_id, func.count(func.distinct(database.PlaylistItem.playlist_id)))
+        .filter(database.PlaylistItem.track_id.isnot(None))
+        .group_by(database.PlaylistItem.track_id)
+        .all()
+    )
     groups = []
     for group in groups_by_members.values():
+        for track in group["tracks"]:
+            filepath = Path(track["filepath"]) if track["filepath"] else None
+            try:
+                info = filepath.stat() if filepath else None
+                exists = bool(info and stat.S_ISREG(info.st_mode))
+            except OSError:
+                info, exists = None, False
+            track.update(
+                {
+                    "file_exists": exists,
+                    "file_size": info.st_size if exists else 0,
+                    "format": filepath.suffix.lstrip(".").upper() if filepath else "",
+                    "filename": filepath.name if filepath else "",
+                    "playlist_count": references.get(track["id"], 0),
+                }
+            )
+        recommended = max(
+            group["tracks"], key=lambda track: (track["file_exists"], track["playlist_count"], -track["id"])
+        )
         display_key = " | ".join(group["keys"])
+        exact = any(
+            all((track[field] or "").strip() for track in group["tracks"])
+            and len({track[field] for track in group["tracks"]}) == 1
+            for field in ("source_id", "file_hash")
+        )
         groups.append(
             {
                 "key": display_key,
                 "reasons": group["reasons"],
+                "match_type": "exact" if exact else "possible",
+                "recommended_track_id": recommended["id"] if recommended["file_exists"] else None,
                 "tracks": group["tracks"],
             }
         )
@@ -1203,6 +1239,11 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
         "count": total_count,
         "returned_count": min(total_count, limit_groups),
         "truncated": total_count > limit_groups,
+        "scan_limited": any(
+            len(values) >= MAX_DUPLICATE_VALUE_SCAN for values in (source_id_dupes, hash_dupes, fingerprint_dupes)
+        ),
+        "exact_count": sum(group["match_type"] == "exact" for group in groups),
+        "possible_count": sum(group["match_type"] == "possible" for group in groups),
         "groups": groups[:limit_groups],
         "scan_limits": {
             "max_duplicate_values_per_strategy": MAX_DUPLICATE_VALUE_SCAN,
@@ -1385,7 +1426,7 @@ def _query_tracks_with_fts(db, raw_query: str, limit: int):
 
     try:
         stmt = text("""
-            SELECT t.id, t.title, t.artist, t.filepath, t.source_provider
+            SELECT t.id, t.title, t.artist, t.album, t.duration, t.filepath, t.source_provider
             FROM tracks_fts f
             JOIN tracks t ON t.id = f.rowid
             WHERE tracks_fts MATCH :query
@@ -1398,6 +1439,8 @@ def _query_tracks_with_fts(db, raw_query: str, limit: int):
                 "id": row.id,
                 "title": row.title or "Unknown",
                 "artist": row.artist or "Unknown",
+                "album": row.album or "",
+                "duration": row.duration or 0,
                 "filepath": row.filepath,
                 "source_provider": row.source_provider or "unknown",
             }

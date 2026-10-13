@@ -1,5 +1,5 @@
 {% extends "base.html" %} {% block title %}Download Manager{% endblock %} {% block content %}
-<div class="admin-container admin-shell download-manager" id="download-manager-root">
+<div class="admin-container admin-shell download-manager" id="download-manager-root" data-settings-tabs="downloads">
   <section class="admin-shell-header download-manager-header">
     <div>
       <h1>Download Manager</h1>
@@ -37,7 +37,13 @@
 
   <div class="download-manager-live-status" id="download-manager-status" role="status" aria-live="polite"></div>
 
-  <section class="download-runtime-grid">
+  <nav class="settings-tabbar" role="tablist" aria-label="Download tools">
+    <button type="button" data-settings-tab="runtime"><i data-lucide="activity"></i>Runtime</button>
+    <button type="button" data-settings-tab="providers"><i data-lucide="key-round"></i>Provider sessions</button>
+    <button type="button" data-settings-tab="policy"><i data-lucide="sliders"></i>Engine policy</button>
+  </nav>
+
+  <section class="download-runtime-grid" data-settings-panel="runtime">
     <article class="download-runtime-card primary">
       <div class="download-runtime-icon"><i data-lucide="container"></i></div>
       <div>
@@ -62,7 +68,7 @@
   <div class="download-manager-warning"><i data-lucide="triangle-alert"></i><span>{{ downloader.error }}</span></div>
   {% endif %}
 
-  <section class="admin-panel download-manager-panel">
+  <section class="admin-panel download-manager-panel" data-settings-panel="providers">
     <div class="admin-panel-header download-manager-panel-head">
       <div>
         <h2>Lossless provider sessions</h2>
@@ -157,7 +163,7 @@
     </div>
   </section>
 
-  <section class="admin-panel download-manager-panel download-policy-panel">
+  <section class="admin-panel download-manager-panel download-policy-panel" data-settings-panel="policy">
     <div class="admin-panel-header download-manager-panel-head">
       <div>
         <h2>Download engine policy</h2>
@@ -180,7 +186,7 @@
     </form>
   </section>
 
-  <section class="download-manager-security-note" role="note">
+  <section class="download-manager-security-note" data-settings-panel="policy">
     <i data-lucide="shield-check"></i>
     <div>
       <strong>Fallback remains available</strong

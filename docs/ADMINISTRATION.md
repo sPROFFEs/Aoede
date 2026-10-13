@@ -12,13 +12,15 @@ The admin navigation is divided into three main areas:
 
 All routes and API endpoints behind these pages require an authenticated administrator account.
 
+Each area has its own task tabs. **Admin** separates **Users**, **Library**, **Duplicates**, **Maintenance** and **Federation**. **System Monitor** separates **Overview**, **Statistics**, **Updates**, **Backups**, **Wrapped** and **Jobs**. **Download Manager** separates **Runtime**, **Provider sessions** and **Engine policy**. Tabs scroll horizontally on smaller screens, support arrow/Home/End keys, and retain the selected task after a form response or navigation in the same session.
+
 ## User management
 
 Use **User Admin** to create standard or administrator accounts, reset a user's password, or delete an account. Account deletion is destructive; create a backup first if the user's data may be needed later.
 
 ## Library management
 
-The Library Management panel provides several separate operations:
+The **Library**, **Duplicates** and **Maintenance** tabs provide separate operations:
 
 - **Search tracks** — find an indexed track and remove it deliberately;
 - **Find duplicates** — scan for likely duplicate groups for manual review; the scan does not automatically delete files;
@@ -28,6 +30,8 @@ The Library Management panel provides several separate operations:
 - **Scan loudness** — measure tracks used by volume normalization. Large libraries can take hours.
 
 Long-running operations appear as background jobs. Do not repeatedly start the same scan because a page refresh makes it look idle; check the current/recent jobs first.
+
+The duplicate scan ignores blank source IDs/hashes and combines overlapping matches so a song does not appear in several candidate groups. **Exact** groups share a source ID or file hash across all members; **Possible** groups are metadata matches requiring manual listening. Recognized versions are compared separately. Filter results by match type or song/artist/album/filename, and compare provider, duration, format, size, file availability and collection usage. The suggested song to keep prioritizes an available file, then more collection references, then the oldest entry; it is not an audio-quality assessment. Nothing is deleted automatically. Deleting a pool song removes its collection and favorite references, so compare candidates first. This does not remove intentional repeated entries within an imported playlist.
 
 For a host-side bulk migration of an existing collection, use [Importing Music](IMPORTING-MUSIC.md) instead.
 
@@ -105,7 +109,7 @@ Storage cleanup and Wrapped reset actions are intentionally destructive. Read th
 The documented flow is:
 
 ```text
-Admin → System Monitor → Check for Updates → Apply Update
+Admin → System Monitor → Updates → Check for Updates → Apply Update
 ```
 
 The update workflow can create a backup, run schema migrations, rebuild containers when needed and perform health checks.

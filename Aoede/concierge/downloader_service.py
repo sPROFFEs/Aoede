@@ -407,34 +407,31 @@ class DownloadManager:
 
         target_playlist = self._resolve_target_playlist(job)
 
-        # PRE-DOWNLOAD DEDUPLICATION CHECK
-        # Extract source_id from URL and check if track already exists
+        # Collection metadata identifies songs across providers before a second
+        # download can replace that metadata with different file tags.
         source_id = self._extract_source_id(job.input_url)
-        if source_id:
-            logger.info(f"Checking pre-download dedup for {source_id}")
-            existing_track = self.db.query(database.Track).filter(database.Track.source_id == source_id).first()
-            if existing_track:
-                logger.info(f"PRE-DOWNLOAD DEDUP HIT: Track {existing_track.id} found for {source_id}. Skipping.")
-
-                # Link existing track to the target playlist ONLY if one was requested
-                if target_playlist:
-                    if self._link_track_to_playlist(target_playlist, existing_track, job.target_position):
-                        logger.info(f"Linked existing track to playlist '{target_playlist.name}'")
-
-                job.status = "finished"
-                job.progress_percent = 100
-                job.current_file = f"Already in library: {existing_track.title}"
-                job.engine_used = "dedupe"
-                job.resolved_title = existing_track.title
-                job.resolved_artist = existing_track.artist
-                job.resolved_album = existing_track.album
-                job.resolved_track_id = existing_track.id
-                job.resolved_track_count = 1
-                job.fallback_reason = "Skipped download because source_id already exists in library."
-                self.db.commit()
-                return
-            else:
-                logger.info(f"Pre-download dedup miss for {source_id}. Proceeding with download.")
+        existing_track = track_identity.find_existing_track(
+            self.db,
+            source_id=source_id,
+            artist=job.requested_artist if job.target_position is not None else None,
+            title=job.requested_title if job.target_position is not None else None,
+        )
+        if existing_track and existing_track.filepath and os.path.isfile(existing_track.filepath):
+            logger.info("PRE-DOWNLOAD DEDUP HIT: Reusing track %s", existing_track.id)
+            if target_playlist:
+                self._link_track_to_playlist(target_playlist, existing_track, job.target_position)
+            job.status = "finished"
+            job.progress_percent = 100
+            job.current_file = f"Already in library: {existing_track.title}"
+            job.engine_used = "dedupe"
+            job.resolved_title = existing_track.title
+            job.resolved_artist = existing_track.artist
+            job.resolved_album = existing_track.album
+            job.resolved_track_id = existing_track.id
+            job.resolved_track_count = 1
+            job.fallback_reason = "Reused an existing pool song matched by source or artist/title/version."
+            self.db.commit()
+            return
 
         with tempfile.TemporaryDirectory() as temp_dir:
             try:

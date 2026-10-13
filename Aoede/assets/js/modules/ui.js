@@ -6,6 +6,76 @@
 import * as state from './state.js';
 import * as audioEngine from './audio_engine.js';
 
+const settingsSelections = new Map();
+
+export function initSettingsTabs(scope = document) {
+  scope.querySelectorAll('[data-settings-tabs]').forEach((root) => {
+    if (root.dataset.tabsInitialized) return;
+    const tabs = Array.from(root.querySelectorAll('[data-settings-tab]'));
+    const panels = Array.from(root.querySelectorAll('[data-settings-panel]'));
+    if (!tabs.length || !panels.length) return;
+    root.dataset.tabsInitialized = 'true';
+    const key = `aoede-settings:${window.USER_DATA?.username || ''}:${root.dataset.settingsTabs}`;
+    const id = `settings-${root.dataset.settingsTabs}`;
+    tabs.forEach((tab) => {
+      tab.id = `${id}-${tab.dataset.settingsTab}`;
+      tab.setAttribute('role', 'tab');
+      tab.setAttribute(
+        'aria-controls',
+        panels
+          .filter((panel) => panel.dataset.settingsPanel === tab.dataset.settingsTab)
+          .map((panel) => panel.id || `${id}-panel-${panels.indexOf(panel)}`)
+          .join(' ')
+      );
+    });
+    panels.forEach((panel, index) => {
+      panel.id ||= `${id}-panel-${index}`;
+      panel.setAttribute('role', 'tabpanel');
+      panel.setAttribute('aria-labelledby', `${id}-${panel.dataset.settingsPanel}`);
+      panel.tabIndex = 0;
+    });
+    function select(tab) {
+      tabs.forEach((item) => {
+        item.setAttribute('aria-selected', String(item === tab));
+        item.tabIndex = item === tab ? 0 : -1;
+      });
+      panels.forEach((panel) => {
+        panel.hidden = panel.dataset.settingsPanel !== tab.dataset.settingsTab;
+      });
+      settingsSelections.set(key, tab.dataset.settingsTab);
+      try {
+        window.sessionStorage.setItem(key, tab.dataset.settingsTab);
+      } catch (_) {
+        /* Wrapper storage may be unavailable. */
+      }
+    }
+    let saved = settingsSelections.get(key);
+    try {
+      saved ||= window.sessionStorage.getItem(key);
+    } catch (_) {
+      /* Keep the in-memory selection. */
+    }
+    select(tabs.find((tab) => tab.dataset.settingsTab === saved) || tabs[0]);
+    root.addEventListener('click', (event) => {
+      const tab = event.target.closest('[data-settings-tab]');
+      if (tabs.includes(tab)) select(tab);
+    });
+    root.addEventListener('keydown', (event) => {
+      const index = tabs.indexOf(event.target.closest('[data-settings-tab]'));
+      if (index < 0 || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next =
+        event.key === 'Home'
+          ? 0
+          : event.key === 'End'
+            ? tabs.length - 1
+            : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      select(tabs[next]);
+      tabs[next].focus();
+    });
+  });
+}
+
 // === FORMATTERS ===
 
 export function t(key, fallback = '') {

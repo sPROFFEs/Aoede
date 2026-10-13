@@ -125,7 +125,7 @@ const party = await load('Aoede/assets/js/modules/party.js', {
   window: { loadView: async () => { navigations++; }, confirm() { throw new Error('Native dialog must not be used'); } }, EventSource, clearTimeout, setTimeout, console, AbortController, atob
 }, {
   './state.js': state,
-  './ui.js': { escHtml: ui.escHtml, t: (_key, fallback) => fallback, refreshIcons() {}, showToast() {}, homeTabsBar: () => '', confirmDialog: async () => { prompts++; return confirmed; } },
+  './ui.js': { escHtml: ui.escHtml, t: (_key, fallback) => fallback, refreshIcons() {}, initSettingsTabs() {}, showToast() {}, homeTabsBar: () => '', confirmDialog: async () => { prompts++; return confirmed; } },
   './player.js': { syncPartyPlayback: async (value) => { synced = value; return true; }, syncPlayerShellVisibility() {}, resumeLocalPlayback() {} }
 });
 assert.match(party.renderHomeShelf([{ ...room, is_remote_federated: true, remote_instance_id: 7 }]), /'fed_7_2'/);

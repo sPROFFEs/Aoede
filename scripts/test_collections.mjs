@@ -431,3 +431,139 @@ const playableRows = (await load('views.js', { atob, document: { body: { addEven
   './player.js': { playTrack: track => { clickedSong = track; } }, './downloads.js': { triggerDownload() { throw new Error('Federated cards must play, not download a provider URL'); } } })).api;
 playableRows.handleCardClick(btoa(encodeURIComponent(JSON.stringify(federatedData.tracks[0]))));
 assert.equal(clickedSong.id, 'fedpl_2_3_17');
+
+// Saved albums are separate from tag groups; all library pages remain reachable.
+const libraryPage = { innerHTML: '' };
+const libraryQuery = { value: '' };
+const librarySort = { value: 'name' };
+const librarySnapshots = new Map();
+const libraryNetwork = { onLine: true };
+const savedAlbums = Array.from({ length: 55 }, (_, index) => ({ id: index + 1, kind: 'album', name: `Saved ${String(index + 1).padStart(2, '0')}`, track_count: index + 1 }));
+savedAlbums.push({ id: 100, kind: 'playlist', name: 'Not an album' });
+const facetCalls = [];
+const songCalls = [];
+let libraryTracks;
+let deferAlbums = false;
+let resolveAlbums;
+const library = (await load('library.js', {
+  window: { createPlaylistTrackRow: track => `<div data-song="${track.id}">${track.title}</div>` }, navigator: libraryNetwork, console,
+  document: { getElementById: id => ({ 'view-container': libraryPage, 'library-facet-query': libraryQuery, 'library-facet-sort': librarySort })[id] }
+}, { './ui.js': { ...ui, refreshIcons() {} }, './state.js': { setUserPlaylists() {}, setCurrentViewList: tracks => { libraryTracks = tracks; } },
+  './api.js': {
+    fetchPlaylists: async () => deferAlbums ? new Promise(resolve => { resolveAlbums = resolve; }) : savedAlbums,
+    fetchLibraryFacets: async (kind, options) => { facetCalls.push({ kind, ...options }); return { items: [{ name: 'Single song metadata group', track_count: 1 }], total: 1 }; },
+    fetchLibraryTracks: async options => { songCalls.push(options); return { items: [{ id: options.offset + 1, title: 'Pool song' }], total: 600, has_more: options.offset + 50 < 600 }; }
+  }, './offline_store.js': { saveLibrarySnapshot: async (key, data) => librarySnapshots.set(key, data), getLibrarySnapshot: async key => librarySnapshots.get(key) }
+})).api;
+await library.renderLibrary(libraryPage, 'albums');
+assert.match(libraryPage.innerHTML, /Your albums/);
+assert.match(libraryPage.innerHTML, /Saved 01/);
+assert.equal(libraryPage.innerHTML.includes('Saved 51'), false);
+assert.equal(libraryPage.innerHTML.includes('Not an album'), false);
+assert.equal(facetCalls.length, 0);
+await library.loadMoreLibraryFacets();
+assert.match(libraryPage.innerHTML, /Showing 51–55 of 55/);
+assert.equal(libraryPage.innerHTML.includes('Saved 01'), false);
+await library.previousLibraryPage();
+libraryQuery.value = '55';
+await library.reloadLibraryFacets();
+assert.match(libraryPage.innerHTML, /Saved 55/);
+assert.equal(libraryPage.innerHTML.includes('Saved 01'), false);
+await library.toggleLibraryAlbumMetadata(true);
+assert.match(libraryPage.innerHTML, /Single song metadata group/);
+assert.equal(libraryPage.innerHTML.includes('Your albums'), false);
+assert.deepEqual(facetCalls.at(-1), { kind: 'albums', q: '', sort: 'name', limit: 50, offset: 0 });
+await library.toggleLibraryAlbumMetadata(false);
+libraryNetwork.onLine = false;
+await library.renderLibrary(libraryPage, 'albums');
+assert.match(libraryPage.innerHTML, /Saved 01/);
+assert.equal(libraryPage.innerHTML.includes('Single song metadata group'), false);
+libraryNetwork.onLine = true;
+await library.switchLibraryKind('songs');
+assert.equal(songCalls.at(-1).sort, 'title');
+assert.equal(libraryTracks[0].id, 1);
+for (let page = 0; page < 11; page++) await library.loadMoreLibraryFacets();
+assert.equal(songCalls.at(-1).offset, 550); // No former 500-row ceiling.
+assert.match(libraryPage.innerHTML, /data-song="551"/);
+await library.previousLibraryPage();
+const fetchedSongs = songCalls.length;
+libraryNetwork.onLine = false;
+await library.loadMoreLibraryFacets();
+assert.equal(songCalls.length, fetchedSongs);
+assert.match(libraryPage.innerHTML, /data-song="551"/); // Correct cached page, not another page's tracks.
+libraryNetwork.onLine = true;
+deferAlbums = true;
+const oldAlbums = library.renderLibrary(libraryPage, 'albums');
+await library.switchLibraryKind('songs');
+const currentLibrary = libraryPage.innerHTML;
+resolveAlbums(savedAlbums);
+await oldAlbums;
+assert.equal(libraryPage.innerHTML, currentLibrary);
+console.log('PASS: saved albums, optional metadata browsing, filtered collections and online/offline library pagination beyond 500 songs.');
+
+// Shared settings tabs survive fragment replacements and support keyboard navigation.
+const settingStorage = new Map();
+const settingsWindow = { USER_DATA: { username: 'first' }, sessionStorage: { getItem: key => settingStorage.get(key), setItem: (key, value) => settingStorage.set(key, value) } };
+const settingsUi = (await load('ui.js', { document: { addEventListener() {} }, window: settingsWindow }, { './state.js': {}, './audio_engine.js': {} })).api;
+function settingsRoot() {
+  const tabs = ['account', 'playback', 'integrations'].map(name => ({ dataset: { settingsTab: name }, attributes: {}, setAttribute(key, value) { this.attributes[key] = value; }, closest() { return this; }, focus() { this.focused = true; } }));
+  const panels = ['account', 'account', 'playback', 'integrations'].map((name, index) => ({ id: index === 2 ? 'existing-playback-id' : '', dataset: { settingsPanel: name }, attributes: {}, setAttribute(key, value) { this.attributes[key] = value; } }));
+  const events = {};
+  const root = { dataset: { settingsTabs: 'test' }, querySelectorAll: selector => selector === '[data-settings-tab]' ? tabs : panels, addEventListener: (name, callback) => { assert.equal(events[name], undefined); events[name] = callback; } };
+  settingsUi.initSettingsTabs({ querySelectorAll: () => [root] });
+  return { root, tabs, panels, events };
+}
+let settings = settingsRoot();
+assert.deepEqual(settings.panels.map(panel => panel.hidden), [false, false, true, true]);
+assert.equal(settings.tabs[2].tabIndex, -1);
+settings.events.keydown({ target: settings.tabs[0], key: 'ArrowRight', preventDefault() {} });
+assert.equal(settings.tabs[1].focused, true);
+assert.equal(settings.tabs[1].attributes['aria-controls'], 'existing-playback-id');
+assert.equal(settings.panels[2].hidden, false);
+settingsUi.initSettingsTabs({ querySelectorAll: () => [settings.root] }); // No duplicate listeners.
+settings = settingsRoot();
+assert.equal(settings.tabs[1].attributes['aria-selected'], 'true'); // HTMX/form refresh retains the tab.
+settings.events.keydown({ target: settings.tabs[1], key: 'End', preventDefault() {} });
+assert.equal(settings.panels[3].hidden, false);
+settingsWindow.sessionStorage = { getItem() { throw new Error('Wrapper storage unavailable'); }, setItem() { throw new Error('Wrapper storage unavailable'); } };
+settings = settingsRoot();
+assert.equal(settings.tabs[2].attributes['aria-selected'], 'true');
+settingsWindow.USER_DATA.username = 'second';
+settings = settingsRoot();
+assert.equal(settings.tabs[0].attributes['aria-selected'], 'true');
+console.log('PASS: settings tab grouping, existing panel IDs, keyboard controls, restored selection and wrapper storage fallback.');
+
+const duplicateFilter = { value: 'all' };
+const duplicateQuery = { value: '' };
+const visibleDuplicates = {};
+const duplicateGroups = ['exact', 'possible'].map(matchType => ({ dataset: { matchType, search: 'song artist' } }));
+const duplicateHandlers = {};
+const duplicatePanel = { dataset: {}, isConnected: true, contains: () => true, addEventListener: (name, callback) => { duplicateHandlers[name] = callback; },
+  querySelectorAll: () => duplicateGroups, querySelector: selector => selector.includes('="type"') ? duplicateFilter : selector.includes('="query"') ? duplicateQuery : visibleDuplicates };
+const scanButton = {};
+let comparedTrack;
+const admin = (await load('admin.js', { document: { getElementById: id => id === 'duplicate-results' ? duplicatePanel : scanButton }, window: { playTrack: track => { comparedTrack = track; } },
+  fetch: async (_url, options) => Response.json(options?.method === 'POST' ? { job_id: 1 } : { status: 'completed', details: { result: {
+    count: 1, exact_count: 0, possible_count: 1, groups: [{ match_type: 'possible', recommended_track_id: 1, reasons: ['semantic'], tracks: [
+      { id: 1, title: '<Song>', artist: 'Artist', filepath: '"unsafe', file_exists: true, format: 'MP3', file_size: 100, playlist_count: 2 },
+      { id: 2, title: '<Song>', artist: 'Artist', file_exists: false }
+    ] }] } } })
+}, { './state.js': {}, './ui.js': ui })).api;
+await admin.adminFindDuplicates();
+assert.match(duplicatePanel.innerHTML, /Possible metadata match/);
+assert.match(duplicatePanel.innerHTML, /Suggested to keep/);
+assert.match(duplicatePanel.innerHTML, /File missing/);
+assert.match(duplicatePanel.innerHTML, /&lt;Song&gt;/);
+assert.equal((duplicatePanel.innerHTML.match(/data-action="play-admin-track"/g) || []).length, 1);
+const comparisonData = decodeHtml(duplicatePanel.innerHTML.match(/data-action="play-admin-track" data-track="([^"]+)"/)[1]);
+duplicateHandlers.click({ target: { closest: () => ({ dataset: { track: comparisonData } }) } });
+assert.equal(comparedTrack.db_id, 1);
+assert.equal(comparedTrack.title, '<Song>');
+assert.equal(scanButton.disabled, false);
+duplicateFilter.value = 'exact';
+duplicateHandlers.change({ target: { matches: () => true } });
+assert.deepEqual(duplicateGroups.map(group => group.hidden), [false, true]);
+duplicateQuery.value = 'not found';
+duplicateHandlers.input({ target: { matches: () => true } });
+assert.deepEqual(duplicateGroups.map(group => group.hidden), [true, true]);
+console.log('PASS: duplicate match filters, file comparison, manual review hints and escaped metadata.');

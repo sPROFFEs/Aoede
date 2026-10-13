@@ -9,7 +9,14 @@ let activeKind = 'playlists';
 let smartEditingId = null;
 let facetQuery = '';
 let facetSort = 'name';
-let facetLimit = 50;
+const facetLimit = 50;
+let facetOffset = 0;
+let showMetadataAlbums = false;
+let libraryRequest = 0;
+
+function trackList(tracks) {
+  return `<div class="track-list playlist-track-list"><div class="track-row header playlist-row"><div class="track-num">#</div><div>Title</div><div class="track-album-col">Album</div><div class="track-source-col">Source</div><div class="track-duration-col"><i data-lucide="clock" width="16"></i></div></div>${tracks.map((track, index) => window.createPlaylistTrackRow(track, index)).join('')}</div>`;
+}
 
 function playlistCard(pl) {
   const tracks = Number(pl.track_count || 0);
@@ -81,20 +88,45 @@ function shell(content, browsing = false, total = 0, hasMore = false) {
 
       <div class="library-filters" style="margin: 16px 0 16px 0;">
         <button class="library-filter ${activeKind === 'playlists' ? 'active' : ''}" onclick="switchLibraryKind('playlists')">${ui.t('library.playlists', 'Playlists')}</button>
+        <button class="library-filter ${activeKind === 'songs' ? 'active' : ''}" onclick="switchLibraryKind('songs')">Songs</button>
         <button class="library-filter ${activeKind === 'artists' ? 'active' : ''}" onclick="switchLibraryKind('artists')">${ui.t('library.artists', 'Artists')}</button>
         <button class="library-filter ${activeKind === 'albums' ? 'active' : ''}" onclick="switchLibraryKind('albums')">${ui.t('library.albums', 'Albums')}</button>
         <button class="library-filter ${activeKind === 'genres' ? 'active' : ''}" onclick="switchLibraryKind('genres')">${ui.t('library.genres', 'Genres')}</button>
         <button class="library-filter" onclick="loadView('offline')" title="${ui.t('offline.title', 'Offline Downloads')}"><i data-lucide="cloud-off" width="14" height="14" style="margin-right:4px;"></i> ${ui.t('library.offline', 'Offline')}</button>
       </div>
 
-      ${browsing ? `<div class="library-sort"><input id="library-facet-query" class="modal-input" value="${ui.escHtml(facetQuery)}" placeholder="${ui.t('library.filter_placeholder', 'Filter...')}" onkeyup="if(event.key==='Enter') reloadLibraryFacets()"><select id="library-facet-sort" class="modal-input" onchange="reloadLibraryFacets()"><option value="name"${facetSort === 'name' ? ' selected' : ''}>${ui.t('library.sort_name', 'Sort by Name')}</option><option value="count"${facetSort === 'count' ? ' selected' : ''}>${ui.t('library.sort_count', 'Sort by Most Songs')}</option></select><button class="library-icon-btn" onclick="reloadLibraryFacets()" title="Search"><i data-lucide="search"></i></button></div>` : ''}
+      ${activeKind === 'albums' ? `<label class="library-sort"><input type="checkbox" onchange="toggleLibraryAlbumMetadata(this.checked)"${showMetadataAlbums ? ' checked' : ''}> Browse albums from song metadata</label>` : ''}
+      ${
+        browsing
+          ? `<div class="library-sort"><input id="library-facet-query" class="modal-input" value="${ui.escHtml(facetQuery)}" aria-label="Filter library" placeholder="${ui.t('library.filter_placeholder', 'Filter...')}" onkeyup="if(event.key==='Enter') reloadLibraryFacets()"><select id="library-facet-sort" class="modal-input" aria-label="Sort library" onchange="reloadLibraryFacets()">${(activeKind ===
+            'songs'
+              ? [
+                  ['title', 'Song title'],
+                  ['artist', 'Artist'],
+                  ['newest', 'Recently added']
+                ]
+              : [
+                  ['name', ui.t('library.sort_name', 'Sort by Name')],
+                  ['count', ui.t('library.sort_count', 'Sort by Most Songs')]
+                ]
+            )
+              .map(
+                ([value, label]) =>
+                  `<option value="${value}"${facetSort === value ? ' selected' : ''}>${label}</option>`
+              )
+              .join(
+                ''
+              )}</select><button class="library-icon-btn" onclick="reloadLibraryFacets()" title="Search"><i data-lucide="search"></i></button></div>`
+          : ''
+      }
       ${content}
-      ${browsing ? `<p class="library-facet-count" style="margin-top:20px;">Showing ${Math.min(facetLimit, total)} of ${total}</p>${hasMore ? `<button class="btn-secondary" style="margin-top:10px;" onclick="loadMoreLibraryFacets()">${ui.t('library.refresh_button', 'Load more')}</button>` : ''}` : ''}
+      ${browsing ? `<div class="library-pagination"><p class="library-facet-count" role="status">Showing ${total ? Math.min(facetOffset + 1, total) : 0}–${Math.min(facetOffset + facetLimit, total)} of ${total}</p><button class="btn-secondary" onclick="previousLibraryPage()"${facetOffset ? '' : ' disabled'}>Previous</button><button class="btn-secondary" onclick="loadMoreLibraryFacets()"${hasMore ? '' : ' disabled'}>Next</button></div>` : ''}
     </section>`;
 }
 
 export async function renderLibrary(container, kind = null) {
-  const validKinds = ['playlists', 'artists', 'albums', 'genres'];
+  const request = ++libraryRequest;
+  const validKinds = ['playlists', 'songs', 'artists', 'albums', 'genres'];
   if (kind === 'offline') {
     window.loadView('offline');
     return;
@@ -102,54 +134,92 @@ export async function renderLibrary(container, kind = null) {
   const selectedKind = validKinds.includes(kind) ? kind : validKinds.includes(activeKind) ? activeKind : 'playlists';
   if (selectedKind !== activeKind) {
     facetQuery = '';
-    facetSort = 'name';
-    facetLimit = 50;
+    facetSort = selectedKind === 'songs' ? 'title' : 'name';
+    facetOffset = 0;
   }
   activeKind = selectedKind;
+  const snapshot = `library-page:${JSON.stringify([activeKind, facetQuery, facetSort, facetOffset])}`;
   try {
-    if (activeKind === 'playlists') {
+    if (activeKind === 'playlists' || (activeKind === 'albums' && !showMetadataAlbums)) {
       let playlists = [];
       if (navigator.onLine) {
         playlists = await api.fetchPlaylists();
+        if (request !== libraryRequest) return;
         state.setUserPlaylists(playlists);
-        offlineStore.saveLibrarySnapshot('playlists', playlists);
+        await offlineStore.saveLibrarySnapshot('playlists', playlists);
       } else {
         playlists = (await offlineStore.getLibrarySnapshot('playlists')) || [];
       }
+      if (request !== libraryRequest) return;
+      if (activeKind === 'albums') {
+        const query = facetQuery.toLocaleLowerCase();
+        const albums = playlists
+          .filter(
+            (collection) => collection.kind === 'album' && (collection.name || '').toLocaleLowerCase().includes(query)
+          )
+          .sort(
+            (a, b) =>
+              (facetSort === 'count' ? Number(b.track_count || 0) - Number(a.track_count || 0) : 0) ||
+              (a.name || '').localeCompare(b.name || '')
+          );
+        container.innerHTML = shell(
+          `<h2>Your albums</h2><div class="library-cards-grid">${albums
+            .slice(facetOffset, facetOffset + facetLimit)
+            .map(playlistCard)
+            .join(
+              ''
+            )}</div>${albums.length ? '' : `<p class="modal-subtitle">${facetQuery ? 'No saved albums match this filter.' : 'Create an album or import one from Search / Downloads.'}</p>`}`,
+          true,
+          albums.length,
+          albums.length > facetOffset + facetLimit
+        );
+      } else
+        container.innerHTML = shell(
+          `<div class="library-list-heading"><i data-lucide="arrow-down-wide-narrow" width="16"></i><span>Recently created</span></div><div class="library-cards-grid"><button class="library-card library-liked" onclick="loadView('favorites')"><div class="library-card-cover"><i data-lucide="heart"></i></div><div class="library-card-name">Liked Songs</div><div class="library-card-sub">Playlist · ${ui.escHtml(window.USER_DATA?.username || 'You')}</div></button>${playlists
+            .filter((pl) => pl.kind !== 'album')
+            .map(playlistCard)
+            .join('')}</div>`
+        );
+    } else if (activeKind === 'songs') {
+      const page = navigator.onLine
+        ? await api.fetchLibraryTracks({ q: facetQuery, sort: facetSort, limit: facetLimit, offset: facetOffset })
+        : (await offlineStore.getLibrarySnapshot(snapshot)) || { items: [], total: 0 };
+      if (request !== libraryRequest) return;
+      if (navigator.onLine) await offlineStore.saveLibrarySnapshot(snapshot, page);
+      if (request !== libraryRequest) return;
+      state.setCurrentViewList(page.items || []);
       container.innerHTML = shell(
-        `<div class="library-list-heading"><i data-lucide="arrow-down-wide-narrow" width="16"></i><span>Recently created</span></div><div class="library-cards-grid"><button class="library-card library-liked" onclick="loadView('favorites')"><div class="library-card-cover"><i data-lucide="heart"></i></div><div class="library-card-name">Liked Songs</div><div class="library-card-sub">Playlist · ${ui.escHtml(window.USER_DATA?.username || 'You')}</div></button>${playlists
-          .filter((pl) => pl.kind !== 'album')
-          .map(playlistCard)
-          .join('')}</div>`
+        page.items?.length
+          ? trackList(page.items)
+          : '<div class="empty-state"><p>No songs match this filter.</p></div>',
+        true,
+        page.total || 0,
+        Boolean(page.has_more)
       );
     } else {
       let page = { items: [], total: 0, has_more: false };
       if (navigator.onLine) {
-        page = await api.fetchLibraryFacets(activeKind, { q: facetQuery, sort: facetSort, limit: facetLimit });
-        offlineStore.saveLibrarySnapshot(`facets_${activeKind}`, page);
+        page = await api.fetchLibraryFacets(activeKind, {
+          q: facetQuery,
+          sort: facetSort,
+          limit: facetLimit,
+          offset: facetOffset
+        });
+        if (request !== libraryRequest) return;
+        await offlineStore.saveLibrarySnapshot(snapshot, page);
       } else {
-        page = (await offlineStore.getLibrarySnapshot(`facets_${activeKind}`)) || {
+        page = (await offlineStore.getLibrarySnapshot(snapshot)) || {
           items: [],
           total: 0,
           has_more: false
         };
       }
-      let albumsHtml = '';
-      if (activeKind === 'albums') {
-        let collections;
-        if (navigator.onLine) {
-          collections = await api.fetchPlaylists();
-          state.setUserPlaylists(collections);
-          await offlineStore.saveLibrarySnapshot('playlists', collections);
-        } else {
-          collections = (await offlineStore.getLibrarySnapshot('playlists')) || [];
-        }
-        const albums = collections.filter((collection) => collection.kind === 'album');
-        albumsHtml = `<h2>Your albums</h2><div class="library-cards-grid">${albums.map(playlistCard).join('')}</div>${albums.length ? '' : '<p class="modal-subtitle">Create an album or import one from Search / Downloads.</p>'}<h2>Albums in the pool</h2>`;
-      }
+      if (request !== libraryRequest) return;
       const facets = page.items || [];
       container.innerHTML = shell(
-        albumsHtml +
+        (activeKind === 'albums'
+          ? '<h2>Albums from song metadata</h2><p class="modal-subtitle">Groups based on song tags may be incomplete. Turn off metadata browsing to open your saved, editable albums.</p>'
+          : '') +
           (facets.length
             ? `<div class="library-cards-grid">${facets.map((facet) => facetCard(activeKind, facet)).join('')}</div>`
             : `<div class="empty-state"><p>No ${activeKind} with metadata found.</p></div>`),
@@ -160,6 +230,7 @@ export async function renderLibrary(container, kind = null) {
     }
     ui.refreshIcons(container);
   } catch (error) {
+    if (request !== libraryRequest) return;
     const cached = await offlineStore.getLibrarySnapshot('playlists');
     if (cached && cached.length) {
       const collections = cached.filter((pl) => (activeKind === 'albums' ? pl.kind === 'album' : pl.kind !== 'album'));
@@ -179,46 +250,55 @@ export async function switchLibraryKind(kind) {
   if (container) await renderLibrary(container, kind);
 }
 
+export async function toggleLibraryAlbumMetadata(enabled) {
+  showMetadataAlbums = Boolean(enabled);
+  facetQuery = '';
+  facetSort = 'name';
+  facetOffset = 0;
+  return switchLibraryKind('albums');
+}
+
 export async function reloadLibraryFacets() {
   facetQuery = document.getElementById('library-facet-query')?.value.trim() || '';
   facetSort = document.getElementById('library-facet-sort')?.value || 'name';
-  facetLimit = 50;
+  facetOffset = 0;
   return switchLibraryKind(activeKind);
 }
 
 export async function loadMoreLibraryFacets() {
-  facetLimit = Math.min(facetLimit + 50, 500);
+  facetOffset += facetLimit;
   return switchLibraryKind(activeKind);
 }
 
-export async function openLibraryFacet(key, value, albumArtist = '') {
+export async function previousLibraryPage() {
+  facetOffset = Math.max(0, facetOffset - facetLimit);
+  return switchLibraryKind(activeKind);
+}
+
+export async function openLibraryFacet(key, value, albumArtist = '', offset = 0) {
   const container = document.getElementById('view-container');
   if (!container) return;
+  const request = ++libraryRequest;
   try {
-    const filters = { [key]: value, limit: 500, sort: key === 'album' ? 'album' : 'artist' };
+    const filters = { [key]: value, limit: facetLimit, offset, sort: key === 'album' ? 'album' : 'artist' };
     if (key === 'album' && albumArtist) filters.artist = albumArtist;
     const page = await api.fetchLibraryTracks(filters);
+    if (request !== libraryRequest) return;
     const tracks = page.items || [];
     state.setCurrentViewList(tracks);
+    const facetAction = `openLibraryFacet('${ui.escJs(key)}', '${ui.escJs(value)}', '${ui.escJs(albumArtist)}',`;
     container.innerHTML = `
       <section class="library-shell">
         <button class="library-back" onclick="switchLibraryKind('${key === 'artist' ? 'artists' : key === 'album' ? 'albums' : 'genres'}')"><i data-lucide="arrow-left"></i> Library</button>
         <h1 class="library-title">${ui.escHtml(value)}</h1>
         ${albumArtist ? `<p class="library-facet-count">${ui.escHtml(albumArtist)}</p>` : ''}
         <p class="library-facet-count">${page.total || tracks.length} songs</p>
-        <div class="track-list">${tracks
-          .map(
-            (track, index) => `
-          <button class="library-track-row" onclick="playFromView(${index})">
-            <img src="${track.thumbnail}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">
-            <span><strong>${ui.escHtml(track.title)}</strong><small>${ui.escHtml(track.artist)} · ${ui.escHtml(track.album || '')}${track.year ? ` · ${track.year}` : ''}</small></span>
-            <i data-lucide="play"></i>
-          </button>`
-          )
-          .join('')}</div>
+        ${trackList(tracks)}
+        <div class="library-pagination"><button class="btn-secondary" onclick="${facetAction} ${Math.max(0, offset - facetLimit)})"${offset ? '' : ' disabled'}>Previous</button><span>${page.total ? offset + 1 : 0}–${offset + tracks.length} of ${page.total || 0}</span><button class="btn-secondary" onclick="${facetAction} ${offset + facetLimit})"${page.has_more ? '' : ' disabled'}>Next</button></div>
       </section>`;
     ui.refreshIcons(container);
   } catch (error) {
+    if (request !== libraryRequest) return;
     ui.showToast(error.message, 'error');
   }
 }

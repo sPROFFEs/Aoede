@@ -347,6 +347,7 @@ export async function renderExternalView(container, url) {
     }
 
     ui.refreshIcons(container);
+    ui.initSettingsTabs(container);
 
     if (typeof htmx !== 'undefined') {
       htmx.process(container);
@@ -426,6 +427,7 @@ export function initSpaHistory() {
 
 document.body.addEventListener('htmx:afterSwap', (event) => {
   if (event.target?.id !== 'view-container') return;
+  ui.initSettingsTabs(event.target);
   initUserSettingsView(event.target);
   const username = window.USER_DATA?.username;
   if (!username) return;

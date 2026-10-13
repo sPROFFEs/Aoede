@@ -64,9 +64,11 @@ To import a complete collection, enable **Albums / Playlists** in Search or past
 
 ## Browse the library
 
-**Your Library** provides searchable, paginated views for playlists, artists, albums and genres. Open an item to play its tracks or use the available track actions. Favorites remain available from the heart shortcut in the side rail.
+**Your Library** separates playlists, songs, artists, albums and genres. **Songs** searches the shared pool by title, artist or album and sorts by title, artist or recently added. **Previous / Next** pages cover the full library, including more than 500 entries. Artist, album-tag and genre groups use the same song rows with queue, favorites, playlist and party actions. Favorites remain available from the heart shortcut in the side rail.
 
-Choose **Create → Album** to create a curated album manually. **Albums** shows your curated albums separately from albums grouped by the pool's song tags. Curated albums use the same editing, collaboration, sharing, and offline controls as playlists.
+Choose **Create → Album** to create a curated album manually. **Albums** shows saved albums by default: created, imported, shared or synchronized collections. Downloading a single song does not add an album to this list. Search, sort or paginate these albums, and open one to remove songs or change their order once its import finishes. Curated albums use the same editing, collaboration, sharing, and offline controls as playlists.
+
+Enable **Browse albums from song metadata** to browse the pool's song-tag groups separately. These groups may be incomplete and are not editable collections; turn the option off to return to saved albums. Existing song tags and pool files are preserved.
 
 Offline library metadata is saved separately for each account. After upgrading from an older version, connect once to refresh that account's saved metadata; previously downloaded audio remains on the device.
 
@@ -170,6 +172,8 @@ Use the flag/delete-request action on a local track when it should be removed fr
 The top-bar response indicator shows approvals, rejections and any administrator response. A request does not remove a file until an administrator approves it.
 
 ## Account and provider settings
+
+Settings are grouped into **Account**, **Playback**, **Integrations** and **YouTube authentication** tabs. Switching tabs preserves unsaved fields on the page; saving a form restores the selected tab. On a phone, swipe the tab strip horizontally to reach additional categories.
 
 Settings let you:
 
