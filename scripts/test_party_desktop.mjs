@@ -18,6 +18,7 @@ async function load(relative, globals, dependencies) {
 
 for (const platform of ['MacIntel', 'Win32', 'Linux x86_64', 'iPhone']) {
   const audio = { volume: 0.7 };
+  const preview = { volume: 1 }, iframeVolumes = [];
   const gains = [];
   class Context {
     state = 'suspended';
@@ -33,8 +34,8 @@ for (const platform of ['MacIntel', 'Win32', 'Linux x86_64', 'iPhone']) {
   }
   const engine = await load('Aoede/assets/js/modules/audio_engine.js', {
     navigator: { platform, userAgent: `${platform} AoedeDesktop` },
-    window: { AudioContext: Context }, console
-  }, { './state.js': { audio } });
+    window: { AudioContext: Context, __discoveryPreviewAudio: preview }, console
+  }, { './state.js': { audio, ytPlayer: { setVolume: value => iframeVolumes.push(value) } } });
   if (platform === 'MacIntel') {
     assert.equal(engine.ensureInitialized(), true); // ReplayGain can initialize before volume restoration.
     assert.equal(audio.volume, 1); // Do not attenuate once in the element and again in the gain node.
@@ -43,6 +44,8 @@ for (const platform of ['MacIntel', 'Win32', 'Linux x86_64', 'iPhone']) {
   }
   engine.setVolume(0.3);
   assert.equal(engine.getVolume(), 0.3);
+  assert.equal(preview.volume, 0.3);
+  assert.equal(iframeVolumes.at(-1), 30);
   if (platform === 'MacIntel') {
     assert.equal(audio.volume, 1);
     assert.equal(gains.at(-1).gain.value, 0.3);
@@ -163,7 +166,7 @@ const views = await load('Aoede/assets/js/modules/views.js', {
   document: { body: { addEventListener() {} } },
   window: { location: { assign: (value) => { destination = value; } } }, console, URL,
   fetch: async () => ({ redirected: true, url: 'https://aoede.example/login' })
-}, Object.fromEntries(['state', 'ui', 'api', 'player', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads', 'appearance'].map(name => [
+}, Object.fromEntries(['state', 'ui', 'api', 'player', 'audio_engine', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads', 'appearance'].map(name => [
   `./${name}.js`, name === 'system_monitor' ? { initSystemMonitor() {} } : name === 'admin_downloads' ? { initDownloadManager() {} } : name === 'appearance' ? { syncThemeControls() {} } : {}
 ])));
 await views.loadView('settings_admin');

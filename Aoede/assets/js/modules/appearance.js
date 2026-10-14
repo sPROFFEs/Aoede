@@ -75,6 +75,7 @@ export function applyTheme(theme) {
   }
   updateBrowserColor();
   syncThemeControls();
+  ui.syncFullscreenPlayerLayout?.();
 }
 
 export function syncTheme(data, generation = requestGeneration) {

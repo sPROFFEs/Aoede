@@ -1,3 +1,7 @@
+/* Extra Glass slots do not change the Classic player's layout. */
+.fs-header, .fs-stage, .fs-track-text { display: contents; }
+.fs-glass-only, .fs-track-actions { display: none; }
+
 .player-footer {
     grid-area: player;
     background: var(--surface-0);

@@ -127,13 +127,17 @@ export async function loadLyricsFor(track) {
     duration: String(duration)
   });
 
+  const controller = _fetchAbort;
   try {
-    const res = await fetch(`${state.API}/lyrics?${params}`, { signal: _fetchAbort.signal });
+    const res = await fetch(`${state.API}/lyrics?${params}`, { signal: controller.signal });
+    if (controller !== _fetchAbort) return;
     if (!res.ok) {
+      _currentTrackId = null;
       _renderEmpty('Could not load lyrics.');
       return;
     }
     const data = await res.json();
+    if (controller !== _fetchAbort) return;
 
     _isInstrumental = !!data.instrumental;
     if (_isInstrumental) {
@@ -163,7 +167,8 @@ export async function loadLyricsFor(track) {
     _activeIdx = -1;
     if (_hasSynced) tick();
   } catch (e) {
-    if (e.name === 'AbortError') return;
+    if (e.name === 'AbortError' || controller !== _fetchAbort) return;
+    _currentTrackId = null;
     console.warn('[LYRICS] fetch failed', e);
     _renderEmpty('Could not load lyrics.');
   }
@@ -234,9 +239,15 @@ export function tick() {
   const el = body.querySelector(`.lyric-line[data-idx="${idx}"]`);
   if (el) {
     el.classList.add('active');
-    // Keep active line vertically centered. Use 'nearest' to avoid
-    // scrolling when the line is already inside the viewport.
-    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Scroll the lyrics body only; the fullscreen transport must stay put.
+    body.scrollTo({
+      top:
+        body.scrollTop +
+        el.getBoundingClientRect().top -
+        body.getBoundingClientRect().top -
+        (body.clientHeight - el.clientHeight) / 2,
+      behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    });
   }
 }
 
@@ -247,6 +258,8 @@ export function toggleLyricsPanel() {
   if (!panel) return;
   _isVisible = !panel.classList.contains('open');
   if (_isVisible) {
+    if (state.isFullscreenPlayerOpen && document.documentElement.dataset.theme === 'glass' && state.isQueueOpen)
+      window.toggleQueue?.();
     panel.classList.add('open');
     document.body.classList.add('lyrics-panel-open');
     if (state.currentTrack) loadLyricsFor(state.currentTrack);
@@ -259,6 +272,7 @@ export function toggleLyricsPanel() {
   document.querySelectorAll('.lyrics-toggle-btn').forEach((b) => {
     b.classList.toggle('active', _isVisible);
   });
+  ui.syncFullscreenPlayerLayout();
 }
 
 export function closeLyricsPanel() {
@@ -268,6 +282,7 @@ export function closeLyricsPanel() {
   document.body.classList.remove('lyrics-panel-open');
   _isVisible = false;
   document.querySelectorAll('.lyrics-toggle-btn').forEach((b) => b.classList.remove('active'));
+  ui.syncFullscreenPlayerLayout();
 }
 
 export function isLyricsPanelOpen() {

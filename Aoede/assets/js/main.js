@@ -180,6 +180,7 @@ window.toggleSidebar = state.toggleSidebar;
 window.showToast = ui.showToast;
 window.closeModal = ui.closeModal;
 window.toggleFullscreenPlayer = ui.toggleFullscreenPlayer;
+window.showFullscreenCover = ui.showFullscreenCover;
 window.toggleMute = ui.toggleMute;
 window.fmtTime = ui.fmtTime;
 window.escHtml = ui.escHtml;
@@ -445,6 +446,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Lyrics panel — injected after player so the audio element exists
   // and the panel's timeupdate listener can bind cleanly.
   lyrics.initLyrics();
+  ui.initFullscreenPlayer();
 
   // Keep heartbeat quiet while backgrounded
   views.initHeartbeatLifecycle();

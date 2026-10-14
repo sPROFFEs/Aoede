@@ -7,6 +7,7 @@ import * as state from './state.js';
 import * as ui from './ui.js';
 import * as api from './api.js';
 import * as player from './player.js';
+import * as audioEngine from './audio_engine.js';
 import * as search from './search.js';
 import * as radio from './radio.js';
 import * as favorites from './favorites.js';
@@ -2053,6 +2054,7 @@ export function discoveryTogglePreview(btn, encodedData) {
     audio.addEventListener('ended', () => _discoveryResetAllPlayIcons());
     window.__discoveryPreviewAudio = audio;
   }
+  audioEngine.syncPreviewVolume();
 
   // Toggle off if this same card is already playing.
   const playingThis = audio.dataset.cardKey === btn.closest('.discovery-card')?.dataset.key && !audio.paused;

@@ -42,6 +42,8 @@ export async function toggleFavorite(trackId, btn) {
   const updateElement = (el, active) => {
     if (!el) return;
     el.classList.toggle('liked', active);
+    if (el.id === 'fs-btn-favorite') el.classList.toggle('active', active);
+    el.setAttribute('aria-pressed', String(active));
     el.innerHTML = active
       ? `<i data-lucide="heart" fill="var(--accent)" style="color:var(--accent)"></i>`
       : `<i data-lucide="heart"></i>`;

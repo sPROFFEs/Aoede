@@ -46,14 +46,23 @@ let _volumeSaveTimer = null;
 function applyVolume(value) {
   const v = Math.max(0, Math.min(1, Number(value) || 0));
   audioEngine.setVolume(v);
-  const pct = `${v * 100}%`;
-  const volumeFill = document.querySelector('.volume-bar-fill');
-  const volumeKnob = document.querySelector('.volume-knob');
-  if (volumeFill) volumeFill.style.width = pct;
-  if (volumeKnob) {
-    volumeKnob.style.left = pct;
-    volumeKnob.style.transform = 'translate(-50%, -50%)';
+  ui.updateVolumeUI();
+}
+
+function seekToPercentage(pct) {
+  const party = _partyController?.isActive?.();
+  if (
+    !party &&
+    state.currentTrack?.source === 'youtube' &&
+    !state.currentTrack.is_local &&
+    state.currentTrack.fed_instance_id == null
+  ) {
+    if (state.ytReady) state.ytPlayer?.seekTo?.(pct * 30, true);
+    return;
   }
+  if (!Number.isFinite(state.audio.duration) || state.audio.duration <= 0) return;
+  if (party) _partyController.seekTo(pct * state.audio.duration);
+  else state.audio.currentTime = pct * state.audio.duration;
 }
 
 function saveVolumeLocal(value) {
@@ -674,6 +683,7 @@ export function setupYouTubePlayer() {
       events: {
         onReady: () => {
           state.setYtReady(true);
+          audioEngine.syncPreviewVolume();
           console.log('YT Preview API Ready');
         },
         onStateChange: (e) => {
@@ -1648,10 +1658,12 @@ export function setupPlayer() {
 
   state.audio.addEventListener('loadedmetadata', () => {
     updateMediaSessionPositionState();
+    ui.updateUIProgress(state.audio.currentTime, state.audio.duration);
   });
 
   state.audio.addEventListener('durationchange', () => {
     updateMediaSessionPositionState();
+    ui.updateUIProgress(state.audio.currentTime, state.audio.duration);
   });
 
   state.audio.addEventListener('seeked', () => {
@@ -1888,39 +1900,24 @@ export function setupPlayer() {
 
   if (progressBar) {
     ui.setupDraggable(progressBar, (pct, isDragging) => {
-      if (isDragging) {
-        state.setIsSeeking(true);
-      } else {
-        state.setIsSeeking(false);
-        if (state.audio.duration) {
-          if (_partyController?.isActive?.()) _partyController.seekTo(pct * state.audio.duration);
-          else state.audio.currentTime = pct * state.audio.duration;
-        }
-      }
+      state.setIsSeeking(isDragging);
+      if (!isDragging) seekToPercentage(pct);
     });
   }
 
-  if (volumeBar) {
-    ui.setupDraggable(volumeBar, (pct) => {
-      const v = Math.max(0, Math.min(1, pct));
-      audioEngine.setVolume(v);
-      persistVolume(v);
+  [volumeBar, document.getElementById('fs-volume-bar')].forEach((bar) => {
+    ui.setupDraggable(bar, (pct) => {
+      applyVolume(pct);
+      persistVolume(audioEngine.getVolume());
     });
-  }
+  });
 
   // Fullscreen player progress bar
   const fsProgressBar = document.getElementById('fs-progress-bar');
   if (fsProgressBar) {
     ui.setupDraggable(fsProgressBar, (pct, isDragging) => {
-      if (isDragging) {
-        state.setIsSeeking(true);
-      } else {
-        state.setIsSeeking(false);
-        if (state.audio.duration) {
-          if (_partyController?.isActive?.()) _partyController.seekTo(pct * state.audio.duration);
-          else state.audio.currentTime = pct * state.audio.duration;
-        }
-      }
+      state.setIsSeeking(isDragging);
+      if (!isDragging) seekToPercentage(pct);
     });
   }
 
@@ -1933,13 +1930,7 @@ export function setupPlayer() {
   // Initialize volume bar visual position to the default; restoreVolume()
   // (called from main.js after setupPlayer) will override this with the
   // user's persisted value once the server/localStorage lookup resolves.
-  const volumeFill = document.querySelector('.volume-bar-fill');
-  const volumeKnob = document.querySelector('.volume-knob');
-  if (volumeFill) volumeFill.style.width = `${DEFAULT_VOLUME * 100}%`;
-  if (volumeKnob) {
-    volumeKnob.style.left = `${DEFAULT_VOLUME * 100}%`;
-    volumeKnob.style.transform = 'translate(-50%, -50%)';
-  }
+  ui.updateVolumeUI();
 
   // --- BACKGROUND PLAYBACK: Visibility change handler ---
   // When user returns to the tab, check if the track ended while backgrounded.

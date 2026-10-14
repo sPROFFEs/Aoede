@@ -77,6 +77,17 @@ export function setVolume(value) {
   } else {
     state.audio.volume = _volume;
   }
+  syncPreviewVolume();
+}
+
+export function syncPreviewVolume() {
+  const volume = getVolume();
+  if (window.__discoveryPreviewAudio) window.__discoveryPreviewAudio.volume = volume;
+  try {
+    state.ytPlayer?.setVolume?.(Math.round(volume * 100));
+  } catch (_) {
+    // The iframe may still be starting; its onReady handler reapplies volume.
+  }
 }
 
 // Pre-amp keeps tracks from clipping after positive gain. Spotify uses

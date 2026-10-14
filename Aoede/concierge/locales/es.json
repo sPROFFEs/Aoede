@@ -404,5 +404,14 @@
     "appearance.sync_description": "Se guarda entre dispositivos. Glass sigue el modo claro/oscuro del dispositivo; sin conexión se usa tu última elección guardada.",
     "appearance.connect": "Conéctate para guardar el tema entre dispositivos.",
     "appearance.failed": "No se pudo guardar el tema. Inténtalo de nuevo.",
-    "appearance.saved": "Tema guardado para todos tus dispositivos."
+    "appearance.saved": "Tema guardado para todos tus dispositivos.",
+    "player.open_player": "Abrir reproductor",
+    "player.now_playing": "Reproduciendo",
+    "player.cover": "Carátula",
+    "player.seek": "Buscar posición en la canción",
+    "player.volume": "Volumen",
+    "player.mute": "Silenciar",
+    "player.unmute": "Activar sonido",
+    "player.previous": "Canción anterior",
+    "player.next": "Siguiente canción"
 }

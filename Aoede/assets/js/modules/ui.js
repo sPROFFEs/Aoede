@@ -307,24 +307,14 @@ function _persistVolumeIfWired() {
 }
 
 export function toggleMute() {
-  const btn = document.getElementById('btn-volume-icon');
   if (audioEngine.getVolume() > 0) {
     savedVolume = audioEngine.getVolume();
     audioEngine.setVolume(0);
-    if (btn) btn.innerHTML = '<i data-lucide="volume-x"></i>';
   } else {
     audioEngine.setVolume(savedVolume);
-    if (btn) btn.innerHTML = '<i data-lucide="volume-2"></i>';
   }
 
-  // Update volume bar visual
-  const volumeFill = document.querySelector('.volume-bar-fill');
-  const volumeKnob = document.querySelector('.volume-knob');
-  const pct = audioEngine.getVolume() * 100;
-  if (volumeFill) volumeFill.style.width = `${pct}%`;
-  if (volumeKnob) volumeKnob.style.left = `${pct}%`;
-
-  lucide.createIcons();
+  updateVolumeUI();
   _persistVolumeIfWired();
 }
 
@@ -332,13 +322,33 @@ export function toggleMute() {
 
 export function nudgeVolume(delta) {
   audioEngine.setVolume(audioEngine.getVolume() + delta);
-
-  const volumeFill = document.querySelector('.volume-bar-fill');
-  const volumeKnob = document.querySelector('.volume-knob');
-  const pct = audioEngine.getVolume() * 100;
-  if (volumeFill) volumeFill.style.width = `${pct}%`;
-  if (volumeKnob) volumeKnob.style.left = `${pct}%`;
+  updateVolumeUI();
   _persistVolumeIfWired();
+}
+
+export function updateVolumeUI() {
+  const pct = audioEngine.getVolume() * 100;
+  document.querySelectorAll('.volume-bar-fill').forEach((fill) => {
+    fill.style.width = `${pct}%`;
+  });
+  document.querySelectorAll('.volume-knob').forEach((knob) => {
+    knob.style.left = `${pct}%`;
+    knob.style.transform = 'translate(-50%, -50%)';
+  });
+  document.querySelectorAll('#volume-bar, #fs-volume-bar').forEach((bar) => {
+    bar.setAttribute('aria-valuenow', String(Math.round(pct)));
+    bar.setAttribute('aria-valuetext', `${Math.round(pct)}%`);
+  });
+  document.querySelectorAll('#btn-volume-icon, #fs-volume-icon').forEach((btn) => {
+    const muted = String(pct === 0);
+    if (btn.dataset.muted !== muted) {
+      btn.dataset.muted = muted;
+      btn.innerHTML = `<i data-lucide="${pct === 0 ? 'volume-x' : 'volume-2'}"></i>`;
+      refreshIcons(btn);
+    }
+    btn.setAttribute('aria-pressed', muted);
+    btn.setAttribute('aria-label', pct === 0 ? t('player.unmute', 'Unmute') : t('player.mute', 'Mute'));
+  });
 }
 
 // === SLEEP TIMER ===
@@ -352,6 +362,7 @@ let sleepTimerMinutes = 0;
 function _setSleepButtonState(active) {
   document.querySelectorAll('#fs-btn-sleep').forEach((btn) => {
     btn.classList.toggle('active', active);
+    btn.setAttribute('aria-pressed', String(active));
     btn.style.color = active ? 'var(--accent, #1DB954)' : '';
   });
 }
@@ -393,6 +404,27 @@ export function setupDraggable(element, callback) {
   if (!element) return;
   let isDragging = false;
   const knob = element.querySelector('.progress-knob, .volume-knob, .fs-progress-knob');
+  element.setAttribute('role', 'slider');
+  element.tabIndex = 0;
+  element.setAttribute('aria-valuemin', '0');
+  element.setAttribute('aria-valuemax', '100');
+  element.setAttribute('aria-valuenow', element.getAttribute('aria-valuenow') || '0');
+  element.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (element.getAttribute('aria-disabled') === 'true') return;
+    const value = Number(element.getAttribute('aria-valuenow')) || 0;
+    const next =
+      event.key === 'Home'
+        ? 0
+        : event.key === 'End'
+          ? 100
+          : value + (['ArrowLeft', 'ArrowDown'].includes(event.key) ? -5 : 5);
+    const pct = Math.max(0, Math.min(100, next)) / 100;
+    element.setAttribute('aria-valuenow', String(Math.round(pct * 100)));
+    callback(pct, false);
+  });
 
   const getPositionFromEvent = (e) => {
     const rect = element.getBoundingClientRect();
@@ -406,6 +438,7 @@ export function setupDraggable(element, callback) {
 
   const update = (e) => {
     const pct = getPositionFromEvent(e);
+    element.setAttribute('aria-valuenow', String(Math.round(pct * 100)));
     const fill = element.querySelector('.progress-bar-fill, .volume-bar-fill, .fs-progress-fill');
     if (fill) fill.style.width = `${pct * 100}%`;
     if (knob) {
@@ -417,6 +450,7 @@ export function setupDraggable(element, callback) {
 
   // Mouse events
   element.addEventListener('mousedown', (e) => {
+    if (element.getAttribute('aria-disabled') === 'true') return;
     isDragging = true;
     update(e);
   });
@@ -439,6 +473,7 @@ export function setupDraggable(element, callback) {
   element.addEventListener(
     'touchstart',
     (e) => {
+      if (element.getAttribute('aria-disabled') === 'true') return;
       isDragging = true;
       update(e);
     },
@@ -472,24 +507,142 @@ export function setupDraggable(element, callback) {
 
 // === FULLSCREEN PLAYER ===
 
+let fullscreenReturnFocus = null;
+
+/** Move existing controls/panels, keeping their listeners and playback state. */
+export function syncFullscreenPlayerLayout() {
+  const panel = document.getElementById('fullscreen-player');
+  const stage = document.getElementById('fs-stage');
+  if (!panel || !stage) return;
+  const glass = document.documentElement.dataset.theme === 'glass';
+  const actions = panel.querySelector('.fs-actions');
+  const songActions = document.getElementById('fs-track-actions');
+  const progress = panel.querySelector('.fs-progress-container');
+  const controls = panel.querySelector('.fs-controls');
+  if (progress && controls) {
+    const [first, second] = glass ? [progress, controls] : [controls, progress];
+    if (first.nextElementSibling !== second) second.parentElement.insertBefore(first, second);
+  }
+  ['fs-btn-favorite', 'fs-btn-add'].forEach((id) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    if (glass && songActions && button.parentElement !== songActions) songActions.appendChild(button);
+    else if (!glass && actions && button.parentElement !== actions)
+      actions.insertBefore(button, actions.querySelector('.lyrics-toggle-btn'));
+  });
+  const embedded = glass && state.isFullscreenPlayerOpen;
+  const lyrics = document.getElementById('lyrics-panel');
+  const queue = document.getElementById('queue-panel');
+  if (embedded && lyrics?.classList.contains('open') && state.isQueueOpen) window.toggleQueue?.();
+  [lyrics, queue].filter(Boolean).forEach((child) => {
+    const host = embedded ? stage : document.body;
+    if (child.parentElement !== host) host.appendChild(child);
+    child.inert = !child.classList.contains('open');
+  });
+  const view = lyrics?.classList.contains('open') ? 'lyrics' : queue?.classList.contains('open') ? 'queue' : 'cover';
+  panel.dataset.view = embedded ? view : 'cover';
+  if (
+    embedded &&
+    stage.contains(document.activeElement) &&
+    document.activeElement.closest('.lyrics-panel:not(.open), .queue-panel:not(.open)')
+  )
+    panel.querySelector('[data-fs-view="cover"]')?.focus();
+  panel.querySelectorAll('[data-fs-view]').forEach((button) => {
+    const selected = button.dataset.fsView === panel.dataset.view;
+    button.classList.toggle('active', selected);
+    button.setAttribute('aria-pressed', String(selected));
+  });
+  const label = document.getElementById('fs-view-label');
+  if (label)
+    label.textContent =
+      panel.dataset.view === 'cover'
+        ? state.currentTrack?.artist || t('player.now_playing', 'Now playing')
+        : panel.dataset.view === 'lyrics'
+          ? t('player.lyrics', 'Lyrics')
+          : t('player.queue', 'Queue');
+}
+
+export function showFullscreenCover() {
+  window.closeLyricsPanel?.();
+  if (state.isQueueOpen) window.toggleQueue?.();
+  syncFullscreenPlayerLayout();
+}
+
+export function initFullscreenPlayer() {
+  const panel = document.getElementById('fullscreen-player');
+  if (!panel || panel.dataset.keyboardBound) return;
+  panel.dataset.keyboardBound = 'true';
+  const volume = panel.querySelector('.fs-volume');
+  panel.addEventListener('click', (event) => {
+    // Icon refreshes may detach event.target before this listener runs.
+    if (volume && !event.composedPath().includes(volume)) volume.open = false;
+  });
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      toggleFullscreenPlayer();
+    } else if (event.key === 'Tab') {
+      const buttons = Array.from(panel.querySelectorAll('button:not(:disabled), summary, [tabindex="0"]')).filter(
+        (el) => el.getClientRects().length && !el.closest('[inert]')
+      );
+      const target =
+        event.shiftKey && document.activeElement === buttons[0]
+          ? buttons.at(-1)
+          : !event.shiftKey && document.activeElement === buttons.at(-1)
+            ? buttons[0]
+            : null;
+      if (target) {
+        event.preventDefault();
+        target.focus();
+      }
+    }
+  });
+  document.getElementById('player-cover')?.addEventListener('keydown', (event) => {
+    if (['Enter', ' '].includes(event.key)) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleFullscreenPlayer();
+    }
+  });
+  syncFullscreenPlayerLayout();
+}
+
 export function toggleFullscreenPlayer() {
   const panel = document.getElementById('fullscreen-player');
+  if (!panel) return;
   state.setIsFullscreenPlayerOpen(!state.isFullscreenPlayerOpen);
+  panel.setAttribute('aria-hidden', String(!state.isFullscreenPlayerOpen));
 
   if (state.isFullscreenPlayerOpen) {
+    fullscreenReturnFocus = document.activeElement;
     panel.classList.add('open');
+    syncFullscreenPlayerLayout();
     updateFullscreenPlayButton();
     refreshIcons(panel);
+    panel.querySelector('.fs-minimize')?.focus();
   } else {
+    if (document.documentElement.dataset.theme === 'glass') showFullscreenCover();
     panel.classList.remove('open');
+    const volume = panel.querySelector('.fs-volume');
+    if (volume) volume.open = false;
+    syncFullscreenPlayerLayout();
+    (fullscreenReturnFocus?.isConnected ? fullscreenReturnFocus : document.getElementById('player-cover'))?.focus();
+    fullscreenReturnFocus = null;
   }
 }
 
 export function updateFullscreenPlayButton() {
+  syncFullscreenPlayerLayout();
   const fsPlayBtn = document.getElementById('fs-play-pause-btn');
   const fsShuffle = document.getElementById('fs-btn-shuffle');
   const fsRepeat = document.getElementById('fs-btn-repeat');
   const fsFavorite = document.getElementById('fs-btn-favorite');
+  const fsAdd = document.getElementById('fs-btn-add');
+  const local = Boolean(
+    state.currentTrack?.is_local || (state.currentTrack?.db_id && state.currentTrack?.fed_instance_id == null)
+  );
+  if (fsFavorite) fsFavorite.disabled = !local;
+  if (fsAdd) fsAdd.disabled = !local && state.currentTrack?.fed_instance_id == null;
 
   if (fsPlayBtn) {
     fsPlayBtn.innerHTML = `<i data-lucide="${state.isPlaying ? 'pause' : 'play'}"></i>`;
@@ -500,10 +653,12 @@ export function updateFullscreenPlayButton() {
 
   if (fsShuffle) {
     fsShuffle.classList.toggle('active-control', state.shuffleMode);
+    fsShuffle.setAttribute('aria-pressed', String(state.shuffleMode));
   }
 
   if (fsRepeat) {
     fsRepeat.classList.toggle('active-control', state.repeatMode !== 'off');
+    fsRepeat.setAttribute('aria-pressed', String(state.repeatMode !== 'off'));
     if (state.repeatMode === 'one') {
       fsRepeat.innerHTML = `<i data-lucide="repeat-1"></i>`;
     } else {
@@ -515,6 +670,7 @@ export function updateFullscreenPlayButton() {
     const trackId = state.currentTrack.db_id || state.currentTrack.id;
     const isFav = state.userFavorites.has(trackId);
     fsFavorite.classList.toggle('active', isFav);
+    fsFavorite.setAttribute('aria-pressed', String(isFav));
     if (isFav) {
       fsFavorite.innerHTML = `<i data-lucide="heart" fill="currentColor"></i>`;
     } else {
@@ -554,7 +710,7 @@ export function updateUIProgress(current, total) {
   const knob = document.querySelector('#progress-bar .progress-knob');
   const currentTime = document.getElementById('time-current');
   const totalTime = document.getElementById('time-total');
-  const pct = (current / total) * 100 || 0;
+  const pct = Number.isFinite(total) && total > 0 ? Math.max(0, Math.min(100, (current / total) * 100 || 0)) : 0;
 
   if (bar) bar.style.width = `${pct}%`;
   if (knob) knob.style.left = `${pct}%`;
@@ -571,4 +727,9 @@ export function updateUIProgress(current, total) {
   if (fsKnob) fsKnob.style.left = `${pct}%`;
   if (fsCurrent) fsCurrent.innerText = fmtTime(current);
   if (fsTotal) fsTotal.innerText = fmtTime(total);
+  document.querySelectorAll('#progress-bar, #fs-progress-bar').forEach((slider) => {
+    slider.setAttribute('aria-valuenow', String(Math.round(Math.max(0, Math.min(100, pct)))));
+    slider.setAttribute('aria-valuetext', `${fmtTime(current)} / ${fmtTime(total)}`);
+    slider.setAttribute('aria-disabled', String(!Number.isFinite(total) || total <= 0));
+  });
 }

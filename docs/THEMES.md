@@ -21,6 +21,14 @@ The same theme applies to:
 
 Artwork remains artwork. Provider icons and semantic warning/error states remain recognizable. Switching appearance does not navigate, replace a view, reset a form or restart audio.
 
+## Glass player
+
+The fullscreen player follows Square's [player layout](https://github.com/Lelonio/Square/blob/f9a75dac8affd3c1399db8d66751cb0063494d87/app/src/main/java/dev/lelonio/square/ui/player/PlayerScreen.kt): an artwork/lyrics stage, song-information capsule with favorite and playlist actions, progress with time labels below, three glass transport discs and a lower view selector. Cover, Lyrics and Queue use the same stage, keeping the playback controls visible. Wide screens and landscape place the stage beside the controls; short portrait screens shrink the artwork area rather than hiding controls. The mobile compact player provides Next and Play/Pause on the floating capsule.
+
+The volume control opens from the upper corner and stays synchronized with the compact player's volume and mute state, including YouTube and discovery previews. Sliders support arrow keys (5% steps), Home and End. Escape collapses the fullscreen player and returns focus to its opener without pausing music. The existing audio element and queue/lyrics panels are reused; switching views does not create another audio player. At extreme zoom or very short viewports, the player scrolls to keep every control accessible. Classic retains its layout and action order.
+
+Lyrics scroll inside their own stage without moving the transport. Late responses from a previous song are ignored. Unknown/live durations are not seekable, and track-dependent actions follow the existing local/federated/preview capabilities. The player uses solid surfaces when transparency is reduced, and text remains readable over light artwork.
+
 ## Persistence and synchronization
 
 The authenticated account owns its preference in `users.theme`. `GET /user/appearance` returns it; `PATCH /user/appearance` accepts only `{"theme":"classic"}` or `{"theme":"glass"}` and changes the current account. Theme responses and the sync heartbeat are private and not HTTP-cacheable. Schema migration `034_user_theme` supplies the Classic default without changing existing account data.
@@ -37,4 +45,4 @@ All web clients, including the Android WebView and desktop wrappers, receive the
 
 CSS handles mobile safe areas and leaves space for the floating controls. Focus outlines, native radio controls, reduced motion, reduced transparency and forced colors are supported. Browsers without backdrop blur use solid surfaces. Artwork colors are sampled from the already loaded cover; blocked cross-origin canvas access keeps the default accent and does not affect playback.
 
-Implementation: `Aoede/assets/css/theme_glass.css`, `Aoede/assets/js/modules/appearance.js`, the shared `appearance_head.html` template, and the authenticated user appearance endpoint. Backend checks live in `test_user_theme.py`; `scripts/test_appearance.mjs` exercises persistence, account isolation, offline behavior, failed saves and stale responses. Both run through `npm run check`.
+Implementation: `Aoede/assets/css/theme_glass.css`, `Aoede/assets/js/modules/appearance.js`, the shared `appearance_head.html` template, and the authenticated user appearance endpoint. Backend checks live in `test_user_theme.py`; `scripts/test_appearance.mjs` exercises persistence, account isolation, offline behavior, failed saves and stale responses. `scripts/test_player_ui.mjs` checks panel reuse, Classic restoration, stale lyrics, volume, supported actions and keyboard seeking. These checks run through `npm run check`.

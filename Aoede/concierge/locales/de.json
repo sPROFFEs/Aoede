@@ -404,5 +404,14 @@
     "appearance.sync_description": "Geräteübergreifend gespeichert. Glass folgt dem hellen/dunklen Modus des Geräts; offline gilt die zuletzt gespeicherte Auswahl.",
     "appearance.connect": "Verbinde dich, um das Design geräteübergreifend zu speichern.",
     "appearance.failed": "Das Design konnte nicht gespeichert werden. Bitte erneut versuchen.",
-    "appearance.saved": "Design für alle deine Geräte gespeichert."
+    "appearance.saved": "Design für alle deine Geräte gespeichert.",
+    "player.open_player": "Player öffnen",
+    "player.now_playing": "Aktuelle Wiedergabe",
+    "player.cover": "Cover",
+    "player.seek": "Position im Titel",
+    "player.volume": "Lautstärke",
+    "player.mute": "Stummschalten",
+    "player.unmute": "Ton einschalten",
+    "player.previous": "Vorheriger Titel",
+    "player.next": "Nächster Titel"
 }
