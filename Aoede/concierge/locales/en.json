@@ -393,5 +393,16 @@
     "common.member": "Member",
     "common.admin": "Admin",
     "modal.cancel": "Cancel",
-    "modal.confirm": "Confirm"
+    "modal.confirm": "Confirm",
+    "appearance.title": "Appearance",
+    "appearance.description": "Choose your visual theme. The preference belongs to your account.",
+    "appearance.choose": "Choose a theme",
+    "appearance.classic": "Classic",
+    "appearance.classic_description": "The current Aoede interface.",
+    "appearance.glass": "Glass",
+    "appearance.glass_description": "Translucent surfaces, luminous edges and artwork colour, inspired by Square.",
+    "appearance.sync_description": "Saved across devices. Glass follows your device’s light/dark mode; offline uses your last saved choice.",
+    "appearance.connect": "Connect to save your theme across devices.",
+    "appearance.failed": "Could not save the theme. Please try again.",
+    "appearance.saved": "Theme saved for all your devices."
 }

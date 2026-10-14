@@ -14,6 +14,8 @@ All routes and API endpoints behind these pages require an authenticated adminis
 
 Each area has its own task tabs. **Admin** separates **Users**, **Library**, **Duplicates**, **Maintenance** and **Federation**. **System Monitor** separates **Overview**, **Statistics**, **Updates**, **Backups**, **Wrapped** and **Jobs**. **Download Manager** separates **Runtime**, **Provider sessions** and **Engine policy**. Tabs scroll horizontally on smaller screens, support arrow/Home/End keys, and retain the selected task after a form response or navigation in the same session.
 
+Administrative screens use the viewer's **Settings → Appearance** theme. The additional Glass theme is an account preference, not a server-wide setting. Migration `034_user_theme` adds it with Classic as the default. Deploy the updated Concierge together with its templates and assets; the desktop/Android web wrappers consume the frontend update without rebuilding their binaries. See [Themes](THEMES.md).
+
 ## User management
 
 Use **User Admin** to create standard or administrator accounts, reset a user's password, or delete an account. Account deletion is destructive; create a backup first if the user's data may be needed later.

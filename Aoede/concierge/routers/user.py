@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+from typing import Literal
 
 import auth
 import database
@@ -9,8 +10,9 @@ import federated_collections
 import spotify_service
 from aoede_config import settings
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from lastfm_service import lastfm_service
+from pydantic import BaseModel
 from secrets_store import ENC_PREFIX
 from shared_templates import templates
 from sqlalchemy.orm import Session
@@ -21,6 +23,10 @@ router = APIRouter(prefix="/user")
 
 DEFAULT_METADATA_PREFERENCES = ["spotify", "lastfm", "musicbrainz"]
 ALLOWED_METADATA_PROVIDERS = set(DEFAULT_METADATA_PREFERENCES)
+
+
+class AppearanceRequest(BaseModel):
+    theme: Literal["classic", "glass"]
 
 
 def get_db():
@@ -36,6 +42,27 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         return auth.get_current_user(request, db)
     except Exception:
         return None
+
+
+@router.get("/appearance")
+@router.patch("/appearance")
+def user_appearance(request: Request, body: AppearanceRequest | None = None, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if request.method == "PATCH":
+        if body is None:
+            return JSONResponse({"error": "Choose a theme"}, status_code=422)
+        user.theme = body.theme
+        try:
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning("Could not save user theme")
+            return JSONResponse({"error": "Could not save the theme"}, status_code=500)
+    return JSONResponse(
+        {"theme": user.theme or "classic", "username": user.username}, headers={"Cache-Control": "private, no-store"}
+    )
 
 
 def ensure_download_settings(db: Session, user: database.User) -> database.DownloadSettings:

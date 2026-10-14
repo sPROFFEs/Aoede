@@ -1608,6 +1608,16 @@ def _migration_033_federated_collections(conn):
     database.FederatedPlaylistCollaborator.__table__.create(bind=conn, checkfirst=True)
 
 
+def _migration_034_user_theme(conn):
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+    if "theme" not in columns:
+        conn.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'classic' CHECK(theme IN ('classic', 'glass'))"
+            )
+        )
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1643,6 +1653,7 @@ MIGRATIONS = [
     ("031_federated_party_rooms", _migration_031_federated_party_rooms),
     ("032_collection_imports", _migration_032_collection_imports),
     ("033_federated_collections", _migration_033_federated_collections),
+    ("034_user_theme", _migration_034_user_theme),
 ]
 
 

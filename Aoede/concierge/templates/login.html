@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="{{ user_theme|default('classic') }}">
 
 <head>
     <meta charset="UTF-8">
@@ -372,6 +372,8 @@
             .pwa-banner { display: none !important; }
         }
     </style>
+    <meta name="theme-color" content="#121212">
+    {% include "appearance_head.html" %}
 </head>
 
 <body>

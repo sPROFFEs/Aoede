@@ -18,6 +18,7 @@ import * as party from './party.js';
 import * as offlineStore from './offline_store.js';
 import { initSystemMonitor } from './system_monitor.js';
 import { initDownloadManager } from './admin_downloads.js';
+import { syncThemeControls } from './appearance.js';
 
 const SECRET_EYE_ICON = `
     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -348,6 +349,7 @@ export async function renderExternalView(container, url) {
 
     ui.refreshIcons(container);
     ui.initSettingsTabs(container);
+    syncThemeControls(container);
 
     if (typeof htmx !== 'undefined') {
       htmx.process(container);
@@ -428,6 +430,7 @@ export function initSpaHistory() {
 document.body.addEventListener('htmx:afterSwap', (event) => {
   if (event.target?.id !== 'view-container') return;
   ui.initSettingsTabs(event.target);
+  syncThemeControls(event.target);
   initUserSettingsView(event.target);
   const username = window.USER_DATA?.username;
   if (!username) return;

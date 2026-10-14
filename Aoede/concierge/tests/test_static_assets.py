@@ -70,9 +70,15 @@ def test_first_party_frontend_stays_inside_download_budgets():
     assets_root = Path(__file__).resolve().parents[2] / "assets"
     javascript = [assets_root / "js" / "main.js", *(assets_root / "js" / "modules").glob("*.js")]
     stylesheets = list((assets_root / "css").glob("*.css"))
+    appearance = assets_root / "js/modules/appearance.js"
+    glass = assets_root / "css/theme_glass.css"
 
     # These are uncompressed upper bounds. Nginx serves them compressed, so a
     # regression here catches accidental large bundles before transfer cost is
     # multiplied across every navigation.
-    assert sum(path.stat().st_size for path in javascript) < 600_000
-    assert sum(path.stat().st_size for path in stylesheets) < 300_000
+    assert sum(path.stat().st_size for path in javascript if path != appearance) < 600_000
+    assert sum(path.stat().st_size for path in stylesheets if path != glass) < 300_000
+    # The additional account theme has its own bounded cost; keep the original
+    # interface budgets instead of silently granting every existing file room.
+    assert appearance.stat().st_size < 8_000
+    assert glass.stat().st_size < 50_000

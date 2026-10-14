@@ -163,8 +163,8 @@ const views = await load('Aoede/assets/js/modules/views.js', {
   document: { body: { addEventListener() {} } },
   window: { location: { assign: (value) => { destination = value; } } }, console, URL,
   fetch: async () => ({ redirected: true, url: 'https://aoede.example/login' })
-}, Object.fromEntries(['state', 'ui', 'api', 'player', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads'].map(name => [
-  `./${name}.js`, name === 'system_monitor' ? { initSystemMonitor() {} } : name === 'admin_downloads' ? { initDownloadManager() {} } : {}
+}, Object.fromEntries(['state', 'ui', 'api', 'player', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads', 'appearance'].map(name => [
+  `./${name}.js`, name === 'system_monitor' ? { initSystemMonitor() {} } : name === 'admin_downloads' ? { initDownloadManager() {} } : name === 'appearance' ? { syncThemeControls() {} } : {}
 ])));
 await views.loadView('settings_admin');
 assert.equal(destination, '/admin/');

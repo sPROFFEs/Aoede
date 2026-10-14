@@ -16,6 +16,7 @@ import * as playlists from './modules/playlists.js';
 import * as downloads from './modules/downloads.js';
 import * as views from './modules/views.js';
 import * as library from './modules/library.js';
+import * as appearance from './modules/appearance.js';
 import * as offlineStore from './modules/offline_store.js';
 // admin.js is dynamically imported below for is_admin users only.
 // Saves ~24 KB on every non-admin page load.
@@ -279,6 +280,7 @@ window.openLibraryFacet = library.openLibraryFacet;
 window.reloadLibraryFacets = library.reloadLibraryFacets;
 window.loadMoreLibraryFacets = library.loadMoreLibraryFacets;
 window.previousLibraryPage = library.previousLibraryPage;
+window.saveUserTheme = appearance.saveUserTheme;
 window.showCreateSmartPlaylistModal = library.showCreateSmartPlaylistModal;
 window.showEditSmartPlaylistModal = library.showEditSmartPlaylistModal;
 window.previewSmartPlaylist = library.previewSmartPlaylist;
@@ -410,6 +412,7 @@ window.onYouTubeIframeAPIReady = () => {
 // === INITIALIZATION ===
 document.addEventListener('DOMContentLoaded', async () => {
   console.log('[MAIN] Aoede ES6 Modules Initialized');
+  appearance.initAppearance();
 
   await offlineStore.initOfflineStore();
 

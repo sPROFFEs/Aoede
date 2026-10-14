@@ -393,5 +393,16 @@
     "common.member": "Mitglied",
     "common.admin": "Admin",
     "modal.cancel": "Abbrechen",
-    "modal.confirm": "Bestätigen"
+    "modal.confirm": "Bestätigen",
+    "appearance.title": "Darstellung",
+    "appearance.description": "Wähle dein Design. Die Einstellung wird in deinem Konto gespeichert.",
+    "appearance.choose": "Design auswählen",
+    "appearance.classic": "Klassisch",
+    "appearance.classic_description": "Die bisherige Aoede-Oberfläche.",
+    "appearance.glass": "Glass",
+    "appearance.glass_description": "Transparente Flächen, leuchtende Ränder und Farben des Covers, inspiriert von Square.",
+    "appearance.sync_description": "Geräteübergreifend gespeichert. Glass folgt dem hellen/dunklen Modus des Geräts; offline gilt die zuletzt gespeicherte Auswahl.",
+    "appearance.connect": "Verbinde dich, um das Design geräteübergreifend zu speichern.",
+    "appearance.failed": "Das Design konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "appearance.saved": "Design für alle deine Geräte gespeichert."
 }

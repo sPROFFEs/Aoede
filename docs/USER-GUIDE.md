@@ -173,7 +173,9 @@ The top-bar response indicator shows approvals, rejections and any administrator
 
 ## Account and provider settings
 
-Settings are grouped into **Account**, **Playback**, **Integrations** and **YouTube authentication** tabs. Switching tabs preserves unsaved fields on the page; saving a form restores the selected tab. On a phone, swipe the tab strip horizontally to reach additional categories.
+Settings are grouped into **Account**, **Appearance**, **Playback**, **Integrations** and **YouTube authentication** tabs. Switching tabs preserves unsaved fields on the page; saving a form restores the selected tab. On a phone, swipe the tab strip horizontally to reach additional categories.
+
+In **Appearance**, choose **Classic** (the default) or **Glass**, an additional translucent theme inspired by Square. Glass follows your device's light/dark mode and applies throughout the web interface, including administrative tools, mobile controls and Wrapped. Your choice is saved to your account and follows you across devices; another open device updates within the visible-page heartbeat, normally 30 seconds. A connection is required to save changes. Offline launches retain that account's last confirmed theme on the device. See [Themes](THEMES.md) for design references and implementation details.
 
 Settings let you:
 

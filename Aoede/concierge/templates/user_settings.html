@@ -477,12 +477,35 @@
 
     <nav class="settings-tabbar" role="tablist" aria-label="Your settings">
         <button type="button" data-settings-tab="account"><i data-lucide="user-round"></i>Account</button>
+        <button type="button" data-settings-tab="appearance"><i data-lucide="palette"></i>{{ _('appearance.title') }}</button>
         <button type="button" data-settings-tab="playback"><i data-lucide="volume-2"></i>Playback</button>
         <button type="button" data-settings-tab="integrations"><i data-lucide="plug"></i>Integrations</button>
         <button type="button" data-settings-tab="youtube"><i data-lucide="cookie"></i>YouTube authentication</button>
     </nav>
 
     <div class="user-settings-grid">
+        <section class="user-settings-panel" data-settings-panel="appearance">
+            <div class="user-settings-panel-header">
+                <h2><i data-lucide="palette" width="18" height="18"></i>{{ _('appearance.title') }}</h2>
+                <p>{{ _('appearance.description') }}</p>
+            </div>
+            <div class="user-settings-panel-body">
+                <fieldset class="theme-options" data-theme-controls>
+                    <legend class="sr-only">{{ _('appearance.choose') }}</legend>
+                    <label class="theme-option">
+                        <input type="radio" name="user-theme" value="classic" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme != 'glass' %} checked{% endif %}>
+                        <span class="theme-preview theme-preview-classic" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
+                        <strong>{{ _('appearance.classic') }}</strong><span>{{ _('appearance.classic_description') }}</span>
+                    </label>
+                    <label class="theme-option">
+                        <input type="radio" name="user-theme" value="glass" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme == 'glass' %} checked{% endif %}>
+                        <span class="theme-preview theme-preview-glass" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
+                        <strong>{{ _('appearance.glass') }}</strong><span>{{ _('appearance.glass_description') }}</span>
+                    </label>
+                </fieldset>
+                <p class="user-settings-help" role="status">{{ _('appearance.sync_description') }}</p>
+            </div>
+        </section>
         <section class="user-settings-panel" data-settings-panel="account">
             <div class="user-settings-panel-header">
                 <h2><i data-lucide="lock" width="18" height="18"></i>{{ _('settings.section.security') }}</h2>

@@ -269,8 +269,8 @@ const radioPlayer = (await load('radio.js', {}, { './state.js': playback, './ui.
 await radioPlayer.playRadioStream('station', 'Station');
 await radioPlayer.playSavedRadio('https%3A%2F%2Fstation.example', 'Station');
 assert.equal(plays, 0);
-const viewDependencies = Object.fromEntries(['state', 'ui', 'api', 'player', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads'].map(name => [
-  `./${name}.js`, name === 'system_monitor' ? { initSystemMonitor() {} } : name === 'admin_downloads' ? { initDownloadManager() {} } : name === 'player' ? player.api : {}
+const viewDependencies = Object.fromEntries(['state', 'ui', 'api', 'player', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads', 'appearance'].map(name => [
+  `./${name}.js`, name === 'system_monitor' ? { initSystemMonitor() {} } : name === 'admin_downloads' ? { initDownloadManager() {} } : name === 'appearance' ? { syncThemeControls() {} } : name === 'player' ? player.api : {}
 ]));
 const guardedViews = (await load('views.js', { document: { body: { addEventListener() {} } }, window: {} }, viewDependencies)).api;
 guardedViews.discoveryTogglePreview({}, 'bad');

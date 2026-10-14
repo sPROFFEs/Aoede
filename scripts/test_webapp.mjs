@@ -67,6 +67,14 @@ assert.ok(await caches.match('/portal')); // A normal / -> /portal redirect must
 await (await caches.open(current)).put('/portal', new Response('music shell'));
 fetcher = async () => { throw new TypeError('offline'); };
 assert.equal(await (await event('fetch', request('/', 'navigate'))).text(), 'music shell');
+for (const path of ['/assets/css/theme_glass.css', '/assets/js/modules/appearance.js']) {
+  assert.equal(await (await event('fetch', request(`${path}?v=new-release`))).text(), 'asset');
+}
+await assert.rejects(event('fetch', request('/assets/not-installed.js?v=new-release')), /offline/);
+fetcher = async () => new Response('fresh version');
+assert.equal(await (await event('fetch', request('/assets/css/theme_glass.css?v=online'))).text(), 'fresh version');
+fetcher = async () => { throw new TypeError('offline'); };
+assert.equal(await (await event('fetch', request('/assets/css/theme_glass.css?v=online'))).text(), 'fresh version');
 for (const path of ['/api/playlists', '/admin/api/system-stats']) {
   const response = await event('fetch', request(path));
   assert.equal(response.status, 503);
@@ -76,6 +84,7 @@ const admin = await event('fetch', request('/admin/system', 'navigate'));
 assert.equal(admin.status, 503);
 assert.ok(!(await admin.text()).includes('music shell'));
 assert.equal(await event('fetch', request('/user/settings')), undefined); // HTMX handles its actual connection failure.
+assert.equal(await event('fetch', request('/user/appearance')), undefined); // Private preference never enters shell caching.
 fetcher = async () => redirected();
 await event('fetch', request('/portal', 'navigate'));
 assert.equal(await caches.match('/portal'), undefined);
@@ -102,6 +111,7 @@ const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/j
 await module.link(name => {
   const values = name === './state.js' ? { setCurrentViewName() {}, setCurrentViewParam() {} }
     : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; } }
+    : name === './appearance.js' ? { syncThemeControls() {} }
     : name === './system_monitor.js' ? { initSystemMonitor() {} }
     : name === './admin_downloads.js' ? { initDownloadManager() {} } : {};
   return new vm.SyntheticModule(Object.keys(values), function () {

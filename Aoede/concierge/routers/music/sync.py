@@ -87,7 +87,15 @@ async def get_sync_state(request: Request, db: Session = Depends(get_db)):
         version_hash = hashlib.md5(state_str.encode()).hexdigest()[:12]
 
         return JSONResponse(
-            {"fav_count": fav_count, "fav_ids": fav_id_list, "playlist_count": playlist_count, "version": version_hash}
+            {
+                "fav_count": fav_count,
+                "fav_ids": fav_id_list,
+                "playlist_count": playlist_count,
+                "version": version_hash,
+                "theme": user.theme or "classic",
+                "username": user.username,
+            },
+            headers={"Cache-Control": "private, no-store"},
         )
 
     except Exception as e:

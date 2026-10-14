@@ -6,6 +6,7 @@ import * as state from './state.js';
 import * as api from './api.js';
 import * as ui from './ui.js';
 import * as offlineStore from './offline_store.js';
+import * as appearance from './appearance.js';
 
 const HEARTBEAT_MS = 30000;
 let handlers = {
@@ -69,10 +70,12 @@ export async function checkSyncState() {
   try {
     await offlineStore.flushPendingActions();
 
+    const appearanceGeneration = appearance.requestGeneration;
     const res = await fetch(`${state.API}/sync-state`);
     if (!res.ok) return;
 
     const syncState = await res.json();
+    appearance.syncTheme(syncState, appearanceGeneration);
 
     if (state.lastSyncVersion !== null && syncState.version !== state.lastSyncVersion) {
       // Do not replace a collaborator's in-progress form or drag gesture.

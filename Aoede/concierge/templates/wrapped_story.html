@@ -1,10 +1,12 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{ user_theme|default('classic') }}" data-theme-user="{{ username }}">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>Aoede Wrapped</title>
     <link rel="stylesheet" href="/assets/wrapped_story/story.css?v={{ range(1, 9999) | random }}" />
+    <meta name="theme-color" content="#121212">
+    {% include "appearance_head.html" %}
   </head>
 
   <body>
@@ -36,5 +38,9 @@
     </script>
     <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
     <script src="/assets/wrapped_story/story.js?v={{ range(1, 99999) | random }}"></script>
+    <script type="module">
+      import { initAppearance } from '/assets/js/modules/appearance.js?v={{ static_v }}';
+      initAppearance();
+    </script>
   </body>
 </html>

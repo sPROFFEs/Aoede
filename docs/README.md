@@ -10,6 +10,7 @@ This directory contains the detailed guides that were intentionally moved out of
 | Decide how to expose it | [Deployment](DEPLOYMENT.md) |
 | Configure environment variables and providers | [Configuration](CONFIGURATION.md) |
 | Learn the interface | [User Guide](USER-GUIDE.md) |
+| Choose Classic or Glass appearance | [Themes](THEMES.md) |
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |
 | Import an existing music collection | [Importing Music](IMPORTING-MUSIC.md) |
 | Install the Android client | [Android](ANDROID.md) |

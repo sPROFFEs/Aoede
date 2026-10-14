@@ -8,11 +8,13 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v12';
+const CACHE = 'aoede-shell-v13';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
 const PRECACHE_ASSETS = [
+  '/assets/css/theme_glass.css',
+  '/assets/js/modules/appearance.js',
   '/portal',
   '/assets/site.webmanifest',
   '/assets/favicon.ico',
@@ -204,15 +206,24 @@ self.addEventListener('fetch', (event) => {
         }
 
         // Not cached yet: fetch, cache, and return
-        return fetch(request).then((res) => {
-          if (!res.ok) return res;
-          const cacheResponse = res.clone();
-          return caches
-            .open(CACHE)
-            .then((cache) => cache.put(request, cacheResponse))
-            .catch(() => {})
-            .then(() => res);
-        });
+        return fetch(request)
+          .then((res) => {
+            if (!res.ok) return res;
+            const cacheResponse = res.clone();
+            return caches
+              .open(CACHE)
+              .then((cache) => cache.put(request, cacheResponse))
+              .catch(() => {})
+              .then(() => res);
+          })
+          .catch(async (error) => {
+            // Installation precaches canonical URLs; templates request ?v=.
+            // Keep versioned assets authoritative online and use the installed
+            // shell's copy only when the network is unavailable.
+            const installed = await caches.match(url.pathname);
+            if (installed) return installed;
+            throw error;
+          });
       })
     );
     return;

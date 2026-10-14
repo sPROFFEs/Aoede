@@ -101,6 +101,7 @@ class User(Base):
     session_version = Column(Integer, default=0, nullable=False)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
+    theme = Column(String, default="classic", server_default="classic", nullable=False)
     avatar_path = Column(String, nullable=True)
     last_access = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     # Service accounts authenticate ONLY via federation tokens — they

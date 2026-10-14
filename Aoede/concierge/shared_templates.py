@@ -33,7 +33,12 @@ if not TEMPLATES_DIR.is_dir():
 
 import i18n
 
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+
+def appearance_context(request):
+    return {"user_theme": "glass" if getattr(request.state, "user_theme", None) == "glass" else "classic"}
+
+
+templates = Jinja2Templates(directory=str(TEMPLATES_DIR), context_processors=[appearance_context])
 # Expose static asset version as a Jinja2 global so every template can use
 # {{ static_v }} without any Python-side boilerplate.
 templates.env.globals["static_v"] = _compute_static_version()
