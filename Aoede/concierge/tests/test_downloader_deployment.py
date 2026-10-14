@@ -1,11 +1,63 @@
+import json
 import subprocess
 from pathlib import Path
 
 import pytest
 import update_service
 import yaml
+from aoede_config import Settings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.mark.parametrize(
+    "old_url",
+    [
+        "https://github.com/sPROFFEs/Navipod",
+        "http://github.com/sPROFFEs/Navipod/",
+        "https://github.com/sPROFFEs/Navipod.git",
+        "ssh://git@github.com/sPROFFEs/Navipod.git",
+        "git@github.com:sPROFFEs/Navipod.git",
+    ],
+)
+def test_renamed_official_update_source_migrates(old_url, monkeypatch):
+    monkeypatch.setenv("UPDATE_SOURCE_REPO_URL", old_url)
+    assert Settings(_env_file=None).UPDATE_SOURCE_REPO_URL == "https://github.com/sPROFFEs/Aoede"
+
+
+def test_updates_show_current_source_without_reusing_another_repository_check(monkeypatch):
+    source = "https://github.com/sPROFFEs/Aoede"
+    monkeypatch.setattr(update_service.ops.settings, "UPDATE_SOURCE_REPO_URL", source)
+    monkeypatch.setattr(update_service.ops.settings, "UPDATE_SOURCE_BRANCH", "main")
+    saved = {
+        "source_repo_url": "https://github.com/sPROFFEs/Navipod.git",
+        "source_branch": "main",
+        "checked_at": "2026-10-14T12:00:00Z",
+        "current": {"commit": "1234567", "repo_url": "https://github.com/sPROFFEs/Navipod"},
+        "behind_count": 2,
+        "update_available": True,
+    }
+    row = type("SettingsRow", (), {"update_state_json": json.dumps(saved)})()
+    monkeypatch.setattr(update_service.ops, "ensure_system_settings_record", lambda _db: row)
+    monkeypatch.setattr(update_service, "get_build_info", lambda: {"commit": "7654321", "repo_url": source})
+    state = update_service.get_update_state(None)
+    assert state["source_repo_url"] == state["current"]["repo_url"] == source
+    assert state["checked_at"] == saved["checked_at"]
+    assert state["behind_count"] == 2
+    assert state["update_available"] is True
+    assert json.loads(row.update_state_json) == saved  # Rendering does not rewrite history.
+
+    fork = "https://github.com/example/Navipod"
+    assert Settings(_env_file=None, UPDATE_SOURCE_REPO_URL=fork).UPDATE_SOURCE_REPO_URL == fork
+    monkeypatch.setattr(update_service.ops.settings, "UPDATE_SOURCE_REPO_URL", fork)
+    state = update_service.get_update_state(None)
+    assert state["source_repo_url"] == fork
+    assert "checked_at" not in state and state["update_available"] is False
+    assert update_service.is_update_state_stale(None) is True
+
+    row.update_state_json = json.dumps({**saved, "source_repo_url": source, "source_branch": "develop"})
+    monkeypatch.setattr(update_service.ops.settings, "UPDATE_SOURCE_REPO_URL", source)
+    assert "checked_at" not in update_service.get_update_state(None)
 
 
 def test_all_compose_variants_include_isolated_downloader():

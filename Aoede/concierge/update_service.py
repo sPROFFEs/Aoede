@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 import database
 import httpx
 import ops_core as ops
+from aoede_config import normalize_update_repo_url
 from build_info_service import _get_revision_since_version_bump, get_build_info
 from job_service import (
     acquire_lock,
@@ -220,10 +221,21 @@ def get_update_state(db):
             state = json.loads(settings_row.update_state_json)
         except Exception:
             state = {}
+    if not isinstance(state, dict):
+        state = {}
+    source = ops.settings.UPDATE_SOURCE_REPO_URL
+    branch = ops.settings.UPDATE_SOURCE_BRANCH
+    cached_source = state.get("source_repo_url", source)
+    if (
+        not isinstance(cached_source, str)
+        or normalize_update_repo_url(cached_source) != source
+        or state.get("source_branch", branch) != branch
+    ):
+        state = {}
     current = state.get("current") or get_build_info()
-    state.setdefault("current", current)
-    state.setdefault("source_repo_url", ops.settings.UPDATE_SOURCE_REPO_URL)
-    state.setdefault("source_branch", ops.settings.UPDATE_SOURCE_BRANCH)
+    state["current"] = {**current, "repo_url": source}
+    state["source_repo_url"] = source
+    state["source_branch"] = branch
     state.setdefault("message", "No update check performed yet")
     state.setdefault("status", "idle")
     state.setdefault("behind_count", 0)

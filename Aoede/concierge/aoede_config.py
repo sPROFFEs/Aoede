@@ -1,4 +1,17 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+def normalize_update_repo_url(value: str) -> str:
+    # Only the renamed official repository moves; configured forks stay intact.
+    if value.strip().rstrip("/").removesuffix(".git").lower() in {
+        "https://github.com/sproffes/navipod",
+        "http://github.com/sproffes/navipod",
+        "ssh://git@github.com/sproffes/navipod",
+        "git@github.com:sproffes/navipod",
+    }:
+        return "https://github.com/sPROFFEs/Aoede"
+    return value
 
 
 class Settings(BaseSettings):
@@ -55,6 +68,11 @@ class Settings(BaseSettings):
     DOMAIN: str = "localhost"
     ALLOWED_HOSTS: str = "localhost,127.0.0.1,0.0.0.0,domain.com,*.domain.com"
     CORS_ORIGINS: str = "http://localhost,http://127.0.0.1"
+
+    @field_validator("UPDATE_SOURCE_REPO_URL")
+    @staticmethod
+    def migrate_update_repo_url(value: str) -> str:
+        return normalize_update_repo_url(value)
 
     @property
     def all_allowed_hosts(self) -> list[str]:

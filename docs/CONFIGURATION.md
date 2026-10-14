@@ -42,7 +42,7 @@ Never commit the resulting `.env`.
 | `COMPOSE_ENV_FILE` | `/saas-data/config/aoede.env` | Compose environment path used by update/setup workflows. |
 | `RUNTIME_ENV_FILE` | `/run/aoede/.env` | Runtime environment path used by backup/restore. |
 | `BACKUP_SCHEDULER_POLL_SECONDS` | `60` | Admin backup scheduler polling interval. |
-| `UPDATE_SOURCE_REPO_URL` | official GitHub repo | Repository checked for application updates. |
+| `UPDATE_SOURCE_REPO_URL` | `https://github.com/sPROFFEs/Aoede` | Repository checked for application updates. The former official `sPROFFEs/Navipod` URL is automatically migrated to Aoede; custom forks are preserved. |
 | `UPDATE_SOURCE_BRANCH` | `main` | Update source branch. |
 | `UPDATE_MANAGED_SERVICES` | `concierge nginx tunnel` | Services recreated by the updater. |
 | `COOKIE_SECURE` | `true` | Use secure cookies for HTTPS deployments; `false` only for trusted local HTTP. |
