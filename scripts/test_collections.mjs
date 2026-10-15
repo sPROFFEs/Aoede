@@ -83,10 +83,12 @@ const fresh = results.innerHTML;
 slow({ ok: false, status: 500 });
 await stale;
 assert.equal(results.innerHTML, fresh); // A stale failure must not overwrite fresh results.
-search.api.setSource({ classList: { add() {} } }, 'local');
+let selectedProvider;
+search.api.setSource({ classList: { add() {} }, setAttribute(name, value) { if (name === 'aria-pressed') selectedProvider = value; } }, 'local');
 await new Promise(setImmediate);
 assert.equal(search.api.collectionSearchEnabled, false);
 assert.equal(toggle.checked, false);
+assert.equal(selectedProvider, 'true');
 await search.api.setCollectionSearch(true);
 assert.equal(values.currentSource, 'all'); // Toggle after a local-only chip uses supported providers.
 

@@ -21,6 +21,12 @@ The same theme applies to:
 
 Artwork remains artwork. Provider icons and semantic warning/error states remain recognizable. Switching appearance does not navigate, replace a view, reset a form or restart audio.
 
+## Material details
+
+Glass uses a quieter content layer beneath floating navigation, menus and notifications. Following the material hierarchy in [Apple's guidance](https://developer.apple.com/design/human-interface-guidelines/materials), cards and nested settings rows have subtle separators without repeated blur or heavy shadows. The [LiquidGlass.pro reference](https://www.liquid-glass.pro/) informed the soft edge lighting; the implementation uses original CSS gradients, inset highlights and browser backdrop blur, without a distortion filter on text.
+
+Download notifications keep readable text on one translucent surface. Job metadata labels have transparent backgrounds; completed and failed jobs use the theme's semantic colors. Album/playlist search and URL preview controls are native checkboxes exposed as switches, with keyboard activation and visible focus. Other checkboxes and radio buttons retain their native behavior. Disabled controls, read-only fields, long metadata, mobile margins and reduced transparency/high contrast modes are handled by the same theme.
+
 ## Glass player
 
 The fullscreen player follows Square's [player layout](https://github.com/Lelonio/Square/blob/f9a75dac8affd3c1399db8d66751cb0063494d87/app/src/main/java/dev/lelonio/square/ui/player/PlayerScreen.kt): an artwork/lyrics stage, song-information capsule with favorite and playlist actions, progress with time labels below, three glass transport discs and a lower view selector. Cover, Lyrics and Queue use the same stage, keeping the playback controls visible. Wide screens and landscape place the stage beside the controls; short portrait screens shrink the artwork area rather than hiding controls. The mobile compact player provides Next and Play/Pause on the floating capsule.

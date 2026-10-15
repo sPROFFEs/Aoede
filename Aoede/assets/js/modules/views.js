@@ -827,18 +827,20 @@ export function renderSearch(container) {
                 oninput="handleTopbarSearch(this.value)">
         </div>
         <div class="source-chips">
-            <div class="chip active" onclick="setSource(this, 'all')">${ui.t('search.chip_all', 'All')}</div>
-            <div class="chip spotify" onclick="setSource(this, 'spotify')">${ui.t('search.chip_spotify', 'Spotify')}</div>
-            <div class="chip youtube" onclick="setSource(this, 'youtube')">${ui.t('search.chip_youtube', 'YouTube')}</div>
-            <div class="chip lastfm" onclick="setSource(this, 'lastfm')">${ui.t('search.chip_lastfm', 'Last.fm')}</div>
-            <div class="chip musicbrainz" onclick="setSource(this, 'musicbrainz')">${ui.t('search.chip_musicbrainz', 'MusicBrainz')}</div>
-            <div class="chip" onclick="setSource(this, 'local')">${ui.t('search.chip_local', 'Local')}</div>
-            <div class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> ${ui.t('search.chip_users', 'Users')}</div>
+            <button type="button" class="chip active" onclick="setSource(this, 'all')">${ui.t('search.chip_all', 'All')}</button>
+            <button type="button" class="chip spotify" onclick="setSource(this, 'spotify')">${ui.t('search.chip_spotify', 'Spotify')}</button>
+            <button type="button" class="chip youtube" onclick="setSource(this, 'youtube')">${ui.t('search.chip_youtube', 'YouTube')}</button>
+            <button type="button" class="chip lastfm" onclick="setSource(this, 'lastfm')">${ui.t('search.chip_lastfm', 'Last.fm')}</button>
+            <button type="button" class="chip musicbrainz" onclick="setSource(this, 'musicbrainz')">${ui.t('search.chip_musicbrainz', 'MusicBrainz')}</button>
+            <button type="button" class="chip" onclick="setSource(this, 'local')">${ui.t('search.chip_local', 'Local')}</button>
+            <button type="button" class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> ${ui.t('search.chip_users', 'Users')}</button>
         </div>
-        <label class="collection-search-toggle"><input type="checkbox" id="collection-search-toggle" ${search.collectionSearchEnabled ? 'checked' : ''} onchange="setCollectionSearch(this.checked)"> Search albums and playlists (Spotify / YouTube)</label>
+        <label class="collection-search-toggle"><input type="checkbox" role="switch" id="collection-search-toggle" ${search.collectionSearchEnabled ? 'checked' : ''} onchange="setCollectionSearch(this.checked)"> Search albums and playlists (Spotify / YouTube)</label>
         <div id="search-results"></div>`;
   container.querySelectorAll('.source-chips .chip').forEach((chip) => {
-    chip.classList.toggle('active', chip.getAttribute('onclick').includes(`'${state.currentSource}'`));
+    const active = chip.getAttribute('onclick').includes(`'${state.currentSource}'`);
+    chip.classList.toggle('active', active);
+    chip.setAttribute('aria-pressed', String(active));
   });
   ui.refreshIcons(container);
   // Seed with the current topbar query (so refresh / direct navigation

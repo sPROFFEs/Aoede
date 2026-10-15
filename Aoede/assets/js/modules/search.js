@@ -15,9 +15,11 @@ export function setCollectionSearch(enabled) {
   collectionSearchEnabled = Boolean(enabled);
   if (collectionSearchEnabled && !['all', 'spotify', 'youtube'].includes(state.currentSource)) {
     state.setCurrentSource('all');
-    document
-      .querySelectorAll('.source-chips .chip')
-      .forEach((chip) => chip.classList.toggle('active', chip.getAttribute('onclick').includes("'all'")));
+    document.querySelectorAll('.source-chips .chip').forEach((chip) => {
+      const active = chip.getAttribute('onclick').includes("'all'");
+      chip.classList.toggle('active', active);
+      chip.setAttribute('aria-pressed', String(active));
+    });
   }
   if (state.searchDebounce) clearTimeout(state.searchDebounce);
   state.setSearchDebounce(null);
@@ -59,8 +61,12 @@ export function setSource(el, src) {
     const toggle = document.getElementById('collection-search-toggle');
     if (toggle) toggle.checked = false;
   }
-  document.querySelectorAll('.chip').forEach((c) => c.classList.remove('active'));
+  document.querySelectorAll('.chip').forEach((c) => {
+    c.classList.remove('active');
+    c.setAttribute('aria-pressed', 'false');
+  });
   el.classList.add('active');
+  el.setAttribute('aria-pressed', 'true');
   // The search query can come from any of (in priority order):
   //   - the desktop topbar pill        (#topbar-search-input)
   //   - the mobile in-view search pill (#m-search-input)

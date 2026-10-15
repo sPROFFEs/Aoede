@@ -424,7 +424,7 @@ export async function refreshJobs() {
                 <div class="job-progress-bg">
                     <div class="job-progress-fill" style="width: ${j.progress}%"></div>
                 </div>
-                <div class="job-detail" style="margin-top:8px; font-size:0.82rem; color: ${j.error ? '#ff9d9d' : 'var(--text-sub, #aaa)'};">
+                <div class="job-detail${j.error ? ' error' : ''}" style="margin-top:8px; font-size:0.82rem; color: ${j.error ? '#ff9d9d' : 'var(--text-sub, #aaa)'};">
                     ${detail}
                 </div>
                 ${resolutionLines ? `<div class="job-resolution">${resolutionLines}</div>` : ''}

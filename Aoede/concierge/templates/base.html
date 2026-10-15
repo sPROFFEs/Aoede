@@ -489,7 +489,7 @@
                 <button onclick="closeDownloadsModal()" class="modal-close"><i data-lucide="x"></i></button>
             </div>
 
-            <label class="collection-search-toggle"><input type="checkbox" id="dl-modal-collection" onchange="updateDownloadMode()"> Album / playlist URL (Spotify / YouTube)</label>
+            <label class="collection-search-toggle"><input type="checkbox" role="switch" id="dl-modal-collection" onchange="updateDownloadMode()"> Album / playlist URL (Spotify / YouTube)</label>
             <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:24px; align-items: flex-start;">
                 <input type="text" id="dl-modal-url" class="modal-input" placeholder="{{ _('downloads.modal_placeholder') if _ else 'Paste YouTube/Spotify URL...' }}"
                     aria-label="Download URL" style="margin-bottom:0; flex:1 1 220px; min-width:0;">

@@ -79,6 +79,7 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes the fullscreen panel/volume coordinator and keyboard controls.
     assert sum(path.stat().st_size for path in javascript if path != appearance) < 610_000
     assert sum(path.stat().st_size for path in stylesheets if path != glass) < 300_000
-    # Bound the account theme separately from the rest of the interface.
+    # Bound the account theme, including form states and accessibility fallbacks,
+    # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
-    assert glass.stat().st_size < 55_000
+    assert glass.stat().st_size < 60_000
