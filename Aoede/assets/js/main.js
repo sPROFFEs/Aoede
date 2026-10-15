@@ -39,6 +39,7 @@ function initUserMenu() {
     if (event.key !== 'Escape') return;
     if (!userMenu.hasAttribute('open')) return;
     userMenu.removeAttribute('open');
+    userMenu.querySelector('summary')?.focus();
   });
 }
 
@@ -90,8 +91,8 @@ function initKeyboardShortcuts() {
     if (!state.currentTrack) return;
 
     if (e.code === 'Space') {
-      // Let a focused button keep its native Space behavior.
-      if (e.target?.tagName === 'BUTTON') return;
+      // Native buttons and disclosure controls handle Space themselves.
+      if (['BUTTON', 'SUMMARY'].includes(e.target?.tagName)) return;
       e.preventDefault();
       document.getElementById('play-pause-btn')?.click();
     } else if (e.key === 'ArrowLeft') {

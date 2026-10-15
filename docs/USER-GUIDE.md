@@ -195,7 +195,9 @@ If **Remember me** is selected at login, Aoede stores a signed, HTTP-only sessio
 
 ## Mobile listening
 
-You have two main options:
+You can also install the web app from your browser. Safari on macOS offers **File → Add to Dock**; supported mobile browsers offer **Add to Home Screen** or **Install app**. Aoede supplies separate regular and maskable icons, including an opaque 1024 px icon for the Mac Dock. Existing installations may retain an older icon; if so, add the updated website to the Dock again.
+
+Other clients:
 
 - install the Aoede Android APK — see [Android](ANDROID.md);
 - connect a compatible Subsonic client to your user endpoint — see [Subsonic](SUBSONIC.md).

@@ -15,6 +15,7 @@ def test_branding_assets_cover_browser_pwa_and_touch_icon_sizes():
         "apple-touch-icon.png": (180, 180),
         "android-chrome-192x192.png": (192, 192),
         "android-chrome-512x512.png": (512, 512),
+        "app-icon-maskable-1024.png": (1024, 1024),
     }
 
     for filename, expected_size in expected_sizes.items():
@@ -30,16 +31,31 @@ def test_branding_assets_cover_browser_pwa_and_touch_icon_sizes():
 
     from PIL import Image
 
-    for size in (16, 32):
-        image = Image.open(assets_root / f"favicon-{size}x{size}.png").convert("RGBA")
+    for size in (16, 32, 192, 512):
+        name = f"favicon-{size}x{size}.png" if size <= 32 else f"android-chrome-{size}x{size}.png"
+        image = Image.open(assets_root / name).convert("RGBA")
         bounds = image.getchannel("A").point(lambda alpha: 255 if alpha > 32 else 0).getbbox()
         assert bounds[2] - bounds[0] >= round(size * 0.9)
         assert 0 < bounds[0] and bounds[2] < size  # Larger, with room for the antialiased edge.
 
     manifest = json.loads((assets_root / "site.webmanifest").read_text(encoding="utf-8"))
-    manifest_icons = {icon["src"] for icon in manifest["icons"]}
-    assert "/assets/android-chrome-192x192.png?v=2" in manifest_icons
-    assert "/assets/android-chrome-512x512.png?v=2" in manifest_icons
+    manifest_icons = {icon["src"]: icon for icon in manifest["icons"]}
+    for size in (192, 512):
+        assert manifest_icons[f"/assets/android-chrome-{size}x{size}.png?v=3"]["purpose"] == "any"
+    maskable = manifest_icons["/assets/app-icon-maskable-1024.png?v=3"]
+    assert maskable["purpose"] == "maskable" and maskable["sizes"] == "1024x1024"
+    for name in ("apple-touch-icon.png", "app-icon-maskable-1024.png"):
+        image = Image.open(assets_root / name).convert("RGBA")
+        assert image.getchannel("A").getextrema() == (255, 255)
+        size = image.width
+        colored = [
+            (x, y)
+            for y in range(size)
+            for x in range(size)
+            if (lambda rgb: max(rgb) - min(rgb) > 90 and sum(rgb) > 280)(image.getpixel((x, y))[:3])
+        ]
+        assert colored
+        assert max((x - size / 2) ** 2 + (y - size / 2) ** 2 for x, y in colored) <= (size * 0.4) ** 2
 
     templates_root = Path(__file__).resolve().parents[1] / "templates"
     for template_name in ("base.html", "login.html"):

@@ -8,7 +8,7 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v15';
+const CACHE = 'aoede-shell-v16';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
@@ -23,6 +23,7 @@ const PRECACHE_ASSETS = [
   '/assets/apple-touch-icon.png',
   '/assets/android-chrome-192x192.png',
   '/assets/android-chrome-512x512.png',
+  '/assets/app-icon-maskable-1024.png',
   '/assets/vendor/lucide.min.js',
   '/assets/vendor/htmx.min.js',
   '/assets/img/default_cover.png',

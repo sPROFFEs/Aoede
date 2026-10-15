@@ -49,6 +49,10 @@ The theme preference belongs to an account on its home server. Viewing another n
 
 All web clients, including the Android WebView and desktop wrappers, receive the same stylesheet. No new native binary is required for this frontend feature. Light/dark appearance remains device-specific while the Classic/Glass choice follows the account.
 
+The desktop header has its own stacking layer above animated view content so its user menu remains clickable in both themes. Context menus and playlist flyouts live under the document body, while modal backdrops remain above the app shell. Short windows scroll the user menu internally; Escape closes it and restores focus to its disclosure control.
+
+Web installation icons use separate `any` and opaque `maskable` variants; the 1024 px maskable asset follows [WebKit's Add to Dock guidance](https://webkit.org/blog/14787/webkit-features-in-safari-17-2/). Regenerate browser and installation assets with `python scripts/enlarge_brand_icons.py`; the master artwork stays unchanged and the service worker caches the installation icon for offline use.
+
 CSS handles mobile safe areas and leaves space for the floating controls. Focus outlines, native radio controls, reduced motion, reduced transparency and forced colors are supported. Browsers without backdrop blur use solid surfaces. Artwork colors are sampled from the already loaded cover; blocked cross-origin canvas access keeps the default accent and does not affect playback.
 
 Implementation: `Aoede/assets/css/theme_glass.css`, `Aoede/assets/js/modules/appearance.js`, the shared `appearance_head.html` template, and the authenticated user appearance endpoint. Backend checks live in `test_user_theme.py`; `scripts/test_appearance.mjs` exercises persistence, account isolation, offline behavior, failed saves and stale responses. `scripts/test_player_ui.mjs` checks panel reuse, Classic restoration, stale lyrics, volume, supported actions and keyboard seeking. These checks run through `npm run check`.

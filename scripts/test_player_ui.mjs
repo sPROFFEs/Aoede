@@ -129,3 +129,19 @@ playerModule.namespace.setPartyController(null);stateModule.setExport('currentTr
 values.audio.duration = 120; playerModule.namespace.seekToPercentage(0.25); assert.equal(values.audio.currentTime, 30);
 values.audio.duration = Infinity; playerModule.namespace.seekToPercentage(0.5); assert.equal(values.audio.currentTime, 30);
 console.log('PASS: shared fullscreen panels, Classic restoration, stale lyrics, synchronized volume and keyboard seeking.');
+
+// The global player shortcut must not consume Space on a menu disclosure.
+const mainSource = await readFile(new URL('../Aoede/assets/js/main.js', import.meta.url), 'utf8');
+let shortcut, playClicks = 0;
+document.addEventListener = (_name, callback) => { shortcut = callback; };
+element('play-pause-btn').click = () => { playClicks++; };
+context.state = values;
+vm.runInContext(mainSource.match(/function isTypingTarget\(el\) \{[\s\S]*?\n\}/)[0] + '\n' +
+  mainSource.match(/function initKeyboardShortcuts\(\) \{[\s\S]*?\n\}/)[0] + '\ninitKeyboardShortcuts();', context);
+for (const tagName of ['BUTTON', 'SUMMARY', 'BODY']) {
+  let prevented = false;
+  shortcut({ target: { tagName }, code: 'Space', key: ' ', preventDefault() { prevented = true; } });
+  assert.equal(prevented, tagName === 'BODY');
+}
+assert.equal(playClicks, 1);
+console.log('PASS: Space opens native menu disclosures without triggering the player.');
