@@ -243,64 +243,37 @@ html[data-theme="glass"] :is(.atp-create-cancel, .atp-new-btn) { border-radius: 
 html[data-theme="glass"] :is(.party-text-action, .atp-new-btn, .create-menu-close) { padding: 8px 14px; min-height: 36px; }
 html[data-theme="glass"] :is(.party-row-remove, .party-result-add) { background: var(--square-wash) !important; color: var(--text-main) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px; }
 
-/* Square player: artwork/lyrics stage above a fixed transport and view capsule. */
-html[data-theme="glass"] .fullscreen-player { --text-main: #fff; --text-primary: #fff; --text-sub: #e0e0e6; --text-faint: #c5c7d1; --primary: #fff; --fs-film: rgba(42, 40, 44, .4); --fs-rim: rgba(255, 255, 255, .48); --surface-0: var(--fs-film); --surface-1: #292a32cc; --surface-2: #ffffff18; --surface-3: #ffffff30; --square-film: var(--fs-film); --square-film-strong: #292a32eb; --square-wash: #ffffff18; --square-line: #ffffff30; --square-rim: var(--fs-rim); color: #fff; background: #14151a; height: 100dvh; color-scheme: dark; }
+/* Player materials; geometry is shared with Classic in ui_player.css. */
+html[data-theme="glass"] .fullscreen-player { --text-main: #fff; --text-primary: #fff; --text-sub: #e0e0e6; --text-faint: #c5c7d1; --primary: #fff; --fs-film: rgba(42, 40, 44, .4); --fs-rim: rgba(255, 255, 255, .48); --surface-0: var(--fs-film); --surface-1: #292a32cc; --surface-2: #ffffff18; --surface-3: #ffffff30; --square-film: var(--fs-film); --square-film-strong: #292a32eb; --square-wash: #ffffff18; --square-line: #ffffff30; --square-rim: var(--fs-rim); color: #fff; background: #14151a; color-scheme: dark; }
 html[data-theme="glass"] .fullscreen-player .fs-background { inset: -32px; background: linear-gradient(180deg, rgba(12, 13, 18, .6), rgba(12, 13, 18, .85)), var(--square-artwork, linear-gradient(135deg, #312945, #172c31)) center / cover !important; filter: blur(22px); }
 html[data-theme="glass"] .fullscreen-player.party-player .fs-background::before { display: none; }
-html[data-theme="glass"] .fullscreen-player .fs-content { display: grid; grid-template: "header" 48px "stage" minmax(0, 1fr) "info" auto "progress" auto "controls" auto "actions" 52px / minmax(0, 1fr); gap: clamp(8px, 2vh, 16px); width: 100%; max-width: 660px; height: 100%; min-height: 0; padding: calc(16px + env(safe-area-inset-top, 0px)) 20px calc(16px + env(safe-area-inset-bottom, 0px)); overflow: hidden; }
-html[data-theme="glass"] .fs-header { grid-area: header; display: flex; align-items: center; gap: 16px; justify-content: space-between; z-index: 2; }
-html[data-theme="glass"] .fs-view-label { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 1rem; text-shadow: 0 2px 10px #0008; }
-html[data-theme="glass"] .fullscreen-player :is(.fs-minimize, .fs-action-btn, .control-btn) { color: #fff !important; background: var(--fs-film) !important; border: 1px solid var(--fs-rim) !important; border-radius: 999px; box-shadow: inset 0 1px 0 #ffffff38; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+html[data-theme="glass"] .fs-view-label { text-shadow: 0 2px 10px #0008; }
+html[data-theme="glass"] .fullscreen-player :is(.fs-minimize, .fs-action-btn, .control-btn) { color: #fff !important; background: var(--fs-film) !important; border: 1px solid var(--fs-rim) !important; box-shadow: inset 0 1px 0 #ffffff38; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
 html[data-theme="glass"] .fullscreen-player :is(.fs-action-btn, .control-btn) :is(i, svg) { color: inherit !important; }
-html[data-theme="glass"] .fullscreen-player button:disabled { opacity: .35; cursor: not-allowed; }
-html[data-theme="glass"] .fullscreen-player .fs-minimize { position: static; transform: none; width: 44px; height: 44px; flex: 0 0 44px; }
-html[data-theme="glass"] .fs-stage { grid-area: stage; display: block; position: relative; min-height: 0; min-width: 0; margin: 0 -20px; overflow: hidden; }
-html[data-theme="glass"] .fullscreen-player .fs-cover { display: block; width: 100%; height: 100%; max-width: none; margin: 0; object-fit: contain; border-radius: 0 !important; box-shadow: none; animation: none; mask-image: linear-gradient(#000 88%, transparent); -webkit-mask-image: linear-gradient(#000 88%, transparent); }
-html[data-theme="glass"] .fullscreen-player[data-view="lyrics"] .fs-cover, html[data-theme="glass"] .fullscreen-player[data-view="queue"] .fs-cover { visibility: hidden; }
-html[data-theme="glass"] .fullscreen-player .fs-info { grid-area: info; display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; max-width: none; min-height: 72px; padding: 10px 10px 10px 20px; margin: 0; text-align: left; border: 1px solid var(--fs-rim); border-radius: 999px; background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
-html[data-theme="glass"] .fs-track-text { display: block; flex: 1; min-width: 0; }
-html[data-theme="glass"] .fullscreen-player .fs-title { margin: 0 0 3px; max-width: none; font-size: clamp(1rem, 4.6vw, 1.35rem); font-weight: 700; }
-html[data-theme="glass"] .fullscreen-player .fs-artist { color: var(--text-sub) !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .95rem; }
-html[data-theme="glass"] .fs-track-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-html[data-theme="glass"] .fs-track-actions .fs-action-btn { width: 44px; height: 44px; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-container { grid-area: progress; display: grid; grid-template: "bar bar" 28px "elapsed duration" 18px / 1fr 1fr; gap: 0; font-size: .8rem; color: var(--text-sub) !important; }
-html[data-theme="glass"] #fs-time-current { grid-area: elapsed; text-align: left; }
-html[data-theme="glass"] #fs-time-total { grid-area: duration; text-align: right; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-bar { grid-area: bar; height: 28px; background: transparent !important; touch-action: none; }
-html[data-theme="glass"] .fs-progress-bar::before { content: ''; position: absolute; inset: 11px 0; background: #ffffff38; border-radius: 999px; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-fill { height: 6px; position: absolute; left: 0; top: 11px; background: #fff !important; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-knob { top: 50%; right: auto; width: 12px; height: 12px; opacity: 0; transform: translate(-50%, -50%); }
-html[data-theme="glass"] .fs-progress-bar:is(:hover, :focus-visible) .fs-progress-knob { opacity: 1; }
-html[data-theme="glass"] .fullscreen-player .fs-controls { grid-area: controls; width: 100%; display: flex; justify-content: space-between; gap: clamp(4px, 2vw, 16px); margin: 0; }
-html[data-theme="glass"] .fullscreen-player .fs-controls .control-btn { flex: 0 0 auto; width: clamp(48px, 15vw, 64px); height: clamp(48px, 15vw, 64px); padding: 10px; }
-html[data-theme="glass"] .fullscreen-player .fs-controls :is(#fs-btn-shuffle, #fs-btn-repeat) { width: 44px; height: 44px; background: transparent !important; border-color: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html[data-theme="glass"] .fullscreen-player .fs-controls .fs-play-main { width: clamp(64px, 20vw, 80px) !important; height: clamp(64px, 20vw, 80px) !important; background: var(--fs-film) !important; color: #fff !important; border: 1px solid var(--fs-rim) !important; }
+html[data-theme="glass"] .fullscreen-player .fs-cover { border-radius: 0 !important; mask-image: linear-gradient(#000 88%, transparent); -webkit-mask-image: linear-gradient(#000 88%, transparent); }
+html[data-theme="glass"] .fullscreen-player .fs-info { border: 1px solid var(--fs-rim); border-radius: 999px; background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
+html[data-theme="glass"] .fullscreen-player .fs-artist { color: var(--text-sub) !important; }
+html[data-theme="glass"] .fullscreen-player .fs-progress-container { color: var(--text-sub) !important; }
+html[data-theme="glass"] .fullscreen-player .fs-progress-bar { background: transparent !important; }
+html[data-theme="glass"] .fs-progress-bar::before { background: #ffffff38; }
+html[data-theme="glass"] .fullscreen-player .fs-progress-fill { background: #fff !important; }
+html[data-theme="glass"] .fullscreen-player .fs-controls :is(#fs-btn-shuffle, #fs-btn-repeat) { background: transparent !important; border-color: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="glass"] .fullscreen-player .fs-controls .fs-play-main { background: var(--fs-film) !important; color: #fff !important; border: 1px solid var(--fs-rim) !important; }
 html[data-theme="glass"] :is(.player-footer .play-main, .fullscreen-player .fs-play-main) svg { color: inherit !important; fill: currentColor; }
-html[data-theme="glass"] .fullscreen-player .fs-actions { grid-area: actions; display: flex; align-items: center; justify-content: space-evenly; gap: 4px; padding: 4px; margin: 0 auto; width: min(100%, 360px); height: 52px; border: 1px solid var(--fs-rim); border-radius: 999px; background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
-html[data-theme="glass"] .fullscreen-player .fs-actions .fs-action-btn { display: flex; flex: 1; height: 44px; border: 0 !important; background: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="glass"] .fullscreen-player .fs-actions { border: 1px solid var(--fs-rim); background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
+html[data-theme="glass"] .fullscreen-player .fs-actions .fs-action-btn { border: 0 !important; background: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 html[data-theme="glass"] .fullscreen-player :is(.control-btn.active-control, .fs-action-btn.active) { background: #ffffff30 !important; color: #fff !important; box-shadow: inset 0 0 0 1px #ffffff80; }
 html[data-theme="glass"] .fullscreen-player .fs-controls .control-btn.active-control::after { content: ''; position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
 html[data-theme="glass"] .fullscreen-player :is(#fs-btn-shuffle, #fs-btn-repeat) { position: relative; }
-html[data-theme="glass"] .fs-volume { display: block; position: relative; flex: 0 0 44px; }
-html[data-theme="glass"] .fs-volume summary { list-style: none; width: 44px; height: 44px; cursor: pointer; }
-html[data-theme="glass"] .fs-volume summary::-webkit-details-marker { display: none; }
-html[data-theme="glass"] .fs-volume:not([open]) .fs-volume-panel { display: none; }
-html[data-theme="glass"] .fs-volume-panel { position: absolute; top: 52px; right: 0; display: flex; align-items: center; gap: 12px; width: 192px; padding: 8px; border: 1px solid var(--fs-rim); border-radius: 999px; background: #292a32eb; box-shadow: 0 12px 40px #0005; }
-html[data-theme="glass"] #fs-volume-bar { width: 116px; height: 28px; background: transparent !important; touch-action: none; }
-html[data-theme="glass"] #fs-volume-bar::before { content: ''; position: absolute; inset: 12px 0; background: #ffffff38; border-radius: 999px; }
-html[data-theme="glass"] #fs-volume-bar .volume-bar-fill { position: absolute; top: 12px; height: 4px; background: #fff !important; }
-html[data-theme="glass"] .fs-volume-panel .fs-action-btn { width: 44px; height: 44px; flex: 0 0 44px; }
-html[data-theme="glass"] .fs-stage > :is(#lyrics-panel, #queue-panel) { position: absolute !important; inset: 0 !important; width: 100% !important; max-width: none !important; max-height: none !important; height: 100%; display: none; transform: none !important; border: 0 !important; border-radius: 24px !important; background: #17182040 !important; box-shadow: none !important; color: #fff; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }
-html[data-theme="glass"] .fs-stage > :is(#lyrics-panel.open, #queue-panel.open) { display: flex; }
-html[data-theme="glass"] .fs-stage :is(.lyrics-body, .queue-list) { min-height: 0; overscroll-behavior: contain; }
-html[data-theme="glass"] .fs-stage .lyrics-body { padding: 18px 24px; scroll-padding-block: 50px; }
-html[data-theme="glass"] .fs-stage .lyrics-head { display: none; }
-html[data-theme="glass"] .fs-stage .lyric-line { font-size: clamp(1.25rem, 3.2vw, 2rem); font-weight: 650; line-height: 1.45; padding-block: 12px; color: #d8d9df !important; }
-html[data-theme="glass"] .fs-stage .lyric-line.active { color: #fff !important; font-weight: 750; text-shadow: none; }
-html[data-theme="glass"] .fs-stage :is(.lyrics-close, .queue-header .icon-btn-sm) { width: 44px; height: 44px; }
+html[data-theme="glass"] .fs-volume-panel { border-color: var(--fs-rim); background: #292a32eb; box-shadow: 0 12px 40px #0005; }
+html[data-theme="glass"] #fs-volume-bar { background: transparent !important; }
+html[data-theme="glass"] #fs-volume-bar::before { background: #ffffff38; }
+html[data-theme="glass"] #fs-volume-bar .volume-bar-fill { background: #fff !important; }
+html[data-theme="glass"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 24px !important; background: #17182040 !important; color: #fff; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }
+html[data-theme="glass"] .fs-stage .lyric-line { color: #d8d9df !important; }
+html[data-theme="glass"] .fs-stage .lyric-line.active { color: #fff !important; }
 html[data-theme="glass"] .fs-stage .queue-title { color: #fff !important; }
 html[data-theme="glass"] .fs-stage :is(.queue-artist, .queue-status, .queue-section-label) { color: var(--text-sub) !important; }
-html[data-theme="glass"] .fs-stage .queue-item-remove { min-width: 44px; min-height: 44px; border-radius: 999px; }
 html[data-theme="glass"] :is(.lyric-line, .lyrics-plain, .lyrics-empty, .lyrics-status, .lyrics-credit) { color: var(--text-sub) !important; }
 html[data-theme="glass"] .lyric-line.active { color: var(--text-main) !important; text-shadow: 0 1px 18px var(--square-rim); }
 html[data-theme="glass"] .lyrics-head { border-color: var(--square-line) !important; }
@@ -424,8 +397,6 @@ html[data-theme="glass"] [class^="story-panel"] { background: linear-gradient(10
     html[data-theme="glass"] .playback-pref:has(.playback-chip-group) { flex-direction: column; align-items: stretch; }
     html[data-theme="glass"] .playback-chip-group { justify-content: flex-start; }
     html[data-theme="glass"] .player-footer .play-main { width: 44px !important; height: 44px !important; background: transparent !important; color: var(--text-main) !important; }
-    html[data-theme="glass"] #player-like-btn { display: none !important; }
-    html[data-theme="glass"] .player-footer .player-center .player-controls #player-next-btn { display: flex !important; order: -1; width: 44px !important; height: 44px !important; flex: 0 0 44px; padding: 8px; background: transparent !important; border: 0 !important; }
     html[data-theme="glass"] .library-card { padding: 14px !important; margin: 4px 0; }
     html[data-theme="glass"] :is(.home-rail > .card, .discovery-card, .party-card) { padding: 12px !important; }
     html[data-theme="glass"] .playlist-header { padding: 22px !important; text-align: center; align-items: center; }
@@ -434,31 +405,6 @@ html[data-theme="glass"] [class^="story-panel"] { background: linear-gradient(10
     html[data-theme="glass"] .playlist-cover { width: min(64vw, 280px) !important; height: min(64vw, 280px) !important; border-radius: 26px !important; }
     html[data-theme="glass"] :is(.modal, .create-menu) { margin: 12px !important; border-radius: 28px !important; }
     html[data-theme="glass"] :is(.admin-panel, .monitor-panel, .user-settings-panel, .download-provider-card) { padding: 18px !important; }
-}
-
-@media (min-width: 980px) and (min-height: 600px), (min-width: 560px) and (orientation: landscape) {
-    html[data-theme="glass"] .fullscreen-player .fs-content { max-width: 1200px; grid-template: "header header" 48px "stage info" minmax(72px, 1fr) "stage progress" auto "stage controls" auto "stage actions" minmax(52px, 1fr) / minmax(0, 1.15fr) minmax(0, 1fr); column-gap: clamp(24px, 4vw, 60px); }
-    html[data-theme="glass"] .fs-stage { margin: 0; border-radius: 28px; }
-    html[data-theme="glass"] .fullscreen-player .fs-info { align-self: end; }
-    html[data-theme="glass"] .fullscreen-player .fs-actions { align-self: start; }
-}
-@media (max-height: 700px) {
-    html[data-theme="glass"] .fullscreen-player .fs-content { row-gap: 8px; padding-block: calc(8px + env(safe-area-inset-top, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)); }
-    html[data-theme="glass"] .fullscreen-player .fs-info { min-height: 64px; padding-block: 6px; }
-    html[data-theme="glass"] .fullscreen-player .fs-controls .fs-play-main { width: 64px !important; height: 64px !important; }
-    html[data-theme="glass"] .fullscreen-player .fs-controls .control-btn { width: 48px; height: 48px; }
-    html[data-theme="glass"] .fullscreen-player .fs-controls { gap: 4px; }
-}
-@media (min-width: 560px) and (orientation: landscape) and (max-height: 700px) {
-    html[data-theme="glass"] .fullscreen-player .fs-content { grid-template-rows: 44px minmax(64px, 1fr) auto auto minmax(52px, 1fr); grid-template-columns: minmax(0, 1fr) minmax(280px, 1fr); column-gap: 16px; }
-}
-/* At extreme zoom, scrolling keeps every control reachable. */
-@media (max-height: 330px) {
-    html[data-theme="glass"] .fullscreen-player { justify-content: flex-start; overflow-y: auto; }
-    html[data-theme="glass"] .fullscreen-player .fs-content { height: 360px; min-height: 360px; overflow: visible; }
-}
-@media (min-width: 560px) and (max-height: 330px) {
-    html[data-theme="glass"] .fullscreen-player .fs-content { height: 318px; min-height: 318px; }
 }
 
 /* Native blur is optional; never make readability depend on GPU effects. */

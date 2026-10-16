@@ -258,8 +258,7 @@ export function toggleLyricsPanel() {
   if (!panel) return;
   _isVisible = !panel.classList.contains('open');
   if (_isVisible) {
-    if (state.isFullscreenPlayerOpen && document.documentElement.dataset.theme === 'glass' && state.isQueueOpen)
-      window.toggleQueue?.();
+    if (state.isFullscreenPlayerOpen && state.isQueueOpen) window.toggleQueue?.();
     panel.classList.add('open');
     document.body.classList.add('lyrics-panel-open');
     if (state.currentTrack) loadLyricsFor(state.currentTrack);

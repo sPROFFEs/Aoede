@@ -342,7 +342,7 @@
     display: none !important;
 }
 
-/* Left segment: cover + info + like, takes all the available width */
+/* Left segment: cover + info, leaving room for Next and Play/Pause. */
 .player-left {
     flex: 1 1 auto !important;
     min-width: 0 !important;
@@ -392,22 +392,13 @@
     text-overflow: ellipsis;
 }
 
-/* Hide the secondary action button (add-to-playlist) inside player-left.
- * The like button (#player-like-btn) stays visible. */
-.player-left .icon-btn-sm[onclick*="addToPlaylistCurrent"] {
+/* Song actions remain available beside the title in the fullscreen player. */
+.player-left .icon-btn-sm[onclick*="addToPlaylistCurrent"],
+#player-like-btn {
     display: none !important;
 }
 
-#player-like-btn {
-    width: 36px !important;
-    height: 36px !important;
-    flex-shrink: 0 !important;
-    background: transparent !important;
-    border: 0 !important;
-    padding: 6px !important;
-}
-
-/* Centre segment hosts only the play/pause. We override the desktop
+/* Centre segment hosts Next and Play/Pause. We override the desktop
  * rules that make it column-direction + width:100% (which would steal
  * all the horizontal space and crush track-info to 0px). */
 .player-center {
@@ -420,7 +411,7 @@
     max-width: none !important;
     margin: 0 !important;
     padding: 0 !important;
-    gap: 0 !important;
+    gap: 4px !important;
 }
 
 .player-center .player-controls {
@@ -435,9 +426,9 @@
 }
 
 #play-pause-btn {
-    width: 36px !important;
-    height: 36px !important;
-    min-width: 36px !important;
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px !important;
     background: transparent !important;
     border: 0 !important;
     color: var(--text-main) !important;
@@ -450,6 +441,17 @@
 
 #play-pause-btn:hover {
     transform: none !important;
+}
+
+.player-footer .player-center .player-controls #player-next-btn {
+    display: flex !important;
+    order: -1;
+    width: 44px !important;
+    height: 44px !important;
+    flex: 0 0 44px;
+    padding: 8px;
+    background: transparent !important;
+    border: 0 !important;
 }
 
 /* Right segment (queue + volume) hidden in mini-player mode */

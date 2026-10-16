@@ -509,28 +509,12 @@ export function setupDraggable(element, callback) {
 
 let fullscreenReturnFocus = null;
 
-/** Move existing controls/panels, keeping their listeners and playback state. */
+/** Reuse the existing panels in either theme without changing playback state. */
 export function syncFullscreenPlayerLayout() {
   const panel = document.getElementById('fullscreen-player');
   const stage = document.getElementById('fs-stage');
   if (!panel || !stage) return;
-  const glass = document.documentElement.dataset.theme === 'glass';
-  const actions = panel.querySelector('.fs-actions');
-  const songActions = document.getElementById('fs-track-actions');
-  const progress = panel.querySelector('.fs-progress-container');
-  const controls = panel.querySelector('.fs-controls');
-  if (progress && controls) {
-    const [first, second] = glass ? [progress, controls] : [controls, progress];
-    if (first.nextElementSibling !== second) second.parentElement.insertBefore(first, second);
-  }
-  ['fs-btn-favorite', 'fs-btn-add'].forEach((id) => {
-    const button = document.getElementById(id);
-    if (!button) return;
-    if (glass && songActions && button.parentElement !== songActions) songActions.appendChild(button);
-    else if (!glass && actions && button.parentElement !== actions)
-      actions.insertBefore(button, actions.querySelector('.lyrics-toggle-btn'));
-  });
-  const embedded = glass && state.isFullscreenPlayerOpen;
+  const embedded = state.isFullscreenPlayerOpen;
   const lyrics = document.getElementById('lyrics-panel');
   const queue = document.getElementById('queue-panel');
   if (embedded && lyrics?.classList.contains('open') && state.isQueueOpen) window.toggleQueue?.();
@@ -621,7 +605,7 @@ export function toggleFullscreenPlayer() {
     refreshIcons(panel);
     panel.querySelector('.fs-minimize')?.focus();
   } else {
-    if (document.documentElement.dataset.theme === 'glass') showFullscreenCover();
+    showFullscreenCover();
     panel.classList.remove('open');
     const volume = panel.querySelector('.fs-volume');
     if (volume) volume.open = false;

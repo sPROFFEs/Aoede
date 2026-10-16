@@ -104,8 +104,7 @@ export function toggleRepeat() {
 export function toggleQueue() {
   const panel = document.getElementById('queue-panel');
   if (!panel) return;
-  if (!state.isQueueOpen && state.isFullscreenPlayerOpen && document.documentElement.dataset.theme === 'glass')
-    window.closeLyricsPanel?.();
+  if (!state.isQueueOpen && state.isFullscreenPlayerOpen) window.closeLyricsPanel?.();
   state.setIsQueueOpen(!state.isQueueOpen);
 
   if (state.isQueueOpen) {

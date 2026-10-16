@@ -129,7 +129,7 @@ The compact player and full-screen player provide:
 
 Repeat cycles through off, queue repeat and repeat-current-track. The sleep timer cycles through off, 15, 30 and 60 minutes and pauses playback when it expires.
 
-With **Glass**, the fullscreen player's lower capsule switches between cover, lyrics and queue while transport controls remain visible. Favorite and playlist actions sit beside the title; volume opens from the upper corner. The player adapts to portrait, landscape and wide desktop screens. Use arrow keys on a focused seek/volume slider for 5% steps, Home/End for its limits, and Escape to collapse the fullscreen player without stopping audio. Classic keeps its existing layout.
+Both **Classic** and **Glass** use the same player layout: the lower selector switches between cover, lyrics and queue while transport controls remain visible. Favorite and playlist actions sit beside the title; volume opens from the upper corner. The compact mobile player offers Next and Play/Pause. The player adapts to portrait, landscape and wide desktop screens, with Classic's opaque dark surfaces or Glass's translucent appearance. Use arrow keys on a focused seek/volume slider for 5% steps, Home/End for its limits, and Escape to collapse the fullscreen player without stopping audio.
 
 ### Queue and playback state
 

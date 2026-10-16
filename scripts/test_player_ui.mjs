@@ -21,14 +21,14 @@ const favorite = element('fs-btn-favorite'), add = element('fs-btn-add'), lyrics
 const viewButtons = ['cover', 'lyrics', 'queue'].map(value => { const button = element(`view-${value}`); button.dataset.fsView = value; return button; });
 element('queue-list'); element('fs-view-label'); const minimize = element('minimize'); element('player-cover');
 body.appendChild(full); full.appendChild(stage); full.appendChild(actions); full.appendChild(songActions); body.appendChild(lyrics); body.appendChild(queue);
-actions.appendChild(favorite); actions.appendChild(add); viewButtons.forEach(button => actions.appendChild(button));
+songActions.appendChild(favorite); songActions.appendChild(add); viewButtons.forEach(button => actions.appendChild(button));
 full.queries['.fs-actions'] = actions; actions.queries['.lyrics-toggle-btn'] = viewButtons[1];
 full.queries['[data-fs-view]'] = viewButtons; full.queries['.fs-minimize'] = minimize; full.queries['[data-fs-view="cover"]'] = viewButtons[0];
 const volumeBars = [element('volume-bar'), element('fs-volume-bar')], fills = [element('fill1'), element('fill2')], knobs = [element('knob1'), element('knob2')];
 const muteButtons = [element('btn-volume-icon'), element('fs-volume-icon')];
 const volumePopover = element('volume-popover'); full.queries['.fs-volume'] = volumePopover;
 const progress = element('fs-progress-bar'); progress.queries['.progress-knob, .volume-knob, .fs-progress-knob'] = knobs[0];
-const document = { body, activeElement: body, documentElement: { dataset: { theme: 'glass' } }, addEventListener() {}, getElementById: id => fields.get(id),
+const document = { body, activeElement: body, documentElement: { dataset: { theme: 'classic' } }, addEventListener() {}, getElementById: id => fields.get(id),
   querySelector: selector => selector === '#lyrics-panel .lyrics-body' ? lyricsBody : null,
   querySelectorAll: selector => selector === '.volume-bar-fill' ? fills : selector === '.volume-knob' ? knobs : selector === '#volume-bar, #fs-volume-bar' ? volumeBars : selector === '#btn-volume-icon, #fs-volume-icon' ? muteButtons : selector === '.lyrics-toggle-btn' ? [viewButtons[1]] : selector === '#progress-bar, #fs-progress-bar' ? [progress] : [] };
 const window = { matchMedia: () => ({ matches: false }) };
@@ -85,9 +85,23 @@ assert.equal(lyricRequests, 2); assert.match(lyricsBody.innerHTML, /Retried lyri
 ui.showFullscreenCover(); assert.equal(full.dataset.view, 'cover');
 ui.toggleFullscreenPlayer(); assert.equal(lyrics.parentElement, body); assert.equal(queue.parentElement, body);
 assert.equal(full.getAttribute('aria-hidden'), 'true');
-document.documentElement.dataset.theme = 'classic'; ui.syncFullscreenPlayerLayout();
-assert.deepEqual(actions.children.slice(0, 3).map(node => node.id), ['view-cover', 'fs-btn-favorite', 'fs-btn-add']);
-assert.equal(favorite.parentElement, actions); assert.equal(add.parentElement, actions);
+// Both themes embed the same panels and retain the selected view on a theme change.
+for (const theme of ['classic', 'glass']) {
+  document.documentElement.dataset.theme = theme;
+  ui.toggleFullscreenPlayer(); queueApi.toggleQueue();
+  assert.equal(full.dataset.view, 'queue'); assert.equal(queue.parentElement, stage);
+  lyricsApi.toggleLyricsPanel(); await new Promise(setImmediate);
+  assert.equal(full.dataset.view, 'lyrics'); assert.equal(values.isQueueOpen, false);
+  document.documentElement.dataset.theme = theme === 'glass' ? 'classic' : 'glass';
+  ui.syncFullscreenPlayerLayout();
+  assert.equal(full.dataset.view, 'lyrics'); assert.equal(lyrics.parentElement, stage);
+  assert.equal(favorite.parentElement, songActions); assert.equal(add.parentElement, songActions);
+  assert.deepEqual(actions.children.map(node => node.id), ['view-cover', 'view-lyrics', 'view-queue']);
+  queueApi.toggleQueue(); assert.equal(full.dataset.view, 'queue'); assert.equal(lyricsApi.isLyricsPanelOpen(), false);
+  ui.toggleFullscreenPlayer();
+  assert.equal(lyrics.parentElement, body); assert.equal(queue.parentElement, body);
+  assert.equal(values.isQueueOpen, false); assert.equal(lyricsApi.isLyricsPanelOpen(), false);
+}
 respond = async () => ({ ok: true, json: async () => ({ liked: false }) });
 await favoritesApi.toggleFavorite(1, favorite);
 assert.equal(favorite.classList.contains('active'), false); assert.equal(favorite.getAttribute('aria-pressed'), 'false');
@@ -128,7 +142,7 @@ playerModule.namespace.seekToPercentage(0.25); assert.equal(partySeek, 30); asse
 playerModule.namespace.setPartyController(null);stateModule.setExport('currentTrack', { db_id: 1, is_local: true });
 values.audio.duration = 120; playerModule.namespace.seekToPercentage(0.25); assert.equal(values.audio.currentTime, 30);
 values.audio.duration = Infinity; playerModule.namespace.seekToPercentage(0.5); assert.equal(values.audio.currentTime, 30);
-console.log('PASS: shared fullscreen panels, Classic restoration, stale lyrics, synchronized volume and keyboard seeking.');
+console.log('PASS: shared Classic/Glass player layout, theme changes with open panels, stale lyrics, synchronized volume and keyboard seeking.');
 
 // The global player shortcut must not consume Space on a menu disclosure.
 const mainSource = await readFile(new URL('../Aoede/assets/js/main.js', import.meta.url), 'utf8');

@@ -377,8 +377,8 @@
                     <button class="fs-minimize" onclick="toggleFullscreenPlayer()" aria-label="{{ _('player.minimize') }}" title="{{ _('player.minimize') }}">
                         <i data-lucide="chevron-down"></i>
                     </button>
-                    <span class="fs-view-label fs-glass-only" id="fs-view-label">{{ _('player.now_playing') }}</span>
-                    <details class="fs-volume fs-glass-only">
+                    <span class="fs-view-label" id="fs-view-label">{{ _('player.now_playing') }}</span>
+                    <details class="fs-volume">
                         <summary class="fs-action-btn" aria-label="{{ _('player.volume') }}" title="{{ _('player.volume') }}"><i data-lucide="volume-2"></i></summary>
                         <div class="fs-volume-panel">
                             <button class="fs-action-btn" id="fs-volume-icon" onclick="toggleMute()" aria-label="{{ _('player.mute') }}" title="{{ _('player.volume') }}"><i data-lucide="volume-2"></i></button>
@@ -396,7 +396,23 @@
                         <div id="fs-title" class="fs-title">{{ _('player.not_playing') if _ else 'Not Playing' }}</div>
                         <div id="fs-artist" class="fs-artist">{{ _('player.select_track') if _ else 'Select a track' }}</div>
                     </div>
-                    <div class="fs-track-actions" id="fs-track-actions"></div>
+                    <div class="fs-track-actions" id="fs-track-actions">
+                        <button class="fs-action-btn" id="fs-btn-favorite" onclick="toggleFavoriteFromPlayer()"
+                            title="{{ _('player.favorite') if _ else 'Favorite' }}">
+                            <i data-lucide="heart"></i>
+                        </button>
+                        <button class="fs-action-btn" id="fs-btn-add" onclick="showAddToPlaylistFromPlayer()" title="{{ _('player.add_to_playlist') if _ else 'Add to Playlist' }}">
+                            <i data-lucide="list-plus"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="fs-progress-container">
+                    <span id="fs-time-current">0:00</span>
+                    <div class="fs-progress-bar" id="fs-progress-bar" aria-label="{{ _('player.seek') }}">
+                        <div class="fs-progress-fill" id="fs-progress-fill" style="width: 0%;"></div>
+                        <div class="fs-progress-knob"></div>
+                    </div>
+                    <span id="fs-time-total">0:00</span>
                 </div>
                 <div class="fs-controls">
                     <button class="control-btn" onclick="toggleShuffle()" id="fs-btn-shuffle" title="{{ _('player.shuffle') if _ else 'Shuffle' }}"><i
@@ -410,24 +426,9 @@
                     <button class="control-btn" onclick="toggleRepeat()" id="fs-btn-repeat"><i
                             data-lucide="repeat"></i></button>
                 </div>
-                <div class="fs-progress-container">
-                    <span id="fs-time-current">0:00</span>
-                    <div class="fs-progress-bar" id="fs-progress-bar" aria-label="{{ _('player.seek') }}">
-                        <div class="fs-progress-fill" id="fs-progress-fill" style="width: 0%;"></div>
-                        <div class="fs-progress-knob"></div>
-                    </div>
-                    <span id="fs-time-total">0:00</span>
-                </div>
-                <!-- Action buttons for mobile -->
+                <!-- Shared fullscreen view selector and sleep timer -->
                 <div class="fs-actions">
-                    <button class="fs-action-btn fs-glass-only" data-fs-view="cover" onclick="showFullscreenCover()" aria-label="{{ _('player.cover') }}" title="{{ _('player.cover') }}"><i data-lucide="disc-3"></i></button>
-                    <button class="fs-action-btn" id="fs-btn-favorite" onclick="toggleFavoriteFromPlayer()"
-                        title="{{ _('player.favorite') if _ else 'Favorite' }}">
-                        <i data-lucide="heart"></i>
-                    </button>
-                    <button class="fs-action-btn" id="fs-btn-add" onclick="showAddToPlaylistFromPlayer()" title="{{ _('player.add_to_playlist') if _ else 'Add to Playlist' }}">
-                        <i data-lucide="list-plus"></i>
-                    </button>
+                    <button class="fs-action-btn" data-fs-view="cover" onclick="showFullscreenCover()" aria-label="{{ _('player.cover') }}" title="{{ _('player.cover') }}"><i data-lucide="disc-3"></i></button>
                     <button class="fs-action-btn lyrics-toggle-btn" data-fs-view="lyrics" onclick="toggleLyricsPanel()" title="{{ _('player.lyrics') if _ else 'Lyrics' }}">
                         <i data-lucide="mic-vocal"></i>
                     </button>
