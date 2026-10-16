@@ -36,6 +36,8 @@ Never commit the resulting `.env`.
 | `DATABASE_URL` | empty | Optional explicit SQLAlchemy database URL override. |
 | `NAVIDROME_IMAGE` | `deluan/navidrome:latest` | Navidrome image used for user instances. |
 | `CONCURRENT_DOWNLOADS` | `3` | Maximum concurrent downloads per user. |
+| `DOWNLOADER_PIDS_LIMIT` | `1024` | Container process/thread limit shared by downloads and the verification browser. Recreate the downloader after changing it. |
+| `AUTH_BROWSER_STARTUP_TIMEOUT` | `30` | Total verification-browser startup deadline in seconds (5–120), including the first profile initialization. Pass the same value to downloader and Concierge. |
 | `POOL_STATUS_CACHE_TTL_SECONDS` | `60` | Shared-pool status cache TTL. |
 | `BACKUP_ROOT` | `/saas-data/backups` | Backup path inside the concierge container. |
 | `APP_SOURCE_ROOT` | `/workspace` | Application source path inside the concierge container. |

@@ -73,10 +73,16 @@ def test_all_compose_variants_include_isolated_downloader():
         assert service["security_opt"] == ["no-new-privileges:true"]
         assert service["cap_drop"] == ["ALL"]
         assert service["shm_size"] == "1gb"
+        assert service["init"] is True  # Reap orphaned browser/FFmpeg children.
+        assert "KILL" in service["cap_add"]  # Init forwards shutdown to the unprivileged worker.
+        assert service["pids_limit"] == "${DOWNLOADER_PIDS_LIMIT:-1024}"
+        startup_timeout = "AUTH_BROWSER_STARTUP_TIMEOUT=${AUTH_BROWSER_STARTUP_TIMEOUT:-30}"
+        assert startup_timeout in service["environment"]
         assert any("download-staging:/downloads" in volume for volume in service["volumes"])
         concierge = payload["services"]["concierge"]
         assert "downloader" in concierge["depends_on"]
         assert concierge["environment"]
+        assert startup_timeout in concierge["environment"]
         updater = payload["services"]["updater"]
         assert updater["build"]["context"] == "./concierge"
         assert updater["build"]["dockerfile"] == "Dockerfile.updater"
@@ -116,6 +122,20 @@ def test_worker_entrypoint_prepares_persistent_auth_browser_volume():
     entrypoint = (PROJECT_ROOT / "downloader-worker" / "entrypoint.sh").read_text(encoding="utf-8")
     assert "/home/downloader/.auth-browser" in entrypoint
     assert "chown -R downloader:downloaders /home/downloader/.auth-browser" in entrypoint
+
+    # Exercise the actual exports without running ownership/deployment commands.
+    exports = "\n".join(line for line in entrypoint.splitlines() if line.startswith("export "))
+    result = subprocess.run(
+        ["/bin/sh", "-c", exports + '\nprintf "%s\\n%s" "$NO_PROXY" "$no_proxy"'],
+        env={"NO_PROXY": "keep.example", "no_proxy": "other.example"},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert result.stdout.splitlines() == [
+        "keep.example,localhost,127.0.0.1,::1",
+        "other.example,localhost,127.0.0.1,::1",
+    ]
 
 
 def test_auth_browser_proxy_supports_cookie_and_legacy_query_handoff():

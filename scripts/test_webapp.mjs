@@ -178,3 +178,51 @@ assert.deepEqual(actions.map(a => a.action_id), [1, 2]);
 await offline.namespace.queueAction('toggle_favorite', { trackId: 5, liked: true });
 assert.equal(actions.at(-1).username, 'alice');
 console.log('PASS: account-bound deferred actions, single synchronization and retained changes on failed connections.');
+
+// Starting a verification browser is single-flight across provider buttons;
+// failure must leave a usable retry, without enabling unavailable providers.
+const verifyButtons = ['tidal', 'qobuz', 'amazon'].map(provider => ({
+  dataset: { providerVerify: provider }, disabled: provider === 'amazon',
+  addEventListener(_name, handler) { this.click = handler; }
+}));
+const browserStatus = {};
+const browserFrame = {};
+const modalFields = Object.fromEntries(['#auth-browser-title', '[data-auth-browser-countdown]', '[data-auth-browser-frame]', '[data-auth-browser-close]', '[data-auth-browser-stop]', '[data-auth-browser-check]'].map(selector => [selector,
+  selector === '[data-auth-browser-frame]' ? browserFrame : { addEventListener() {}, focus() {} }
+]));
+const browserModal = { dataset: {}, hidden: true, setAttribute() {}, querySelector: selector => modalFields[selector] };
+const managerRoot = {
+  dataset: {}, querySelector: selector => selector === '#download-manager-status' ? browserStatus : selector === '#auth-browser-modal' ? browserModal : null,
+  querySelectorAll: selector => selector === '[data-provider-verify]' ? verifyButtons : []
+};
+let finishBrowserRequest, failBrowserRequest;
+const browserRequests = [];
+const browserContext = vm.createContext({ document: {}, console,
+  fetch: (url, init) => { browserRequests.push({ url, init }); return new Promise((resolve, reject) => { finishBrowserRequest = resolve; failBrowserRequest = reject; }); }
+});
+const managerModule = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/admin_downloads.js', import.meta.url), 'utf8'), { context: browserContext });
+await managerModule.link(() => new vm.SyntheticModule(['confirmDialog'], function () { this.setExport('confirmDialog', async () => true); }, { context: browserContext }));
+await managerModule.evaluate();
+managerModule.namespace.initDownloadManager({ querySelector: () => managerRoot });
+const firstBrowserStart = verifyButtons[0].click();
+await verifyButtons[1].click();
+assert.equal(browserRequests.length, 1);
+assert.ok(verifyButtons.every(button => button.disabled));
+finishBrowserRequest(Response.json({ detail: 'Chromium could not start: insufficient free processes/threads.' }, { status: 503 }));
+await firstBrowserStart;
+assert.match(browserStatus.textContent, /insufficient free processes/);
+assert.deepEqual(verifyButtons.map(button => button.disabled), [false, false, true]);
+assert.equal(browserModal.hidden, true);
+const failedBrowserRetry = verifyButtons[1].click();
+failBrowserRequest(new TypeError('Network unavailable'));
+await failedBrowserRetry;
+assert.deepEqual(verifyButtons.map(button => button.disabled), [false, false, true]);
+const successfulBrowserRetry = verifyButtons[1].click();
+finishBrowserRequest(Response.json({ status: 'ready', novnc_url: '/admin/auth-browser/vnc.html', browser_session: { remaining_seconds: 600 } }, { status: 202 }));
+await successfulBrowserRetry;
+assert.equal(browserRequests.length, 3);
+assert.equal(browserModal.hidden, false);
+assert.equal(browserModal.dataset.provider, 'qobuz');
+assert.equal(browserFrame.src, '/admin/auth-browser/vnc.html');
+assert.deepEqual(verifyButtons.map(button => button.disabled), [false, false, true]);
+console.log('PASS: verification startup blocks duplicate requests, preserves unavailable providers and recovers after resource/network failures.');

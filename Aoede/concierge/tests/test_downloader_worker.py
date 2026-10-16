@@ -156,6 +156,35 @@ def test_provider_check_asks_worker_to_exchange_captured_grant(monkeypatch):
     assert requested == ["/providers/qobuz/auth/browser-complete"]
 
 
+@pytest.mark.parametrize("startup_timeout", ["30", "60", "120"])
+def test_browser_client_waits_for_startup_and_cleanup(monkeypatch, startup_timeout):
+    monkeypatch.setenv("AUTH_BROWSER_STARTUP_TIMEOUT", startup_timeout)
+    timeouts = []
+
+    class FakeClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def post(self, path, **_kwargs):
+            assert path == "/browser/start"
+            return httpx.Response(
+                202,
+                json={"status": "ready", "session_id": "browser-session"},
+                request=httpx.Request("POST", f"http://downloader:8081{path}"),
+            )
+
+    def client(timeout):
+        timeouts.append(timeout)
+        return FakeClient()
+
+    monkeypatch.setattr(downloader_worker_client, "_client", client)
+    assert downloader_worker_client.start_auth_browser("qobuz", "https://provider.example")["status"] == "ready"
+    assert timeouts == [float(startup_timeout) + 15]
+
+
 def test_worker_output_copy_rolls_back_partial_promotion(tmp_path, monkeypatch):
     staging_root = tmp_path / "staging"
     job_root = staging_root / "jobs" / "job-atomic"

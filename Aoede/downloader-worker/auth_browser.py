@@ -8,6 +8,7 @@ protected by the existing worker bearer token.
 from __future__ import annotations
 
 import asyncio
+import errno
 import json
 import logging
 import os
@@ -22,7 +23,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
-from urllib.request import urlopen
+from urllib.request import ProxyHandler, build_opener
 
 logger = logging.getLogger("aoede.auth_browser")
 
@@ -65,6 +66,7 @@ class AuthBrowserManager:
     def __init__(self) -> None:
         self.enabled = os.getenv("AUTH_BROWSER_ENABLED", "true").strip().lower() not in {"0", "false", "no"}
         self.ttl = max(60, min(1800, int(os.getenv("AUTH_BROWSER_TTL", "600"))))
+        self.startup_timeout = max(5, min(120, int(os.getenv("AUTH_BROWSER_STARTUP_TIMEOUT", "30"))))
         self.display = os.getenv("AUTH_BROWSER_DISPLAY", ":99")
         self.width = max(800, min(2560, int(os.getenv("AUTH_BROWSER_WIDTH", "1024"))))
         self.height = max(600, min(1600, int(os.getenv("AUTH_BROWSER_HEIGHT", "768"))))
@@ -125,9 +127,17 @@ class AuthBrowserManager:
         command.append(url)
         return command
 
+    def _debugger_json(self, path: str):
+        # These are private loopback requests, regardless of the provider proxy.
+        with build_opener(ProxyHandler({})).open(
+            f"http://127.0.0.1:{self.debugging_port}/{path}", timeout=2
+        ) as response:
+            return json.load(response)
+
     def _debugger_websocket_url(self) -> str:
-        with urlopen(f"http://127.0.0.1:{self.debugging_port}/json/version", timeout=2) as response:
-            payload = json.load(response)
+        payload = self._debugger_json("json/version")
+        if not isinstance(payload, dict):
+            raise RuntimeError("Chromium returned invalid debugging metadata")
         websocket_url = str(payload.get("webSocketDebuggerUrl") or "")
         parsed = urlparse(websocket_url)
         if (
@@ -147,12 +157,11 @@ class AuthBrowserManager:
                 self._session.grant = grant
                 self._session.status = "verified"
 
-    async def _watch_grant(self, session: BrowserSession, ready: threading.Event) -> None:
+    async def _watch_grant(self, session: BrowserSession, ready: threading.Event, stop: threading.Event) -> None:
         from pydoll.browser.chromium import Chrome
         from pydoll.protocol.network.events import NetworkEvent
 
         browser = Chrome(connection_port=self.debugging_port)
-        tab = await browser.connect(self._debugger_websocket_url())
         challenge = urlparse(session.url)
         expected_origin = (challenge.scheme, challenge.netloc)
         expected_path = challenge.path.rstrip("/") + "/verify"
@@ -172,34 +181,35 @@ class AuthBrowserManager:
                 logger.debug("Could not capture provider verification response", exc_info=True)
 
         try:
+            tab = await asyncio.wait_for(browser.connect(self._debugger_websocket_url()), timeout=self.startup_timeout)
             await tab.enable_network_events()
             await tab.on(NetworkEvent.RESPONSE_RECEIVED, on_response)
             ready.set()
-            while not self._watcher_stop.is_set():
+            while not stop.is_set():
                 await asyncio.sleep(0.1)
         finally:
-            ready.set()
             try:
                 await browser.close()
             except Exception:
                 logger.debug("Could not close Chromium grant watcher", exc_info=True)
 
-    def _start_grant_watcher(self, session: BrowserSession) -> None:
+    def _start_grant_watcher(self, session: BrowserSession, timeout: float) -> None:
         self._watcher_stop = threading.Event()
+        stop = self._watcher_stop
         ready = threading.Event()
         startup_error: list[Exception] = []
 
         def run() -> None:
             try:
-                asyncio.run(self._watch_grant(session, ready))
+                asyncio.run(self._watch_grant(session, ready, stop))
             except Exception as exc:
                 startup_error.append(exc)
                 ready.set()
 
         self._watcher_thread = threading.Thread(target=run, name="auth-browser-grant", daemon=True)
         self._watcher_thread.start()
-        if not ready.wait(timeout=5):
-            raise RuntimeError("Chromium grant capture did not become ready")
+        if not ready.wait(timeout=timeout):
+            raise RuntimeError("Chromium grant capture did not become ready within the startup deadline")
         if startup_error:
             raise RuntimeError(f"Chromium grant capture failed: {startup_error[0]}") from startup_error[0]
 
@@ -234,19 +244,31 @@ class AuthBrowserManager:
 
     def _spawn(self, name: str, command: list[str], *, env: dict[str, str] | None = None) -> BrowserProcess:
         log_path = Path("/tmp") / f"aoede-auth-browser-{secrets.token_hex(6)}-{name}.log"
-        log_stream = log_path.open("w", encoding="utf-8")
-        process = subprocess.Popen(
-            command,
-            stdin=subprocess.DEVNULL,
-            stdout=subprocess.DEVNULL,
-            stderr=log_stream,
-            env=env,
-            start_new_session=True,
-        )
-        log_stream.close()
+        try:
+            with log_path.open("w", encoding="utf-8") as log_stream:
+                process = subprocess.Popen(
+                    command,
+                    stdin=subprocess.DEVNULL,
+                    stdout=subprocess.DEVNULL,
+                    stderr=log_stream,
+                    env=env,
+                    start_new_session=True,
+                )
+        except OSError as exc:
+            log_path.unlink(missing_ok=True)
+            if exc.errno in {errno.EAGAIN, errno.ENOMEM}:
+                raise RuntimeError(self._resource_error(name)) from exc
+            raise RuntimeError(f"{name} could not start: {exc.strerror}") from exc
         managed = BrowserProcess(name=name, process=process, log_path=log_path)
         self._processes.append(managed)
         return managed
+
+    @staticmethod
+    def _resource_error(name: str) -> str:
+        return (
+            f"{name} could not start: the downloader has insufficient free processes/threads or memory. "
+            "Check DOWNLOADER_PIDS_LIMIT and available memory; recreate the downloader container after updating."
+        )
 
     def _component_error(self, managed: BrowserProcess) -> str:
         try:
@@ -254,6 +276,9 @@ class AuthBrowserManager:
         except OSError:
             detail = ""
         detail = re.sub(r"https?://\S+", "[redacted-url]", detail)
+        if "pthread_create" in detail or "Resource temporarily unavailable" in detail:
+            logger.warning("Authentication browser resource failure (%s): %s", managed.name, detail)
+            return self._resource_error(managed.name)
         return f"{managed.name} exited during startup" + (f": {detail}" if detail else "")
 
     def _wait_ready(self, managed: BrowserProcess, predicate, timeout: float) -> None:
@@ -264,7 +289,20 @@ class AuthBrowserManager:
             if predicate():
                 return
             time.sleep(0.1)
-        raise RuntimeError(f"{managed.name} did not become ready within {timeout:g} seconds")
+        raise RuntimeError(
+            f"{managed.name} did not become ready before the {self.startup_timeout} second startup deadline"
+        )
+
+    def _chromium_ready(self) -> bool:
+        # A bound TCP port alone does not mean DevTools can accept the watcher.
+        try:
+            self._debugger_websocket_url()
+            targets = self._debugger_json("json/list")
+            return isinstance(targets, list) and any(
+                isinstance(target, dict) and target.get("type") == "page" for target in targets
+            )
+        except (OSError, ValueError, RuntimeError):
+            return False
 
     @staticmethod
     def _port_ready(port: int) -> bool:
@@ -279,12 +317,11 @@ class AuthBrowserManager:
         self._processes.clear()
         for managed in processes:
             process = managed.process
-            if process.poll() is not None:
-                continue
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except OSError:
-                process.terminate()
+                if process.poll() is None:
+                    process.terminate()
         deadline = time.monotonic() + 5
         for managed in processes:
             process = managed.process
@@ -292,11 +329,15 @@ class AuthBrowserManager:
             try:
                 process.wait(timeout=remaining)
             except subprocess.TimeoutExpired:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except OSError:
+                pass
+            # The parent can exit before its Chromium/VNC children. Always
+            # clean up its group, including after a failed startup.
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except OSError:
+                if process.poll() is None:
                     process.kill()
-                process.wait(timeout=2)
+            process.wait(timeout=2)
         for managed in processes:
             managed.log_path.unlink(missing_ok=True)
 
@@ -344,6 +385,11 @@ class AuthBrowserManager:
                 expires_at=time.time() + self.ttl,
             )
             self._session = session
+            startup_deadline = time.monotonic() + self.startup_timeout
+
+            def remaining() -> float:
+                return max(0, startup_deadline - time.monotonic())
+
             try:
                 self._command("Xvfb")
                 chromium = self._command("chromium")
@@ -370,15 +416,15 @@ class AuthBrowserManager:
                         "tcp",
                     ],
                 )
-                self._wait_ready(xvfb, lambda: Path(f"/tmp/.X11-unix/X{display_number}").exists(), 5)
+                self._wait_ready(xvfb, lambda: Path(f"/tmp/.X11-unix/X{display_number}").exists(), remaining())
                 chromium_command = self._chromium_command(chromium, browser_profile, url)
                 chromium_process = self._spawn(
                     "chromium",
                     chromium_command,
                     env=display_env,
                 )
-                self._wait_ready(chromium_process, lambda: self._port_ready(self.debugging_port), 5)
-                self._start_grant_watcher(session)
+                self._wait_ready(chromium_process, self._chromium_ready, remaining())
+                self._start_grant_watcher(session, remaining())
                 vnc = self._spawn(
                     "x11vnc",
                     [
@@ -394,7 +440,7 @@ class AuthBrowserManager:
                     ],
                     env=display_env,
                 )
-                self._wait_ready(vnc, lambda: self._port_ready(self.vnc_port), 5)
+                self._wait_ready(vnc, lambda: self._port_ready(self.vnc_port), remaining())
                 websocket = self._spawn(
                     "websockify",
                     [
@@ -404,8 +450,9 @@ class AuthBrowserManager:
                         f"127.0.0.1:{self.vnc_port}",
                     ],
                 )
-                self._wait_ready(websocket, lambda: self._port_ready(self.websocket_port), 5)
-                session.status = "ready"
+                self._wait_ready(websocket, lambda: self._port_ready(self.websocket_port), remaining())
+                session.status = "verified" if session.grant else "ready"
+                session.expires_at = time.time() + self.ttl
                 self._timer = threading.Timer(self.ttl, self._expire, args=(session.session_id,))
                 self._timer.daemon = True
                 self._timer.start()
@@ -425,6 +472,14 @@ class AuthBrowserManager:
                 session = None
             if not session:
                 return {"status": "idle", "enabled": self.enabled}
+            if not session.grant:
+                for managed in self._processes:
+                    if managed.process.poll() is not None:
+                        session.status = "failed"
+                        session.error = self._component_error(managed)
+                        result = {"enabled": self.enabled, **session.serialize()}
+                        self._stop_locked()
+                        return result
             return {"enabled": self.enabled, **session.serialize()}
 
     def stop(self) -> dict:

@@ -139,7 +139,9 @@ def disconnect_spotiflac_provider(provider: str) -> dict:
 
 def start_auth_browser(provider: str, url: str) -> dict:
     """Start the worker-local browser used for interactive verification."""
-    with _client(timeout=20.0) as client:
+    # Outlast the worker's shared startup deadline and failed-start cleanup.
+    startup_timeout = max(5, min(120, int(os.getenv("AUTH_BROWSER_STARTUP_TIMEOUT", "30"))))
+    with _client(timeout=startup_timeout + 15.0) as client:
         return _worker_json(client.post("/browser/start", json={"provider": provider, "url": url}))
 
 

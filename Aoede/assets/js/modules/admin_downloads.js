@@ -96,33 +96,42 @@ async function stopAuthBrowser(root) {
 }
 
 async function startAuthBrowser(root, provider) {
-  setStatus(root, `Starting ${provider} verification browser…`, 'pending');
-  const response = await fetch(`/admin/api/downloader/providers/${encodeURIComponent(provider)}/auth-browser/start`, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json' }
-  });
-  const payload = await responseJson(response);
-  if (payload.status === 'connected') {
-    await refreshProviders(root, true);
-    setStatus(root, `${provider} is already connected.`, 'success');
-    return;
+  if (root.dataset.browserStarting === 'true') return;
+  root.dataset.browserStarting = 'true';
+  const buttons = [...root.querySelectorAll('[data-provider-verify]')].filter((button) => !button.disabled);
+  buttons.forEach((button) => (button.disabled = true));
+  try {
+    setStatus(root, `Starting ${provider} verification browser…`, 'pending');
+    const response = await fetch(`/admin/api/downloader/providers/${encodeURIComponent(provider)}/auth-browser/start`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' }
+    });
+    const payload = await responseJson(response);
+    if (payload.status === 'connected') {
+      await refreshProviders(root, true);
+      setStatus(root, `${provider} is already connected.`, 'success');
+      return;
+    }
+    const modal = getAuthBrowserModal(root);
+    const frame = modal?.querySelector('[data-auth-browser-frame]');
+    if (!payload.novnc_url) throw new Error('Verification browser URL was not returned');
+    if (!modal || !frame) throw new Error('Verification browser interface is unavailable');
+    modal.dataset.provider = provider;
+    modal.hidden = false;
+    modal.setAttribute('aria-hidden', 'false');
+    modal.querySelector('#auth-browser-title').textContent = `${provider} provider verification`;
+    frame.src = payload.novnc_url;
+    modal.querySelector('[data-auth-browser-close]')?.focus();
+    const remaining = payload.browser_session?.remaining_seconds || 600;
+    const countdown = modal.querySelector('[data-auth-browser-countdown]');
+    if (countdown)
+      countdown.textContent = `Session expires in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
+    setStatus(root, 'Complete verification in the browser window.', 'success');
+  } finally {
+    delete root.dataset.browserStarting;
+    buttons.forEach((button) => (button.disabled = false));
   }
-  const modal = getAuthBrowserModal(root);
-  const frame = modal?.querySelector('[data-auth-browser-frame]');
-  if (!payload.novnc_url) throw new Error('Verification browser URL was not returned');
-  if (!modal || !frame) throw new Error('Verification browser interface is unavailable');
-  modal.dataset.provider = provider;
-  modal.hidden = false;
-  modal.setAttribute('aria-hidden', 'false');
-  modal.querySelector('#auth-browser-title').textContent = `${provider} provider verification`;
-  frame.src = payload.novnc_url;
-  modal.querySelector('[data-auth-browser-close]')?.focus();
-  const remaining = payload.browser_session?.remaining_seconds || 600;
-  const countdown = modal.querySelector('[data-auth-browser-countdown]');
-  if (countdown)
-    countdown.textContent = `Session expires in ${Math.floor(remaining / 60)}:${String(remaining % 60).padStart(2, '0')}`;
-  setStatus(root, 'Complete verification in the browser window.', 'success');
 }
 
 async function checkAuthBrowser(root) {

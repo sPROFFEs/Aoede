@@ -58,6 +58,31 @@ If the challenge reports a network change, verification failure or Cloudflare Tu
 
 Verification is bound to the worker's browser and network context. A challenge completed from another machine or public IP cannot be safely transferred into the worker session.
 
+If startup reports `pthread_create: Resource temporarily unavailable`, Chromium could not create a thread. The downloader's former limit of 256 tasks was shared by Chromium, its threads and concurrent downloads. Current Compose files use `DOWNLOADER_PIDS_LIMIT=1024` and `init: true` to reap orphaned children. The [Linux PID controller](https://docs.kernel.org/admin-guide/cgroup-v2.html#pid) counts threads against this budget; [Docker's init option](https://docs.docker.com/reference/compose-file/services/#init) reaps child processes.
+
+After updating the source and your active Compose file, apply the worker changes with:
+
+```bash
+docker compose up -d --build --force-recreate downloader
+```
+
+A plain container restart does not apply a changed process limit or init setting. Custom deployment files must include the same downloader settings. The startup message now identifies resource exhaustion; its sanitized Chromium diagnostics remain in the downloader logs. Check actual PID and memory pressure before increasing the limit further:
+
+```bash
+docker stats --no-stream aoede_downloader
+docker compose exec downloader sh -c 'cat /sys/fs/cgroup/pids.current /sys/fs/cgroup/pids.max /sys/fs/cgroup/pids.events'
+```
+
+The cgroup paths above apply to cgroup v2. A nonzero `max` counter in `pids.events` records attempts that hit the PID limit. If the task budget has room, inspect available memory and any host-level process limits as well. Missing D-Bus or CPU-frequency files can accompany Chromium's logs and do not alone establish the cause of a startup failure.
+
+If the first session reports that the browser did not become ready within five seconds, update both downloader and Concierge. Startup now uses one 30-second budget across all components, waits for DevTools and a browser tab rather than only a listening port, and gives the client additional time for cleanup. Local DevTools HTTP requests bypass environment proxies; the worker entrypoint also preserves existing `NO_PROXY`/`no_proxy` entries and appends loopback addresses for WebSocket connections. A slow host can set `AUTH_BROWSER_STARTUP_TIMEOUT=60` in its Compose environment; both services receive that value. Recreate both services after changing it:
+
+```bash
+docker compose up -d --build downloader concierge
+```
+
+The browser's verification-session lifetime starts when the browser is ready. Startup errors release their processes before another attempt; the UI blocks additional start requests while one is already pending.
+
 ## Provider says Connected but downloads fail
 
 Provider session lifetimes are controlled by the provider. The worker checks stored sessions every 15 minutes and attempts normal signed renewal before expiry, including while idle.
