@@ -5,7 +5,6 @@
 
 import * as state from './state.js';
 import * as audioEngine from './audio_engine.js';
-import { refreshGlassOptics } from './glass_optics.js';
 
 const settingsSelections = new Map();
 
@@ -135,7 +134,6 @@ export function refreshIcons(scope) {
       if (!button.getAttribute('aria-label')) button.setAttribute('aria-label', t('common.close', 'Close'));
       if (!button.getAttribute('type')) button.setAttribute('type', 'button');
     });
-  refreshGlassOptics(root);
   if (!window.lucide?.createIcons) return;
   if (scope && scope.querySelectorAll) {
     const nodes = scope.querySelectorAll('[data-lucide]');

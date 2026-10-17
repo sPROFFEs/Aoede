@@ -286,3 +286,14 @@ def test_system_monitor_renders_during_old_handler_new_template_update_window():
 
     assert "Update applied successfully" in rendered
     assert "Download Manager" in rendered
+
+
+def test_artwork_is_only_drawn_on_ambient_backdrops():
+    """Controls and popovers must sample their backdrop, never repeat the cover."""
+    css_root = Path(__file__).resolve().parents[2] / "assets/css"
+    artwork_rules = []
+    for stylesheet in css_root.glob("*.css"):
+        rules = re.findall(r"([^{}]+)\{([^{}]*)\}", stylesheet.read_text())
+        artwork_rules.extend(selector for selector, body in rules if "--square-artwork" in body)
+    assert artwork_rules
+    assert all("body::before" in selector or ".fs-background" in selector for selector in artwork_rules)

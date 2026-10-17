@@ -67,7 +67,7 @@ assert.ok(await caches.match('/portal')); // A normal / -> /portal redirect must
 await (await caches.open(current)).put('/portal', new Response('music shell'));
 fetcher = async () => { throw new TypeError('offline'); };
 assert.equal(await (await event('fetch', request('/', 'navigate'))).text(), 'music shell');
-for (const path of ['/assets/css/theme_glass.css', '/assets/css/theme_vitrine.css', '/assets/js/modules/appearance.js', '/assets/js/modules/glass_optics.js']) {
+for (const path of ['/assets/css/theme_glass.css', '/assets/css/theme_vitrine.css', '/assets/js/modules/appearance.js']) {
   assert.equal(await (await event('fetch', request(`${path}?v=new-release`))).text(), 'asset');
 }
 await assert.rejects(event('fetch', request('/assets/not-installed.js?v=new-release')), /offline/);

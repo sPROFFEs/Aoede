@@ -162,6 +162,7 @@
     padding: calc(16px + env(safe-area-inset-top, 0px)) 20px calc(16px + env(safe-area-inset-bottom, 0px));
     overflow: hidden;
 }
+.fs-playback { display: contents; }
 .fs-header { grid-area: header; display: flex; align-items: center; gap: 16px; justify-content: space-between; z-index: 2; }
 .fs-view-label { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 1rem; }
 .fullscreen-player :is(.fs-minimize, .fs-action-btn, .control-btn) { border-radius: 999px; }

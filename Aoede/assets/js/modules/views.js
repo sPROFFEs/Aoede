@@ -261,7 +261,7 @@ export async function loadView(view, param = null, options = {}) {
   }
 
   // Active-state highlighting now lives on the home tab pills (which are
-  // re-rendered on each view) and on the sidebar's pinned items, both of
+  // re-rendered on each view) and on the sidebar's static items, both of
   // which manage their own state. The mobile bottom nav still needs an
   // explicit update because its three tabs map several related views
   // (mix → home, playlist → library, …) onto a small primary set.
@@ -454,9 +454,9 @@ document.body.addEventListener('htmx:afterSwap', (event) => {
 
 function _renderQuickPicksGrid() {
   // Liked Songs is always pinned as the very first quick-pick tile so
-  // mobile users (who don't have the desktop sidebar with the pinned
+  // mobile users (who don't have the desktop sidebar with the first
   // entry) still get one-tap access. On desktop the tile shows up too —
-  // the sidebar already pins it, but a second entry-point in the grid
+  // the sidebar already includes it, but a second entry-point in the grid
   // is harmless and matches Spotify's home pattern.
   const likedTile = `
     <button class="quick-pick" onclick="loadView('favorites')" title="Liked Songs">
@@ -1528,7 +1528,7 @@ export function handleCardClick(data, cardElement) {
 //
 // New Spotify-style sidebar markup:
 //   <nav id="sidebar-list">
-//     <a class="sidebar-item sidebar-item-favorites">…</a>     ← pinned static row
+//     <a class="sidebar-item sidebar-item-favorites">…</a>     ← first scrolling row
 //     <div id="sidebar-items">                                  ← dynamic slot
 //       <a class="sidebar-item">cover + meta</a>                ← per item
 //       …

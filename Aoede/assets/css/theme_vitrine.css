@@ -19,7 +19,7 @@ html[data-theme="vitrine"] {
     --square-muted: #5e5e6b;
     --square-faint: #6a6a77;
     --square-film: rgba(250, 251, 255, .44);
-    --square-film-strong: rgba(250, 251, 255, .94);
+    --square-film-strong: rgba(250, 251, 255, .72);
     --square-content: rgba(255, 255, 255, .56);
     --square-wash: rgba(70, 80, 110, .065);
     --square-rim: rgba(255, 255, 255, .74);
@@ -33,8 +33,8 @@ html[data-theme="vitrine"] {
     --vitreo-light: rgba(255, 255, 255, .85);
     --vitreo-inner: rgba(255, 255, 255, .30);
     --vitreo-shade: rgba(44, 52, 80, .10);
-    --vitreo-rim: inset 1px 1px 1px var(--vitreo-light), inset -1px -1px 1px #ffffff40, inset 0 3px 7px var(--vitreo-inner), inset 0 -3px 7px var(--vitreo-shade);
-    --vitreo-sheen: radial-gradient(ellipse at 8% 0%, var(--square-glint), transparent 54%), linear-gradient(155deg, #ffffff12 15%, transparent 45% 72%, #ffffff16);
+    --vitreo-rim: inset 0 1px 0 var(--vitreo-light), inset 0 -1px 0 var(--vitreo-shade);
+    --vitreo-sheen: linear-gradient(155deg, var(--square-glint), transparent 48%);
     --square-shadow: var(--vitreo-rim), 0 8px 28px #27365412, 0 2px 5px #27365408;
     --accent-rgb: 189, 37, 71;
     --sidebar-width: 256px;
@@ -50,7 +50,7 @@ html[data-theme="vitrine"][data-sidebar-mode="collapsed"] { --sidebar-width: 76p
         --square-muted: #c3c5d2;
         --square-faint: #afb2c4;
         --square-film: rgba(39, 43, 58, .42);
-        --square-film-strong: rgba(31, 35, 49, .94);
+        --square-film-strong: rgba(31, 35, 49, .76);
         --square-content: rgba(41, 45, 61, .46);
         --square-wash: rgba(213, 222, 255, .075);
         --square-rim: rgba(236, 242, 255, .28);
@@ -78,7 +78,7 @@ html[data-theme="vitrine"] :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .pl
     -webkit-backdrop-filter: var(--square-blur) !important;
 }
 html[data-theme="vitrine"] :is(.modal, .monitor-modal, .auth-browser-dialog, .user-menu-panel, .track-context-menu, .atp-flyout, .create-menu, .tas-sheet, .toast-msg, .pwa-banner, .update-toast-card) { background-color: var(--square-film-strong) !important; border-radius: 26px !important; }
-html[data-theme="vitrine"] :is(.modal-overlay, .monitor-modal-backdrop, .auth-browser-modal, .tas-overlay) { background: var(--square-overlay) !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+html[data-theme="vitrine"] :is(.modal-overlay, .monitor-modal-backdrop, .auth-browser-modal, .tas-overlay) { background: var(--square-overlay) !important; backdrop-filter: none; -webkit-backdrop-filter: none; }
 html[data-theme="vitrine"] :is(.user-menu-item, .ctx-item, .atp-item, .create-option, .tas-action-btn) { min-height: 44px; border-radius: 14px; }
 html[data-theme="vitrine"] :is(.modal-header, .atp-header, .queue-header, .lyrics-header, .auth-browser-dialog-head) { gap: 16px; border-color: var(--square-line); }
 html[data-theme="vitrine"] :is(.modal-header h2, .auth-browser-dialog-head h2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
@@ -137,7 +137,7 @@ html[data-theme="vitrine"] :is(.btn-secondary, .btn-secondary-lg, .home-tab, .fi
 html[data-theme="vitrine"] :is(.home-tab.active, .library-filter.active, .source-chip.active, .source-tab.active, .filter-btn.active, .settings-tabbar button[aria-selected="true"], .playback-chip.active) { background-color: var(--square-film-strong) !important; color: var(--primary) !important; }
 html[data-theme="vitrine"] :is(.btn-primary, .btn-primary-lg, .modal-btn-primary, .btn-play-circle, .user-settings-button, .admin-submit, .monitor-primary, .party-create-btn, .party-submit, .party-control-primary, .atp-create-submit, .pwa-install-btn) { min-height: 44px; border-radius: 999px !important; background-color: var(--primary) !important; background-image: linear-gradient(155deg, #ffffff24, transparent 65%) !important; color: var(--square-on-primary) !important; box-shadow: inset 0 1px 1px #ffffff60, 0 4px 12px #00000012 !important; }
 html[data-theme="vitrine"] :is(.btn-danger, .btn-danger-outline, .modal-btn-danger, .admin-danger-btn, .monitor-danger, .party-delete-btn) { min-height: 44px; border-radius: 999px !important; color: var(--danger) !important; background: var(--square-film) !important; border: 1px solid currentColor !important; box-shadow: var(--vitreo-rim); }
-html[data-theme="vitrine"] :is(button, summary):not(:disabled):active { scale: 1.015; --vitreo-light: #ffffffe0; }
+html[data-theme="vitrine"] :is(button, summary):not(:disabled):active { scale: .97; --vitreo-light: #ffffffe0; }
 html[data-theme="vitrine"] :is(button, input, select, textarea):disabled { opacity: .48; cursor: not-allowed; scale: 1; }
 @media (hover: hover) {
     html[data-theme="vitrine"] :is(button, summary):not(:disabled):hover { background-color: var(--square-film-strong); }
@@ -146,6 +146,15 @@ html[data-theme="vitrine"] :is(button, input, select, textarea):disabled { opaci
 html[data-theme="vitrine"] :is(.circle-btn, .btn-icon-circle, .m-icon-btn, .topbar-home-btn, .icon-btn-sm, .library-icon-btn, .fs-action-btn, .btn-icon-pill, .btn-icon, .play-btn-card, .discovery-play-btn, .user-settings-toggle-secret, .party-result-add) { align-items: center; justify-content: center; flex: 0 0 auto; width: 44px; height: 44px; min-width: 44px; padding: 0; }
 @media (hover: hover) {
     html[data-theme="vitrine"] :is(button, summary):not(:disabled):hover { --vitreo-light: #ffffffd0; }
+}
+
+/* Icons inside one toolbar/dialog share its material. Standalone actions keep their own surface. */
+html[data-theme="vitrine"] :is(.top-bar, .m-topbar, .m-bottom-nav, .sidebar, .player-footer, .modal, .monitor-modal, .auth-browser-dialog, .user-menu-panel, .track-context-menu, .atp-flyout, .create-menu, .tas-sheet) :is(.circle-btn, .btn-icon-circle, .m-icon-btn, .topbar-home-btn, .user-menu-trigger, .icon-btn-sm, .control-btn, .sidebar-toggle, .library-icon-btn, .modal-close, .create-menu-close, .atp-close, .lyrics-close, [data-auth-browser-close]) {
+    background: transparent !important; border-color: transparent !important; box-shadow: none !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+@media (hover: hover) {
+    html[data-theme="vitrine"] :is(.top-bar, .m-topbar, .sidebar, .player-footer, .modal) :is(.circle-btn, .btn-icon-circle, .m-icon-btn, .topbar-home-btn, .icon-btn-sm, .control-btn, .library-icon-btn, .modal-close):not(:disabled):hover { background: var(--square-wash) !important; }
 }
 
 /* Compact row actions keep their grid width and become visible with keyboard focus. */
@@ -189,9 +198,9 @@ html[data-theme="vitrine"] .player-footer .play-main { background: transparent !
 html[data-theme="vitrine"] .player-footer #player-cover { border-radius: 12px; }
 
 /* Vitrine's native arrangement: unboxed transport, inline volume, separate footer actions. */
-html[data-theme="vitrine"] .fullscreen-player { --square-film: #ffffff12; --square-film-strong: #272c40ee; --square-rim: #ffffff45; --square-glint: #ffffff24; --vitreo-light: #ffffff78; --vitreo-inner: #ffffff12; --vitreo-shade: #00000020; --fs-film: #ffffff12; --fs-rim: #ffffff45; background: #202025; }
+html[data-theme="vitrine"] .fullscreen-player { --square-film: #ffffff12; --square-film-strong: #272c40bd; --square-rim: #ffffff45; --square-glint: #ffffff24; --vitreo-light: #ffffff78; --vitreo-inner: #ffffff12; --vitreo-shade: #00000020; --fs-film: #ffffff12; --fs-rim: #ffffff45; background: #202025; }
 html[data-theme="vitrine"] .fullscreen-player .fs-background { background: linear-gradient(180deg, #18181e80, #18181ed9), var(--square-artwork, linear-gradient(140deg, #795369, #2d4268)) center / cover !important; filter: blur(38px) saturate(1.3); }
-html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 540px; padding-inline: 28px; gap: clamp(4px, 1.2vh, 12px); grid-template: "header" 44px "stage" minmax(0, 1fr) "info" auto "progress" 44px "controls" 72px "volume" 44px "actions" 48px / minmax(0, 1fr); }
+html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 540px; padding-inline: 28px; padding-bottom: calc(clamp(20px, 4dvh, 40px) + env(safe-area-inset-bottom, 0px)); gap: clamp(4px, 1.2vh, 12px); grid-template: "header" 44px "stage" minmax(0, 1fr) "info" auto "progress" 44px "controls" 72px "volume" 44px "actions" 48px / minmax(0, 1fr); }
 html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-content { grid-template: "header" 44px "info" 80px "detail" minmax(0, 1fr) "progress" 44px "controls" 72px "volume" 44px "actions" 48px / minmax(0, 1fr); }
 html[data-theme="vitrine"] .fs-view-label { text-align: center; font-size: .8rem; letter-spacing: .02em; color: #e3e5f0 !important; }
 html[data-theme="vitrine"] .fs-volume { display: none; }
@@ -214,14 +223,15 @@ html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-conta
 html[data-theme="vitrine"] #fs-time-total { display: none; }
 html[data-theme="vitrine"] #fs-time-remaining { display: block; grid-area: duration; text-align: right; }
 html[data-theme="vitrine"] .fs-progress-container { font-variant-numeric: tabular-nums; }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls { justify-content: space-evenly; }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls { justify-content: space-evenly; align-items: center; }
 html[data-theme="vitrine"] .fullscreen-player .fs-controls .control-btn { background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 html[data-theme="vitrine"] .fullscreen-player .fs-controls .control-btn svg { width: 32px; height: 32px; fill: currentColor !important; stroke-width: 0; }
 html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main svg { width: 44px; height: 44px; }
 html[data-theme="vitrine"] .fs-volume-slot { grid-area: volume; display: flex; align-items: center; }
 html[data-theme="vitrine"] .fs-volume-slot .fs-volume-panel { position: static; display: flex; width: 100%; padding: 0; gap: 14px; background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 html[data-theme="vitrine"] .fs-volume-slot #fs-volume-bar { width: auto; flex: 1; }
-html[data-theme="vitrine"] .fs-volume-slot #fs-volume-icon { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+html[data-theme="vitrine"] .fullscreen-player :is(.fs-track-actions .fs-action-btn, .fs-volume-slot #fs-volume-icon) { background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="vitrine"] .fs-track-actions .fs-action-btn:is(:hover, .active) { background: #ffffff18 !important; }
 html[data-theme="vitrine"] .fs-volume-high { display: flex; width: 28px; color: #d8d9df; }
 html[data-theme="vitrine"] .fs-volume-high svg { width: 22px; }
 html[data-theme="vitrine"] .fullscreen-player .fs-actions { width: 100%; height: 48px; padding: 0; background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
@@ -236,8 +246,10 @@ html[data-theme="vitrine"] .fs-detail-stage .lyrics-body { padding: 12px 0; text
 html[data-theme="vitrine"] .fs-detail-stage .lyrics-foot { border: 0; }
 html[data-theme="vitrine"] .fs-detail-stage :is(.lyrics-credit, .queue-header h3, .queue-item-title, .queue-item-meta) { color: #e3e5f0 !important; }
 @media (min-width: 980px) and (min-height: 600px), (min-width: 560px) and (orientation: landscape) {
-    html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 1120px; padding-inline: clamp(24px, 4vw, 56px); column-gap: clamp(24px, 5vw, 80px); grid-template: "header header" 44px "stage info" minmax(64px, 1fr) "stage progress" 44px "stage controls" 72px "stage volume" 44px "stage actions" 48px / minmax(0, 1fr) minmax(0, 1fr); }
-    html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-content { grid-template: "header header" 44px "info detail" minmax(80px, 1fr) "progress detail" 44px "controls detail" 72px "volume detail" 44px "actions detail" 48px / minmax(0, 1fr) minmax(0, 1fr); }
+    html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 1120px; padding-inline: clamp(24px, 4vw, 56px); column-gap: clamp(24px, 5vw, 80px); grid-template: "header header" 44px "stage playback" minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr); }
+    html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-content { grid-template: "header header" 44px "playback detail" minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr); }
+    html[data-theme="vitrine"] .fullscreen-player .fs-playback { grid-area: playback; display: grid; grid-template: "info" auto "progress" 44px "controls" 72px "volume" 44px "actions" 48px / minmax(0, 1fr); gap: clamp(4px, 1.2vh, 12px); align-self: center; min-width: 0; min-height: 0; }
+    html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-playback { height: min(100%, 660px); grid-template-rows: minmax(80px, 1fr) 44px 72px 44px 48px; }
     html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-info { display: grid; grid-template: "art art" minmax(0, 1fr) "text actions" auto / minmax(0, 1fr) auto; align-self: stretch; min-height: 0; }
     html[data-theme="vitrine"] .fs-info > .fs-cover { grid-area: art; width: 100%; height: 100%; min-height: 0; object-fit: contain; justify-self: center; }
     @supports (width: 1cqw) {
@@ -248,7 +260,8 @@ html[data-theme="vitrine"] .fs-detail-stage :is(.lyrics-credit, .queue-header h3
     html[data-theme="vitrine"] .fs-info .fs-track-actions { grid-area: actions; }
 }
 @media (max-height: 700px) {
-    html[data-theme="vitrine"] .fullscreen-player .fs-content { row-gap: 4px; }
+    html[data-theme="vitrine"] .fullscreen-player .fs-content { row-gap: 4px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+    html[data-theme="vitrine"] .fullscreen-player .fs-playback { row-gap: 4px; }
     html[data-theme="vitrine"] .fullscreen-player .fs-stage { margin-block: 0; }
     html[data-theme="vitrine"] .fullscreen-player .fs-info { padding-block: 0; }
 }
@@ -313,10 +326,3 @@ html[data-theme="vitrine"] .fs-detail-stage :is(.lyrics-credit, .queue-header h3
     html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container, .fs-view-label, .fs-volume-high) { color: CanvasText !important; }
     html[data-theme="vitrine"] .fs-detail-stage :is(.lyric-line, .lyric-line.active, .lyrics-credit) { color: CanvasText !important; }
 }
-
-/* An isolated decorative background receives the lens; text and hit areas stay sharp. */
-html[data-theme="vitrine"] .glass-optic-surface { isolation: isolate; }
-html[data-theme="vitrine"] .glass-optic-position { position: relative; inset: auto; }
-.glass-optic-defs { position: absolute; pointer-events: none; overflow: hidden; }
-.glass-optic-layer { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: var(--square-artwork, linear-gradient(135deg, #efa9b8, #657a9d 55%, #e7d3b5)) center / cover; opacity: .32; }
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) { .glass-optic-layer { display: none; } }

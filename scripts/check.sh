@@ -39,5 +39,4 @@ node --experimental-vm-modules scripts/test_webapp.mjs
 node --experimental-vm-modules scripts/test_collections.mjs
 node --experimental-vm-modules scripts/test_appearance.mjs
 node --experimental-vm-modules scripts/test_player_ui.mjs
-node --experimental-vm-modules scripts/test_glass_optics.mjs
 node --experimental-vm-modules scripts/test_android.mjs

@@ -185,6 +185,16 @@
 /* ── User menu — show only the avatar ─────────────────────────────── */
 
 .top-bar .user-menu-trigger {
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    aspect-ratio: 1;
     background: transparent;
     border: 0;
     padding: 0;
@@ -207,6 +217,9 @@
 .top-bar .avatar-circle {
     width: 32px;
     height: 32px;
+    flex: 0 0 32px;
+    border-radius: 50%;
+    overflow: hidden;
 }
 
 .view-content {
@@ -225,3 +238,7 @@
         display: none;
     }
 }
+
+/* Filter a separate toolbar plane: dropdowns must see the page, not a filtered ancestor. */
+html:is([data-theme="glass"], [data-theme="vitrine"]) .main-view > .top-bar { isolation: isolate; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .main-view > .top-bar::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit; background: linear-gradient(145deg, var(--square-glint), transparent 55%), var(--square-film); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }

@@ -50,7 +50,7 @@ function synthetic(values) {
 }
 stateModule = synthetic(values);
 const engine = synthetic({ getVolume: () => volume, setVolume: value => { volume = Math.max(0, Math.min(1, value)); } });
-const imports = { './glass_optics.js': synthetic({ refreshGlassOptics() {} }), './state.js': stateModule, './audio_engine.js': engine, './player.js': synthetic({ persistPlaybackSession() {} }) };
+const imports = { './state.js': stateModule, './audio_engine.js': engine, './player.js': synthetic({ persistPlaybackSession() {} }) };
 async function load(name) {
   const module = new vm.SourceTextModule(await readFile(new URL(`../Aoede/assets/js/modules/${name}.js`, import.meta.url), 'utf8') + (name === 'lyrics' ? '\nexport { parseLRC, lineAt, playbackTime };' : ''), { context });
   await module.link(key => imports[key]); await module.evaluate(); imports[`./${name}.js`] = module; return module.namespace;

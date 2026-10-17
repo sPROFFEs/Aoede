@@ -118,6 +118,8 @@
     z-index: 1;
 }
 
+#sidebar-items { display: contents; }
+
 .sidebar-item {
     display: flex;
     align-items: center;
@@ -177,27 +179,6 @@
 .sidebar-cover-favorites {
     background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
     color: #fff;
-}
-
-/* Liked Songs is pinned at the top of the scrolling list — it's the user's
- * primary entry point and Spotify keeps it visible always. We use sticky
- * with a solid sidebar-coloured background so dynamic items below scroll
- * cleanly behind it instead of being clipped half-way.
- *
- * Cover-alignment trick: the negative horizontal margin extends the
- * background to the inner edge of the .sidebar-list padding (8px each
- * side); we then compensate with extra horizontal padding (16px) so the
- * cover thumbnail lands at the SAME x-coordinate as every other row's
- * cover (which is at list-padding-left + item-padding-left = 8 + 8 = 16
- * from the sidebar edge). Without the compensation the pinned cover sat
- * 8px further left than the rest, looking off-axis. */
-.sidebar-item-favorites {
-    position: sticky;
-    top: -4px;
-    z-index: 2;
-    background: var(--surface-0);
-    margin: -4px -8px 4px -8px;
-    padding: 10px 16px 6px 16px;
 }
 
 .sidebar-cover-favorites i,
@@ -394,15 +375,6 @@
     padding-left: 4px;
     padding-right: 4px;
     transition: gap 200ms ease, padding 200ms ease, background-color 120ms ease;
-}
-
-/* Pinned Liked Songs row uses negative margins to bleed across the list
- * padding, so its content area is the full 72px sidebar. To match the
- * other rows visually, the symmetric collapsed padding becomes 12px
- * (cover 48 + 24 padding = 72). */
-:root[data-sidebar-mode="collapsed"] .sidebar-item-favorites {
-    padding-left: 12px;
-    padding-right: 12px;
 }
 
 /* ── Mobile (<= 768px) keeps the sidebar in its existing slide-in

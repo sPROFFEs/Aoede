@@ -40,7 +40,6 @@
                 "/assets/js/modules/admin.js": "/assets/js/modules/admin.js?v={{ static_v }}",
                 "/assets/js/modules/admin_downloads.js": "/assets/js/modules/admin_downloads.js?v={{ static_v }}",
                 "/assets/js/modules/admin_system.js": "/assets/js/modules/admin_system.js?v={{ static_v }}",
-                "/assets/js/modules/glass_optics.js": "/assets/js/modules/glass_optics.js?v={{ static_v }}",
                 "/assets/js/modules/appearance.js": "/assets/js/modules/appearance.js?v={{ static_v }}",
                 "/assets/js/modules/api.js": "/assets/js/modules/api.js?v={{ static_v }}",
                 "/assets/js/modules/audio_engine.js": "/assets/js/modules/audio_engine.js?v={{ static_v }}",
@@ -114,8 +113,7 @@
             </div>
 
             <!-- Library list. JS keeps it sorted by last activity.            -->
-            <!-- Favorites is pinned and always rendered first as a static row,-->
-            <!-- then #sidebar-items receives the dynamic playlists + radios.  -->
+            <!-- Favorites and downloads scroll with the dynamic library rows. -->
             <nav class="sidebar-list" id="sidebar-list">
                 <a class="sidebar-item sidebar-item-favorites"
                    onclick="loadView('favorites')"
@@ -401,58 +399,60 @@
                     </details>
                 </header>
                 <div class="fs-detail-stage" id="fs-details"></div>
-                <div class="fs-volume-slot" id="fs-volume-slot"></div>
                 <div class="fs-stage" id="fs-stage">
                     <img id="fs-cover" class="fs-cover" src="/static/img/default_cover.png" alt="Cover">
                 </div>
-                <div class="fs-info" id="fs-info">
-                    <div class="fs-track-text">
-                        <div id="fs-title" class="fs-title">{{ _('player.not_playing') if _ else 'Not Playing' }}</div>
-                        <div id="fs-artist" class="fs-artist">{{ _('player.select_track') if _ else 'Select a track' }}</div>
+                <div class="fs-playback">
+                    <div class="fs-info" id="fs-info">
+                        <div class="fs-track-text">
+                            <div id="fs-title" class="fs-title">{{ _('player.not_playing') if _ else 'Not Playing' }}</div>
+                            <div id="fs-artist" class="fs-artist">{{ _('player.select_track') if _ else 'Select a track' }}</div>
+                        </div>
+                        <div class="fs-track-actions" id="fs-track-actions">
+                            <button class="fs-action-btn" id="fs-btn-favorite" onclick="toggleFavoriteFromPlayer()"
+                                title="{{ _('player.favorite') if _ else 'Favorite' }}">
+                                <i data-lucide="heart"></i>
+                            </button>
+                            <button class="fs-action-btn" id="fs-btn-add" onclick="showAddToPlaylistFromPlayer()" title="{{ _('player.add_to_playlist') if _ else 'Add to Playlist' }}">
+                                <i data-lucide="list-plus"></i>
+                            </button>
+                        </div>
                     </div>
-                    <div class="fs-track-actions" id="fs-track-actions">
-                        <button class="fs-action-btn" id="fs-btn-favorite" onclick="toggleFavoriteFromPlayer()"
-                            title="{{ _('player.favorite') if _ else 'Favorite' }}">
-                            <i data-lucide="heart"></i>
+                    <div class="fs-progress-container">
+                        <span id="fs-time-current">0:00</span>
+                        <div class="fs-progress-bar" id="fs-progress-bar" aria-label="{{ _('player.seek') }}">
+                            <div class="fs-progress-fill" id="fs-progress-fill" style="width: 0%;"></div>
+                            <div class="fs-progress-knob"></div>
+                        </div>
+                        <span id="fs-time-total">0:00</span><span id="fs-time-remaining">−0:00</span>
+                    </div>
+                    <div class="fs-controls" id="fs-controls">
+                        <button class="control-btn" onclick="toggleShuffle()" id="fs-btn-shuffle" title="{{ _('player.shuffle') if _ else 'Shuffle' }}"><i
+                                data-lucide="shuffle"></i></button>
+                        <button class="control-btn" onclick="playPrev()" id="fs-btn-previous" aria-label="{{ _('player.previous') }}"><i data-lucide="skip-back"></i></button>
+                        <button class="control-btn fs-play-main" id="fs-play-pause-btn" aria-label="Play" title="Play"
+                            onclick="document.getElementById('play-pause-btn').click()">
+                            <i data-lucide="play"></i>
                         </button>
-                        <button class="fs-action-btn" id="fs-btn-add" onclick="showAddToPlaylistFromPlayer()" title="{{ _('player.add_to_playlist') if _ else 'Add to Playlist' }}">
-                            <i data-lucide="list-plus"></i>
+                        <button class="control-btn" onclick="playNext()" id="fs-btn-next" aria-label="{{ _('player.next') }}"><i data-lucide="skip-forward"></i></button>
+                        <button class="control-btn" onclick="toggleRepeat()" id="fs-btn-repeat" title="Repeat"><i
+                                data-lucide="repeat"></i></button>
+                    </div>
+                    <div class="fs-volume-slot" id="fs-volume-slot"></div>
+                    <!-- Shared fullscreen view selector and sleep timer -->
+                    <div class="fs-actions" id="fs-actions">
+                        <button class="fs-action-btn" id="fs-btn-cover" data-fs-view="cover" onclick="showFullscreenCover()" aria-label="{{ _('player.cover') }}" title="{{ _('player.cover') }}"><i data-lucide="disc-3"></i></button>
+                        <button class="fs-action-btn lyrics-toggle-btn" data-fs-view="lyrics" onclick="toggleLyricsPanel()" title="{{ _('player.lyrics') if _ else 'Lyrics' }}">
+                            <i data-lucide="mic-vocal"></i>
+                        </button>
+                        <button class="fs-action-btn fs-audio-action" id="fs-audio-action" onclick="document.getElementById('fs-volume-bar').focus()" aria-label="Adjust playback volume" title="{{ _('player.volume') }}"><i data-lucide="volume-2"></i></button>
+                        <button class="fs-action-btn" data-fs-view="queue" onclick="toggleQueue()" title="{{ _('player.queue') if _ else 'Queue' }}">
+                            <i data-lucide="list-music"></i>
+                        </button>
+                        <button class="fs-action-btn" id="fs-btn-sleep" onclick="cycleSleepTimer()" title="{{ _('player.sleep_timer') if _ else 'Sleep timer' }}">
+                            <i data-lucide="timer"></i>
                         </button>
                     </div>
-                </div>
-                <div class="fs-progress-container">
-                    <span id="fs-time-current">0:00</span>
-                    <div class="fs-progress-bar" id="fs-progress-bar" aria-label="{{ _('player.seek') }}">
-                        <div class="fs-progress-fill" id="fs-progress-fill" style="width: 0%;"></div>
-                        <div class="fs-progress-knob"></div>
-                    </div>
-                    <span id="fs-time-total">0:00</span><span id="fs-time-remaining">−0:00</span>
-                </div>
-                <div class="fs-controls" id="fs-controls">
-                    <button class="control-btn" onclick="toggleShuffle()" id="fs-btn-shuffle" title="{{ _('player.shuffle') if _ else 'Shuffle' }}"><i
-                            data-lucide="shuffle"></i></button>
-                    <button class="control-btn" onclick="playPrev()" id="fs-btn-previous" aria-label="{{ _('player.previous') }}"><i data-lucide="skip-back"></i></button>
-                    <button class="control-btn fs-play-main" id="fs-play-pause-btn" aria-label="Play" title="Play"
-                        onclick="document.getElementById('play-pause-btn').click()">
-                        <i data-lucide="play"></i>
-                    </button>
-                    <button class="control-btn" onclick="playNext()" id="fs-btn-next" aria-label="{{ _('player.next') }}"><i data-lucide="skip-forward"></i></button>
-                    <button class="control-btn" onclick="toggleRepeat()" id="fs-btn-repeat" title="Repeat"><i
-                            data-lucide="repeat"></i></button>
-                </div>
-                <!-- Shared fullscreen view selector and sleep timer -->
-                <div class="fs-actions" id="fs-actions">
-                    <button class="fs-action-btn" id="fs-btn-cover" data-fs-view="cover" onclick="showFullscreenCover()" aria-label="{{ _('player.cover') }}" title="{{ _('player.cover') }}"><i data-lucide="disc-3"></i></button>
-                    <button class="fs-action-btn lyrics-toggle-btn" data-fs-view="lyrics" onclick="toggleLyricsPanel()" title="{{ _('player.lyrics') if _ else 'Lyrics' }}">
-                        <i data-lucide="mic-vocal"></i>
-                    </button>
-                    <button class="fs-action-btn fs-audio-action" id="fs-audio-action" onclick="document.getElementById('fs-volume-bar').focus()" aria-label="Adjust playback volume" title="{{ _('player.volume') }}"><i data-lucide="volume-2"></i></button>
-                    <button class="fs-action-btn" data-fs-view="queue" onclick="toggleQueue()" title="{{ _('player.queue') if _ else 'Queue' }}">
-                        <i data-lucide="list-music"></i>
-                    </button>
-                    <button class="fs-action-btn" id="fs-btn-sleep" onclick="cycleSleepTimer()" title="{{ _('player.sleep_timer') if _ else 'Sleep timer' }}">
-                        <i data-lucide="timer"></i>
-                    </button>
                 </div>
             </div>
         </div>
