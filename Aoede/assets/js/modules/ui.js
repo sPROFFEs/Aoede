@@ -5,6 +5,7 @@
 
 import * as state from './state.js';
 import * as audioEngine from './audio_engine.js';
+import { refreshGlassOptics } from './glass_optics.js';
 
 const settingsSelections = new Map();
 
@@ -134,6 +135,7 @@ export function refreshIcons(scope) {
       if (!button.getAttribute('aria-label')) button.setAttribute('aria-label', t('common.close', 'Close'));
       if (!button.getAttribute('type')) button.setAttribute('type', 'button');
     });
+  refreshGlassOptics(root);
   if (!window.lucide?.createIcons) return;
   if (scope && scope.querySelectorAll) {
     const nodes = scope.querySelectorAll('[data-lucide]');
@@ -518,28 +520,53 @@ export function setupDraggable(element, callback) {
 
 let fullscreenReturnFocus = null;
 
-/** Reuse the existing panels in either theme without changing playback state. */
+/** Reuse the same controls and panels without changing playback state. */
 export function syncFullscreenPlayerLayout() {
   const panel = document.getElementById('fullscreen-player');
   const stage = document.getElementById('fs-stage');
   if (!panel || !stage) return;
   const embedded = state.isFullscreenPlayerOpen;
+  const vitrine = document.documentElement.dataset.theme === 'vitrine';
+  const details = document.getElementById('fs-details');
   const lyrics = document.getElementById('lyrics-panel');
   const queue = document.getElementById('queue-panel');
   if (embedded && lyrics?.classList.contains('open') && state.isQueueOpen) window.toggleQueue?.();
   [lyrics, queue].filter(Boolean).forEach((child) => {
-    const host = embedded ? stage : document.body;
+    const host = embedded ? (vitrine ? details : stage) : document.body;
     if (child.parentElement !== host) host.appendChild(child);
     child.inert = !child.classList.contains('open');
   });
   const view = lyrics?.classList.contains('open') ? 'lyrics' : queue?.classList.contains('open') ? 'queue' : 'cover';
   panel.dataset.view = embedded ? view : 'cover';
+  panel.dataset.playing = String(state.isPlaying);
+  const cover = document.getElementById('fs-cover');
+  const info = document.getElementById('fs-info');
+  const coverHost = vitrine && embedded && view !== 'cover' ? info : stage;
+  if (cover && coverHost && cover.parentElement !== coverHost) coverHost.insertBefore(cover, coverHost.firstChild);
+  const volume = document.getElementById('fs-volume-panel');
+  const volumeHost = vitrine ? document.getElementById('fs-volume-slot') : panel.querySelector('.fs-volume');
+  if (volume && volumeHost && volume.parentElement !== volumeHost) volumeHost.appendChild(volume);
+  const menu = document.getElementById('fs-more-menu');
+  const controls = document.getElementById('fs-controls');
+  const actions = document.getElementById('fs-actions');
+  if (menu && controls && actions) {
+    for (const id of ['fs-btn-shuffle', 'fs-btn-repeat', 'fs-btn-cover', 'fs-btn-sleep']) {
+      const button = document.getElementById(id);
+      if (!button) continue;
+      if (vitrine) {
+        if (button.parentElement !== menu) menu.appendChild(button);
+      } else if (id === 'fs-btn-shuffle') controls.insertBefore(button, controls.firstChild);
+      else if (id === 'fs-btn-repeat') controls.appendChild(button);
+      else if (id === 'fs-btn-cover') actions.insertBefore(button, actions.firstChild);
+      else actions.appendChild(button);
+    }
+  }
   if (
     embedded &&
-    stage.contains(document.activeElement) &&
+    panel.contains(document.activeElement) &&
     document.activeElement.closest('.lyrics-panel:not(.open), .queue-panel:not(.open)')
   )
-    panel.querySelector('[data-fs-view="cover"]')?.focus();
+    panel.querySelector(vitrine ? '.fs-minimize' : '[data-fs-view="cover"]')?.focus();
   panel.querySelectorAll('[data-fs-view]').forEach((button) => {
     const selected = button.dataset.fsView === panel.dataset.view;
     button.classList.toggle('active', selected);
@@ -566,14 +593,20 @@ export function initFullscreenPlayer() {
   if (!panel || panel.dataset.keyboardBound) return;
   panel.dataset.keyboardBound = 'true';
   const volume = panel.querySelector('.fs-volume');
+  const more = panel.querySelector('.fs-more');
   panel.addEventListener('click', (event) => {
     // Icon refreshes may detach event.target before this listener runs.
     if (volume && !event.composedPath().includes(volume)) volume.open = false;
+    if (more && !event.composedPath().includes(more)) more.open = false;
   });
   panel.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.preventDefault();
-      toggleFullscreenPlayer();
+      const disclosure = more?.open ? more : volume?.open ? volume : null;
+      if (disclosure) {
+        disclosure.open = false;
+        disclosure.querySelector('summary')?.focus();
+      } else toggleFullscreenPlayer();
     } else if (event.key === 'Tab') {
       const buttons = Array.from(panel.querySelectorAll('button:not(:disabled), summary, [tabindex="0"]')).filter(
         (el) => el.getClientRects().length && !el.closest('[inert]')
@@ -618,6 +651,8 @@ export function toggleFullscreenPlayer() {
     panel.classList.remove('open');
     const volume = panel.querySelector('.fs-volume');
     if (volume) volume.open = false;
+    const more = panel.querySelector('.fs-more');
+    if (more) more.open = false;
     syncFullscreenPlayerLayout();
     (fullscreenReturnFocus?.isConnected ? fullscreenReturnFocus : document.getElementById('player-cover'))?.focus();
     fullscreenReturnFocus = null;
@@ -626,6 +661,18 @@ export function toggleFullscreenPlayer() {
 
 export function updateFullscreenPlayButton() {
   syncFullscreenPlayerLayout();
+  const vitrine = document.documentElement.dataset.theme === 'vitrine';
+  for (const [id, modern, classic] of [
+    ['fs-btn-previous', 'rewind', 'skip-back'],
+    ['fs-btn-next', 'fast-forward', 'skip-forward']
+  ]) {
+    const button = document.getElementById(id);
+    const glyph = vitrine ? modern : classic;
+    if (button && button.dataset.glyph !== glyph) {
+      button.innerHTML = `<i data-lucide="${glyph}"></i>`;
+      button.dataset.glyph = glyph;
+    }
+  }
   const fsPlayBtn = document.getElementById('fs-play-pause-btn');
   const fsShuffle = document.getElementById('fs-btn-shuffle');
   const fsRepeat = document.getElementById('fs-btn-repeat');
@@ -697,6 +744,7 @@ export function updatePlayButton() {
 // === PROGRESS UPDATE ===
 
 export function updateUIProgress(current, total) {
+  document.dispatchEvent(new CustomEvent('aoede:playbacktime', { detail: { current, total } }));
   if (state.isSeeking) return;
 
   const bar = document.getElementById('progress-fill');
@@ -720,6 +768,8 @@ export function updateUIProgress(current, total) {
   if (fsKnob) fsKnob.style.left = `${pct}%`;
   if (fsCurrent) fsCurrent.innerText = fmtTime(current);
   if (fsTotal) fsTotal.innerText = fmtTime(total);
+  const remaining = document.getElementById('fs-time-remaining');
+  if (remaining) remaining.innerText = `−${fmtTime(Math.max(0, total - current))}`;
   document.querySelectorAll('#progress-bar, #fs-progress-bar').forEach((slider) => {
     slider.setAttribute('aria-valuenow', String(Math.round(Math.max(0, Math.min(100, pct)))));
     slider.setAttribute('aria-valuetext', `${fmtTime(current)} / ${fmtTime(total)}`);

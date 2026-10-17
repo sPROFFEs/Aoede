@@ -1512,18 +1512,22 @@
 }
 
 .lyric-line {
-    font-size: 1.05rem;
-    line-height: 1.7;
-    padding: 4px 0;
-    color: rgba(255, 255, 255, 0.4);
-    transition: color 0.25s, transform 0.25s, font-weight 0.25s;
-}
-.lyric-line.active {
-    color: #fff;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    font-size: 1.15rem;
     font-weight: 700;
-    font-size: 1.25rem;
-    transform: scale(1.03);
+    line-height: 1.6;
+    padding: 10px 0;
+    color: #b5b5bb;
+    overflow-wrap: anywhere;
+    text-wrap: pretty;
+    transition: color .2s;
 }
+.lyric-line.active { color: #fff; }
+.lyrics-body { min-height: 0; overscroll-behavior: contain; scroll-behavior: auto; }
+.lyrics-body:focus-visible { outline: 2px solid var(--primary); outline-offset: -3px; }
+#lyrics-follow { display: block; margin: 0 auto 8px; padding: 8px 14px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface-2); color: var(--text-main); font: inherit; cursor: pointer; }
+#lyrics-follow[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .lyric-line { transition: none; } }
 
 .lyrics-empty {
     padding: 48px 16px;
@@ -1561,9 +1565,6 @@
     }
     .lyric-line {
         font-size: 1.1rem;
-    }
-    .lyric-line.active {
-        font-size: 1.35rem;
     }
 }
 
@@ -2473,3 +2474,15 @@
 .library-pagination { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 20px; }
 .library-pagination .library-facet-count { flex: 1; margin: 0; }
 .library-pagination button:disabled { opacity: .4; cursor: default; }
+
+/* The same native switch semantics and visible thumb in Classic, too. */
+input[type="checkbox"][role="switch"] {
+    appearance: none; -webkit-appearance: none; flex: 0 0 auto;
+    width: 50px; height: 30px; margin: 0; border: 1px solid var(--border-strong); border-radius: 999px;
+    background: radial-gradient(circle at 14px 50%, #fff 10px, transparent 11px), var(--surface-3);
+    cursor: pointer; transition: background-color .15s;
+}
+input[type="checkbox"][role="switch"]:checked { background: radial-gradient(circle at 35px 50%, #fff 10px, transparent 11px), var(--primary, #1db954); }
+input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+input[type="checkbox"][role="switch"]:disabled { opacity: .5; cursor: not-allowed; }
+@media (forced-colors: active) { input[type="checkbox"][role="switch"] { appearance: auto; -webkit-appearance: auto; background: none; } }

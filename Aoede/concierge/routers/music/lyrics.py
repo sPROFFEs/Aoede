@@ -40,4 +40,4 @@ async def lyrics(
         album=album or None,
         duration=duration if duration > 0 else None,
     )
-    return JSONResponse(data)
+    return JSONResponse(data, status_code=503 if data.get("source") == "unavailable" else 200)

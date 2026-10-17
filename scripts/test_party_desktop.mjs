@@ -78,7 +78,7 @@ const modalContainer = {
 modalDocument.getElementById = () => modalContainer;
 modalDocument.querySelector = () => modal;
 const ui = await load('Aoede/assets/js/modules/ui.js', { document: modalDocument, Event, window: {} }, {
-  './state.js': {}, './audio_engine.js': {}
+  './state.js': {}, './audio_engine.js': {}, './glass_optics.js': { refreshGlassOptics() {} }
 });
 for (const outcome of ['confirm', 'cancel', 'escape', 'backdrop']) {
   const pending = ui.confirmDialog({ title: 'Delete <room>', message: 'Name & details' });

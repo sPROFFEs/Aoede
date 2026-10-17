@@ -188,37 +188,71 @@ html[data-theme="vitrine"] .player-footer { margin: 0 12px 12px; border-radius: 
 html[data-theme="vitrine"] .player-footer .play-main { background: transparent !important; color: var(--text-main) !important; border: 0 !important; }
 html[data-theme="vitrine"] .player-footer #player-cover { border-radius: 12px; }
 
-/* Fullscreen uses the same clear material, lit by the playing artwork. */
+/* Vitrine's native arrangement: unboxed transport, inline volume, separate footer actions. */
 html[data-theme="vitrine"] .fullscreen-player { --square-film: #ffffff12; --square-film-strong: #272c40ee; --square-rim: #ffffff45; --square-glint: #ffffff24; --vitreo-light: #ffffff78; --vitreo-inner: #ffffff12; --vitreo-shade: #00000020; --fs-film: #ffffff12; --fs-rim: #ffffff45; background: #202025; }
-html[data-theme="vitrine"] .fullscreen-player .fs-background { background: linear-gradient(180deg, #18181eb3, #18181edf), var(--square-artwork, linear-gradient(140deg, #795369, #2d4268)) center / cover !important; filter: blur(38px) saturate(1.3); }
-html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 600px; padding-inline: 28px; row-gap: clamp(8px, 2vh, 20px); }
-html[data-theme="vitrine"] .fs-view-label { text-align: center; font-size: .85rem; letter-spacing: .02em; color: var(--text-sub); }
-html[data-theme="vitrine"] .fullscreen-player .fs-stage { margin: 8px 0; border-radius: 18px; }
-html[data-theme="vitrine"] .fullscreen-player .fs-cover { border-radius: 18px !important; mask-image: none; -webkit-mask-image: none; filter: drop-shadow(0 14px 20px #0004); }
-html[data-theme="vitrine"] .fullscreen-player .fs-info { border: 0; border-radius: 0; padding: 8px 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
-html[data-theme="vitrine"] .fullscreen-player .fs-title { font-size: clamp(1.15rem, 4.8vw, 1.65rem); letter-spacing: -.025em; }
+html[data-theme="vitrine"] .fullscreen-player .fs-background { background: linear-gradient(180deg, #18181e80, #18181ed9), var(--square-artwork, linear-gradient(140deg, #795369, #2d4268)) center / cover !important; filter: blur(38px) saturate(1.3); }
+html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 540px; padding-inline: 28px; gap: clamp(4px, 1.2vh, 12px); grid-template: "header" 44px "stage" minmax(0, 1fr) "info" auto "progress" 44px "controls" 72px "volume" 44px "actions" 48px / minmax(0, 1fr); }
+html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-content { grid-template: "header" 44px "info" 80px "detail" minmax(0, 1fr) "progress" 44px "controls" 72px "volume" 44px "actions" 48px / minmax(0, 1fr); }
+html[data-theme="vitrine"] .fs-view-label { text-align: center; font-size: .8rem; letter-spacing: .02em; color: #e3e5f0 !important; }
+html[data-theme="vitrine"] .fs-volume { display: none; }
+html[data-theme="vitrine"] .fs-more { display: block; position: relative; flex: 0 0 44px; }
+html[data-theme="vitrine"] .fs-more summary { list-style: none; cursor: pointer; }
+html[data-theme="vitrine"] .fs-more summary::-webkit-details-marker { display: none; }
+html[data-theme="vitrine"] .fs-more-menu { position: absolute; top: 52px; right: 0; width: 240px; padding: 8px; display: grid; gap: 4px; border-radius: 24px; background: var(--square-film-strong); border: 1px solid var(--square-rim); box-shadow: var(--square-shadow); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); }
+html[data-theme="vitrine"] .fs-more-menu > button { display: flex; justify-content: start; gap: 14px; width: 100%; height: 44px; padding: 0 14px; border: 0 !important; background: transparent !important; box-shadow: none; color: #fff; border-radius: 16px; }
+html[data-theme="vitrine"] .fs-more-menu > button::after { content: attr(title); font: 500 .9rem / 1.3 system-ui; }
+html[data-theme="vitrine"] .fs-more-menu > button:is(.active-control, .active) { background: #ffffff20 !important; }
+html[data-theme="vitrine"] .fullscreen-player .fs-stage { margin: 8px 0; border-radius: 18px; container-type: size; display: grid; place-items: center; }
+html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-stage { display: none; }
+html[data-theme="vitrine"] .fullscreen-player .fs-cover { border-radius: 18px !important; mask-image: none; -webkit-mask-image: none; filter: drop-shadow(0 14px 20px #0004); transition: scale .5s ease; }
+@supports (width: 1cqw) { html[data-theme="vitrine"] .fs-stage .fs-cover { width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); } }
+html[data-theme="vitrine"] .fullscreen-player[data-playing="false"][data-view="cover"] .fs-cover { scale: .84; }
+html[data-theme="vitrine"] .fullscreen-player .fs-info { border: 0; border-radius: 0; min-height: 64px; padding: 4px 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-theme="vitrine"] .fs-info > .fs-cover { visibility: visible; width: 64px; height: 64px; flex: 0 0 64px; border-radius: 12px !important; object-fit: cover; }
+html[data-theme="vitrine"] .fullscreen-player .fs-title { font-size: clamp(1.1rem, 4.8vw, 1.55rem); letter-spacing: -.025em; }
 html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container) { color: #e3e5f0 !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls .control-btn { background: transparent !important; border: 0 !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main { background: var(--fs-film) !important; background-image: var(--vitreo-sheen) !important; border: 1px solid var(--fs-rim) !important; box-shadow: var(--square-shadow); }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main svg { width: 36px; height: 36px; }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls :is(#fs-btn-shuffle, #fs-btn-repeat).active-control { background: #ffffff20 !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-actions { border-radius: 999px; width: min(100%, 340px); background-color: var(--square-film) !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn { border: 0 !important; background: transparent !important; box-shadow: none !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn.active { background: #ffffff20 !important; box-shadow: var(--vitreo-rim) !important; }
-html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 20px !important; background: #181e3045 !important; }
-@supports (width: 1cqw) {
-    html[data-theme="vitrine"] .fullscreen-player .fs-stage { container-type: size; display: grid; place-items: center; }
-    html[data-theme="vitrine"] .fullscreen-player .fs-cover { width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
-}
+html[data-theme="vitrine"] #fs-time-total { display: none; }
+html[data-theme="vitrine"] #fs-time-remaining { display: block; grid-area: duration; text-align: right; }
+html[data-theme="vitrine"] .fs-progress-container { font-variant-numeric: tabular-nums; }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls { justify-content: space-evenly; }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls .control-btn { background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls .control-btn svg { width: 32px; height: 32px; fill: currentColor !important; stroke-width: 0; }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main svg { width: 44px; height: 44px; }
+html[data-theme="vitrine"] .fs-volume-slot { grid-area: volume; display: flex; align-items: center; }
+html[data-theme="vitrine"] .fs-volume-slot .fs-volume-panel { position: static; display: flex; width: 100%; padding: 0; gap: 14px; background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="vitrine"] .fs-volume-slot #fs-volume-bar { width: auto; flex: 1; }
+html[data-theme="vitrine"] .fs-volume-slot #fs-volume-icon { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+html[data-theme="vitrine"] .fs-volume-high { display: flex; width: 28px; color: #d8d9df; }
+html[data-theme="vitrine"] .fs-volume-high svg { width: 22px; }
+html[data-theme="vitrine"] .fullscreen-player .fs-actions { width: 100%; height: 48px; padding: 0; background: transparent !important; background-image: none !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn { display: flex; flex: 0 0 48px; border: 0 !important; background: transparent !important; box-shadow: none !important; }
+html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn.active { background: #ffffff20 !important; }
+html[data-theme="vitrine"] .fs-detail-stage { grid-area: detail; display: block; position: relative; min-width: 0; min-height: 0; }
+html[data-theme="vitrine"] [data-view="cover"] .fs-detail-stage { display: none; }
+html[data-theme="vitrine"] .fs-detail-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 0 !important; background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-theme="vitrine"] .fs-detail-stage .lyric-line { color: #c9c9d0 !important; font-size: clamp(1.5rem, 5.6vw, 2.1rem); font-weight: 750; line-height: 1.35; letter-spacing: -.025em; }
+html[data-theme="vitrine"] .fs-detail-stage .lyric-line.active { color: #fff !important; font-weight: 750; }
+html[data-theme="vitrine"] .fs-detail-stage .lyrics-body { padding: 12px 0; text-align: start; }
+html[data-theme="vitrine"] .fs-detail-stage .lyrics-foot { border: 0; }
+html[data-theme="vitrine"] .fs-detail-stage :is(.lyrics-credit, .queue-header h3, .queue-item-title, .queue-item-meta) { color: #e3e5f0 !important; }
 @media (min-width: 980px) and (min-height: 600px), (min-width: 560px) and (orientation: landscape) {
-    html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 1160px; padding-inline: clamp(24px, 4vw, 56px); column-gap: clamp(24px, 5vw, 80px); }
-    html[data-theme="vitrine"] .fullscreen-player .fs-info { padding-block: 16px; }
+    html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 1120px; padding-inline: clamp(24px, 4vw, 56px); column-gap: clamp(24px, 5vw, 80px); grid-template: "header header" 44px "stage info" minmax(64px, 1fr) "stage progress" 44px "stage controls" 72px "stage volume" 44px "stage actions" 48px / minmax(0, 1fr) minmax(0, 1fr); }
+    html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-content { grid-template: "header header" 44px "info detail" minmax(80px, 1fr) "progress detail" 44px "controls detail" 72px "volume detail" 44px "actions detail" 48px / minmax(0, 1fr) minmax(0, 1fr); }
+    html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-info { display: grid; grid-template: "art art" minmax(0, 1fr) "text actions" auto / minmax(0, 1fr) auto; align-self: stretch; min-height: 0; }
+    html[data-theme="vitrine"] .fs-info > .fs-cover { grid-area: art; width: 100%; height: 100%; min-height: 0; object-fit: contain; justify-self: center; }
+    @supports (width: 1cqw) {
+        html[data-theme="vitrine"] .fullscreen-player[data-view]:not([data-view="cover"]) .fs-info { container-type: size; }
+        html[data-theme="vitrine"] .fs-info > .fs-cover { width: min(100cqw, calc(100cqh - 60px)); height: min(100cqw, calc(100cqh - 60px)); }
+    }
+    html[data-theme="vitrine"] .fs-info .fs-track-text { grid-area: text; }
+    html[data-theme="vitrine"] .fs-info .fs-track-actions { grid-area: actions; }
 }
 @media (max-height: 700px) {
-    html[data-theme="vitrine"] .fullscreen-player .fs-content { row-gap: 8px; }
+    html[data-theme="vitrine"] .fullscreen-player .fs-content { row-gap: 4px; }
     html[data-theme="vitrine"] .fullscreen-player .fs-stage { margin-block: 0; }
-    html[data-theme="vitrine"] .fullscreen-player .fs-info { padding-block: 4px; }
+    html[data-theme="vitrine"] .fullscreen-player .fs-info { padding-block: 0; }
 }
+@media (prefers-reduced-motion: reduce) { html[data-theme="vitrine"] .fullscreen-player .fs-cover { transition: none; scale: 1 !important; } }
 @media (max-width: 768px) {
     html[data-theme="vitrine"] :is(.app-layout, .main-view) { padding: 0 !important; border-radius: 0 !important; background: transparent !important; }
     html[data-theme="vitrine"] .vitrine-nav, .vitrine-home-title { display: none; }
@@ -261,7 +295,7 @@ html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border
     html[data-theme="vitrine"] { --square-film: var(--square-base); --square-film-strong: var(--square-base); --square-content: var(--square-base); --square-glint: transparent; --square-blur: none; --vitreo-sheen: none; --vitreo-rim: 0 0 0 1px var(--square-line); }
     html[data-theme="vitrine"] body::before { display: none; }
     html[data-theme="vitrine"] .fullscreen-player { --square-film: #292c3a; --fs-film: #292c3a; }
-    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-actions), html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: #292c3a !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; filter: none; }
+    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-actions), html[data-theme="vitrine"] :is(.fs-stage, .fs-detail-stage) > :is(#lyrics-panel, #queue-panel) { background: #292c3a !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; filter: none; }
 }
 @media (prefers-contrast: more) {
     html[data-theme="vitrine"] { --square-line: #73798b; --square-rim: #73798b; }
@@ -275,6 +309,14 @@ html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border
     html[data-theme="vitrine"] .fullscreen-player { --square-film: Canvas; --square-film-strong: Canvas; --square-rim: CanvasText; --square-glint: transparent; --square-blur: none; --fs-film: Canvas; --fs-rim: CanvasText; }
     html[data-theme="vitrine"] input:is([type="checkbox"], [type="radio"]) { appearance: auto !important; -webkit-appearance: auto !important; background: none !important; box-shadow: none !important; }
     html[data-theme="vitrine"] input[role="switch"] { width: 22px !important; height: 22px !important; }
-    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-info, .fs-actions, .control-btn, .fs-action-btn), html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: Canvas !important; color: CanvasText !important; filter: none; }
-    html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container) { color: CanvasText !important; }
+    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-info, .fs-actions, .control-btn, .fs-action-btn), html[data-theme="vitrine"] :is(.fs-stage, .fs-detail-stage) > :is(#lyrics-panel, #queue-panel) { background: Canvas !important; color: CanvasText !important; filter: none; }
+    html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container, .fs-view-label, .fs-volume-high) { color: CanvasText !important; }
+    html[data-theme="vitrine"] .fs-detail-stage :is(.lyric-line, .lyric-line.active, .lyrics-credit) { color: CanvasText !important; }
 }
+
+/* An isolated decorative background receives the lens; text and hit areas stay sharp. */
+html[data-theme="vitrine"] .glass-optic-surface { isolation: isolate; }
+html[data-theme="vitrine"] .glass-optic-position { position: relative; inset: auto; }
+.glass-optic-defs { position: absolute; pointer-events: none; overflow: hidden; }
+.glass-optic-layer { position: absolute; inset: 0; z-index: -1; border-radius: inherit; pointer-events: none; background: var(--square-artwork, linear-gradient(135deg, #efa9b8, #657a9d 55%, #e7d3b5)) center / cover; opacity: .32; }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) { .glass-optic-layer { display: none; } }

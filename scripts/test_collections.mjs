@@ -17,7 +17,7 @@ async function load(file, globals, dependencies) {
   await module.evaluate();
   return { api: module.namespace, imports };
 }
-const ui = (await load('ui.js', { document: { addEventListener() {} }, window: {} }, { './state.js': {}, './audio_engine.js': {} })).api;
+const ui = (await load('ui.js', { document: { addEventListener() {} }, window: {} }, { './state.js': {}, './audio_engine.js': {}, './glass_optics.js': { refreshGlassOptics() {} } })).api;
 const decodeHtml = value => value.replaceAll('&quot;', '"').replaceAll('&gt;', '>').replaceAll('&lt;', '<').replaceAll('&amp;', '&');
 for (const value of ["Song's name", 'slash\\\' and "quotes"', '<img onerror="bad">\n\r\u2028', 0]) {
   const encoded = ui.escJs(value);
@@ -506,7 +506,7 @@ console.log('PASS: saved albums, optional metadata browsing, filtered collection
 // Shared settings tabs survive fragment replacements and support keyboard navigation.
 const settingStorage = new Map();
 const settingsWindow = { USER_DATA: { username: 'first' }, sessionStorage: { getItem: key => settingStorage.get(key), setItem: (key, value) => settingStorage.set(key, value) } };
-const settingsUi = (await load('ui.js', { document: { addEventListener() {} }, window: settingsWindow }, { './state.js': {}, './audio_engine.js': {} })).api;
+const settingsUi = (await load('ui.js', { document: { addEventListener() {} }, window: settingsWindow }, { './state.js': {}, './audio_engine.js': {}, './glass_optics.js': { refreshGlassOptics() {} } })).api;
 function settingsRoot() {
   const tabs = ['account', 'playback', 'integrations'].map(name => ({ dataset: { settingsTab: name }, attributes: {}, setAttribute(key, value) { this.attributes[key] = value; }, closest() { return this; }, focus() { this.focused = true; } }));
   const panels = ['account', 'account', 'playback', 'integrations'].map((name, index) => ({ id: index === 2 ? 'existing-playback-id' : '', dataset: { settingsPanel: name }, attributes: {}, setAttribute(key, value) { this.attributes[key] = value; } }));

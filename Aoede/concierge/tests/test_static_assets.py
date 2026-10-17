@@ -71,6 +71,7 @@ def test_first_party_frontend_stays_inside_download_budgets():
     javascript = [assets_root / "js" / "main.js", *(assets_root / "js" / "modules").glob("*.js")]
     stylesheets = list((assets_root / "css").glob("*.css"))
     appearance = assets_root / "js/modules/appearance.js"
+    optics = assets_root / "js/modules/glass_optics.js"
     glass = assets_root / "css/theme_glass.css"
     vitrine = assets_root / "css/theme_vitrine.css"
 
@@ -78,11 +79,13 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # regression here catches accidental large bundles before transfer cost is
     # multiplied across every navigation.
     # Includes the fullscreen panel/volume coordinator and keyboard controls.
-    assert sum(path.stat().st_size for path in javascript if path != appearance) < 610_000
+    assert sum(path.stat().st_size for path in javascript if path not in (appearance, optics)) < 610_000
     assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 300_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
+    # Static lens maps, generated on resize; no rendering library or per-frame shader.
+    assert optics.stat().st_size < 6_500
     assert glass.stat().st_size < 60_000
     # Vitrine includes the Liquid Glass controls and native input fallbacks.
-    assert vitrine.stat().st_size < 32_000
+    assert vitrine.stat().st_size < 37_000

@@ -146,6 +146,8 @@
     pointer-events: auto;
 }
 
+.fullscreen-player .fs-actions .fs-audio-action, .fs-more, .fs-detail-stage, .fs-volume-slot, .fs-audio-action, #fs-time-remaining, .fs-volume-high { display: none; }
+
 /* Both themes share the player layout; Glass only changes its material. */
 .fullscreen-player { height: 100dvh; }
 .fullscreen-player .fs-content {
@@ -189,6 +191,7 @@
 .fullscreen-player .fs-controls .fs-play-main { width: clamp(64px, 20vw, 80px) !important; height: clamp(64px, 20vw, 80px) !important; }
 .fullscreen-player .fs-actions { grid-area: actions; display: flex; align-items: center; justify-content: space-evenly; gap: 4px; padding: 4px; margin: 0 auto; width: min(100%, 360px); height: 52px; border-radius: 999px; background: var(--surface-0); }
 .fullscreen-player .fs-actions .fs-action-btn { display: flex; flex: 1; height: 44px; }
+.fullscreen-player .fs-actions .fs-audio-action { display: none; }
 .fs-volume { display: block; position: relative; flex: 0 0 44px; }
 .fs-volume summary { list-style: none; width: 44px; height: 44px; cursor: pointer; }
 .fs-volume summary::-webkit-details-marker { display: none; }
@@ -198,15 +201,15 @@
 #fs-volume-bar::before { content: ''; position: absolute; inset: 12px 0; background: var(--surface-3); border-radius: 999px; }
 #fs-volume-bar .volume-bar-fill { position: absolute; top: 12px; height: 4px; }
 .fs-volume-panel .fs-action-btn { width: 44px; height: 44px; flex: 0 0 44px; }
-.fs-stage > :is(#lyrics-panel, #queue-panel) { position: absolute !important; inset: 0 !important; width: 100% !important; max-width: none !important; max-height: none !important; height: 100%; display: none; transform: none !important; border: 0 !important; border-radius: var(--radius-lg) !important; background: var(--surface-0); box-shadow: none !important; }
-.fs-stage > :is(#lyrics-panel.open, #queue-panel.open) { display: flex; }
-.fs-stage :is(.lyrics-body, .queue-list, .queue-content) { min-height: 0; overscroll-behavior: contain; }
-.fs-stage .lyrics-body { padding: 18px 24px; scroll-padding-block: 50px; }
-.fs-stage .lyrics-head { display: none; }
-.fs-stage .lyric-line { font-size: clamp(1.25rem, 3.2vw, 2rem); font-weight: 650; line-height: 1.45; padding-block: 12px; }
-.fs-stage .lyric-line.active { font-weight: 750; text-shadow: none; }
-.fs-stage :is(.lyrics-close, .queue-header .icon-btn-sm) { width: 44px; height: 44px; }
-.fs-stage .queue-item-remove { min-width: 44px; min-height: 44px; border-radius: 999px; }
+:is(.fs-stage, .fs-detail-stage) > :is(#lyrics-panel, #queue-panel) { position: absolute !important; inset: 0 !important; width: 100% !important; max-width: none !important; max-height: none !important; height: 100%; display: none; transform: none !important; border: 0 !important; border-radius: var(--radius-lg) !important; background: var(--surface-0); box-shadow: none !important; }
+:is(.fs-stage, .fs-detail-stage) > :is(#lyrics-panel.open, #queue-panel.open) { display: flex; }
+:is(.fs-stage, .fs-detail-stage) :is(.lyrics-body, .queue-list, .queue-content) { min-height: 0; overscroll-behavior: contain; }
+:is(.fs-stage, .fs-detail-stage) .lyrics-body { padding: 18px 24px; scroll-padding-block: 50px; }
+:is(.fs-stage, .fs-detail-stage) .lyrics-head { display: none; }
+:is(.fs-stage, .fs-detail-stage) .lyric-line { font-size: clamp(1.25rem, 3.2vw, 2rem); font-weight: 700; line-height: 1.45; padding-block: 12px; }
+:is(.fs-stage, .fs-detail-stage) .lyric-line.active { font-weight: 700; text-shadow: none; }
+:is(.fs-stage, .fs-detail-stage) :is(.lyrics-close, .queue-header .icon-btn-sm) { width: 44px; height: 44px; }
+:is(.fs-stage, .fs-detail-stage) .queue-item-remove { min-width: 44px; min-height: 44px; border-radius: 999px; }
 
 @media (min-width: 980px) and (min-height: 600px), (min-width: 560px) and (orientation: landscape) {
     .fullscreen-player .fs-content { max-width: 1200px; grid-template: "header header" 48px "stage info" minmax(72px, 1fr) "stage progress" auto "stage controls" auto "stage actions" minmax(52px, 1fr) / minmax(0, 1.15fr) minmax(0, 1fr); column-gap: clamp(24px, 4vw, 60px); }

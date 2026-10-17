@@ -1668,6 +1668,7 @@ export function setupPlayer() {
 
   state.audio.addEventListener('seeked', () => {
     updateMediaSessionPositionState();
+    ui.updateUIProgress(state.audio.currentTime, state.audio.duration);
   });
 
   state.audio.addEventListener('ended', () => {
