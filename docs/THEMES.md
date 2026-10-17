@@ -1,10 +1,18 @@
 # Appearance themes
 
-Choose **Settings → Appearance → Glass** to enable the additional theme, or **Classic** to return to the existing Aoede interface. Classic remains the default for existing and new accounts.
+Choose **Settings → Appearance → Classic, Glass or Vitrine**. Each is a separate account preference; switching themes keeps the current view and audio playing. Classic remains the default for existing and new accounts.
 
 Glass follows the device's light/dark appearance. Its design takes inspiration from [Square](https://github.com/Lelonio/Square/tree/f9a75dac8affd3c1399db8d66751cb0063494d87), reviewed at commit `f9a75da`: paper and ink colors, translucent surfaces, rounded capsules, luminous edges, and a restrained accent derived from the playing track's artwork. Reference material: [theme colors](https://github.com/Lelonio/Square/blob/f9a75dac8affd3c1399db8d66751cb0063494d87/app/src/main/java/dev/lelonio/square/ui/theme/Theme.kt), [glass surface](https://github.com/Lelonio/Square/blob/f9a75dac8affd3c1399db8d66751cb0063494d87/app/src/main/java/dev/lelonio/square/ui/player/GlassSurface.kt), and [screenshots](https://github.com/Lelonio/Square/tree/f9a75dac8affd3c1399db8d66751cb0063494d87/docs/screenshots).
 
 Aoede implements this appearance with original CSS and its existing UI components. Browser blur, film, highlights and shadows approximate the native material; Square's Android GPU refraction shader is not reproduced in the browser. No Square code, icons or artwork are bundled.
+
+## Vitrine
+
+Vitrine is an additional Apple Music inspired layout, based on [Vitrine](https://github.com/My-Name-Is-Jeff/vitrine/tree/914343731f66ccb2e639b8164a36be849a043276), reviewed at commit `9143437`. Its [Home](https://github.com/My-Name-Is-Jeff/vitrine/blob/914343731f66ccb2e639b8164a36be849a043276/docs/screenshots/home.webp) and [album](https://github.com/My-Name-Is-Jeff/vitrine/blob/914343731f66ccb2e639b8164a36be849a043276/docs/screenshots/album.webp) references inform the compact artwork tiles, open shelves, restrained separators, rose accent and floating mobile navigation. Desktop adds a continuous sidebar with Home, Search and Discover destinations; the existing sidebar collapse preference still works. Mobile retains all five destinations and the compact player's transport controls.
+
+The fullscreen player keeps the complete artwork, places unboxed track information below it, and uses open transport controls with a lower view selector. Wide/landscape screens place artwork beside controls. Lyrics, queue, volume, favorites and playlist actions reuse the same working components as the other themes. Album/playlist pages have a cover-led header with centered metadata and actions on mobile. Administration, download previews, notifications, login and Wrapped use the same neutral surfaces and rose accents.
+
+Vitrine follows the device's light/dark mode. Its accent remains rose while the fullscreen backdrop uses the playing cover. Aoede implements this with original CSS and existing components: no upstream native code, assets or proprietary fonts are bundled, and no UIKit refraction shader is required. Classic and Glass remain available with their previous palettes and layouts.
 
 ## Covered surfaces
 
@@ -37,7 +45,7 @@ Lyrics scroll inside their own stage without moving the transport. Late response
 
 ## Persistence and synchronization
 
-The authenticated account owns its preference in `users.theme`. `GET /user/appearance` returns it; `PATCH /user/appearance` accepts only `{"theme":"classic"}` or `{"theme":"glass"}` and changes the current account. Theme responses and the sync heartbeat are private and not HTTP-cacheable. Schema migration `034_user_theme` supplies the Classic default without changing existing account data.
+The authenticated account owns its preference in `users.theme`. `GET /user/appearance` returns it; `PATCH /user/appearance` accepts only `{"theme":"classic"}`, `{"theme":"glass"}` or `{"theme":"vitrine"}` and changes the current account. Theme responses and the sync heartbeat are private and not HTTP-cacheable. Schema migration `034_user_theme` supplies the Classic default. Migration `035_vitrine_theme` expands the existing column constraint to accept Vitrine, preserving saved themes, users, indexes and dependent records without rebuilding the users table. It requires SQLite 3.35 or newer (included in the supported Python container) for column removal, and can resume after an interrupted column replacement.
 
 The server renders the saved theme before the page displays. Other signed-in devices reconcile it through the existing visible-page heartbeat (every 30 seconds and on returning to the app). The theme is separate from the library version, so a preference update does not replace the current playlist or interrupt editing. A stale heartbeat cannot overwrite a newer save.
 
@@ -47,12 +55,12 @@ The theme preference belongs to an account on its home server. Viewing another n
 
 ## Browser and accessibility behavior
 
-All web clients, including the Android WebView and desktop wrappers, receive the same stylesheet. No new native binary is required for this frontend feature. Light/dark appearance remains device-specific while the Classic/Glass choice follows the account.
+All web clients, including the Android WebView and desktop wrappers, receive the same stylesheet. No new native binary is required for this frontend feature. Light/dark appearance remains device-specific while the Classic/Glass/Vitrine choice follows the account.
 
-The desktop header has its own stacking layer above animated view content so its user menu remains clickable in both themes. Context menus and playlist flyouts live under the document body, while modal backdrops remain above the app shell. Short windows scroll the user menu internally; Escape closes it and restores focus to its disclosure control.
+The desktop header has its own stacking layer above animated view content so its user menu remains clickable in every theme. Context menus and playlist flyouts live under the document body, while modal backdrops remain above the app shell. Short windows scroll the user menu internally; Escape closes it and restores focus to its disclosure control.
 
 Web installation icons use separate `any` and opaque `maskable` variants; the 1024 px maskable asset follows [WebKit's Add to Dock guidance](https://webkit.org/blog/14787/webkit-features-in-safari-17-2/). Regenerate browser and installation assets with `python scripts/enlarge_brand_icons.py`; the master artwork stays unchanged and the service worker caches the installation icon for offline use.
 
 CSS handles mobile safe areas and leaves space for the floating controls. Focus outlines, native radio controls, reduced motion, reduced transparency and forced colors are supported. Browsers without backdrop blur use solid surfaces. Artwork colors are sampled from the already loaded cover; blocked cross-origin canvas access keeps the default accent and does not affect playback.
 
-Implementation: `Aoede/assets/css/theme_glass.css`, `Aoede/assets/js/modules/appearance.js`, the shared `appearance_head.html` template, and the authenticated user appearance endpoint. Player geometry lives in `Aoede/assets/css/ui_player.css`, with compact mobile controls in `mobile_shell.css`; Glass only overrides their material. Backend checks live in `test_user_theme.py`; `scripts/test_appearance.mjs` exercises persistence, account isolation, offline behavior, failed saves and stale responses. `scripts/test_player_ui.mjs` checks panel reuse in both themes, theme changes with an open panel, stale lyrics, volume, supported actions and keyboard seeking. These checks run through `npm run check`.
+Implementation: `Aoede/assets/css/theme_glass.css` (shared modern surfaces), `Aoede/assets/css/theme_vitrine.css` (Vitrine palette and layout), `Aoede/assets/js/modules/appearance.js`, the shared `appearance_head.html` template, and the authenticated user appearance endpoint. Player geometry lives in `Aoede/assets/css/ui_player.css`, with compact mobile controls in `mobile_shell.css`; Glass overrides their material; Vitrine additionally refines the cover, title and transport arrangement. Backend checks live in `test_user_theme.py`; `scripts/test_appearance.mjs` exercises persistence, account isolation, offline behavior, failed saves and stale responses. `scripts/test_player_ui.mjs` checks panel reuse in all three themes, theme changes with an open panel, stale lyrics, volume, supported actions and keyboard seeking. These checks run through `npm run check`.

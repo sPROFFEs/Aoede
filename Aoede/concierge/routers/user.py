@@ -26,7 +26,7 @@ ALLOWED_METADATA_PROVIDERS = set(DEFAULT_METADATA_PREFERENCES)
 
 
 class AppearanceRequest(BaseModel):
-    theme: Literal["classic", "glass"]
+    theme: Literal["classic", "glass", "vitrine"]
 
 
 def get_db():

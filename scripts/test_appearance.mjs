@@ -8,7 +8,7 @@ const head = (await readFile(new URL('../Aoede/concierge/templates/appearance_he
 const storage = new Map([['aoede.theme.alice', 'glass'], ['aoede.theme.last', 'glass']]);
 const properties = new Map();
 const root = { dataset: { theme: 'classic', themeUser: 'alice' }, style: { setProperty: (k, v) => properties.set(k, v), removeProperty: k => properties.delete(k) } };
-const options = ['classic', 'glass'].map(value => ({ value, checked: false, closest: () => ({ classList: { toggle() {} } }) }));
+const options = ['classic', 'glass', 'vitrine'].map(value => ({ value, checked: false, closest: () => ({ classList: { toggle() {} } }) }));
 const fieldset = { disabled: false };
 const meta = { setAttribute: (_key, value) => { meta.content = value; } };
 let cover;
@@ -46,7 +46,10 @@ vm.runInContext(head, context);
 assert.equal(root.dataset.theme, 'classic');
 root.dataset.themeUser = ''; vm.runInContext(head, context);
 assert.equal(root.dataset.theme, 'glass'); // Login remembers style only, not identity.
-root.dataset.themeUser = 'alice'; root.dataset.theme = 'classic'; navigator.onLine = true;
+storage.set('aoede.theme.alice', 'vitrine'); root.dataset.themeUser = 'alice';
+vm.runInContext(head, context);
+assert.equal(root.dataset.theme, 'vitrine'); assert.equal(meta.content, '#ffffff');
+root.dataset.theme = 'classic'; navigator.onLine = true;
 
 appearance.initAppearance();
 assert.equal(options[0].checked, true);
@@ -118,4 +121,19 @@ window.matchMedia = undefined;
 appearance.applyTheme('glass'); // Old wrapper storage/media APIs are optional.
 await appearance.saveUserTheme('unknown');
 assert.equal(root.dataset.theme, 'glass');
+window.matchMedia = () => mode;
+respond = async () => Response.json({ theme: 'vitrine', username: 'alice' });
+await appearance.saveUserTheme('vitrine');
+assert.equal(root.dataset.theme, 'vitrine'); assert.equal(options[2].checked, true);
+assert.equal(options[0].checked, false); assert.equal(options[1].checked, false);
+assert.equal(meta.content, '#18181a');
+cover = { src: 'https://images.test/vitrine.jpg', getAttribute: () => 'vitrine.jpg', complete: true, naturalWidth: 200 };
+appearance.applyTheme('vitrine');
+assert.match(properties.get('--square-artwork'), /vitrine.jpg/);
+mode.matches = false; modeListener(); assert.equal(meta.content, '#ffffff');
+appearance.syncTheme({ username: 'alice', theme: 'glass' });
+assert.equal(root.dataset.theme, 'glass');
+appearance.syncTheme({ username: 'alice', theme: 'vitrine' });
+assert.equal(root.dataset.theme, 'vitrine');
+appearance.applyTheme('classic'); assert.equal(properties.has('--square-artwork'), false);
 console.log('Appearance: account persistence, offline isolation, stale responses, errors and artwork checks passed.');

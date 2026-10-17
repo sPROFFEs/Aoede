@@ -129,7 +129,7 @@ The compact player and full-screen player provide:
 
 Repeat cycles through off, queue repeat and repeat-current-track. The sleep timer cycles through off, 15, 30 and 60 minutes and pauses playback when it expires.
 
-Both **Classic** and **Glass** use the same player layout: the lower selector switches between cover, lyrics and queue while transport controls remain visible. Favorite and playlist actions sit beside the title; volume opens from the upper corner. The compact mobile player offers Next and Play/Pause. The player adapts to portrait, landscape and wide desktop screens, with Classic's opaque dark surfaces or Glass's translucent appearance. Use arrow keys on a focused seek/volume slider for 5% steps, Home/End for its limits, and Escape to collapse the fullscreen player without stopping audio.
+**Classic**, **Glass** and **Vitrine** share the same player controls: the lower selector switches between cover, lyrics and queue while transport controls remain visible. Favorite and playlist actions sit beside the title; volume opens from the upper corner. The compact mobile player offers Next and Play/Pause. The player adapts to portrait, landscape and wide desktop screens, with Classic's opaque dark surfaces, Glass's translucent appearance, or Vitrine's complete artwork and unboxed transport. Use arrow keys on a focused seek/volume slider for 5% steps, Home/End for its limits, and Escape to collapse the fullscreen player without stopping audio.
 
 ### Queue and playback state
 
@@ -177,7 +177,7 @@ The top-bar response indicator shows approvals, rejections and any administrator
 
 Settings are grouped into **Account**, **Appearance**, **Playback**, **Integrations** and **YouTube authentication** tabs. Switching tabs preserves unsaved fields on the page; saving a form restores the selected tab. On a phone, swipe the tab strip horizontally to reach additional categories.
 
-In **Appearance**, choose **Classic** (the default) or **Glass**, an additional translucent theme inspired by Square. Glass follows your device's light/dark mode and applies throughout the web interface, including administrative tools, mobile controls and Wrapped. Your choice is saved to your account and follows you across devices; another open device updates within the visible-page heartbeat, normally 30 seconds. A connection is required to save changes. Offline launches retain that account's last confirmed theme on the device. See [Themes](THEMES.md) for design references and implementation details.
+In **Appearance**, choose **Classic** (the default), **Glass** (translucent, inspired by Square), or **Vitrine** (Apple Music inspired, with artwork shelves, rose accents and a spacious player). Glass and Vitrine follow your device's light/dark mode and apply throughout the web interface, including administrative tools, mobile controls and Wrapped. Your choice is saved to your account and follows you across devices; another open device updates within the visible-page heartbeat, normally 30 seconds. A connection is required to save changes. Offline launches retain that account's last confirmed theme on the device. See [Themes](THEMES.md) for design references and implementation details.
 
 Settings let you:
 

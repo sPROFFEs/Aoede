@@ -1,4 +1,5 @@
 <link rel="stylesheet" href="/assets/css/theme_glass.css?v={{ static_v }}">
+<link rel="stylesheet" href="/assets/css/theme_vitrine.css?v={{ static_v }}">
 <script>
     (() => {
         const root = document.documentElement;
@@ -7,9 +8,11 @@
             // Server-rendered preferences win online. Offline uses this account's last confirmed choice.
             const key = user ? `aoede.theme.${user}` : 'aoede.theme.last';
             const cached = localStorage.getItem(key);
-            if ((!user || navigator.onLine === false) && ['classic', 'glass'].includes(cached)) root.dataset.theme = cached;
+            if ((!user || navigator.onLine === false) && ['classic', 'glass', 'vitrine'].includes(cached)) root.dataset.theme = cached;
         } catch (_) { /* Storage is optional. */ }
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta && root.dataset.theme === 'glass') meta.content = window.matchMedia?.('(prefers-color-scheme: dark)').matches ? '#0d0e11' : '#f1f2f6';
+        const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+        if (meta && root.dataset.theme === 'glass') meta.content = dark ? '#0d0e11' : '#f1f2f6';
+        if (meta && root.dataset.theme === 'vitrine') meta.content = dark ? '#18181a' : '#ffffff';
     })();
 </script>

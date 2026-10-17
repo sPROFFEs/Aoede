@@ -493,7 +493,7 @@
                 <fieldset class="theme-options" data-theme-controls>
                     <legend class="sr-only">{{ _('appearance.choose') }}</legend>
                     <label class="theme-option">
-                        <input type="radio" name="user-theme" value="classic" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme != 'glass' %} checked{% endif %}>
+                        <input type="radio" name="user-theme" value="classic" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme|default('classic') == 'classic' %} checked{% endif %}>
                         <span class="theme-preview theme-preview-classic" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
                         <strong>{{ _('appearance.classic') }}</strong><span>{{ _('appearance.classic_description') }}</span>
                     </label>
@@ -501,6 +501,11 @@
                         <input type="radio" name="user-theme" value="glass" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme == 'glass' %} checked{% endif %}>
                         <span class="theme-preview theme-preview-glass" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
                         <strong>{{ _('appearance.glass') }}</strong><span>{{ _('appearance.glass_description') }}</span>
+                    </label>
+                    <label class="theme-option">
+                        <input type="radio" name="user-theme" value="vitrine" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme == 'vitrine' %} checked{% endif %}>
+                        <span class="theme-preview theme-preview-vitrine" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
+                        <strong>{{ _('appearance.vitrine') }}</strong><span>{{ _('appearance.vitrine_description') }}</span>
                     </label>
                 </fieldset>
                 <p class="user-settings-help" role="status">{{ _('appearance.sync_description') }}</p>

@@ -4,14 +4,15 @@ import * as ui from './ui.js';
 export let requestGeneration = 0;
 let saving = false;
 let initialized = false;
-const themes = new Set(['classic', 'glass']);
+const themes = new Set(['classic', 'glass', 'vitrine']);
 
 function updateBrowserColor() {
-  const glass = document.documentElement.dataset.theme === 'glass';
+  const theme = document.documentElement.dataset.theme;
   const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  document
-    .querySelector('meta[name="theme-color"]')
-    ?.setAttribute('content', glass ? (dark ? '#0d0e11' : '#f1f2f6') : '#121212');
+  let color = '#121212';
+  if (theme === 'glass') color = dark ? '#0d0e11' : '#f1f2f6';
+  if (theme === 'vitrine') color = dark ? '#18181a' : '#ffffff';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
 }
 
 export function syncThemeControls(scope = document) {
@@ -26,7 +27,7 @@ export function syncThemeControls(scope = document) {
 
 function updateArtwork() {
   const root = document.documentElement;
-  if (root.dataset.theme !== 'glass') return;
+  if (!['glass', 'vitrine'].includes(root.dataset.theme)) return;
   root.style.removeProperty('--square-artwork');
   root.style.removeProperty('--square-seed');
   const cover = document.getElementById('player-cover');
@@ -68,7 +69,7 @@ export function applyTheme(theme) {
   } catch (_) {
     /* Private browsing and wrappers may restrict storage. */
   }
-  if (theme === 'glass') updateArtwork();
+  if (theme !== 'classic') updateArtwork();
   else {
     document.documentElement.style.removeProperty('--square-artwork');
     document.documentElement.style.removeProperty('--square-seed');

@@ -113,7 +113,8 @@ def get_current_user(request: Request, db: Session):
     ):
         raise HTTPException(status_code=401, detail="User account unavailable")
 
-    request.state.user_theme = "glass" if getattr(user, "theme", "classic") == "glass" else "classic"
+    theme = getattr(user, "theme", "classic")
+    request.state.user_theme = theme if theme in ("classic", "glass", "vitrine") else "classic"
     return user
 
 

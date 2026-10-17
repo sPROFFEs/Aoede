@@ -85,8 +85,8 @@ assert.equal(lyricRequests, 2); assert.match(lyricsBody.innerHTML, /Retried lyri
 ui.showFullscreenCover(); assert.equal(full.dataset.view, 'cover');
 ui.toggleFullscreenPlayer(); assert.equal(lyrics.parentElement, body); assert.equal(queue.parentElement, body);
 assert.equal(full.getAttribute('aria-hidden'), 'true');
-// Both themes embed the same panels and retain the selected view on a theme change.
-for (const theme of ['classic', 'glass']) {
+// All themes embed the same panels and retain the selected view on a theme change.
+for (const theme of ['classic', 'glass', 'vitrine']) {
   document.documentElement.dataset.theme = theme;
   ui.toggleFullscreenPlayer(); queueApi.toggleQueue();
   assert.equal(full.dataset.view, 'queue'); assert.equal(queue.parentElement, stage);
@@ -142,7 +142,7 @@ playerModule.namespace.seekToPercentage(0.25); assert.equal(partySeek, 30); asse
 playerModule.namespace.setPartyController(null);stateModule.setExport('currentTrack', { db_id: 1, is_local: true });
 values.audio.duration = 120; playerModule.namespace.seekToPercentage(0.25); assert.equal(values.audio.currentTime, 30);
 values.audio.duration = Infinity; playerModule.namespace.seekToPercentage(0.5); assert.equal(values.audio.currentTime, 30);
-console.log('PASS: shared Classic/Glass player layout, theme changes with open panels, stale lyrics, synchronized volume and keyboard seeking.');
+console.log('PASS: shared Classic/Glass/Vitrine player layout, theme changes with open panels, stale lyrics, synchronized volume and keyboard seeking.');
 
 // The global player shortcut must not consume Space on a menu disclosure.
 const mainSource = await readFile(new URL('../Aoede/assets/js/main.js', import.meta.url), 'utf8');

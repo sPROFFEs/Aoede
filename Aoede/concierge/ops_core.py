@@ -1618,6 +1618,22 @@ def _migration_034_user_theme(conn):
         )
 
 
+def _migration_035_vitrine_theme(conn):
+    # Replace only the checked column; rebuilding users would cascade foreign keys.
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+    if "theme_next" not in columns:
+        conn.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN theme_next TEXT NOT NULL DEFAULT 'classic' "
+                "CHECK(theme_next IN ('classic', 'glass', 'vitrine'))"
+            )
+        )
+    if "theme" in columns:
+        conn.execute(text("UPDATE users SET theme_next = theme"))
+        conn.execute(text("ALTER TABLE users DROP COLUMN theme"))
+    conn.execute(text("ALTER TABLE users RENAME COLUMN theme_next TO theme"))
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1654,6 +1670,7 @@ MIGRATIONS = [
     ("032_collection_imports", _migration_032_collection_imports),
     ("033_federated_collections", _migration_033_federated_collections),
     ("034_user_theme", _migration_034_user_theme),
+    ("035_vitrine_theme", _migration_035_vitrine_theme),
 ]
 
 

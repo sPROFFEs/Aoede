@@ -72,14 +72,16 @@ def test_first_party_frontend_stays_inside_download_budgets():
     stylesheets = list((assets_root / "css").glob("*.css"))
     appearance = assets_root / "js/modules/appearance.js"
     glass = assets_root / "css/theme_glass.css"
+    vitrine = assets_root / "css/theme_vitrine.css"
 
     # These are uncompressed upper bounds. Nginx serves them compressed, so a
     # regression here catches accidental large bundles before transfer cost is
     # multiplied across every navigation.
     # Includes the fullscreen panel/volume coordinator and keyboard controls.
     assert sum(path.stat().st_size for path in javascript if path != appearance) < 610_000
-    assert sum(path.stat().st_size for path in stylesheets if path != glass) < 300_000
+    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 300_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
     assert glass.stat().st_size < 60_000
+    assert vitrine.stat().st_size < 20_000

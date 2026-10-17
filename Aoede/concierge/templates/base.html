@@ -95,6 +95,12 @@
                 <i data-lucide="x"></i>
             </button>
 
+            <nav class="vitrine-nav" aria-label="{{ _('menu.home') }}">
+                <button type="button" data-view="home" onclick="loadView('home')" title="{{ _('menu.home') }}"><i data-lucide="house"></i><span>{{ _('menu.home') }}</span></button>
+                <button type="button" data-view="search" onclick="loadView('search')" title="{{ _('menu.search') }}"><i data-lucide="search"></i><span>{{ _('menu.search') }}</span></button>
+                <button type="button" data-view="discovery" onclick="loadView('discovery')" title="{{ _('tabs.discover') }}"><i data-lucide="compass"></i><span>{{ _('tabs.discover') }}</span></button>
+            </nav>
+
             <!-- Top toggle row: switches between collapsed / expanded modes.
                  Click the icon = toggle. The label is only visible in expanded
                  mode and acts as a secondary affordance (also clickable). -->
@@ -585,7 +591,7 @@
             else if (searchViews.has(view))    activeTab = 'search';
             else if (discoveryViews.has(view)) activeTab = 'discovery';
             else if (libraryViews.has(view))   activeTab = 'library';
-            nav.querySelectorAll('.m-nav-item').forEach((btn) => {
+            document.querySelectorAll('#m-bottom-nav .m-nav-item, .vitrine-nav [data-view]').forEach((btn) => {
                 btn.classList.toggle('active', btn.dataset.view === activeTab);
             });
         };

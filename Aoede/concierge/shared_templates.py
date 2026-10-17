@@ -35,7 +35,8 @@ import i18n
 
 
 def appearance_context(request):
-    return {"user_theme": "glass" if getattr(request.state, "user_theme", None) == "glass" else "classic"}
+    theme = getattr(request.state, "user_theme", None)
+    return {"user_theme": theme if theme in ("classic", "glass", "vitrine") else "classic"}
 
 
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR), context_processors=[appearance_context])

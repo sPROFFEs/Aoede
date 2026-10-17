@@ -1,10 +1,10 @@
-/* Aoede Glass. Original CSS inspired by Square's shared glass material:
+/* Shared modern surfaces and the Glass palette. Original CSS inspired by Square's shared glass material:
  * https://github.com/Lelonio/Square/tree/f9a75dac8affd3c1399db8d66751cb0063494d87
  * Every visual override is account-theme scoped; Classic keeps its existing rules.
  */
 
-/* The chooser belongs to both themes. */
-.theme-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 0; border: 0; margin: 0 0 20px; }
+/* The chooser belongs to every theme. */
+.theme-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 20px; padding: 0; border: 0; margin: 0 0 20px; }
 .theme-options .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
 .theme-option { display: grid; gap: 10px; position: relative; padding: 16px; cursor: pointer; border: 2px solid var(--border-strong, #444); border-radius: 20px; color: var(--text-main, #fff); }
 .theme-option.selected { border-color: var(--primary); }
@@ -23,8 +23,9 @@
 .theme-preview-glass .theme-preview-cards i { background: rgba(255, 255, 255, .38); border: 1px solid rgba(255, 255, 255, .7); border-radius: 12px; }
 .user-settings-panel[data-settings-panel="appearance"] { grid-column: 1 / -1; }
 
-/* Square's paper/ink palette, white film and restrained artwork accent. */
-html[data-theme="glass"] {
+/* Defaults shared by Glass and Vitrine; Vitrine overrides its palette separately.
+ * Square's paper/ink palette, white film and restrained artwork accent. */
+html:is([data-theme="glass"], [data-theme="vitrine"]) {
     color-scheme: light;
     --square-seed: #7c5ce6;
     --square-base: #f1f2f6;
@@ -83,7 +84,7 @@ html[data-theme="glass"] {
 }
 
 @media (prefers-color-scheme: dark) {
-    html[data-theme="glass"] {
+    html:is([data-theme="glass"], [data-theme="vitrine"]) {
         color-scheme: dark;
         --square-base: #0d0e11;
         --square-ink: #f7f8fa;
@@ -106,28 +107,28 @@ html[data-theme="glass"] {
     }
 }
 @supports (color: color-mix(in oklab, white, black)) {
-    html[data-theme="glass"] { --square-primary: color-mix(in oklab, var(--square-seed) 40%, #15161a); }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-primary: color-mix(in oklab, var(--square-seed) 40%, #15161a); }
     @media (prefers-color-scheme: dark) {
-        html[data-theme="glass"] { --square-primary: color-mix(in oklab, var(--square-seed) 40%, #f7f8fa); }
+        html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-primary: color-mix(in oklab, var(--square-seed) 40%, #f7f8fa); }
     }
 }
 
-html[data-theme="glass"] body { background: var(--square-base) !important; color: var(--square-ink); isolation: isolate; }
-html[data-theme="glass"] body::before { content: ''; position: fixed; inset: -15%; z-index: -1; pointer-events: none; background: var(--square-artwork, radial-gradient(at 12% 8%, rgba(154, 118, 209, .22), transparent 60%), radial-gradient(at 95% 85%, rgba(64, 185, 174, .17), transparent 55%)) center / cover; filter: blur(70px) saturate(.75); opacity: .12; }
-@media (prefers-color-scheme: dark) { html[data-theme="glass"] body::before { opacity: .18; } }
-html[data-theme="glass"] :where(*:not(.fa):not([class*="fa-"])) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; }
-html[data-theme="glass"] :is(code, pre, .secret-input) { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace !important; }
-html[data-theme="glass"] :is(h1, h2, h3, h4) { color: var(--text-main) !important; letter-spacing: -.035em; }
-html[data-theme="glass"] :is(p, label, th, strong, b, code) { color: inherit; }
-html[data-theme="glass"] :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--primary) !important; outline-offset: 3px; }
-html[data-theme="glass"] :is(button, a) { -webkit-tap-highlight-color: transparent; }
-html[data-theme="glass"] :is(.app-layout, .main-view, .view-content, .sidebar-head, .home-overview, .hero-section, .library-shell, .user-settings-shell, .admin-shell, .system-monitor, .update-shell) { background: transparent !important; }
-html[data-theme="glass"] .home-overview::before { background: none; }
-html[data-theme="glass"] .app-layout { gap: 14px; padding: 14px; }
-html[data-theme="glass"] :is(.sidebar, .main-view) { border-radius: 28px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) body { background: var(--square-base) !important; color: var(--square-ink); isolation: isolate; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) body::before { content: ''; position: fixed; inset: -15%; z-index: -1; pointer-events: none; background: var(--square-artwork, radial-gradient(at 12% 8%, rgba(154, 118, 209, .22), transparent 60%), radial-gradient(at 95% 85%, rgba(64, 185, 174, .17), transparent 55%)) center / cover; filter: blur(70px) saturate(.75); opacity: .12; }
+@media (prefers-color-scheme: dark) { html:is([data-theme="glass"], [data-theme="vitrine"]) body::before { opacity: .18; } }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :where(*:not(.fa):not([class*="fa-"])) { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(code, pre, .secret-input) { font-family: ui-monospace, "SFMono-Regular", Consolas, monospace !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(h1, h2, h3, h4) { color: var(--text-main) !important; letter-spacing: -.035em; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(p, label, th, strong, b, code) { color: inherit; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--primary) !important; outline-offset: 3px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(button, a) { -webkit-tap-highlight-color: transparent; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.app-layout, .main-view, .view-content, .sidebar-head, .home-overview, .hero-section, .library-shell, .user-settings-shell, .admin-shell, .system-monitor, .update-shell) { background: transparent !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .home-overview::before { background: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .app-layout { gap: 14px; padding: 14px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.sidebar, .main-view) { border-radius: 28px; }
 
 /* One material for chrome, dialogs, drawers, menus and desktop player. */
-html[data-theme="glass"] :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .player-footer, .queue-panel, .lyrics-panel, .modal, .create-menu, .track-context-menu, .atp-flyout, .user-menu-panel, .monitor-modal, .auth-browser-dialog, .toast, .toast-msg, .offline-banner, .pwa-banner) {
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .player-footer, .queue-panel, .lyrics-panel, .modal, .create-menu, .track-context-menu, .atp-flyout, .user-menu-panel, .monitor-modal, .auth-browser-dialog, .toast, .toast-msg, .offline-banner, .pwa-banner) {
     background: var(--square-film) !important;
     color: var(--text-main) !important;
     border: 1px solid var(--square-rim) !important;
@@ -136,163 +137,163 @@ html[data-theme="glass"] :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .play
     backdrop-filter: var(--square-blur) !important;
     -webkit-backdrop-filter: var(--square-blur) !important;
 }
-html[data-theme="glass"] :is(.track-context-menu, .atp-flyout, .user-menu-panel, .modal, .create-menu, .monitor-modal, .auth-browser-dialog, .toast, .toast-msg, .pwa-banner) { background: var(--square-film-strong) !important; }
-html[data-theme="glass"] :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .player-footer, .track-context-menu, .atp-flyout, .user-menu-panel, .modal, .create-menu, .monitor-modal, .auth-browser-dialog, .toast, .toast-msg, .pwa-banner) { background-image: linear-gradient(145deg, var(--square-glint), transparent 55%) !important; }
-html[data-theme="glass"] .track-context-menu { padding: 8px; border-radius: 20px !important; }
-html[data-theme="glass"] .toast-msg { --notice-accent: var(--primary); border-radius: 22px !important; padding: 12px 16px; gap: 12px; line-height: 1.5; }
-html[data-theme="glass"] .toast-msg.toast-success { --notice-accent: var(--square-success); }
-html[data-theme="glass"] .toast-msg.toast-error { --notice-accent: var(--square-danger); }
-html[data-theme="glass"] .toast-msg::before { content: ''; width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--notice-accent); }
-html[data-theme="glass"] .toast-msg-text { color: var(--text-main); background: transparent; box-shadow: none; min-width: 0; }
-html[data-theme="glass"] .toast-msg-action { color: var(--primary) !important; background: transparent; min-height: 44px; text-transform: none; letter-spacing: normal; }
-html[data-theme="glass"] .top-bar { margin: 0 0 16px; border-radius: 999px !important; }
-html[data-theme="glass"] .player-footer { margin: 0; border-radius: 999px !important; }
-html[data-theme="glass"] :is(.sidebar-item-favorites, .quota-widget, .sidebar-item-create, .player-left, .player-center, .player-right, .modal-body, .modal-header, .modal-actions, .ctx-menu-item, .atp-item, .atp-header, .atp-body, .queue-header, .lyrics-header) { background: transparent !important; color: var(--text-main); }
-html[data-theme="glass"] :is(.modal-overlay, .monitor-modal-backdrop, .auth-browser-modal, .sidebar-overlay) { background: var(--square-overlay) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-html[data-theme="glass"] :is(.modal, .user-menu-panel, .queue-panel, #lyrics-panel) :is(h1, h2, h3, strong, p, label, .modal-title, .ctx-item-label, .atp-item-name, .queue-item-title) { color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.modal-subtitle, .modal-label, .modal-body small, .atp-item-count, .ctx-menu-title, .queue-item-artist, .lyrics-status) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.update-toast-card, .admin-confirm-panel) { background: var(--square-film-strong) !important; border: 1px solid var(--square-rim); border-radius: 26px; color: var(--text-main) !important; box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
-html[data-theme="glass"] :is(.admin-confirm-overlay) { background: var(--square-overlay) !important; }
-html[data-theme="glass"] :is(.update-toast-title, .update-toast-message) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-context-menu, .atp-flyout, .user-menu-panel, .modal, .create-menu, .monitor-modal, .auth-browser-dialog, .toast, .toast-msg, .pwa-banner) { background: var(--square-film-strong) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .player-footer, .track-context-menu, .atp-flyout, .user-menu-panel, .modal, .create-menu, .monitor-modal, .auth-browser-dialog, .toast, .toast-msg, .pwa-banner) { background-image: linear-gradient(145deg, var(--square-glint), transparent 55%) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .track-context-menu { padding: 8px; border-radius: 20px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg { --notice-accent: var(--primary); border-radius: 22px !important; padding: 12px 16px; gap: 12px; line-height: 1.5; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg.toast-success { --notice-accent: var(--square-success); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg.toast-error { --notice-accent: var(--square-danger); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg::before { content: ''; width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: var(--notice-accent); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg-text { color: var(--text-main); background: transparent; box-shadow: none; min-width: 0; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg-action { color: var(--primary) !important; background: transparent; min-height: 44px; text-transform: none; letter-spacing: normal; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .top-bar { margin: 0 0 16px; border-radius: 999px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .player-footer { margin: 0; border-radius: 999px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.sidebar-item-favorites, .quota-widget, .sidebar-item-create, .player-left, .player-center, .player-right, .modal-body, .modal-header, .modal-actions, .ctx-menu-item, .atp-item, .atp-header, .atp-body, .queue-header, .lyrics-header) { background: transparent !important; color: var(--text-main); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.modal-overlay, .monitor-modal-backdrop, .auth-browser-modal, .sidebar-overlay) { background: var(--square-overlay) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.modal, .user-menu-panel, .queue-panel, #lyrics-panel) :is(h1, h2, h3, strong, p, label, .modal-title, .ctx-item-label, .atp-item-name, .queue-item-title) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.modal-subtitle, .modal-label, .modal-body small, .atp-item-count, .ctx-menu-title, .queue-item-artist, .lyrics-status) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-toast-card, .admin-confirm-panel) { background: var(--square-film-strong) !important; border: 1px solid var(--square-rim); border-radius: 26px; color: var(--text-main) !important; box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-confirm-overlay) { background: var(--square-overlay) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-toast-title, .update-toast-message) { color: var(--text-main) !important; }
 
 /* Content stays quiet beneath the floating controls; no blur on scrolling rows. */
-html[data-theme="glass"] :is(.card, .library-card, .quick-pick, .quick-pick-card, .party-card, .radio-card, .discovery-card, .mix-card, .user-card, .community-user-card, .offline-playlist-card, .offline-track-card, .doc-card, .glass-panel, .stat-card, .playlist-hero, .playlist-header, .artist-summary, .user-profile-shell, .theme-option) {
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card, .library-card, .quick-pick, .quick-pick-card, .party-card, .radio-card, .discovery-card, .mix-card, .user-card, .community-user-card, .offline-playlist-card, .offline-track-card, .doc-card, .glass-panel, .stat-card, .playlist-hero, .playlist-header, .artist-summary, .user-profile-shell, .theme-option) {
     background: var(--square-content) !important;
     color: var(--text-main) !important;
     border: 1px solid var(--square-line) !important;
     border-radius: 24px !important;
     box-shadow: none !important;
 }
-html[data-theme="glass"] :is(.card, .library-card, .quick-pick, .party-card, .radio-card, .discovery-card, .user-profile-card):hover { background: var(--square-wash) !important; }
-html[data-theme="glass"] :is(.card, .library-card, .discovery-card, .radio-card) { padding: 14px; }
-html[data-theme="glass"] .theme-option.selected { border-color: var(--primary) !important; outline: 1px solid var(--primary); }
-html[data-theme="glass"] :is(.card-cover, .library-card-cover, .card-image, .playlist-cover, .party-now-cover, .party-card-icon, .player-cover, .track-cover-sm, .fs-cover, .sidebar-cover) { border-radius: 18px !important; }
-html[data-theme="glass"] :is(.card-title, .library-card-name, .track-title, .track-title-main, .track-info strong, .party-card-copy strong, .discovery-title, .radio-name, .sidebar-name, .queue-item-title) { color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.card-subtitle, .library-card-sub, .track-artist, .track-album, .track-album-col, .track-duration-col, .track-source-col, .sidebar-sub, .radio-genre, .discovery-artist, .hero-subtitle, .hero-sub, .library-facet-count, .playlist-owner, .playlist-meta) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.track-row, .library-row, .library-track-row, .party-queue-row, .queue-item, .admin-result-row, .atp-item, .ctx-item, .user-menu-item, .user-menu-action) { border-radius: 14px; color: var(--text-main); }
-html[data-theme="glass"] :is(.track-row, .library-row, .party-queue-row, .sidebar-item, .queue-item, .atp-item, .ctx-item, .user-menu-item, .user-menu-action):hover { background: var(--square-wash) !important; }
-html[data-theme="glass"] :is(.track-row.header, .track-list, .playlist-track-list, .sidebar-list, .party-queue) { background: transparent !important; }
-html[data-theme="glass"] :is(.track-row.current, .track-row.playing, .party-queue-row.current, .sidebar-item.active, .sidebar-item.selected) { background: var(--square-wash) !important; color: var(--primary) !important; box-shadow: inset 0 0 0 1px var(--square-rim); }
-html[data-theme="glass"] :is(.track-row.header, .track-row, .ctx-sep, .atp-header, .queue-header, .lyrics-header) { border-color: var(--square-line) !important; }
-html[data-theme="glass"] :is(.user-profile-card, .user-stat-chip, .saved-radio-row, .artist-similar-card, .artist-tag, .artist-top-cover, .album-status, .create-option-icon, .artist-empty, .federation-token-display, .fed-status-banner, .admin-delete-request-reason, .story-resume-grid > div) { background: var(--square-content) !important; color: var(--text-main) !important; border: 1px solid var(--square-line) !important; border-radius: 20px; box-shadow: none; }
-html[data-theme="glass"] :is(.user-profile-card-name, .saved-radio-name, .artist-top-title, .federation-token-display code) { color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.user-profile-card-meta, .saved-radio-meta, .create-option small) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.artist-hero) { border-radius: 28px; overflow: hidden; box-shadow: var(--square-shadow); }
-html[data-theme="glass"] .artist-hero :is(h1, h2, h3, p, strong, a) { color: #fff !important; }
-html[data-theme="glass"] .playlist-header { padding: 28px; }
-html[data-theme="glass"] :is(.playlist-title, .hero-greeting, .library-title) { font-weight: 750; letter-spacing: -.045em; }
-html[data-theme="glass"] .playlist-title { background: none !important; -webkit-text-fill-color: currentColor !important; color: var(--text-main) !important; }
-html[data-theme="glass"] .playlist-header-section { padding: 26px; border: 1px solid var(--square-line) !important; border-radius: 28px; background: var(--square-content) !important; box-shadow: none; }
-html[data-theme="glass"] :is(.playlist-cover-large, .playlist-cover-large img, .card-img-container, .tas-cover) { border-radius: 20px !important; }
-html[data-theme="glass"] :is(.track-name-sm, .playlist-type, .modal-playlist-name) { color: var(--text-main) !important; }
-html[data-theme="glass"] .track-artist-sm { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card, .library-card, .quick-pick, .party-card, .radio-card, .discovery-card, .user-profile-card):hover { background: var(--square-wash) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card, .library-card, .discovery-card, .radio-card) { padding: 14px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .theme-option.selected { border-color: var(--primary) !important; outline: 1px solid var(--primary); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card-cover, .library-card-cover, .card-image, .playlist-cover, .party-now-cover, .party-card-icon, .player-cover, .track-cover-sm, .fs-cover, .sidebar-cover) { border-radius: 18px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card-title, .library-card-name, .track-title, .track-title-main, .track-info strong, .party-card-copy strong, .discovery-title, .radio-name, .sidebar-name, .queue-item-title) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card-subtitle, .library-card-sub, .track-artist, .track-album, .track-album-col, .track-duration-col, .track-source-col, .sidebar-sub, .radio-genre, .discovery-artist, .hero-subtitle, .hero-sub, .library-facet-count, .playlist-owner, .playlist-meta) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-row, .library-row, .library-track-row, .party-queue-row, .queue-item, .admin-result-row, .atp-item, .ctx-item, .user-menu-item, .user-menu-action) { border-radius: 14px; color: var(--text-main); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-row, .library-row, .party-queue-row, .sidebar-item, .queue-item, .atp-item, .ctx-item, .user-menu-item, .user-menu-action):hover { background: var(--square-wash) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-row.header, .track-list, .playlist-track-list, .sidebar-list, .party-queue) { background: transparent !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-row.current, .track-row.playing, .party-queue-row.current, .sidebar-item.active, .sidebar-item.selected) { background: var(--square-wash) !important; color: var(--primary) !important; box-shadow: inset 0 0 0 1px var(--square-rim); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-row.header, .track-row, .ctx-sep, .atp-header, .queue-header, .lyrics-header) { border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.user-profile-card, .user-stat-chip, .saved-radio-row, .artist-similar-card, .artist-tag, .artist-top-cover, .album-status, .create-option-icon, .artist-empty, .federation-token-display, .fed-status-banner, .admin-delete-request-reason, .story-resume-grid > div) { background: var(--square-content) !important; color: var(--text-main) !important; border: 1px solid var(--square-line) !important; border-radius: 20px; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.user-profile-card-name, .saved-radio-name, .artist-top-title, .federation-token-display code) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.user-profile-card-meta, .saved-radio-meta, .create-option small) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.artist-hero) { border-radius: 28px; overflow: hidden; box-shadow: var(--square-shadow); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .artist-hero :is(h1, h2, h3, p, strong, a) { color: #fff !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-header { padding: 28px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.playlist-title, .hero-greeting, .library-title) { font-weight: 750; letter-spacing: -.045em; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-title { background: none !important; -webkit-text-fill-color: currentColor !important; color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-header-section { padding: 26px; border: 1px solid var(--square-line) !important; border-radius: 28px; background: var(--square-content) !important; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.playlist-cover-large, .playlist-cover-large img, .card-img-container, .tas-cover) { border-radius: 20px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.track-name-sm, .playlist-type, .modal-playlist-name) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .track-artist-sm { color: var(--text-sub) !important; }
 
 /* Pills, circular icon controls, every form and all picker states. */
-html[data-theme="glass"] :is(.btn-secondary, .btn-secondary-lg, .home-tab, .filter-btn, .library-filter, .source-chip, .source-tab, .settings-tabbar button, .library-back, .playlist-action-btn, .fs-action-btn, .circle-btn, .btn-icon-circle, .m-icon-btn, .sidebar-toggle, .topbar-home-btn, .user-menu-trigger, .icon-btn-sm, .control-btn, .library-icon-btn, .party-leave-btn, .party-owner-controls button, .party-text-action, .modal-btn-cancel, .modal-close, .playback-chip) {
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.btn-secondary, .btn-secondary-lg, .home-tab, .filter-btn, .library-filter, .source-chip, .source-tab, .settings-tabbar button, .library-back, .playlist-action-btn, .fs-action-btn, .circle-btn, .btn-icon-circle, .m-icon-btn, .sidebar-toggle, .topbar-home-btn, .user-menu-trigger, .icon-btn-sm, .control-btn, .library-icon-btn, .party-leave-btn, .party-owner-controls button, .party-text-action, .modal-btn-cancel, .modal-close, .playback-chip) {
     color: var(--text-main) !important;
     background: var(--square-wash) !important;
     border: 1px solid transparent !important;
     border-radius: 999px !important;
     box-shadow: none;
 }
-html[data-theme="glass"] :is(.settings-tabbar, .library-filters, .home-tabs, .source-filter-chips, .playlist-actions, .fs-actions) { border-color: var(--square-line) !important; }
-html[data-theme="glass"] :is(.chip, .create-option, .create-menu-close, .discovery-action, .discovery-play-btn, .artist-section-play, .btn-icon-pill, .btn-play-circle, .lyrics-close, .atp-close, .update-back, .update-toast-btn, .story-action, .story-sound-enable) { border-radius: 999px !important; color: var(--text-main) !important; background: var(--square-wash) !important; border: 1px solid transparent !important; }
-html[data-theme="glass"] :is(.chip.active, .create-option:hover) { color: var(--primary) !important; background: var(--square-film-strong) !important; }
-html[data-theme="glass"] :is(.home-tab.active, .library-filter.active, .source-chip.active, .source-tab.active, .filter-btn.active, .settings-tabbar button[aria-selected="true"], .playback-chip.active, .m-nav-item.active) { color: var(--primary) !important; background: var(--square-film-strong) !important; border-color: var(--square-line) !important; box-shadow: var(--shadow-sm); }
-html[data-theme="glass"] :is(.btn-primary, .btn-primary-lg, .btn-play, .play-button, .card-play-btn, .party-create-btn, .party-submit, .party-control-primary, .user-settings-button, .modal-btn-primary, .atp-create-submit) { background: var(--primary) !important; color: var(--square-on-primary) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px !important; box-shadow: var(--shadow-sm); }
-html[data-theme="glass"] :is(.btn-primary, .btn-primary-lg, .user-settings-button, .modal-btn-primary) :is(span, strong, svg, i) { color: inherit !important; }
-html[data-theme="glass"] :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .party-search, .admin-input-wrap) { background: var(--square-film) !important; border: 1px solid var(--square-rim) !important; color: var(--text-main) !important; border-radius: 999px !important; box-shadow: inset 0 1px 0 var(--square-rim); }
-html[data-theme="glass"] :is(input:where(:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"])), select, textarea) { color: var(--text-main) !important; background-color: var(--square-wash) !important; border: 1px solid var(--square-line) !important; border-radius: 14px !important; box-shadow: none; }
-html[data-theme="glass"] :is(input:where(:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"])), select, textarea):focus { background-color: var(--square-film) !important; border-color: var(--primary) !important; }
-html[data-theme="glass"] :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .admin-input-wrap) input { background: transparent !important; border: 0 !important; box-shadow: none !important; }
-html[data-theme="glass"] :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .admin-input-wrap):focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
-html[data-theme="glass"] :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .admin-input-wrap) input:focus-visible { outline: 0 !important; }
-html[data-theme="glass"] :is(.topbar-search-icon, .m-search-pill-icon, .search-icon) { color: var(--text-sub) !important; }
-html[data-theme="glass"] input::placeholder, html[data-theme="glass"] textarea::placeholder { color: var(--text-faint) !important; opacity: 1; }
-html[data-theme="glass"] :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--primary); }
-html[data-theme="glass"] input:is([type="checkbox"], [type="radio"]) { flex-shrink: 0; width: 20px; height: 20px; cursor: pointer; }
-html[data-theme="glass"] .collection-search-toggle { width: fit-content; max-width: 100%; min-height: 44px; padding: 8px 0; gap: 12px; line-height: 1.45; color: var(--text-sub); }
-html[data-theme="glass"] .collection-search-toggle:has(:checked) { color: var(--text-main); }
-html[data-theme="glass"] input[role="switch"] { appearance: none; -webkit-appearance: none; width: 42px; height: 26px; margin: 0; border: 1px solid var(--square-line); border-radius: 999px; background: radial-gradient(circle, #fff 0 9px, transparent 9.5px) 1px center / 22px 22px no-repeat, var(--text-faint); box-shadow: inset 0 1px 2px #0002; transition: background-position .18s ease, background-color .18s ease; }
-html[data-theme="glass"] input[role="switch"]:checked { background-color: var(--primary); background-position: calc(100% - 1px) center; }
-html[data-theme="glass"] input[role="switch"]:disabled { opacity: .45; cursor: not-allowed; }
-html[data-theme="glass"] :is(button, input, select, textarea):disabled { cursor: not-allowed; }
-html[data-theme="glass"] :is(.btn-primary, .btn-secondary, .modal-btn-primary, .modal-btn-cancel, .user-settings-button, .admin-submit, .monitor-primary):disabled { opacity: .5; box-shadow: none !important; transform: none !important; }
-html[data-theme="glass"] :is(.modal-input, .user-settings-input, .secret-input)[readonly] { color: var(--text-sub) !important; }
-html[data-theme="glass"] ::selection { background: var(--primary); color: var(--square-on-primary); }
-html[data-theme="glass"] :is(code, pre) { overflow-wrap: anywhere; }
-html[data-theme="glass"] :is(select option, select optgroup) { background: var(--square-base) !important; color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.library-pagination button, .btn-secondary):disabled { opacity: .5; }
-html[data-theme="glass"] :is(.btn-danger, .btn-danger-outline, .modal-btn-danger, .party-delete-btn, .user-settings-button-danger, .ctx-item.danger, .user-menu-action-danger) { color: var(--danger) !important; background: var(--square-wash) !important; border: 1px solid var(--danger) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.progress-bar-bg, .progress-bar, .volume-bar-bg, .volume-bar, .fs-progress-bar, .quota-bar-bg, .offline-storage-bar, .monitor-progress, .admin-progress-mini) { background: var(--square-line) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.progress-fill, #progress-fill, #volume-fill, .fs-progress-fill, .quota-bar-fill, .offline-storage-bar-fill, .admin-progress-mini span, .monitor-progress span) { background: var(--primary) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.progress-knob, .volume-knob, .fs-progress-knob) { background: var(--text-main) !important; box-shadow: var(--shadow-sm); }
-html[data-theme="glass"] :is(.icon-btn-sm.active, .control-btn.active, .like-btn.liked, .ctx-item.liked, .atp-item-check, .modal-playlist-check-icon) { color: var(--primary) !important; }
-html[data-theme="glass"] :is(.badge-count, .m-badge) { background: var(--primary) !important; color: var(--square-on-primary) !important; }
-html[data-theme="glass"] :is(.quota-label, .quota-stats, .queue-empty, .atp-empty, .offline-disclaimer, .playlist-stats, .quick-pick-name) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.job-card, .modal-playlist-item, .fed-row, .wrapped-home-card, .wrapped-summary, .wrapped-panel, .wrapped-stats > div, .monitor-statistics-summary > div, .download-provider-notice, .download-manager-warning) { background: var(--square-content) !important; border: 1px solid var(--square-line) !important; border-radius: 24px !important; box-shadow: none; color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.job-title, .atp-title, .queue-title, .wrapped-stats strong, .monitor-statistics-table td strong) { color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.job-detail, .job-meta, .fed-row-meta, .fed-row-url, .fed-row-ua, .admin-user-meta, .monitor-statistics-summary span, .monitor-statistics-table td span, .download-provider-notice span, .download-runtime-card > span) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.status-badge, .download-provider-state, .admin-badge-beta) { background: var(--square-wash) !important; color: var(--primary) !important; border: 1px solid var(--square-line) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.status-badge.finished, .status-badge.completed, .download-provider-state.connected, .user-settings-status) { color: var(--square-success) !important; }
-html[data-theme="glass"] :is(.status-badge.error, .status-badge.failed, .download-provider-state.unavailable, .job-detail.error) { color: var(--square-danger) !important; }
-html[data-theme="glass"] :is(.status-badge.pending, .fed-row-error, .download-manager-warning) { color: var(--square-warning) !important; }
-html[data-theme="glass"] :is(.fed-progress-fill) { background: var(--primary) !important; }
-html[data-theme="glass"] :is(.modal-playlist-item--member, .atp-item--member) { background: var(--square-wash) !important; }
-html[data-theme="glass"] :is(.atp-create-cancel, .atp-new-btn) { border-radius: 999px; color: var(--text-main) !important; background: var(--square-wash) !important; border-color: var(--square-rim) !important; }
-html[data-theme="glass"] :is(.party-text-action, .atp-new-btn, .create-menu-close) { padding: 8px 14px; min-height: 36px; }
-html[data-theme="glass"] :is(.party-row-remove, .party-result-add) { background: var(--square-wash) !important; color: var(--text-main) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.settings-tabbar, .library-filters, .home-tabs, .source-filter-chips, .playlist-actions, .fs-actions) { border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.chip, .create-option, .create-menu-close, .discovery-action, .discovery-play-btn, .artist-section-play, .btn-icon-pill, .btn-play-circle, .lyrics-close, .atp-close, .update-back, .update-toast-btn, .story-action, .story-sound-enable) { border-radius: 999px !important; color: var(--text-main) !important; background: var(--square-wash) !important; border: 1px solid transparent !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.chip.active, .create-option:hover) { color: var(--primary) !important; background: var(--square-film-strong) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.home-tab.active, .library-filter.active, .source-chip.active, .source-tab.active, .filter-btn.active, .settings-tabbar button[aria-selected="true"], .playback-chip.active, .m-nav-item.active) { color: var(--primary) !important; background: var(--square-film-strong) !important; border-color: var(--square-line) !important; box-shadow: var(--shadow-sm); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.btn-primary, .btn-primary-lg, .btn-play, .play-button, .card-play-btn, .party-create-btn, .party-submit, .party-control-primary, .user-settings-button, .modal-btn-primary, .atp-create-submit) { background: var(--primary) !important; color: var(--square-on-primary) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px !important; box-shadow: var(--shadow-sm); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.btn-primary, .btn-primary-lg, .user-settings-button, .modal-btn-primary) :is(span, strong, svg, i) { color: inherit !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .party-search, .admin-input-wrap) { background: var(--square-film) !important; border: 1px solid var(--square-rim) !important; color: var(--text-main) !important; border-radius: 999px !important; box-shadow: inset 0 1px 0 var(--square-rim); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(input:where(:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"])), select, textarea) { color: var(--text-main) !important; background-color: var(--square-wash) !important; border: 1px solid var(--square-line) !important; border-radius: 14px !important; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(input:where(:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="hidden"])), select, textarea):focus { background-color: var(--square-film) !important; border-color: var(--primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .admin-input-wrap) input { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .admin-input-wrap):focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.topbar-search, .search-input-wrapper, .m-search-pill, .atp-search, .modal-search, .admin-input-wrap) input:focus-visible { outline: 0 !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.topbar-search-icon, .m-search-pill-icon, .search-icon) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) input::placeholder, html:is([data-theme="glass"], [data-theme="vitrine"]) textarea::placeholder { color: var(--text-faint) !important; opacity: 1; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(input[type="checkbox"], input[type="radio"], input[type="range"]) { accent-color: var(--primary); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) input:is([type="checkbox"], [type="radio"]) { flex-shrink: 0; width: 20px; height: 20px; cursor: pointer; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .collection-search-toggle { width: fit-content; max-width: 100%; min-height: 44px; padding: 8px 0; gap: 12px; line-height: 1.45; color: var(--text-sub); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .collection-search-toggle:has(:checked) { color: var(--text-main); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) input[role="switch"] { appearance: none; -webkit-appearance: none; width: 42px; height: 26px; margin: 0; border: 1px solid var(--square-line); border-radius: 999px; background: radial-gradient(circle, #fff 0 9px, transparent 9.5px) 1px center / 22px 22px no-repeat, var(--text-faint); box-shadow: inset 0 1px 2px #0002; transition: background-position .18s ease, background-color .18s ease; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) input[role="switch"]:checked { background-color: var(--primary); background-position: calc(100% - 1px) center; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) input[role="switch"]:disabled { opacity: .45; cursor: not-allowed; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(button, input, select, textarea):disabled { cursor: not-allowed; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.btn-primary, .btn-secondary, .modal-btn-primary, .modal-btn-cancel, .user-settings-button, .admin-submit, .monitor-primary):disabled { opacity: .5; box-shadow: none !important; transform: none !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.modal-input, .user-settings-input, .secret-input)[readonly] { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) ::selection { background: var(--primary); color: var(--square-on-primary); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(code, pre) { overflow-wrap: anywhere; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(select option, select optgroup) { background: var(--square-base) !important; color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.library-pagination button, .btn-secondary):disabled { opacity: .5; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.btn-danger, .btn-danger-outline, .modal-btn-danger, .party-delete-btn, .user-settings-button-danger, .ctx-item.danger, .user-menu-action-danger) { color: var(--danger) !important; background: var(--square-wash) !important; border: 1px solid var(--danger) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.progress-bar-bg, .progress-bar, .volume-bar-bg, .volume-bar, .fs-progress-bar, .quota-bar-bg, .offline-storage-bar, .monitor-progress, .admin-progress-mini) { background: var(--square-line) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.progress-fill, #progress-fill, #volume-fill, .fs-progress-fill, .quota-bar-fill, .offline-storage-bar-fill, .admin-progress-mini span, .monitor-progress span) { background: var(--primary) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.progress-knob, .volume-knob, .fs-progress-knob) { background: var(--text-main) !important; box-shadow: var(--shadow-sm); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.icon-btn-sm.active, .control-btn.active, .like-btn.liked, .ctx-item.liked, .atp-item-check, .modal-playlist-check-icon) { color: var(--primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.badge-count, .m-badge) { background: var(--primary) !important; color: var(--square-on-primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.quota-label, .quota-stats, .queue-empty, .atp-empty, .offline-disclaimer, .playlist-stats, .quick-pick-name) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-card, .modal-playlist-item, .fed-row, .wrapped-home-card, .wrapped-summary, .wrapped-panel, .wrapped-stats > div, .monitor-statistics-summary > div, .download-provider-notice, .download-manager-warning) { background: var(--square-content) !important; border: 1px solid var(--square-line) !important; border-radius: 24px !important; box-shadow: none; color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-title, .atp-title, .queue-title, .wrapped-stats strong, .monitor-statistics-table td strong) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-detail, .job-meta, .fed-row-meta, .fed-row-url, .fed-row-ua, .admin-user-meta, .monitor-statistics-summary span, .monitor-statistics-table td span, .download-provider-notice span, .download-runtime-card > span) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.status-badge, .download-provider-state, .admin-badge-beta) { background: var(--square-wash) !important; color: var(--primary) !important; border: 1px solid var(--square-line) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.status-badge.finished, .status-badge.completed, .download-provider-state.connected, .user-settings-status) { color: var(--square-success) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.status-badge.error, .status-badge.failed, .download-provider-state.unavailable, .job-detail.error) { color: var(--square-danger) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.status-badge.pending, .fed-row-error, .download-manager-warning) { color: var(--square-warning) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.fed-progress-fill) { background: var(--primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.modal-playlist-item--member, .atp-item--member) { background: var(--square-wash) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.atp-create-cancel, .atp-new-btn) { border-radius: 999px; color: var(--text-main) !important; background: var(--square-wash) !important; border-color: var(--square-rim) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.party-text-action, .atp-new-btn, .create-menu-close) { padding: 8px 14px; min-height: 36px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.party-row-remove, .party-result-add) { background: var(--square-wash) !important; color: var(--text-main) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px; }
 
 /* Player materials; geometry is shared with Classic in ui_player.css. */
-html[data-theme="glass"] .fullscreen-player { --text-main: #fff; --text-primary: #fff; --text-sub: #e0e0e6; --text-faint: #c5c7d1; --primary: #fff; --fs-film: rgba(42, 40, 44, .4); --fs-rim: rgba(255, 255, 255, .48); --surface-0: var(--fs-film); --surface-1: #292a32cc; --surface-2: #ffffff18; --surface-3: #ffffff30; --square-film: var(--fs-film); --square-film-strong: #292a32eb; --square-wash: #ffffff18; --square-line: #ffffff30; --square-rim: var(--fs-rim); color: #fff; background: #14151a; color-scheme: dark; }
-html[data-theme="glass"] .fullscreen-player .fs-background { inset: -32px; background: linear-gradient(180deg, rgba(12, 13, 18, .6), rgba(12, 13, 18, .85)), var(--square-artwork, linear-gradient(135deg, #312945, #172c31)) center / cover !important; filter: blur(22px); }
-html[data-theme="glass"] .fullscreen-player.party-player .fs-background::before { display: none; }
-html[data-theme="glass"] .fs-view-label { text-shadow: 0 2px 10px #0008; }
-html[data-theme="glass"] .fullscreen-player :is(.fs-minimize, .fs-action-btn, .control-btn) { color: #fff !important; background: var(--fs-film) !important; border: 1px solid var(--fs-rim) !important; box-shadow: inset 0 1px 0 #ffffff38; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
-html[data-theme="glass"] .fullscreen-player :is(.fs-action-btn, .control-btn) :is(i, svg) { color: inherit !important; }
-html[data-theme="glass"] .fullscreen-player .fs-cover { border-radius: 0 !important; mask-image: linear-gradient(#000 88%, transparent); -webkit-mask-image: linear-gradient(#000 88%, transparent); }
-html[data-theme="glass"] .fullscreen-player .fs-info { border: 1px solid var(--fs-rim); border-radius: 999px; background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
-html[data-theme="glass"] .fullscreen-player .fs-artist { color: var(--text-sub) !important; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-container { color: var(--text-sub) !important; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-bar { background: transparent !important; }
-html[data-theme="glass"] .fs-progress-bar::before { background: #ffffff38; }
-html[data-theme="glass"] .fullscreen-player .fs-progress-fill { background: #fff !important; }
-html[data-theme="glass"] .fullscreen-player .fs-controls :is(#fs-btn-shuffle, #fs-btn-repeat) { background: transparent !important; border-color: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html[data-theme="glass"] .fullscreen-player .fs-controls .fs-play-main { background: var(--fs-film) !important; color: #fff !important; border: 1px solid var(--fs-rim) !important; }
-html[data-theme="glass"] :is(.player-footer .play-main, .fullscreen-player .fs-play-main) svg { color: inherit !important; fill: currentColor; }
-html[data-theme="glass"] .fullscreen-player .fs-actions { border: 1px solid var(--fs-rim); background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
-html[data-theme="glass"] .fullscreen-player .fs-actions .fs-action-btn { border: 0 !important; background: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html[data-theme="glass"] .fullscreen-player :is(.control-btn.active-control, .fs-action-btn.active) { background: #ffffff30 !important; color: #fff !important; box-shadow: inset 0 0 0 1px #ffffff80; }
-html[data-theme="glass"] .fullscreen-player .fs-controls .control-btn.active-control::after { content: ''; position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
-html[data-theme="glass"] .fullscreen-player :is(#fs-btn-shuffle, #fs-btn-repeat) { position: relative; }
-html[data-theme="glass"] .fs-volume-panel { border-color: var(--fs-rim); background: #292a32eb; box-shadow: 0 12px 40px #0005; }
-html[data-theme="glass"] #fs-volume-bar { background: transparent !important; }
-html[data-theme="glass"] #fs-volume-bar::before { background: #ffffff38; }
-html[data-theme="glass"] #fs-volume-bar .volume-bar-fill { background: #fff !important; }
-html[data-theme="glass"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 24px !important; background: #17182040 !important; color: #fff; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }
-html[data-theme="glass"] .fs-stage .lyric-line { color: #d8d9df !important; }
-html[data-theme="glass"] .fs-stage .lyric-line.active { color: #fff !important; }
-html[data-theme="glass"] .fs-stage .queue-title { color: #fff !important; }
-html[data-theme="glass"] .fs-stage :is(.queue-artist, .queue-status, .queue-section-label) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.lyric-line, .lyrics-plain, .lyrics-empty, .lyrics-status, .lyrics-credit) { color: var(--text-sub) !important; }
-html[data-theme="glass"] .lyric-line.active { color: var(--text-main) !important; text-shadow: 0 1px 18px var(--square-rim); }
-html[data-theme="glass"] .lyrics-head { border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player { --text-main: #fff; --text-primary: #fff; --text-sub: #e0e0e6; --text-faint: #c5c7d1; --primary: #fff; --fs-film: rgba(42, 40, 44, .4); --fs-rim: rgba(255, 255, 255, .48); --surface-0: var(--fs-film); --surface-1: #292a32cc; --surface-2: #ffffff18; --surface-3: #ffffff30; --square-film: var(--fs-film); --square-film-strong: #292a32eb; --square-wash: #ffffff18; --square-line: #ffffff30; --square-rim: var(--fs-rim); color: #fff; background: #14151a; color-scheme: dark; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-background { inset: -32px; background: linear-gradient(180deg, rgba(12, 13, 18, .6), rgba(12, 13, 18, .85)), var(--square-artwork, linear-gradient(135deg, #312945, #172c31)) center / cover !important; filter: blur(22px); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player.party-player .fs-background::before { display: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-view-label { text-shadow: 0 2px 10px #0008; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player :is(.fs-minimize, .fs-action-btn, .control-btn) { color: #fff !important; background: var(--fs-film) !important; border: 1px solid var(--fs-rim) !important; box-shadow: inset 0 1px 0 #ffffff38; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player :is(.fs-action-btn, .control-btn) :is(i, svg) { color: inherit !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-cover { border-radius: 0 !important; mask-image: linear-gradient(#000 88%, transparent); -webkit-mask-image: linear-gradient(#000 88%, transparent); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-info { border: 1px solid var(--fs-rim); border-radius: 999px; background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-artist { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-progress-container { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-progress-bar { background: transparent !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-progress-bar::before { background: #ffffff38; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-progress-fill { background: #fff !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-controls :is(#fs-btn-shuffle, #fs-btn-repeat) { background: transparent !important; border-color: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-controls .fs-play-main { background: var(--fs-film) !important; color: #fff !important; border: 1px solid var(--fs-rim) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.player-footer .play-main, .fullscreen-player .fs-play-main) svg { color: inherit !important; fill: currentColor; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-actions { border: 1px solid var(--fs-rim); background: var(--fs-film); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); box-shadow: inset 0 1px 0 #ffffff38; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-actions .fs-action-btn { border: 0 !important; background: transparent !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player :is(.control-btn.active-control, .fs-action-btn.active) { background: #ffffff30 !important; color: #fff !important; box-shadow: inset 0 0 0 1px #ffffff80; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player .fs-controls .control-btn.active-control::after { content: ''; position: absolute; bottom: 3px; width: 4px; height: 4px; border-radius: 50%; background: #fff; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player :is(#fs-btn-shuffle, #fs-btn-repeat) { position: relative; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-volume-panel { border-color: var(--fs-rim); background: #292a32eb; box-shadow: 0 12px 40px #0005; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) #fs-volume-bar { background: transparent !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) #fs-volume-bar::before { background: #ffffff38; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) #fs-volume-bar .volume-bar-fill { background: #fff !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 24px !important; background: #17182040 !important; color: #fff; backdrop-filter: blur(10px) !important; -webkit-backdrop-filter: blur(10px) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-stage .lyric-line { color: #d8d9df !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-stage .lyric-line.active { color: #fff !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-stage .queue-title { color: #fff !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-stage :is(.queue-artist, .queue-status, .queue-section-label) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.lyric-line, .lyrics-plain, .lyrics-empty, .lyrics-status, .lyrics-credit) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .lyric-line.active { color: var(--text-main) !important; text-shadow: 0 1px 18px var(--square-rim); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .lyrics-head { border-color: var(--square-line) !important; }
 
 /* Party rooms, community, offline and discovery keep the same material. */
-html[data-theme="glass"] :is(.party-now-playing, .party-add-panel, .party-locked-panel, .party-autoplay-banner, .party-owner-notice, .party-participants span, .party-search-results, .party-results, .radio-details, .offline-storage, .offline-storage-card, .offline-status-banner, .search-browse-card, .profile-stats-grid > *, .profile-stat, .profile-avatar-large) { background: var(--square-content) !important; color: var(--text-main) !important; border: 1px solid var(--square-line) !important; border-radius: 24px; box-shadow: none; }
-html[data-theme="glass"] .search-browse-card { background: linear-gradient(145deg, var(--square-film-strong), var(--square-wash)) !important; }
-html[data-theme="glass"] :is(.party-status, .source-badge, .track-source-badge, .admin-source-badge, .offline-track-badge) { background: var(--square-wash) !important; color: var(--primary) !important; border: 1px solid var(--square-line); border-radius: 999px; }
-html[data-theme="glass"] :is(.party-status.playing, .success, .ok, .connected) { color: var(--square-success) !important; }
-html[data-theme="glass"] :is(.party-status.loading, .warning, .warn, .partial) { color: var(--square-warning) !important; }
-html[data-theme="glass"] :is(.error, .danger, .failed) { color: var(--square-danger) !important; }
-html[data-theme="glass"] :is(.fed-status-healthy, .album-status.owned) { background: var(--square-wash) !important; color: var(--square-success) !important; }
-html[data-theme="glass"] :is(.fed-status-degraded, .fed-status-unknown, .album-status.partial, .fed-source-badge.degraded) { background: var(--square-wash) !important; color: var(--square-warning) !important; }
-html[data-theme="glass"] :is(.fed-status-offline, .fed-status-revoked) { background: var(--square-wash) !important; color: var(--square-danger) !important; }
-html[data-theme="glass"] :is(.fed-source-badge, .update-status-pill) { background: var(--square-film) !important; color: var(--primary) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.toast.success, .toast.error, .user-settings-alert, .admin-toast, .monitor-toast, .admin-feedback, .party-autoplay-banner) { background: var(--square-film-strong) !important; border-radius: 18px; border-color: currentColor !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.party-now-playing, .party-add-panel, .party-locked-panel, .party-autoplay-banner, .party-owner-notice, .party-participants span, .party-search-results, .party-results, .radio-details, .offline-storage, .offline-storage-card, .offline-status-banner, .search-browse-card, .profile-stats-grid > *, .profile-stat, .profile-avatar-large) { background: var(--square-content) !important; color: var(--text-main) !important; border: 1px solid var(--square-line) !important; border-radius: 24px; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .search-browse-card { background: linear-gradient(145deg, var(--square-film-strong), var(--square-wash)) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.party-status, .source-badge, .track-source-badge, .admin-source-badge, .offline-track-badge) { background: var(--square-wash) !important; color: var(--primary) !important; border: 1px solid var(--square-line); border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.party-status.playing, .success, .ok, .connected) { color: var(--square-success) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.party-status.loading, .warning, .warn, .partial) { color: var(--square-warning) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.error, .danger, .failed) { color: var(--square-danger) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.fed-status-healthy, .album-status.owned) { background: var(--square-wash) !important; color: var(--square-success) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.fed-status-degraded, .fed-status-unknown, .album-status.partial, .fed-source-badge.degraded) { background: var(--square-wash) !important; color: var(--square-warning) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.fed-status-offline, .fed-status-revoked) { background: var(--square-wash) !important; color: var(--square-danger) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.fed-source-badge, .update-status-pill) { background: var(--square-film) !important; color: var(--primary) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.toast.success, .toast.error, .user-settings-alert, .admin-toast, .monitor-toast, .admin-feedback, .party-autoplay-banner) { background: var(--square-film-strong) !important; border-radius: 18px; border-color: currentColor !important; }
 
 /* Personal settings + all administrative areas, including inline legacy palettes. */
-html[data-theme="glass"] :is(.user-settings-shell, .admin-shell, .system-monitor, .download-manager, .update-shell) {
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.user-settings-shell, .admin-shell, .system-monitor, .download-manager, .update-shell) {
     --surface: var(--square-film);
     --surface-2: var(--square-wash);
     --text: var(--text-main);
@@ -325,117 +326,117 @@ html[data-theme="glass"] :is(.user-settings-shell, .admin-shell, .system-monitor
     --monitor-amber: var(--square-warning);
     --monitor-red: var(--square-danger);
 }
-html[data-theme="glass"] :is(.user-settings-panel, .admin-panel, .monitor-panel, .monitor-card, .download-runtime-card, .download-provider-card, .download-manager-security-note, .monitor-backup-slot, .monitor-job, .monitor-kv, .admin-result-row, .admin-duplicate-group, .update-card, .update-step) { padding: 22px !important; background: var(--square-content) !important; color: var(--text-main) !important; border: 1px solid var(--square-line) !important; border-radius: 26px !important; box-shadow: none; }
-html[data-theme="glass"] :is(.monitor-panel, .admin-panel, .user-settings-panel) :is(.monitor-kv, .monitor-job, .admin-result-row, .admin-duplicate-group, .download-provider-card) { background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--square-line) !important; border-radius: 0 !important; padding: 14px !important; box-shadow: none; }
-html[data-theme="glass"] :is(.admin-panel-body, .monitor-panel-body, .user-settings-panel-body, .user-settings-panel-header, .admin-panel-header, .monitor-panel-header, .download-policy-form, .admin-table-wrap, .monitor-table-wrap, .admin-users-table, .monitor-users-table, .admin-reset-panel, .monitor-kv-grid) { background: transparent !important; color: var(--text-main) !important; border-color: var(--square-line) !important; }
-html[data-theme="glass"] :is(.admin-shell, .system-monitor, .user-settings-shell, .download-manager, .update-shell) :is(label, strong, h1, h2, h3, th, .admin-user-name, .monitor-kv-value, .download-runtime-card strong, .download-provider-card h3) { color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.admin-shell, .system-monitor, .user-settings-shell, .download-manager, .update-shell) :is(p, small, .admin-result-meta, .admin-feedback-meta, .monitor-field-help, .monitor-kv-label, .monitor-card-label, .user-settings-help, .playback-pref-help, .download-provider-meta) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.admin-users-table, .monitor-user-statistics-table) :is(th, td, tr) { border-color: var(--square-line) !important; background: transparent !important; }
-html[data-theme="glass"] :is(.admin-shell-btn, .monitor-button, .admin-secondary-btn, .admin-icon-btn, .user-settings-button-secondary, .user-settings-toggle-secret, .monitor-secondary) { background: var(--square-wash) !important; color: var(--text-main) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px !important; }
-html[data-theme="glass"] :is(.admin-submit, .monitor-primary) { background: var(--primary) !important; color: var(--square-on-primary) !important; border-radius: 999px !important; }
-html[data-theme="glass"] :is(.admin-submit, .monitor-primary) :is(span, strong) { color: inherit !important; }
-html[data-theme="glass"] :is(.admin-danger-btn, .monitor-warning, .admin-icon-btn.danger) { background: var(--square-wash) !important; color: var(--square-danger) !important; border: 1px solid currentColor !important; border-radius: 999px !important; }
-html[data-theme="glass"] .monitor-danger { background: var(--square-wash) !important; color: var(--square-danger) !important; border: 1px solid currentColor !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.user-settings-avatar, .user-settings-role, .admin-badge, .monitor-status, .download-provider-status, .download-runtime-icon, .user-settings-status, .step-num, .help-chip, .icon-box) { background: var(--square-wash) !important; color: var(--primary) !important; border-color: var(--square-line) !important; }
-html[data-theme="glass"] .admin-track-details code { color: var(--text-sub) !important; }
-html[data-theme="glass"] .auth-browser-frame { border: 1px solid var(--square-line); border-radius: 18px; }
-html[data-theme="glass"] :is(.tas-sheet) { margin: 12px; border-radius: 28px; background: var(--square-film-strong); border: 1px solid var(--square-rim); box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
-html[data-theme="glass"] .tas-overlay { background: var(--square-overlay); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
-html[data-theme="glass"] :is(.tas-action-btn, .tas-title, .job-resolution-row strong, .modal-playlist-name, .update-meta-value) { color: var(--text-main) !important; }
-html[data-theme="glass"] :is(.tas-action-btn.liked, .discovery-like.liked, .playlist-offline-btn.downloaded) { color: var(--primary) !important; }
-html[data-theme="glass"] :is(.tas-action-btn.danger, .tas-action-btn.danger svg, .action-btn-danger, .action-btn-inline.danger) { color: var(--square-danger) !important; }
-html[data-theme="glass"] :is(.tas-action-btn.warning, .tas-action-btn.warning svg, .action-btn.warning, .monitor-inline-warning) { color: var(--square-warning) !important; }
-html[data-theme="glass"] :is(.job-item, .job-resolution, .update-meta, .update-phase, .admin-toggle, .admin-duplicate-summary) { background: transparent !important; color: var(--text-main); border-color: var(--square-line) !important; border-radius: 14px; }
-html[data-theme="glass"] .job-item { padding: 16px 2px !important; border-radius: 0 !important; }
-html[data-theme="glass"] .job-resolution { border: 0; padding: 4px 0; }
-html[data-theme="glass"] :is(.job-resolution-row, .job-resolution-row span, .job-footer, .job-footer span, .download-provider-meta, .download-provider-meta span, .download-provider-meta strong) { background: transparent !important; box-shadow: none; }
-html[data-theme="glass"] .job-progress-bg { height: 4px; border: 0; }
-html[data-theme="glass"] :is(.job-header > div, .job-footer-left) { min-width: 0; }
-html[data-theme="glass"] :is(.job-detail, .job-footer, .monitor-kv-value, .download-provider-meta strong) { overflow-wrap: anywhere; }
-html[data-theme="glass"] :is(.update-panel, .monitor-inline-warning, .monitor-runtime-status, .offline-banner-alert, .offline-mode-indicator) { background: var(--square-content) !important; border-color: var(--square-line) !important; color: var(--text-main); border-radius: 20px; }
-html[data-theme="glass"] .update-panel { border: 1px solid var(--square-rim); box-shadow: var(--square-shadow); }
-html[data-theme="glass"] :is(.update-progress-track, .job-progress-bg, .offline-storage-bar-bg, .fed-progress-bar) { background: var(--square-line) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.update-progress-bar, .job-progress-fill) { background: var(--primary) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.discovery-source-badge, .admin-owner-tag, .update-toast-icon, .download-provider-mark) { background: var(--square-wash) !important; color: var(--text-sub) !important; border-color: var(--square-line) !important; }
-html[data-theme="glass"] :is(.update-log-item, .monitor-statistics-table th, .monitor-statistics-table td, .step-item, .federation-subsection) { border-color: var(--square-line) !important; }
-html[data-theme="glass"] :is(.update-meta-label, .update-log-item time, .monitor-link, .step-content p) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.btn-glass, .btn-icon, .play-btn-add-pl, .action-btn, .action-btn-more, .playlist-cover-actions .icon-btn-sm) { background: var(--square-wash) !important; color: var(--text-main) !important; border-color: var(--square-rim) !important; border-radius: 999px; }
-html[data-theme="glass"] :is(.play-btn-card, .btn-play-circle) { background: var(--primary) !important; color: var(--square-on-primary) !important; }
-html[data-theme="glass"] :is(.quick-pick-cover-radio, .quick-pick-cover-mix, .sidebar-cover-radio, .sidebar-cover-offline, .sidebar-cover-mix) { background: var(--square-wash) !important; color: var(--primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.user-settings-panel, .admin-panel, .monitor-panel, .monitor-card, .download-runtime-card, .download-provider-card, .download-manager-security-note, .monitor-backup-slot, .monitor-job, .monitor-kv, .admin-result-row, .admin-duplicate-group, .update-card, .update-step) { padding: 22px !important; background: var(--square-content) !important; color: var(--text-main) !important; border: 1px solid var(--square-line) !important; border-radius: 26px !important; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.monitor-panel, .admin-panel, .user-settings-panel) :is(.monitor-kv, .monitor-job, .admin-result-row, .admin-duplicate-group, .download-provider-card) { background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--square-line) !important; border-radius: 0 !important; padding: 14px !important; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-panel-body, .monitor-panel-body, .user-settings-panel-body, .user-settings-panel-header, .admin-panel-header, .monitor-panel-header, .download-policy-form, .admin-table-wrap, .monitor-table-wrap, .admin-users-table, .monitor-users-table, .admin-reset-panel, .monitor-kv-grid) { background: transparent !important; color: var(--text-main) !important; border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-shell, .system-monitor, .user-settings-shell, .download-manager, .update-shell) :is(label, strong, h1, h2, h3, th, .admin-user-name, .monitor-kv-value, .download-runtime-card strong, .download-provider-card h3) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-shell, .system-monitor, .user-settings-shell, .download-manager, .update-shell) :is(p, small, .admin-result-meta, .admin-feedback-meta, .monitor-field-help, .monitor-kv-label, .monitor-card-label, .user-settings-help, .playback-pref-help, .download-provider-meta) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-users-table, .monitor-user-statistics-table) :is(th, td, tr) { border-color: var(--square-line) !important; background: transparent !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-shell-btn, .monitor-button, .admin-secondary-btn, .admin-icon-btn, .user-settings-button-secondary, .user-settings-toggle-secret, .monitor-secondary) { background: var(--square-wash) !important; color: var(--text-main) !important; border: 1px solid var(--square-rim) !important; border-radius: 999px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-submit, .monitor-primary) { background: var(--primary) !important; color: var(--square-on-primary) !important; border-radius: 999px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-submit, .monitor-primary) :is(span, strong) { color: inherit !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-danger-btn, .monitor-warning, .admin-icon-btn.danger) { background: var(--square-wash) !important; color: var(--square-danger) !important; border: 1px solid currentColor !important; border-radius: 999px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .monitor-danger { background: var(--square-wash) !important; color: var(--square-danger) !important; border: 1px solid currentColor !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.user-settings-avatar, .user-settings-role, .admin-badge, .monitor-status, .download-provider-status, .download-runtime-icon, .user-settings-status, .step-num, .help-chip, .icon-box) { background: var(--square-wash) !important; color: var(--primary) !important; border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .admin-track-details code { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .auth-browser-frame { border: 1px solid var(--square-line); border-radius: 18px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.tas-sheet) { margin: 12px; border-radius: 28px; background: var(--square-film-strong); border: 1px solid var(--square-rim); box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .tas-overlay { background: var(--square-overlay); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.tas-action-btn, .tas-title, .job-resolution-row strong, .modal-playlist-name, .update-meta-value) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.tas-action-btn.liked, .discovery-like.liked, .playlist-offline-btn.downloaded) { color: var(--primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.tas-action-btn.danger, .tas-action-btn.danger svg, .action-btn-danger, .action-btn-inline.danger) { color: var(--square-danger) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.tas-action-btn.warning, .tas-action-btn.warning svg, .action-btn.warning, .monitor-inline-warning) { color: var(--square-warning) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-item, .job-resolution, .update-meta, .update-phase, .admin-toggle, .admin-duplicate-summary) { background: transparent !important; color: var(--text-main); border-color: var(--square-line) !important; border-radius: 14px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .job-item { padding: 16px 2px !important; border-radius: 0 !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .job-resolution { border: 0; padding: 4px 0; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-resolution-row, .job-resolution-row span, .job-footer, .job-footer span, .download-provider-meta, .download-provider-meta span, .download-provider-meta strong) { background: transparent !important; box-shadow: none; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .job-progress-bg { height: 4px; border: 0; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-header > div, .job-footer-left) { min-width: 0; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.job-detail, .job-footer, .monitor-kv-value, .download-provider-meta strong) { overflow-wrap: anywhere; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-panel, .monitor-inline-warning, .monitor-runtime-status, .offline-banner-alert, .offline-mode-indicator) { background: var(--square-content) !important; border-color: var(--square-line) !important; color: var(--text-main); border-radius: 20px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .update-panel { border: 1px solid var(--square-rim); box-shadow: var(--square-shadow); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-progress-track, .job-progress-bg, .offline-storage-bar-bg, .fed-progress-bar) { background: var(--square-line) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-progress-bar, .job-progress-fill) { background: var(--primary) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.discovery-source-badge, .admin-owner-tag, .update-toast-icon, .download-provider-mark) { background: var(--square-wash) !important; color: var(--text-sub) !important; border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-log-item, .monitor-statistics-table th, .monitor-statistics-table td, .step-item, .federation-subsection) { border-color: var(--square-line) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.update-meta-label, .update-log-item time, .monitor-link, .step-content p) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.btn-glass, .btn-icon, .play-btn-add-pl, .action-btn, .action-btn-more, .playlist-cover-actions .icon-btn-sm) { background: var(--square-wash) !important; color: var(--text-main) !important; border-color: var(--square-rim) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.play-btn-card, .btn-play-circle) { background: var(--primary) !important; color: var(--square-on-primary) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.quick-pick-cover-radio, .quick-pick-cover-mix, .sidebar-cover-radio, .sidebar-cover-offline, .sidebar-cover-mix) { background: var(--square-wash) !important; color: var(--primary) !important; }
 
-/* Separate login and Wrapped documents also wear Glass. */
-html[data-theme="glass"] .login-card { background: var(--square-film); border: 1px solid var(--square-rim); border-radius: 32px; padding: 36px; box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
-html[data-theme="glass"] :is(.login-card, .login-card p, .brand-tagline, .input-group label, .login-footer) { color: var(--text-sub) !important; }
-html[data-theme="glass"] .login-card :is(h1, h2, strong) { color: var(--text-main) !important; }
-html[data-theme="glass"] .login-card button[type="submit"] { border-radius: 999px; background: var(--primary); color: var(--square-on-primary); }
-html[data-theme="glass"] :is(.app-subtitle, .input-label, .login-footer-pro, .login-footer-pro a, .remember-row, .pwa-banner p, .pwa-banner strong) { color: var(--text-sub) !important; }
-html[data-theme="glass"] :is(.error-pill-pro) { background: var(--square-film-strong) !important; color: var(--square-danger) !important; border-color: var(--square-danger) !important; }
-html[data-theme="glass"] :is(.pwa-install-btn) { background: var(--primary) !important; color: var(--square-on-primary) !important; border-radius: 999px; }
-html[data-theme="glass"] .story-root { --story-bg: var(--square-base); --story-fg: var(--text-main); --story-muted: var(--text-sub); --story-border: var(--square-line); color: var(--text-main); min-height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
-html[data-theme="glass"] .story-bg { background: var(--square-base) !important; }
-html[data-theme="glass"] .story-slide { background: var(--square-film) !important; color: var(--text-main) !important; border-radius: 28px; border: 1px solid var(--square-rim); }
-html[data-theme="glass"] .story-intro { background: #15161a !important; border-radius: 28px; border: 1px solid var(--square-rim); }
-html[data-theme="glass"] :is(.story-repeat-now, .story-repeat-list li.is-playing) { color: var(--primary) !important; background: var(--square-film) !important; border-radius: 16px; }
-html[data-theme="glass"] :is(.story-topbar, .story-controls, .story-card, .story-stat, .story-track, .story-loading, .story-share) { background: var(--square-film) !important; border: 1px solid var(--square-rim); border-radius: 24px; box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
-html[data-theme="glass"] :is(.story-control, .story-link, .story-button) { background: var(--square-wash) !important; border: 1px solid var(--square-rim); color: var(--text-main) !important; border-radius: 999px !important; }
-html[data-theme="glass"] [class^="story-panel"] { background: linear-gradient(105deg, var(--square-wash), var(--square-film)) !important; }
+/* Separate login and Wrapped documents use the shared modern surfaces. */
+html:is([data-theme="glass"], [data-theme="vitrine"]) .login-card { background: var(--square-film); border: 1px solid var(--square-rim); border-radius: 32px; padding: 36px; box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.login-card, .login-card p, .brand-tagline, .input-group label, .login-footer) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .login-card :is(h1, h2, strong) { color: var(--text-main) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .login-card button[type="submit"] { border-radius: 999px; background: var(--primary); color: var(--square-on-primary); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.app-subtitle, .input-label, .login-footer-pro, .login-footer-pro a, .remember-row, .pwa-banner p, .pwa-banner strong) { color: var(--text-sub) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.error-pill-pro) { background: var(--square-film-strong) !important; color: var(--square-danger) !important; border-color: var(--square-danger) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.pwa-install-btn) { background: var(--primary) !important; color: var(--square-on-primary) !important; border-radius: 999px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .story-root { --story-bg: var(--square-base); --story-fg: var(--text-main); --story-muted: var(--text-sub); --story-border: var(--square-line); color: var(--text-main); min-height: 100dvh; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .story-bg { background: var(--square-base) !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .story-slide { background: var(--square-film) !important; color: var(--text-main) !important; border-radius: 28px; border: 1px solid var(--square-rim); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .story-intro { background: #15161a !important; border-radius: 28px; border: 1px solid var(--square-rim); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.story-repeat-now, .story-repeat-list li.is-playing) { color: var(--primary) !important; background: var(--square-film) !important; border-radius: 16px; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.story-topbar, .story-controls, .story-card, .story-stat, .story-track, .story-loading, .story-share) { background: var(--square-film) !important; border: 1px solid var(--square-rim); border-radius: 24px; box-shadow: var(--square-shadow); backdrop-filter: var(--square-blur); -webkit-backdrop-filter: var(--square-blur); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.story-control, .story-link, .story-button) { background: var(--square-wash) !important; border: 1px solid var(--square-rim); color: var(--text-main) !important; border-radius: 999px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) [class^="story-panel"] { background: linear-gradient(105deg, var(--square-wash), var(--square-film)) !important; }
 
 /* Floating mobile capsules, with reserved space and safe-area clearance. */
 @media (max-width: 768px) {
     .theme-options { grid-template-columns: 1fr; }
-    html[data-theme="glass"] .app-layout { padding: 0 !important; }
-    html[data-theme="glass"] :is(.main-view, .view-content) { background: transparent !important; }
-    html[data-theme="glass"] .m-topbar { margin: calc(12px + env(safe-area-inset-top, 0px)) 12px 8px; border-radius: 999px !important; padding: 10px 14px !important; min-height: 62px; }
-    html[data-theme="glass"] .m-topbar-title { color: var(--text-main) !important; }
-    html[data-theme="glass"] .m-bottom-nav { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); height: 64px; padding: 6px !important; border-radius: 999px !important; }
-    html[data-theme="glass"] .m-nav-item { border-radius: 999px; color: var(--text-sub); }
-    html[data-theme="glass"] .m-nav-item.active { color: var(--primary) !important; }
-    html[data-theme="glass"] .player-footer { left: max(12px, env(safe-area-inset-left, 0px)) !important; right: max(12px, env(safe-area-inset-right, 0px)) !important; width: auto !important; bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; padding: 10px 14px !important; border-radius: 999px !important; }
-    html[data-theme="glass"] .view-content { padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px)) !important; }
-    html[data-theme="glass"] .toast-msg { bottom: calc(166px + env(safe-area-inset-bottom, 0px)); }
-    html[data-theme="glass"] #view-container > .collection-search-toggle { margin-inline: 16px; max-width: calc(100% - 32px); }
-    html[data-theme="glass"] .playback-pref:has(.playback-chip-group) { flex-direction: column; align-items: stretch; }
-    html[data-theme="glass"] .playback-chip-group { justify-content: flex-start; }
-    html[data-theme="glass"] .player-footer .play-main { width: 44px !important; height: 44px !important; background: transparent !important; color: var(--text-main) !important; }
-    html[data-theme="glass"] .library-card { padding: 14px !important; margin: 4px 0; }
-    html[data-theme="glass"] :is(.home-rail > .card, .discovery-card, .party-card) { padding: 12px !important; }
-    html[data-theme="glass"] .playlist-header { padding: 22px !important; text-align: center; align-items: center; }
-    html[data-theme="glass"] .playlist-header-section { padding: 18px !important; }
-    html[data-theme="glass"] .playlist-cover-large { width: min(64vw, 280px); }
-    html[data-theme="glass"] .playlist-cover { width: min(64vw, 280px) !important; height: min(64vw, 280px) !important; border-radius: 26px !important; }
-    html[data-theme="glass"] :is(.modal, .create-menu) { margin: 12px !important; border-radius: 28px !important; }
-    html[data-theme="glass"] :is(.admin-panel, .monitor-panel, .user-settings-panel, .download-provider-card) { padding: 18px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .app-layout { padding: 0 !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.main-view, .view-content) { background: transparent !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .m-topbar { margin: calc(12px + env(safe-area-inset-top, 0px)) 12px 8px; border-radius: 999px !important; padding: 10px 14px !important; min-height: 62px; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .m-topbar-title { color: var(--text-main) !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .m-bottom-nav { left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); height: 64px; padding: 6px !important; border-radius: 999px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .m-nav-item { border-radius: 999px; color: var(--text-sub); }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .m-nav-item.active { color: var(--primary) !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .player-footer { left: max(12px, env(safe-area-inset-left, 0px)) !important; right: max(12px, env(safe-area-inset-right, 0px)) !important; width: auto !important; bottom: calc(86px + env(safe-area-inset-bottom, 0px)) !important; padding: 10px 14px !important; border-radius: 999px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .view-content { padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px)) !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .toast-msg { bottom: calc(166px + env(safe-area-inset-bottom, 0px)); }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) #view-container > .collection-search-toggle { margin-inline: 16px; max-width: calc(100% - 32px); }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .playback-pref:has(.playback-chip-group) { flex-direction: column; align-items: stretch; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .playback-chip-group { justify-content: flex-start; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .player-footer .play-main { width: 44px !important; height: 44px !important; background: transparent !important; color: var(--text-main) !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .library-card { padding: 14px !important; margin: 4px 0; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.home-rail > .card, .discovery-card, .party-card) { padding: 12px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-header { padding: 22px !important; text-align: center; align-items: center; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-header-section { padding: 18px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-cover-large { width: min(64vw, 280px); }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .playlist-cover { width: min(64vw, 280px) !important; height: min(64vw, 280px) !important; border-radius: 26px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.modal, .create-menu) { margin: 12px !important; border-radius: 28px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.admin-panel, .monitor-panel, .user-settings-panel, .download-provider-card) { padding: 18px !important; }
 }
 
 /* Native blur is optional; never make readability depend on GPU effects. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    html[data-theme="glass"] { --square-film: #ebecf2; --square-film-strong: #f7f8fb; --square-content: #ebecf2; --square-glint: transparent; }
-    html[data-theme="glass"] .fullscreen-player { --fs-film: #292a31; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-film: #ebecf2; --square-film-strong: #f7f8fb; --square-content: #ebecf2; --square-glint: transparent; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player { --fs-film: #292a31; }
     @media (prefers-color-scheme: dark) {
-        html[data-theme="glass"] { --square-film: #22242d; --square-film-strong: #292c36; --square-content: #17191f; }
+        html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-film: #22242d; --square-film-strong: #292c36; --square-content: #17191f; }
     }
 }
 @media (prefers-reduced-transparency: reduce) {
-    html[data-theme="glass"] { --square-film: #ebecf2; --square-film-strong: #f7f8fb; --square-content: #ebecf2; --square-glint: transparent; --square-blur: none; }
-    html[data-theme="glass"] body::before { display: none; }
-    html[data-theme="glass"] .fullscreen-player :is(.fs-info, .fs-minimize, .control-btn, .fs-action-btn) { background: #292a31 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-    html[data-theme="glass"] .fullscreen-player { --fs-film: #292a31; }
-    html[data-theme="glass"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: #292a31 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-    @media (prefers-color-scheme: dark) { html[data-theme="glass"] { --square-film: #22242d; --square-film-strong: #292c36; --square-content: #17191f; } }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-film: #ebecf2; --square-film-strong: #f7f8fb; --square-content: #ebecf2; --square-glint: transparent; --square-blur: none; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) body::before { display: none; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player :is(.fs-info, .fs-minimize, .control-btn, .fs-action-btn) { background: #292a31 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player { --fs-film: #292a31; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fs-stage > :is(#lyrics-panel, #queue-panel) { background: #292a31 !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    @media (prefers-color-scheme: dark) { html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-film: #22242d; --square-film-strong: #292c36; --square-content: #17191f; } }
 }
 @media (prefers-contrast: more) {
-    html[data-theme="glass"] { --square-line: #676b76; --square-rim: #676b76; --square-film: var(--square-base); --square-film-strong: var(--square-base); --square-glint: transparent; }
-    html[data-theme="glass"] .fullscreen-player { --fs-rim: #ffffffb8; }
-    html[data-theme="glass"] :is(button, input, select, textarea):focus-visible { outline-width: 3px !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-line: #676b76; --square-rim: #676b76; --square-film: var(--square-base); --square-film-strong: var(--square-base); --square-glint: transparent; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player { --fs-rim: #ffffffb8; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) :is(button, input, select, textarea):focus-visible { outline-width: 3px !important; }
 }
 @media (prefers-reduced-motion: reduce) {
-    html[data-theme="glass"] * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 @media (forced-colors: active) {
-    html[data-theme="glass"] { --square-base: Canvas; --square-film: Canvas; --square-film-strong: Canvas; --square-wash: Canvas; --square-ink: CanvasText; --square-muted: CanvasText; --square-faint: CanvasText; --square-rim: CanvasText; --square-line: CanvasText; --square-primary: LinkText; --square-on-primary: Canvas; --square-blur: none; }
-    html[data-theme="glass"] body::before { display: none; }
-    html[data-theme="glass"] .fullscreen-player { --text-main: CanvasText; --text-sub: CanvasText; --primary: LinkText; --fs-film: Canvas; --fs-rim: CanvasText; }
-    html[data-theme="glass"] .fullscreen-player :is(.fs-background, .fs-info, .fs-minimize, .control-btn, .fs-action-btn) { background: Canvas !important; color: CanvasText !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-    html[data-theme="glass"] { --square-content: Canvas; --square-glint: transparent; }
-    html[data-theme="glass"] input[role="switch"] { appearance: auto; -webkit-appearance: auto; background: none; box-shadow: none; border: 0; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-base: Canvas; --square-film: Canvas; --square-film-strong: Canvas; --square-wash: Canvas; --square-ink: CanvasText; --square-muted: CanvasText; --square-faint: CanvasText; --square-rim: CanvasText; --square-line: CanvasText; --square-primary: LinkText; --square-on-primary: Canvas; --square-blur: none; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) body::before { display: none; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player { --text-main: CanvasText; --text-sub: CanvasText; --primary: LinkText; --fs-film: Canvas; --fs-rim: CanvasText; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .fullscreen-player :is(.fs-background, .fs-info, .fs-minimize, .control-btn, .fs-action-btn) { background: Canvas !important; color: CanvasText !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) { --square-content: Canvas; --square-glint: transparent; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) input[role="switch"] { appearance: auto; -webkit-appearance: auto; background: none; box-shadow: none; border: 0; }
 }
