@@ -48,7 +48,7 @@ root.dataset.themeUser = ''; vm.runInContext(head, context);
 assert.equal(root.dataset.theme, 'glass'); // Login remembers style only, not identity.
 storage.set('aoede.theme.alice', 'vitrine'); root.dataset.themeUser = 'alice';
 vm.runInContext(head, context);
-assert.equal(root.dataset.theme, 'vitrine'); assert.equal(meta.content, '#ffffff');
+assert.equal(root.dataset.theme, 'vitrine'); assert.equal(meta.content, '#f5f5f8');
 root.dataset.theme = 'classic'; navigator.onLine = true;
 
 appearance.initAppearance();
@@ -126,11 +126,11 @@ respond = async () => Response.json({ theme: 'vitrine', username: 'alice' });
 await appearance.saveUserTheme('vitrine');
 assert.equal(root.dataset.theme, 'vitrine'); assert.equal(options[2].checked, true);
 assert.equal(options[0].checked, false); assert.equal(options[1].checked, false);
-assert.equal(meta.content, '#18181a');
+assert.equal(meta.content, '#111216');
 cover = { src: 'https://images.test/vitrine.jpg', getAttribute: () => 'vitrine.jpg', complete: true, naturalWidth: 200 };
 appearance.applyTheme('vitrine');
 assert.match(properties.get('--square-artwork'), /vitrine.jpg/);
-mode.matches = false; modeListener(); assert.equal(meta.content, '#ffffff');
+mode.matches = false; modeListener(); assert.equal(meta.content, '#f5f5f8');
 appearance.syncTheme({ username: 'alice', theme: 'glass' });
 assert.equal(root.dataset.theme, 'glass');
 appearance.syncTheme({ username: 'alice', theme: 'vitrine' });

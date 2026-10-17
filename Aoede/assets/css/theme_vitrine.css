@@ -1,149 +1,215 @@
-/* Aoede Vitrine: original web layout inspired by Vitrine's Apple Music redesign.
- * Reference: My-Name-Is-Jeff/vitrine at 914343731f66ccb2e639b8164a36be849a043276.
- * Shared forms, dialogs, administrative tools and accessibility live in theme_glass.css.
+/* Aoede Vitrine. Apple Music layout, Vitreo Launcher's clear/regular materials.
+ * Design reference: sPROFFEs/vitreo-launcher at dfa8ccda84a3db4b20e394d3d4615716b8f0023a
+ * (GlassRenderer.kt / GlassPanel.kt / glass.agsl). Original browser CSS: paired
+ * reflective rims, directional light, a diffuse centre and restrained press feedback.
+ * Native AGSL refraction is not run on page content. Shared coverage: theme_glass.css.
  */
-
-/* Visible in the chooser regardless of the currently selected theme. */
-.theme-preview-vitrine { background: #fafafa; }
-.theme-preview-vitrine .theme-preview-sidebar { background: #eaeaec; border-radius: 4px; }
-.theme-preview-vitrine .theme-preview-sidebar::before { content: ''; position: absolute; inset: 15px 6px auto; height: 5px; border-radius: 3px; background: #c62d49; box-shadow: 0 12px 0 #b7b7bf, 0 24px 0 #b7b7bf; }
-.theme-preview-vitrine .theme-preview-cards { top: 35px; bottom: 40px; }
-.theme-preview-vitrine .theme-preview-cards i { border-radius: 5px; background: linear-gradient(160deg, #eb8f85, #a43061); }
+.theme-preview-vitrine { background: radial-gradient(at 10% 10%, #efafc6, transparent 65%), radial-gradient(at 90% 90%, #88bacc, transparent 65%), #e1e4f1; }
+.theme-preview-vitrine .theme-preview-sidebar { background: #ffffff36; border: 1px solid #ffffffa0; border-radius: 12px; box-shadow: inset 1px 1px 3px #fff9, inset -1px -2px 4px #42547225; }
+.theme-preview-vitrine .theme-preview-cards { top: 28px; bottom: 46px; }
+.theme-preview-vitrine .theme-preview-cards i { border-radius: 8px; background: linear-gradient(160deg, #eb8f85, #a43061); }
 .theme-preview-vitrine .theme-preview-cards i:nth-child(2) { background: linear-gradient(160deg, #bba4d9, #395b8c); }
 .theme-preview-vitrine .theme-preview-cards i:nth-child(3) { background: linear-gradient(160deg, #efca7b, #a25c38); }
-.theme-preview-vitrine .theme-preview-player { background: #ededf1; height: 18px; border-radius: 6px; border-left: 20px solid #c62d49; }
-.vitrine-nav { display: none; }
+.theme-preview-vitrine .theme-preview-player { height: 22px; background: #ffffff45; border: 1px solid #ffffffa0; border-radius: 999px; box-shadow: inset 1px 2px 4px #fffb, inset -1px -2px 4px #24334c20, 0 4px 8px #34466318; }
+.vitrine-nav, .vitrine-home-title { display: none; }
 
 html[data-theme="vitrine"] {
-    --square-base: #ffffff;
-    --square-ink: #202023;
-    --square-muted: #626269;
-    --square-faint: #696970;
-    --square-film: rgba(247, 247, 249, .88);
-    --square-film-strong: #fafafa;
-    --square-content: #f5f5f7;
-    --square-wash: rgba(90, 90, 105, .075);
-    --square-rim: rgba(90, 90, 105, .12);
-    --square-line: rgba(90, 90, 105, .16);
-    --square-glint: transparent;
-    --square-overlay: rgba(20, 20, 28, .36);
-    --square-primary: #bc2544;
-    --square-on-primary: #ffffff;
-    --square-shadow: 0 8px 28px #20203012;
-    --square-blur: blur(24px) saturate(1.25);
-    --accent-rgb: 188, 37, 68;
+    --square-base: #f5f5f8;
+    --square-ink: #202027;
+    --square-muted: #5e5e6b;
+    --square-faint: #6a6a77;
+    --square-film: rgba(250, 251, 255, .44);
+    --square-film-strong: rgba(250, 251, 255, .94);
+    --square-content: rgba(255, 255, 255, .56);
+    --square-wash: rgba(70, 80, 110, .065);
+    --square-rim: rgba(255, 255, 255, .74);
+    --square-line: rgba(60, 65, 90, .13);
+    --square-overlay: rgba(30, 34, 53, .28);
+    --square-primary: #bd2547;
+    --square-on-primary: #fff;
+    --vitreo-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='m5 11 4 4 8-9' fill='none' stroke='%23fff' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --square-glint: rgba(255, 255, 255, .46);
+    --square-blur: blur(24px) saturate(1.65);
+    --vitreo-light: rgba(255, 255, 255, .85);
+    --vitreo-inner: rgba(255, 255, 255, .30);
+    --vitreo-shade: rgba(44, 52, 80, .10);
+    --vitreo-rim: inset 1px 1px 1px var(--vitreo-light), inset -1px -1px 1px #ffffff40, inset 0 3px 7px var(--vitreo-inner), inset 0 -3px 7px var(--vitreo-shade);
+    --vitreo-sheen: radial-gradient(ellipse at 8% 0%, var(--square-glint), transparent 54%), linear-gradient(155deg, #ffffff12 15%, transparent 45% 72%, #ffffff16);
+    --square-shadow: var(--vitreo-rim), 0 8px 28px #27365412, 0 2px 5px #27365408;
+    --accent-rgb: 189, 37, 71;
     --sidebar-width: 256px;
-    --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 16px;
+    --radius-sm: 10px;
+    --radius-md: 18px;
+    --radius-lg: 28px;
 }
 html[data-theme="vitrine"][data-sidebar-mode="collapsed"] { --sidebar-width: 76px; }
 @media (prefers-color-scheme: dark) {
     html[data-theme="vitrine"] {
-        --square-base: #18181a;
-        --square-ink: #f5f5f7;
-        --square-muted: #b8b8c0;
-        --square-faint: #aaaab4;
-        --square-film: rgba(33, 33, 36, .9);
-        --square-film-strong: #29292d;
-        --square-content: #222225;
-        --square-wash: rgba(210, 210, 230, .075);
-        --square-rim: rgba(230, 230, 245, .10);
-        --square-line: rgba(230, 230, 245, .14);
-        --square-overlay: rgba(0, 0, 0, .65);
-        --square-primary: #ff879c;
-        --square-on-primary: #301019;
-        --square-shadow: 0 12px 32px #0004;
-        --accent-rgb: 255, 135, 156;
+        --square-base: #111216;
+        --square-ink: #f7f7fc;
+        --square-muted: #c3c5d2;
+        --square-faint: #afb2c4;
+        --square-film: rgba(39, 43, 58, .42);
+        --square-film-strong: rgba(31, 35, 49, .94);
+        --square-content: rgba(41, 45, 61, .46);
+        --square-wash: rgba(213, 222, 255, .075);
+        --square-rim: rgba(236, 242, 255, .28);
+        --square-line: rgba(222, 229, 255, .14);
+        --square-overlay: rgba(4, 6, 16, .54);
+        --square-primary: #ff8ba3;
+        --square-on-primary: #310e1b;
+        --vitreo-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 22'%3E%3Cpath d='m5 11 4 4 8-9' fill='none' stroke='%23310e1b' stroke-width='2.3' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+        --square-glint: rgba(225, 235, 255, .12);
+        --vitreo-light: rgba(240, 245, 255, .48);
+        --vitreo-inner: rgba(220, 233, 255, .09);
+        --vitreo-shade: rgba(0, 0, 10, .25);
+        --square-shadow: var(--vitreo-rim), 0 10px 32px #0004, 0 2px 6px #0002;
+        --accent-rgb: 255, 139, 163;
     }
 }
 
-/* Continuous sidebar and toolbar, with artwork shelves instead of nested cards. */
-html[data-theme="vitrine"] body::before { display: none; }
-html[data-theme="vitrine"] .app-layout { gap: 0; padding: 0; }
-html[data-theme="vitrine"] :is(.sidebar, .main-view) { border-radius: 0 !important; }
-html[data-theme="vitrine"] .sidebar { border: 0 !important; border-right: 1px solid var(--square-line) !important; box-shadow: none !important; }
-html[data-theme="vitrine"] .vitrine-nav { display: grid; gap: 4px; padding: 24px 12px 12px; flex-shrink: 0; }
-html[data-theme="vitrine"] .vitrine-nav button { display: flex; align-items: center; gap: 14px; min-height: 44px; padding: 8px 12px; color: var(--text-main); background: transparent; border: 0; border-radius: 8px; text-align: left; cursor: pointer; font: inherit; }
+/* Clear material belongs to floating chrome; regular material protects menu text. */
+html[data-theme="vitrine"] body::before { display: block; opacity: .26; filter: blur(58px) saturate(1.25); background: var(--square-artwork, radial-gradient(at 5% 5%, #ef9eb9, transparent 60%), radial-gradient(at 90% 85%, #78b9d4, transparent 65%), #b8bedb) center / cover; }
+html[data-theme="vitrine"] :is(.sidebar, .top-bar, .m-topbar, .m-bottom-nav, .player-footer, .queue-panel, .lyrics-panel, .modal, .monitor-modal, .auth-browser-dialog, .user-menu-panel, .track-context-menu, .atp-flyout, .create-menu, .tas-sheet, .toast-msg, .pwa-banner, .update-toast-card, .fs-actions, .fs-volume-panel) {
+    background-image: var(--vitreo-sheen) !important;
+    border: 1px solid var(--square-rim) !important;
+    box-shadow: var(--square-shadow) !important;
+    backdrop-filter: var(--square-blur) !important;
+    -webkit-backdrop-filter: var(--square-blur) !important;
+}
+html[data-theme="vitrine"] :is(.modal, .monitor-modal, .auth-browser-dialog, .user-menu-panel, .track-context-menu, .atp-flyout, .create-menu, .tas-sheet, .toast-msg, .pwa-banner, .update-toast-card) { background-color: var(--square-film-strong) !important; border-radius: 26px !important; }
+html[data-theme="vitrine"] :is(.modal-overlay, .monitor-modal-backdrop, .auth-browser-modal, .tas-overlay) { background: var(--square-overlay) !important; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+html[data-theme="vitrine"] :is(.user-menu-item, .ctx-item, .atp-item, .create-option, .tas-action-btn) { min-height: 44px; border-radius: 14px; }
+html[data-theme="vitrine"] :is(.modal-header, .atp-header, .queue-header, .lyrics-header, .auth-browser-dialog-head) { gap: 16px; border-color: var(--square-line); }
+html[data-theme="vitrine"] :is(.modal-header h2, .auth-browser-dialog-head h2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+html[data-theme="vitrine"] :is(.toast-msg-text, .job-footer span, .job-resolution-row span, .job-detail) { background: transparent !important; box-shadow: none !important; }
+
+/* Apple Music hierarchy: continuous library, editorial shelves and a floating player. */
+html[data-theme="vitrine"] .app-layout { padding: 12px 12px 0; gap: 12px; }
+html[data-theme="vitrine"] .main-view { border-radius: 26px; background: var(--square-content) !important; }
+html[data-theme="vitrine"] .sidebar { border-radius: 28px !important; }
+html[data-theme="vitrine"] .vitrine-nav { display: grid; gap: 6px; padding: 20px 12px 8px; flex-shrink: 0; }
+html[data-theme="vitrine"] .vitrine-nav button { display: flex; align-items: center; gap: 14px; min-height: 44px; padding: 8px 12px; color: var(--text-main); background: transparent; border: 0; border-radius: 12px; text-align: left; cursor: pointer; font: inherit; }
 html[data-theme="vitrine"] .vitrine-nav button :is(svg, i) { width: 22px; height: 22px; flex-shrink: 0; color: var(--primary); }
 html[data-theme="vitrine"] .vitrine-nav button:is(:hover, .active) { background: var(--square-wash); }
 html[data-theme="vitrine"][data-sidebar-mode="collapsed"] .vitrine-nav button span { display: none; }
-html[data-theme="vitrine"] .sidebar-head { padding-block: 16px 4px; }
-html[data-theme="vitrine"] .sidebar-toggle { background: transparent !important; font-size: .8rem; color: var(--text-sub) !important; }
-html[data-theme="vitrine"] .sidebar-item { border-radius: 8px; }
-html[data-theme="vitrine"] .sidebar-cover { border-radius: 6px !important; }
+html[data-theme="vitrine"] .sidebar-head { padding-block: 14px 4px; }
+html[data-theme="vitrine"] .sidebar-toggle { background: transparent !important; font-size: .8rem; color: var(--text-sub) !important; box-shadow: none !important; }
+html[data-theme="vitrine"] :is(.sidebar-item, .sidebar-cover) { border-radius: 10px !important; }
 html[data-theme="vitrine"] .quota-widget { border: 0; border-top: 1px solid var(--square-line); border-radius: 0; }
-html[data-theme="vitrine"] .top-bar { margin: 0; min-height: 72px; padding-inline: 24px; border: 0 !important; border-bottom: 1px solid var(--square-line) !important; border-radius: 0 !important; box-shadow: none !important; }
-html[data-theme="vitrine"] .topbar-search { border-radius: 9px !important; box-shadow: none !important; }
-html[data-theme="vitrine"] .view-content { padding: 30px clamp(20px, 3vw, 48px); }
+html[data-theme="vitrine"] .top-bar { height: 72px; margin: 0; border-radius: 26px 26px 0 0 !important; border-width: 0 0 1px !important; box-shadow: inset 0 1px 0 var(--vitreo-light) !important; }
+html[data-theme="vitrine"] .topbar-search { border-radius: 999px !important; }
+html[data-theme="vitrine"] .view-content { padding: 28px clamp(20px, 3vw, 44px); }
 html[data-theme="vitrine"] .home-overview { padding: 0 0 24px; margin: 0 0 20px; border-bottom: 1px solid var(--square-line); }
-html[data-theme="vitrine"] :is(.hero-greeting, .library-title) { font-size: clamp(1.8rem, 3vw, 2.6rem); font-weight: 750; line-height: 1.15; letter-spacing: -.045em; }
+html[data-theme="vitrine"] :is(.hero-greeting, .library-title) { font-size: clamp(2rem, 3vw, 2.8rem); font-weight: 750; line-height: 1.1; letter-spacing: -.05em; }
 html[data-theme="vitrine"] .hero-username { color: inherit; }
+html[data-theme="vitrine"] .home-overview { display: flex; flex-direction: column; }
+html[data-theme="vitrine"] .home-overview .hero-section { display: block; order: -1; margin-bottom: 24px; }
+html[data-theme="vitrine"] .home-overview :is(.hero-kicker, .home-greeting-copy) { display: none; }
+html[data-theme="vitrine"] .vitrine-home-title { display: inline; }
+html[data-theme="vitrine"] .home-overview .home-tabs { order: 1; margin: 24px 0 0; }
 html[data-theme="vitrine"] .hero-kicker { color: var(--primary); letter-spacing: .08em; }
 html[data-theme="vitrine"] :is(.home-tabs, .library-filters, .source-filter-chips, .settings-tabbar) { gap: 6px; }
-html[data-theme="vitrine"] :is(.home-tab, .library-filter, .source-chip, .filter-btn, .settings-tabbar button) { border-radius: 8px !important; }
-html[data-theme="vitrine"] :is(.home-tab.active, .library-filter.active, .source-chip.active, .filter-btn.active, .settings-tabbar button[aria-selected="true"]) { background: var(--square-wash) !important; box-shadow: none; }
 html[data-theme="vitrine"] .quick-picks-grid { gap: 12px 24px; }
-html[data-theme="vitrine"] .quick-pick { background: transparent !important; border: 0 !important; border-radius: 8px !important; gap: 12px; height: 64px; }
-html[data-theme="vitrine"] .quick-pick-cover { width: 64px; height: 64px; border-radius: 8px; }
-html[data-theme="vitrine"] .quick-pick-name { font-size: .9rem; font-weight: 600; }
-html[data-theme="vitrine"] :is(.card, .library-card, .discovery-card, .radio-card) { padding: 0 !important; background: transparent !important; border: 0 !important; border-radius: 8px !important; }
+html[data-theme="vitrine"] .quick-pick { background: transparent !important; border: 0 !important; border-radius: 10px !important; gap: 12px; height: 64px; }
+html[data-theme="vitrine"] :is(.sidebar-cover-favorites, .quick-pick-cover-favorites, .playlist-cover-favorites, .library-liked .library-card-cover) { background: linear-gradient(145deg, #f97f9f, #bd2547) !important; color: #fff !important; }
+html[data-theme="vitrine"] .quick-pick-cover { width: 64px; height: 64px; border-radius: 10px; }
+html[data-theme="vitrine"] .quick-pick-name { color: var(--text-main) !important; font-size: .9rem; font-weight: 600; }
+html[data-theme="vitrine"] :is(.card, .library-card, .discovery-card, .radio-card) { padding: 0 !important; background: transparent !important; border: 0 !important; border-radius: 10px !important; }
 html[data-theme="vitrine"] :is(.card, .library-card, .discovery-card, .radio-card):hover { background: transparent !important; }
-html[data-theme="vitrine"] :is(.card-cover, .library-card-cover, .card-image, .card-img-container, .discovery-cover) { border-radius: 8px !important; box-shadow: 0 3px 12px #00000012; }
+html[data-theme="vitrine"] :is(.card-cover, .library-card-cover, .card-image, .card-img-container, .discovery-cover) { border-radius: 12px !important; box-shadow: 0 4px 14px #00000018; }
 html[data-theme="vitrine"] :is(.card-title, .library-card-name) { font-size: .94rem; font-weight: 600; margin-top: 10px; }
 html[data-theme="vitrine"] :is(.home-rail, .grid-shelf) { gap: 24px; }
-html[data-theme="vitrine"] :is(.section-title, .home-section-title) { font-size: 1.3rem; letter-spacing: -.03em; }
-html[data-theme="vitrine"] :is(.track-row, .library-row, .library-track-row, .party-queue-row, .queue-item) { border-radius: 6px; border-bottom: 1px solid var(--square-line); }
+html[data-theme="vitrine"] .shelf-title { font-size: 1.4rem; letter-spacing: -.035em; }
+html[data-theme="vitrine"] :is(.track-row, .library-row, .library-track-row, .party-queue-row, .queue-item) { border-radius: 8px; border-bottom: 1px solid var(--square-line); }
 html[data-theme="vitrine"] :is(.track-row.active-track, .sidebar-item.active) { background: var(--square-wash) !important; }
-html[data-theme="vitrine"] :is(.track-cover-sm, .player-cover, .party-now-cover) { border-radius: 6px !important; }
+html[data-theme="vitrine"] :is(.track-cover-sm, .player-cover, .party-now-cover) { border-radius: 8px !important; }
+html[data-theme="vitrine"] :is(.user-settings-panel, .admin-panel, .monitor-panel, .monitor-card, .download-provider-card, .download-runtime-card, .party-card, .user-profile-shell, .offline-storage-card, .update-card) { border-radius: 22px !important; }
+html[data-theme="vitrine"] :is(.user-settings-panel-header, .monitor-panel-header, .admin-panel-header) { border-bottom: 1px solid var(--square-line); }
 
-/* Album/playlist header: cover, compact metadata and one clear action row. */
+/* Shared lens treatment for buttons, including legacy inline button colors. */
+html[data-theme="vitrine"] :is(.btn-secondary, .btn-secondary-lg, .home-tab, .filter-btn, .library-filter, .source-chip, .source-tab, .settings-tabbar button, .playback-chip, .playlist-action-btn, .btn-icon-pill, .circle-btn, .btn-icon-circle, .m-icon-btn, .topbar-home-btn, .user-menu-trigger, .icon-btn-sm, .library-icon-btn, .modal-btn-cancel, .modal-close, .create-menu-close, .atp-close, .lyrics-close, .admin-icon-btn, .admin-secondary-btn, .admin-shell-btn, .monitor-button, .user-settings-button-secondary, .update-toast-btn, .party-result-add, .party-row-remove, .discovery-action, .fs-action-btn, .btn-glass, .btn-icon, .play-btn-card, .play-btn-add-pl, .library-back, .discovery-play-btn, .artist-section-play, .party-leave-btn, .party-text-action, .atp-create-cancel, .atp-new-btn, .user-settings-toggle-secret, .monitor-secondary) {
+    color: var(--text-main) !important; background-color: var(--square-film) !important;
+    background-image: var(--vitreo-sheen) !important; border: 1px solid var(--square-rim) !important;
+    border-radius: 999px !important; box-shadow: var(--vitreo-rim), 0 2px 6px #2736540a !important;
+    min-height: 44px; transition: background-color .18s ease, box-shadow .18s ease, scale .18s ease;
+}
+html[data-theme="vitrine"] :is(.home-tab.active, .library-filter.active, .source-chip.active, .source-tab.active, .filter-btn.active, .settings-tabbar button[aria-selected="true"], .playback-chip.active) { background-color: var(--square-film-strong) !important; color: var(--primary) !important; }
+html[data-theme="vitrine"] :is(.btn-primary, .btn-primary-lg, .modal-btn-primary, .btn-play-circle, .user-settings-button, .admin-submit, .monitor-primary, .party-create-btn, .party-submit, .party-control-primary, .atp-create-submit, .pwa-install-btn) { min-height: 44px; border-radius: 999px !important; background-color: var(--primary) !important; background-image: linear-gradient(155deg, #ffffff24, transparent 65%) !important; color: var(--square-on-primary) !important; box-shadow: inset 0 1px 1px #ffffff60, 0 4px 12px #00000012 !important; }
+html[data-theme="vitrine"] :is(.btn-danger, .btn-danger-outline, .modal-btn-danger, .admin-danger-btn, .monitor-danger, .party-delete-btn) { min-height: 44px; border-radius: 999px !important; color: var(--danger) !important; background: var(--square-film) !important; border: 1px solid currentColor !important; box-shadow: var(--vitreo-rim); }
+html[data-theme="vitrine"] :is(button, summary):not(:disabled):active { scale: 1.015; --vitreo-light: #ffffffe0; }
+html[data-theme="vitrine"] :is(button, input, select, textarea):disabled { opacity: .48; cursor: not-allowed; scale: 1; }
+@media (hover: hover) {
+    html[data-theme="vitrine"] :is(button, summary):not(:disabled):hover { background-color: var(--square-film-strong); }
+}
+
+html[data-theme="vitrine"] :is(.circle-btn, .btn-icon-circle, .m-icon-btn, .topbar-home-btn, .icon-btn-sm, .library-icon-btn, .fs-action-btn, .btn-icon-pill, .btn-icon, .play-btn-card, .discovery-play-btn, .user-settings-toggle-secret, .party-result-add) { align-items: center; justify-content: center; flex: 0 0 auto; width: 44px; height: 44px; min-width: 44px; padding: 0; }
+@media (hover: hover) {
+    html[data-theme="vitrine"] :is(button, summary):not(:disabled):hover { --vitreo-light: #ffffffd0; }
+}
+
+/* Compact row actions keep their grid width and become visible with keyboard focus. */
+html[data-theme="vitrine"] :is(.action-btn, .action-btn-inline) { background: var(--square-film) !important; border: 1px solid var(--square-rim); border-radius: 999px; box-shadow: var(--vitreo-rim); }
+html[data-theme="vitrine"] :is(.action-btn.liked, .action-btn-inline.liked) { color: var(--primary) !important; }
+html[data-theme="vitrine"] .track-row:focus-within :is(.action-btns, .action-btn-inline, .action-btn-more) { opacity: 1; }
+
+/* Close/remove controls have one centred glyph and a full touch target. */
+html[data-theme="vitrine"] :is(.modal-close, .create-menu-close, .atp-close, .lyrics-close, [data-auth-browser-close], .queue-header button:has(.lucide-x, [data-lucide="x"]), .party-row-remove) { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 44px; width: 44px !important; height: 44px !important; min-width: 44px; padding: 0 !important; margin: 0; line-height: 1; font-size: 1.5rem; }
+html[data-theme="vitrine"] :is(.modal-close, .create-menu-close, .atp-close, .lyrics-close, [data-auth-browser-close], .party-row-remove) :is(i, svg) { display: block; width: 18px !important; height: 18px !important; margin: 0; color: inherit; stroke-width: 2; fill: none; }
+html[data-theme="vitrine"] .create-menu-close { margin-left: auto; }
+html[data-theme="vitrine"] .party-row-remove { color: var(--danger) !important; }
+
+/* Native input behavior survives: only the drawing is replaced. */
+html[data-theme="vitrine"] input:is([type="checkbox"], [type="radio"]) { appearance: none; -webkit-appearance: none; flex: 0 0 auto; width: 22px !important; height: 22px !important; margin: 0; border: 1px solid var(--text-faint); border-radius: 7px; background: var(--square-film); box-shadow: inset 0 1px 2px #00000010, 0 1px 0 var(--vitreo-light); vertical-align: middle; cursor: pointer; }
+html[data-theme="vitrine"] input[type="radio"] { border-radius: 50%; }
+html[data-theme="vitrine"] input[type="checkbox"]:checked { border-color: var(--primary); background: var(--primary) var(--vitreo-check) center / 22px 22px no-repeat; box-shadow: inset 0 1px 1px #ffffff40; }
+html[data-theme="vitrine"] input[type="checkbox"]:indeterminate { border-color: var(--primary); background: linear-gradient(var(--square-on-primary), var(--square-on-primary)) center / 10px 2px no-repeat, var(--primary); }
+html[data-theme="vitrine"] input[type="radio"]:checked { border-color: var(--primary); background: radial-gradient(circle, var(--square-on-primary) 0 4px, transparent 4.5px), var(--primary); }
+html[data-theme="vitrine"] input[role="switch"] { width: 50px !important; height: 30px !important; border: 1px solid var(--square-rim); border-radius: 999px; background: radial-gradient(circle, #fff 0 11px, transparent 11.5px) 2px center / 24px 24px no-repeat, var(--text-faint); box-shadow: var(--vitreo-rim), inset 0 1px 3px #0002; transition: background-position .18s ease, background-color .18s ease; }
+html[data-theme="vitrine"] input[role="switch"]:checked { background: radial-gradient(circle, #fff 0 11px, transparent 11.5px) calc(100% - 2px) center / 24px 24px no-repeat, var(--primary); }
+html[data-theme="vitrine"] :is(.collection-search-toggle, .party-check, .smart-check, .admin-toggle, .remember-row) { min-height: 44px; gap: 12px; align-items: center; line-height: 1.45; }
+html[data-theme="vitrine"] .collection-search-toggle { padding: 10px 0; }
+html[data-theme="vitrine"] .theme-option { border-radius: 24px !important; }
+html[data-theme="vitrine"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { border-radius: 16px !important; }
+html[data-theme="vitrine"] :is(.topbar-search, .atp-search, .modal-search) input { border-radius: inherit !important; }
+
+/* Album/playlist artwork and content remain unblurred. */
 html[data-theme="vitrine"] :is(.playlist-header, .playlist-header-section) { padding: 0 0 28px !important; background: transparent !important; border: 0 !important; border-bottom: 1px solid var(--square-line) !important; border-radius: 0 !important; gap: 32px; margin-bottom: 24px; }
-html[data-theme="vitrine"] :is(.playlist-cover-large, .playlist-cover-large img, .playlist-cover) { border-radius: 12px !important; }
-html[data-theme="vitrine"] .playlist-cover-large { width: 248px; height: 248px; box-shadow: 0 8px 28px #0002; }
+html[data-theme="vitrine"] :is(.playlist-cover-large, .playlist-cover-large img, .playlist-cover) { border-radius: 18px !important; }
+html[data-theme="vitrine"] .playlist-cover-large { width: 248px; height: 248px; box-shadow: 0 10px 30px #0002; }
 html[data-theme="vitrine"] .playlist-title { font-size: clamp(1.8rem, 3vw, 3rem); font-weight: 750; line-height: 1.12; }
 html[data-theme="vitrine"] .playlist-type { font-size: .72rem; letter-spacing: .09em; color: var(--text-sub) !important; }
 html[data-theme="vitrine"] .playlist-stats { font-size: .9rem; font-weight: 400; }
 html[data-theme="vitrine"] .playlist-actions { flex-wrap: wrap; gap: 10px; }
-html[data-theme="vitrine"] :is(.btn-primary, .btn-primary-lg, .modal-btn-primary, .btn-play-circle, .user-settings-button, .admin-submit, .monitor-primary) { border-radius: 10px !important; }
-html[data-theme="vitrine"] .btn-play-circle { width: 64px; height: 44px; }
-html[data-theme="vitrine"] :is(.modal, .monitor-modal, .auth-browser-dialog, .user-menu-panel, .track-context-menu, .create-menu, .atp-flyout, .tas-sheet, .toast, .toast-msg) { border-radius: 16px !important; }
-html[data-theme="vitrine"] :is(.user-settings-panel, .admin-panel, .monitor-panel, .monitor-card, .download-provider-card, .download-runtime-card, .theme-option, .party-card, .user-profile-shell, .offline-storage-card, .update-card) { border-radius: 14px !important; }
-html[data-theme="vitrine"] :is(.user-settings-panel-header, .monitor-panel-header, .admin-panel-header) { border-bottom: 1px solid var(--square-line); }
-html[data-theme="vitrine"] :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) { border-radius: 9px !important; }
-html[data-theme="vitrine"] .login-card { border-radius: 20px; }
-html[data-theme="vitrine"] .story-slide { border-radius: 16px; }
-
-/* Desktop playback is a quiet, continuous toolbar. Mobile floats above navigation. */
-html[data-theme="vitrine"] .player-footer { border: 0 !important; border-top: 1px solid var(--square-line) !important; border-radius: 0 !important; box-shadow: none !important; padding-inline: 24px; }
+html[data-theme="vitrine"] .btn-play-circle { width: 72px; height: 48px; }
+/* Frost the text-bearing chrome more strongly than its small glass controls. */
+html[data-theme="vitrine"] :is(.player-footer, .m-bottom-nav) { background-color: var(--square-film-strong) !important; }
+html[data-theme="vitrine"] .player-footer { margin: 0 12px 12px; border-radius: 999px !important; padding-inline: 18px; }
 html[data-theme="vitrine"] .player-footer .play-main { background: transparent !important; color: var(--text-main) !important; border: 0 !important; }
-html[data-theme="vitrine"] .player-footer #player-cover { border-radius: 6px; }
+html[data-theme="vitrine"] .player-footer #player-cover { border-radius: 12px; }
 
-/* Fullscreen: intact artwork, unboxed title, open transport, lower glass selector. */
-html[data-theme="vitrine"] .fullscreen-player { --fs-film: #ffffff12; --fs-rim: #ffffff30; background: #202025; }
-html[data-theme="vitrine"] .fullscreen-player .fs-background { background: linear-gradient(180deg, #18181e88, #18181ef5), var(--square-artwork, linear-gradient(140deg, #64444f, #252e47)) center / cover !important; filter: blur(36px); }
+/* Fullscreen uses the same clear material, lit by the playing artwork. */
+html[data-theme="vitrine"] .fullscreen-player { --square-film: #ffffff12; --square-film-strong: #272c40ee; --square-rim: #ffffff45; --square-glint: #ffffff24; --vitreo-light: #ffffff78; --vitreo-inner: #ffffff12; --vitreo-shade: #00000020; --fs-film: #ffffff12; --fs-rim: #ffffff45; background: #202025; }
+html[data-theme="vitrine"] .fullscreen-player .fs-background { background: linear-gradient(180deg, #18181eb3, #18181edf), var(--square-artwork, linear-gradient(140deg, #795369, #2d4268)) center / cover !important; filter: blur(38px) saturate(1.3); }
 html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 600px; padding-inline: 28px; row-gap: clamp(8px, 2vh, 20px); }
 html[data-theme="vitrine"] .fs-view-label { text-align: center; font-size: .85rem; letter-spacing: .02em; color: var(--text-sub); }
-html[data-theme="vitrine"] .fullscreen-player .fs-stage { margin: 8px 0; border-radius: 12px; }
-html[data-theme="vitrine"] .fullscreen-player .fs-cover { border-radius: 12px !important; mask-image: none; -webkit-mask-image: none; filter: drop-shadow(0 14px 20px #0004); }
+html[data-theme="vitrine"] .fullscreen-player .fs-stage { margin: 8px 0; border-radius: 18px; }
+html[data-theme="vitrine"] .fullscreen-player .fs-cover { border-radius: 18px !important; mask-image: none; -webkit-mask-image: none; filter: drop-shadow(0 14px 20px #0004); }
 html[data-theme="vitrine"] .fullscreen-player .fs-info { border: 0; border-radius: 0; padding: 8px 0; background: transparent; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
 html[data-theme="vitrine"] .fullscreen-player .fs-title { font-size: clamp(1.15rem, 4.8vw, 1.65rem); letter-spacing: -.025em; }
-html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container) { color: #dadadd !important; }
+html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container) { color: #e3e5f0 !important; }
 html[data-theme="vitrine"] .fullscreen-player .fs-controls .control-btn { background: transparent !important; border: 0 !important; box-shadow: none; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main { background: transparent !important; border: 0 !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main svg { width: 42px; height: 42px; }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main { background: var(--fs-film) !important; background-image: var(--vitreo-sheen) !important; border: 1px solid var(--fs-rim) !important; box-shadow: var(--square-shadow); }
+html[data-theme="vitrine"] .fullscreen-player .fs-controls .fs-play-main svg { width: 36px; height: 36px; }
 html[data-theme="vitrine"] .fullscreen-player .fs-controls :is(#fs-btn-shuffle, #fs-btn-repeat).active-control { background: #ffffff20 !important; }
-html[data-theme="vitrine"] .fullscreen-player .fs-actions { border-radius: 14px; width: min(100%, 320px); }
-html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn { border-radius: 10px; }
-html[data-theme="vitrine"] .fullscreen-player .fs-track-actions .fs-action-btn { background: #ffffff14 !important; border-color: transparent !important; box-shadow: none; }
-html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 12px !important; background: #18181c40 !important; }
-
-/* Fit a true square to either stage dimension without cropping the cover. */
+html[data-theme="vitrine"] .fullscreen-player .fs-actions { border-radius: 999px; width: min(100%, 340px); background-color: var(--square-film) !important; }
+html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn { border: 0 !important; background: transparent !important; box-shadow: none !important; }
+html[data-theme="vitrine"] .fullscreen-player .fs-actions .fs-action-btn.active { background: #ffffff20 !important; box-shadow: var(--vitreo-rim) !important; }
+html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border-radius: 20px !important; background: #181e3045 !important; }
 @supports (width: 1cqw) {
     html[data-theme="vitrine"] .fullscreen-player .fs-stage { container-type: size; display: grid; place-items: center; }
     html[data-theme="vitrine"] .fullscreen-player .fs-cover { width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); }
 }
-
 @media (min-width: 980px) and (min-height: 600px), (min-width: 560px) and (orientation: landscape) {
     html[data-theme="vitrine"] .fullscreen-player .fs-content { max-width: 1160px; padding-inline: clamp(24px, 4vw, 56px); column-gap: clamp(24px, 5vw, 80px); }
     html[data-theme="vitrine"] .fullscreen-player .fs-info { padding-block: 16px; }
@@ -154,27 +220,31 @@ html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border
     html[data-theme="vitrine"] .fullscreen-player .fs-info { padding-block: 4px; }
 }
 @media (max-width: 768px) {
-    html[data-theme="vitrine"] .vitrine-nav { display: none; }
-    html[data-theme="vitrine"] .m-topbar { margin: 0; padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px !important; border: 0 !important; border-radius: 0 !important; background: var(--square-base) !important; box-shadow: none !important; }
-    html[data-theme="vitrine"] .m-topbar-title { font-size: 1.5rem; font-weight: 750; letter-spacing: -.04em; }
-    html[data-theme="vitrine"] .m-topbar .m-icon-btn { background: transparent !important; color: var(--primary) !important; }
-    html[data-theme="vitrine"] .view-content { padding: 20px 20px calc(190px + env(safe-area-inset-bottom, 0px)) !important; }
+    html[data-theme="vitrine"] :is(.app-layout, .main-view) { padding: 0 !important; border-radius: 0 !important; background: transparent !important; }
+    html[data-theme="vitrine"] .vitrine-nav, .vitrine-home-title { display: none; }
+    html[data-theme="vitrine"] .m-topbar { margin: 0 0 8px; padding: calc(8px + env(safe-area-inset-top, 0px)) 16px 8px !important; border-width: 0 0 1px !important; border-radius: 0 !important; box-shadow: inset 0 1px 0 var(--vitreo-light) !important; }
+    html[data-theme="vitrine"] .m-topbar-title { font-size: 1.6rem; font-weight: 750; letter-spacing: -.045em; }
+    html[data-theme="vitrine"] body[data-mobile-view="home"] .m-topbar-title { visibility: hidden; }
+    html[data-theme="vitrine"] .m-topbar .m-icon-btn { color: var(--primary) !important; }
+    html[data-theme="vitrine"] .view-content { padding: 16px 20px calc(190px + env(safe-area-inset-bottom, 0px)) !important; }
+    html[data-theme="vitrine"] .home-overview { padding-inline: 0; margin-inline: 0; }
     html[data-theme="vitrine"] .hero-greeting { font-size: 2rem; }
     html[data-theme="vitrine"] .quick-picks-grid { gap: 12px; }
-    html[data-theme="vitrine"] .quick-pick { gap: 8px; height: 52px; padding: 0; }
-    html[data-theme="vitrine"] .quick-pick-cover { width: 52px; height: 52px; }
+    html[data-theme="vitrine"] .quick-pick { gap: 8px; height: 54px; padding: 0; }
+    html[data-theme="vitrine"] .quick-pick-cover { width: 54px; height: 54px; }
     html[data-theme="vitrine"] .quick-pick-name { font-size: .8rem; }
     html[data-theme="vitrine"] .home-rail { gap: 16px; }
-    html[data-theme="vitrine"] .m-bottom-nav { height: 68px; border-radius: 24px !important; padding: 6px !important; }
-    html[data-theme="vitrine"] .m-nav-item { border-radius: 18px; gap: 4px; }
-    html[data-theme="vitrine"] .m-nav-item.active { background: var(--square-wash) !important; box-shadow: none; }
+    html[data-theme="vitrine"] .m-bottom-nav { height: 68px; border-radius: 999px !important; padding: 6px !important; }
+    html[data-theme="vitrine"] .m-nav-item { border-radius: 999px; gap: 4px; }
+    html[data-theme="vitrine"] .m-nav-item.active { background: var(--square-film) !important; box-shadow: var(--vitreo-rim); }
     html[data-theme="vitrine"] .m-nav-item span { font-size: .64rem; font-weight: 600; }
-    html[data-theme="vitrine"] .player-footer { border: 1px solid var(--square-rim) !important; border-radius: 20px !important; bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important; box-shadow: var(--square-shadow) !important; }
+    html[data-theme="vitrine"] .player-footer { margin: 0; border-radius: 999px !important; bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important; }
     html[data-theme="vitrine"] :is(.playlist-header, .playlist-header-section) { flex-direction: column; align-items: center; text-align: center; gap: 24px; padding: 4px 0 24px !important; }
     html[data-theme="vitrine"] .playlist-cover-large { width: min(68vw, 300px); height: min(68vw, 300px); }
     html[data-theme="vitrine"] .playlist-info { align-items: center; width: 100%; min-width: 0; }
     html[data-theme="vitrine"] .playlist-title { font-size: 1.65rem; }
     html[data-theme="vitrine"] :is(.playlist-stats, .playlist-actions) { justify-content: center; }
+    html[data-theme="vitrine"] :is(.modal, .create-menu) { max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); overflow-y: auto; }
 }
 @media (max-width: 380px) {
     html[data-theme="vitrine"] .view-content { padding-inline: 14px !important; }
@@ -182,23 +252,29 @@ html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { border
     html[data-theme="vitrine"] .fullscreen-player .fs-content { padding-inline: 20px; }
 }
 
-/* These follow the palette overrides, so solid/high-contrast modes always win. */
+/* Readable solid materials win over all decorative lighting. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    html[data-theme="vitrine"] { --square-film: var(--square-content); }
-    html[data-theme="vitrine"] .fullscreen-player { --fs-film: #29292d; }
+    html[data-theme="vitrine"] { --square-film: var(--square-base); --square-film-strong: var(--square-base); --square-content: var(--square-base); }
+    html[data-theme="vitrine"] .fullscreen-player { --square-film: #292c3a; --fs-film: #292c3a; }
 }
-@media (prefers-reduced-transparency: reduce) {
-    html[data-theme="vitrine"] { --square-film: var(--square-content); --square-blur: none; }
-    html[data-theme="vitrine"] .fullscreen-player { --fs-film: #29292d; }
-    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-actions) { background: #29292d !important; backdrop-filter: none; -webkit-backdrop-filter: none; filter: none; }
-    html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: #29292d !important; }
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+    html[data-theme="vitrine"] { --square-film: var(--square-base); --square-film-strong: var(--square-base); --square-content: var(--square-base); --square-glint: transparent; --square-blur: none; --vitreo-sheen: none; --vitreo-rim: 0 0 0 1px var(--square-line); }
+    html[data-theme="vitrine"] body::before { display: none; }
+    html[data-theme="vitrine"] .fullscreen-player { --square-film: #292c3a; --fs-film: #292c3a; }
+    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-actions), html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: #292c3a !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; filter: none; }
 }
 @media (prefers-contrast: more) {
-    html[data-theme="vitrine"] { --square-line: #737378; --square-rim: #737378; --square-film: var(--square-base); --square-film-strong: var(--square-base); }
+    html[data-theme="vitrine"] { --square-line: #73798b; --square-rim: #73798b; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme="vitrine"] :is(button, summary) { scale: 1 !important; transition: none !important; }
 }
 @media (forced-colors: active) {
-    html[data-theme="vitrine"] { --square-base: Canvas; --square-film: Canvas; --square-film-strong: Canvas; --square-content: Canvas; --square-ink: CanvasText; --square-muted: CanvasText; --square-faint: CanvasText; --square-primary: LinkText; --square-on-primary: Canvas; --square-rim: CanvasText; --square-line: CanvasText; }
-    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-info, .fs-actions, .control-btn, .fs-action-btn) { background: Canvas !important; color: CanvasText !important; filter: none; }
+    html[data-theme="vitrine"] { --square-base: Canvas; --square-film: Canvas; --square-film-strong: Canvas; --square-content: Canvas; --square-ink: CanvasText; --square-muted: CanvasText; --square-faint: CanvasText; --square-primary: LinkText; --square-on-primary: Canvas; --square-rim: CanvasText; --square-line: CanvasText; --square-blur: none; --vitreo-sheen: none; --vitreo-rim: none; }
+    html[data-theme="vitrine"] body::before { display: none; }
+    html[data-theme="vitrine"] .fullscreen-player { --square-film: Canvas; --square-film-strong: Canvas; --square-rim: CanvasText; --square-glint: transparent; --square-blur: none; --fs-film: Canvas; --fs-rim: CanvasText; }
+    html[data-theme="vitrine"] input:is([type="checkbox"], [type="radio"]) { appearance: auto !important; -webkit-appearance: auto !important; background: none !important; box-shadow: none !important; }
+    html[data-theme="vitrine"] input[role="switch"] { width: 22px !important; height: 22px !important; }
+    html[data-theme="vitrine"] .fullscreen-player :is(.fs-background, .fs-info, .fs-actions, .control-btn, .fs-action-btn), html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: Canvas !important; color: CanvasText !important; filter: none; }
     html[data-theme="vitrine"] .fullscreen-player :is(.fs-artist, .fs-progress-container) { color: CanvasText !important; }
-    html[data-theme="vitrine"] .fs-stage > :is(#lyrics-panel, #queue-panel) { background: Canvas !important; }
 }

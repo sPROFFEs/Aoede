@@ -84,4 +84,5 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
     assert glass.stat().st_size < 60_000
-    assert vitrine.stat().st_size < 20_000
+    # Vitrine includes the Liquid Glass controls and native input fallbacks.
+    assert vitrine.stat().st_size < 32_000

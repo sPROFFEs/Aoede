@@ -125,6 +125,15 @@ export function escJs(value) {
 // triggers a layout/reflow Safari iOS can't keep up with → the freeze.
 // Pass an Element to scope the work to its subtree.
 export function refreshIcons(scope) {
+  const root = scope?.querySelectorAll ? scope : document;
+  root
+    .querySelectorAll(
+      'button.modal-close, button.create-menu-close, button.atp-close, button.lyrics-close, button[data-auth-browser-close], .queue-header button[onclick="toggleQueue()"]'
+    )
+    .forEach((button) => {
+      if (!button.getAttribute('aria-label')) button.setAttribute('aria-label', t('common.close', 'Close'));
+      if (!button.getAttribute('type')) button.setAttribute('type', 'button');
+    });
   if (!window.lucide?.createIcons) return;
   if (scope && scope.querySelectorAll) {
     const nodes = scope.querySelectorAll('[data-lucide]');

@@ -572,7 +572,7 @@ export async function renderHome(container) {
       ${ui.homeTabsBar('all')}
       <div class="hero-section">
           <div class="hero-kicker">${ui.t('home.hero_kicker', 'Your library, tuned for right now')}</div>
-          <h1 class="hero-greeting">${ui.getGreeting()}, <span class="hero-username">${username}</span></h1>
+          <h1 class="hero-greeting"><span class="vitrine-home-title">${ui.t('menu.home', 'Home')}</span><span class="home-greeting-copy">${ui.getGreeting()}, <span class="hero-username">${username}</span></span></h1>
       </div>
       ${quickPicks}
     </section>`;

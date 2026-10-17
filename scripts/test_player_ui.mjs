@@ -47,6 +47,13 @@ async function load(name) {
   await module.link(key => imports[key]); await module.evaluate(); imports[`./${name}.js`] = module; return module.namespace;
 }
 const ui = await load('ui'), queueApi = await load('queue'), lyricsApi = await load('lyrics');
+// Dismiss controls remain named and never submit a surrounding form, even without Lucide.
+const closeButton = element('close-test'), namedClose = element('named-close-test');
+namedClose.setAttribute('aria-label', 'Close collaborators');
+ui.refreshIcons({ querySelectorAll: selector => selector.includes('button.modal-close') ? [closeButton, namedClose] : [] });
+assert.equal(closeButton.getAttribute('aria-label'), 'Close');
+assert.equal(closeButton.getAttribute('type'), 'button');
+assert.equal(namedClose.getAttribute('aria-label'), 'Close collaborators');
 imports['./api.js'] = synthetic({}); imports['./offline_store.js'] = synthetic({});
 const favoritesApi = await load('favorites');
 window.toggleQueue = queueApi.toggleQueue; window.closeLyricsPanel = lyricsApi.closeLyricsPanel;

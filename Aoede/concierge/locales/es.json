@@ -402,7 +402,7 @@
     "appearance.glass": "Glass",
     "appearance.glass_description": "Superficies translúcidas, bordes luminosos y color de la carátula, inspirado en Square.",
     "appearance.vitrine": "Vitrine",
-    "appearance.vitrine_description": "Distribución estilo Apple Music, con estantes de carátulas, acentos rosados y un reproductor amplio, inspirado en Vitrine.",
+    "appearance.vitrine_description": "Estantes y reproductor estilo Apple Music, con controles Liquid Glass luminosos inspirados en Vitreo Launcher.",
     "appearance.sync_description": "Se guarda entre dispositivos. Glass y Vitrine siguen el modo claro/oscuro del dispositivo; sin conexión se usa tu última elección guardada.",
     "appearance.connect": "Conéctate para guardar el tema entre dispositivos.",
     "appearance.failed": "No se pudo guardar el tema. Inténtalo de nuevo.",

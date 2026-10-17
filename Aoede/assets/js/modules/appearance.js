@@ -11,7 +11,7 @@ function updateBrowserColor() {
   const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
   let color = '#121212';
   if (theme === 'glass') color = dark ? '#0d0e11' : '#f1f2f6';
-  if (theme === 'vitrine') color = dark ? '#18181a' : '#ffffff';
+  if (theme === 'vitrine') color = dark ? '#111216' : '#f5f5f8';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);
 }
 
