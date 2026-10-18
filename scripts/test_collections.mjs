@@ -503,6 +503,59 @@ await oldAlbums;
 assert.equal(libraryPage.innerHTML, currentLibrary);
 console.log('PASS: saved albums, optional metadata browsing, filtered collections and online/offline library pagination beyond 500 songs.');
 
+// The same collection search, sort and pagination work for All and Playlists.
+deferAlbums = false;
+savedAlbums.push({ id: 'fed:2:8', kind: 'playlist', name: 'Remote collection', owner_username: 'Remote creator', fed_instance_name: 'Other node', track_count: 100 });
+await library.renderLibrary(libraryPage, 'all');
+assert.match(libraryPage.innerHTML, /Saved 01/);
+await library.loadMoreLibraryFacets();
+assert.match(libraryPage.innerHTML, /Not an album/);
+await library.switchLibraryKind('playlists');
+assert.equal(libraryPage.innerHTML.includes('Saved 01'), false);
+libraryQuery.value = 'Other node';
+await library.reloadLibraryFacets();
+assert.match(libraryPage.innerHTML, /Remote collection/);
+assert.match(libraryPage.innerHTML, /fed:2:8/);
+assert.equal(libraryPage.innerHTML.includes('Not an album'), false);
+libraryNetwork.onLine = false;
+await library.reloadLibraryFacets();
+assert.match(libraryPage.innerHTML, /Remote collection/);
+libraryNetwork.onLine = true;
+await library.switchLibraryKind('all');
+libraryQuery.value = '';
+librarySort.value = 'count';
+await library.reloadLibraryFacets();
+const sortedCollections = [...libraryPage.innerHTML.matchAll(/class="library-card-name"[^>]*>([^<]+)</g)].map(match => match[1]);
+assert.equal(sortedCollections[0], 'Remote collection');
+assert.equal(sortedCollections[1], 'Saved 55');
+console.log('PASS: unified collection kinds, creator/node search, offline filtering and track-count sorting.');
+
+// Saved collections are available before first play, with one fresh row per ID.
+const sidebarMarkup = { innerHTML: '', querySelectorAll: () => [] };
+const sidebarQuery = { value: '' };
+const sidebarKind = { value: 'all' };
+const sidebarRows = [{ dataset: { kind: 'playlist' }, textContent: 'Evening' }, { dataset: { kind: 'album' }, textContent: 'Morning' }];
+const sidebarViews = (await load('views.js', {
+  document: { body: { addEventListener() {} }, getElementById: id => ({ 'sidebar-items': sidebarMarkup, 'sidebar-query': sidebarQuery, 'sidebar-kind': sidebarKind })[id], querySelectorAll: () => sidebarRows }, window: { matchMedia: () => ({ matches: true }) },
+}, { ...viewDependencies, './ui.js': { ...ui, refreshIcons() {} }, './state.js': {
+  recentPlaylists: [{ id: 1, name: 'Old name' }], userPlaylists: [{ id: 1, name: 'Fresh name' }, { id: 'fed:2:8', name: 'Not played yet', kind: 'album' }], recentMixes: [], recentRadios: [],
+} })).api;
+sidebarViews.renderSidebarPlaylists();
+assert.equal((sidebarMarkup.innerHTML.match(/data-sb-key="playlist-1"/g) || []).length, 1);
+assert.match(sidebarMarkup.innerHTML, /Fresh name/);
+assert.match(sidebarMarkup.innerHTML, /Not played yet/);
+sidebarKind.value = 'album';sidebarViews.filterSidebarLibrary();
+assert.equal(sidebarRows[0].hidden, true);assert.equal(sidebarRows[1].hidden, false);
+sidebarQuery.value = 'evening';sidebarViews.filterSidebarLibrary();
+assert.equal(sidebarRows[1].hidden, true);
+sidebarKind.value = 'all';sidebarViews.filterSidebarLibrary();
+assert.equal(sidebarRows[0].hidden, false);
+let shelfScroll;
+sidebarViews.scrollHomeShelf({ closest: () => ({ querySelector: () => ({ clientWidth: 400, scrollBy: value => { shelfScroll = value; } }) }) }, 1);
+assert.equal(shelfScroll.left, 320);
+assert.equal(shelfScroll.behavior, 'instant');
+console.log('PASS: complete sidebar collections, fresh deduplicated metadata and combined type/text filtering.');
+
 // Shared settings tabs survive fragment replacements and support keyboard navigation.
 const settingStorage = new Map();
 const settingsWindow = { USER_DATA: { username: 'first' }, sessionStorage: { getItem: key => settingStorage.get(key), setItem: (key, value) => settingStorage.set(key, value) } };

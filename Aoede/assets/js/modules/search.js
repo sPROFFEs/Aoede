@@ -184,7 +184,19 @@ export async function executeSearch(query) {
     results.classList.remove('search-results-fetching');
     renderResults(
       results,
-      `<section class="search-browse"><h2>Discover something new</h2><div class="search-browse-grid"><button onclick="loadView('discovery')" class="search-browse-card browse-discover"><strong>Made for you</strong><i data-lucide="sparkles"></i></button><button onclick="loadView('discover_radios')" class="search-browse-card browse-radio"><strong>Radio</strong><i data-lucide="radio"></i></button><button onclick="loadView('library')" class="search-browse-card browse-library"><strong>Your music</strong><i data-lucide="disc-3"></i></button><button onclick="loadView('public')" class="search-browse-card browse-public"><strong>Community playlists</strong><i data-lucide="users"></i></button></div></section>`
+      `<section class="search-browse"><h2>${ui.t('search.browse_all', 'Browse all')}</h2><div class="search-browse-grid">${[
+        ['discovery', null, 'browse-discover', 'sparkles', ui.t('search.made_for_you', 'Made for you')],
+        ['discover_radios', null, 'browse-radio', 'radio', ui.t('tabs.radios', 'Radio')],
+        ['library', 'songs', 'browse-library', 'music', ui.t('library.songs', 'Songs')],
+        ['library', 'albums', 'browse-albums', 'disc-3', ui.t('library.albums', 'Albums')],
+        ['public', null, 'browse-public', 'users', ui.t('search.community_playlists', 'Community playlists')],
+        ['party', null, 'browse-party', 'audio-lines', ui.t('tabs.party', 'Party')]
+      ]
+        .map(
+          ([view, param, style, icon, label]) =>
+            `<button type="button" onclick="loadView('${view}', ${param ? `'${param}'` : 'null'})" class="search-browse-card ${style}"><strong>${label}</strong><i data-lucide="${icon}"></i></button>`
+        )
+        .join('')}</div></section>`
     );
     state.setCurrentViewList([]);
     ui.refreshIcons(results);

@@ -95,27 +95,36 @@
                 <i data-lucide="x"></i>
             </button>
 
-            <nav class="vitrine-nav" aria-label="{{ _('menu.home') }}">
+            <nav class="primary-nav" aria-label="{{ _('nav.browse') }}">
                 <button type="button" data-view="home" onclick="loadView('home')" title="{{ _('menu.home') }}"><i data-lucide="house"></i><span>{{ _('menu.home') }}</span></button>
                 <button type="button" data-view="search" onclick="loadView('search')" title="{{ _('menu.search') }}"><i data-lucide="search"></i><span>{{ _('menu.search') }}</span></button>
                 <button type="button" data-view="discovery" onclick="loadView('discovery')" title="{{ _('tabs.discover') }}"><i data-lucide="compass"></i><span>{{ _('tabs.discover') }}</span></button>
             </nav>
 
-            <!-- Top toggle row: switches between collapsed / expanded modes.
-                 Click the icon = toggle. The label is only visible in expanded
-                 mode and acts as a secondary affordance (also clickable). -->
+            <!-- Library destination, creation and sidebar size are separate actions. -->
             <div class="sidebar-head">
-                <button class="sidebar-toggle" id="sidebar-toggle"
-                        onclick="toggleSidebarMode()" title="{{ _('menu.library') if _ else 'Your Library' }}">
-                    <i data-lucide="library"></i>
-                    <span class="sidebar-toggle-label">{{ _('menu.library') if _ else 'Your Library' }}</span>
+                <button class="sidebar-library-link" data-view="library" onclick="loadView('library')" title="{{ _('menu.library') }}">
+                    <i data-lucide="library"></i><span>{{ _('library.sidebar_title') }}</span>
                 </button>
+                <button class="sidebar-create" onclick="showCreateMenu()" title="{{ _('library.new_playlist') }}" aria-label="{{ _('library.new_playlist') }}"><i data-lucide="plus"></i></button>
+                <button class="sidebar-toggle" id="sidebar-toggle"
+                        onclick="toggleSidebarMode()" title="{{ _('library.toggle_sidebar') }}" aria-label="{{ _('library.toggle_sidebar') }}" aria-expanded="true">
+                    <i data-lucide="panel-left-close"></i>
+                </button>
+            </div>
+            <div class="sidebar-tools">
+                <select id="sidebar-kind" aria-label="{{ _('library.filter_type') }}" onchange="filterSidebarLibrary()">
+                    <option value="all">{{ _('tabs.all') }}</option>
+                    <option value="playlist">{{ _('library.playlists') }}</option>
+                    <option value="album">{{ _('library.albums') }}</option>
+                </select>
+                <input id="sidebar-query" type="search" aria-label="{{ _('library.search_saved') }}" placeholder="{{ _('menu.search') }}" oninput="filterSidebarLibrary()">
             </div>
 
             <!-- Library list. JS keeps it sorted by last activity.            -->
             <!-- Favorites and downloads scroll with the dynamic library rows. -->
-            <nav class="sidebar-list" id="sidebar-list">
-                <a class="sidebar-item sidebar-item-favorites"
+            <nav class="sidebar-list" id="sidebar-list" aria-label="{{ _('menu.library') }}">
+                <button type="button" class="sidebar-item sidebar-item-favorites" data-view="favorites" data-kind="playlist"
                    onclick="loadView('favorites')"
                    title="{{ _('menu.liked') if _ else 'Liked Songs' }}">
                     <div class="sidebar-cover sidebar-cover-favorites">
@@ -125,9 +134,9 @@
                         <div class="sidebar-name">{{ _('menu.liked') if _ else 'Liked Songs' }}</div>
                         <div class="sidebar-sub">{{ _('library.playlists') if _ else 'Playlist' }}</div>
                     </div>
-                </a>
+                </button>
 
-                <a class="sidebar-item sidebar-item-offline"
+                <button type="button" class="sidebar-item sidebar-item-offline" data-view="offline" data-kind="offline"
                    onclick="loadView('offline')"
                    title="{{ _('offline.title') if _ else 'Offline Downloads' }}">
                     <div class="sidebar-cover sidebar-cover-offline">
@@ -137,7 +146,7 @@
                         <div class="sidebar-name">{{ _('offline.title') if _ else 'Offline Downloads' }}</div>
                         <div class="sidebar-sub" id="sidebar-offline-sub">{{ _('offline.device_storage') if _ else 'Device Storage' }}</div>
                     </div>
-                </a>
+                </button>
 
                 <div id="sidebar-items">
                     <!-- Playlists + radios injected by views.renderSidebarItems() -->
@@ -163,12 +172,12 @@
         <main class="main-view" id="main-view">
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()">
+                    <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="{{ _('menu.library') }}">
                         <i data-lucide="menu"></i>
                     </button>
                     <div class="nav-history-btns">
-                        <button class="circle-btn" onclick="history.back()"><i data-lucide="chevron-left"></i></button>
-                        <button class="circle-btn" onclick="history.forward()"><i
+                        <button class="circle-btn" onclick="history.back()" aria-label="{{ _('nav.back') }}"><i data-lucide="chevron-left"></i></button>
+                        <button class="circle-btn" onclick="history.forward()" aria-label="{{ _('nav.forward') }}"><i
                                 data-lucide="chevron-right"></i></button>
                     </div>
                 </div>
@@ -184,6 +193,7 @@
                             id="topbar-search-input"
                             class="topbar-search-input"
                             placeholder="{{ _('header.search_placeholder') if _ else 'What do you want to play?' }}"
+                            aria-label="{{ _('menu.search') }}"
                             autocomplete="off"
                             spellcheck="false"
                             oninput="handleTopbarSearch(this.value)"
@@ -207,20 +217,8 @@
                         <span id="delete-responses-badge" class="badge-count" style="display: none;">0</span>
                     </button>
 
-                    {% if is_admin %}
-                    <a href="/admin/" class="btn-icon-circle" title="{{ _('header.admin_settings') if _ else 'Admin Settings' }}">
-                        <i data-lucide="settings"></i>
-                    </a>
-                    {% endif %}
-
-                    <a href="/{{ username }}/" rel="noopener"
-                        class="btn-icon-circle brand-btn" title="{{ _('header.open_navidrome') if _ else 'Open Navidrome Player' }}">
-                        <img src="/assets/img/navidrome.png" alt="ND"
-                            style="width: 20px; height: 20px; object-fit: contain;">
-                    </a>
-
                     <details class="user-menu" id="user-menu">
-                        <summary class="user-menu-trigger">
+                        <summary class="user-menu-trigger" aria-label="{{ username }} · {{ _('header.settings') }}">
                             <div class="avatar-circle">
                                 <img src="/user/avatar/{{ username }}" alt="Avatar"
                                     style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"
@@ -239,6 +237,10 @@
                                     <i data-lucide="settings"></i>
                                     <span>{{ _('header.settings') if _ else 'Settings' }}</span>
                                 </button>
+                                {% if is_admin %}
+                                <a class="user-menu-item" href="/admin/"><i data-lucide="shield-check"></i><span>{{ _('header.admin_settings') }}</span></a>
+                                {% endif %}
+                                <a class="user-menu-item" href="/{{ username }}/"><i data-lucide="audio-lines"></i><span>{{ _('header.open_navidrome') }}</span></a>
                                 <button type="button" class="user-menu-item" onclick="event.preventDefault(); document.getElementById('user-menu')?.removeAttribute('open'); loadView('help');">
                                     <i data-lucide="help-circle"></i>
                                     <span>{{ _('menu.help') if _ else 'Help' }}</span>
@@ -269,14 +271,14 @@
                  back on. Tapping the avatar takes the user to their
                  settings page (where logout / change password live). -->
             <header class="m-topbar">
-                <a class="m-topbar-avatar" onclick="loadView('settings_user')" title="{{ username }}">
+                <button type="button" class="m-topbar-avatar" onclick="loadView('settings_user')" title="{{ username }}" aria-label="{{ _('header.settings') }}">
                     <img src="/user/avatar/{{ username }}" alt="Avatar"
                          onerror="this.outerHTML='<i data-lucide=\'user\'></i>'">
-                </a>
+                </button>
                 <h1 class="m-topbar-title" id="m-topbar-title">{{ username }}</h1>
                 <div class="m-topbar-actions">
-                    <button class="m-icon-btn m-library-action" onclick="loadView('search')" aria-label="Search your library"><i data-lucide="search"></i></button>
-                    <button class="m-icon-btn m-library-action" onclick="showCreateMenu()" aria-label="Create a playlist"><i data-lucide="plus"></i></button>
+                    <button class="m-icon-btn m-library-action" onclick="document.getElementById('library-facet-query')?.focus()" aria-label="{{ _('library.search_saved') }}"><i data-lucide="search"></i></button>
+                    <button class="m-icon-btn m-library-action" onclick="showCreateMenu()" aria-label="{{ _('library.create') }}"><i data-lucide="plus"></i></button>
                     <button class="m-icon-btn" onclick="openDownloadsModal()" title="Downloads">
                         <i data-lucide="download-cloud"></i>
                         <span id="m-download-badge" class="m-badge" style="display:none;">0</span>
@@ -552,11 +554,12 @@
         function applySidebarMode(mode) {
             const m = mode === 'expanded' ? 'expanded' : 'collapsed';
             document.documentElement.setAttribute('data-sidebar-mode', m);
+            document.getElementById('sidebar-toggle')?.setAttribute('aria-expanded', String(m === 'expanded'));
         }
         // Apply saved preference as early as possible to avoid a flash.
-        // Default = collapsed (icon strip) to match the Spotify-style first
-        // impression; user-toggled state is then persisted per browser.
-        applySidebarMode(localStorage.getItem(SIDEBAR_MODE_KEY) || 'collapsed');
+        // Existing preferences win; new browsers start with library labels visible.
+        try { applySidebarMode(localStorage.getItem(SIDEBAR_MODE_KEY) || 'expanded'); }
+        catch (e) { applySidebarMode('expanded'); }
         window.toggleSidebarMode = function () {
             const current = document.documentElement.getAttribute('data-sidebar-mode') || 'expanded';
             const next = current === 'collapsed' ? 'expanded' : 'collapsed';
@@ -584,14 +587,14 @@
          * absorbs playlist detail, etc.) so the highlight matches the
          * user's current location even when they're not on the canonical
          * top-level view. Called from views.loadView() via window. */
-        window.markBottomNavActive = function (view) {
+        window.markBottomNavActive = function (view, param = null) {
             document.body.dataset.mobileView = view;
             const title = document.getElementById('m-topbar-title');
-            const titles = { home: 'Home', search: 'Search', library: 'Your library', playlist: 'Playlist', favorites: 'Liked Songs', discovery: 'Discover', offline: 'Downloads' };
+            const titles = { home: {{ _('menu.home')|tojson }}, search: {{ _('menu.search')|tojson }}, library: {{ _('library.title')|tojson }}, playlist: {{ _('library.playlists')|tojson }}, favorites: {{ _('menu.liked')|tojson }}, discovery: {{ _('tabs.discover')|tojson }}, offline: {{ _('offline.title')|tojson }} };
             if (title) title.textContent = titles[view] || 'Aoede';
             const nav = document.getElementById('m-bottom-nav');
             if (!nav) return;
-            const homeViews      = new Set(['home', 'party', 'party_room', 'public', 'discover_radios', 'mix']);
+            const homeViews      = new Set(['home', 'party', 'party_room', 'public', 'community', 'users', 'discover_radios', 'mix', 'wrapped']);
             const searchViews    = new Set(['search']);
             const discoveryViews = new Set(['discovery']);
             const libraryViews   = new Set(['library', 'playlist', 'favorites', 'offline', 'downloads_offline']);
@@ -600,8 +603,17 @@
             else if (searchViews.has(view))    activeTab = 'search';
             else if (discoveryViews.has(view)) activeTab = 'discovery';
             else if (libraryViews.has(view))   activeTab = 'library';
-            document.querySelectorAll('#m-bottom-nav .m-nav-item, .vitrine-nav [data-view]').forEach((btn) => {
-                btn.classList.toggle('active', btn.dataset.view === activeTab);
+            document.querySelectorAll('#m-bottom-nav .m-nav-item, .primary-nav [data-view], .sidebar-library-link').forEach((btn) => {
+                const active = btn.dataset.view === activeTab;
+                btn.classList.toggle('active', active);
+                if (active) btn.setAttribute('aria-current', 'page');
+                else btn.removeAttribute('aria-current');
+            });
+            document.querySelectorAll('#sidebar-list [data-view]').forEach((btn) => {
+                const active = btn.dataset.view === view && (!btn.dataset.param || btn.dataset.param === String(param));
+                btn.classList.toggle('active', active);
+                if (active) btn.setAttribute('aria-current', 'page');
+                else btn.removeAttribute('aria-current');
             });
         };
 
@@ -616,6 +628,10 @@
          */
         window.handleTopbarSearch = function (value) {
             const v = value || '';
+            for (const id of ['topbar-search-input', 'm-search-input']) {
+                const input = document.getElementById(id);
+                if (input && input.value !== v) input.value = v;
+            }
 
             // Already showing search results → just trigger a new query
             if (document.getElementById('search-results')) {

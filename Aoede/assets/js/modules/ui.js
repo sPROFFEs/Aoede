@@ -94,9 +94,9 @@ export function fmtTime(s) {
 
 export function getGreeting() {
   const h = new Date().getHours();
-  if (h < 12) return t('home.greeting_morning', 'morning');
-  if (h < 18) return t('home.greeting_afternoon', 'afternoon');
-  return t('home.greeting_evening', 'evening');
+  if (h < 12) return t('home.greeting_morning', 'Good morning');
+  if (h < 18) return t('home.greeting_afternoon', 'Good afternoon');
+  return t('home.greeting_evening', 'Good evening');
 }
 
 export function escHtml(str) {
@@ -164,15 +164,15 @@ export function homeTabsBar(activeTab) {
     { key: 'discover_radios', label: t('tabs.radios', 'Radios'), view: 'discover_radios' }
   ];
   return `
-    <div class="home-tabs">
+    <nav class="home-tabs" aria-label="${t('nav.browse', 'Browse')}">
         ${tabs
           .map(
             (t) =>
-              `<button class="home-tab${t.key === activeTab ? ' active' : ''}"
+              `<button type="button" class="home-tab${t.key === activeTab ? ' active' : ''}"${t.key === activeTab ? ' aria-current="page"' : ''}
                        onclick="loadView('${t.view}')">${t.label}</button>`
           )
           .join('')}
-    </div>`;
+    </nav>`;
 }
 
 // === TOAST NOTIFICATIONS ===

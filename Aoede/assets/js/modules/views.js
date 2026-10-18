@@ -216,6 +216,7 @@ export async function loadView(view, param = null, options = {}) {
   }
   const container = document.getElementById('view-container');
   if (!container) return;
+  shelfResizeObserver?.disconnect();
   // Legacy aliases — both 'radio' and 'your_radios' now resolve to the
   // unified Discover Radios surface (which renders saved radios at the
   // bottom of the same view). Old bookmarks / sidebar entries keep
@@ -223,23 +224,12 @@ export async function loadView(view, param = null, options = {}) {
   if (view === 'radio' || view === 'your_radios') view = 'discover_radios';
   const { pushHistory = true, replaceHistory = false } = options;
 
-  // ── Soft cross-fade between views ────────────────────────────────
-  // Previously: opacity-0 → await setTimeout(120) → new content. That 120ms
-  // sleep was visible on iOS Safari where the next render is also expensive
-  // (lucide + huge innerHTML). CSS-only crossfade: set opacity-0 with the
-  // existing 120ms transition, swap content in the SAME frame, then
-  // requestAnimationFrame back to opacity-1. The fade animates while the
-  // browser is rendering the new content — no wall-clock penalty.
   const hasOldContent = container.children.length > 0 && view !== 'search';
   if (hasOldContent) {
     container.style.transition = 'opacity 120ms ease';
     container.style.opacity = '0';
   }
 
-  // Skip the music-loader for `search`: the view is synchronous and tiny
-  // (chips + empty results area), so flashing a loader between the previous
-  // content and the search panel makes the transition feel jarring when the
-  // user is just typing in the topbar input.
   if (view !== 'search') {
     container.innerHTML = `
       <div class="empty-state">
@@ -260,13 +250,8 @@ export async function loadView(view, param = null, options = {}) {
     });
   }
 
-  // Active-state highlighting now lives on the home tab pills (which are
-  // re-rendered on each view) and on the sidebar's static items, both of
-  // which manage their own state. The mobile bottom nav still needs an
-  // explicit update because its three tabs map several related views
-  // (mix → home, playlist → library, …) onto a small primary set.
   if (typeof window.markBottomNavActive === 'function') {
-    window.markBottomNavActive(view);
+    window.markBottomNavActive(view, param);
   }
 
   try {
@@ -282,7 +267,7 @@ export async function loadView(view, param = null, options = {}) {
     else if (view === 'community' || view === 'users') await renderCommunity(container);
     else if (view === 'party') await party.renderPartyList(container);
     else if (view === 'party_room') await party.renderPartyRoom(container, param);
-    else if (view === 'library') await library.renderLibrary(container);
+    else if (view === 'library') await library.renderLibrary(container, param);
     else if (view === 'mix') {
       await renderMix(container, param);
       await trackRecentMix(param);
@@ -308,7 +293,7 @@ export async function loadView(view, param = null, options = {}) {
     }
   } catch (e) {
     console.error(e);
-    container.innerHTML = `<div class="empty-state" style="color:#e74c3c;">Error: ${e.message}</div>`;
+    container.innerHTML = `<div class="empty-state" style="color:#e74c3c;">Error: ${ui.escHtml(e.message)}</div>`;
   } finally {
     // Restore opacity. Two rAFs so the new content has been laid out
     // before the transition kicks in — otherwise the browser may merge
@@ -443,21 +428,7 @@ document.body.addEventListener('htmx:afterSwap', (event) => {
 });
 
 // === HOME VIEW ===
-// Layout follows the Spotify Browse pattern:
-//   1. Tab bar (All / Public / Discover Radios)
-//   2. Hero greeting
-//   3. Quick picks — compact 4×2 grid of recently-played items
-//      (playlists + mixes + radios mixed together)
-//   4. Wrapped card (optional)
-//   5. Your Mixes shelf
-//   6. Recommendation shelves
-
 function _renderQuickPicksGrid() {
-  // Liked Songs is always pinned as the very first quick-pick tile so
-  // mobile users (who don't have the desktop sidebar with the first
-  // entry) still get one-tap access. On desktop the tile shows up too —
-  // the sidebar already includes it, but a second entry-point in the grid
-  // is harmless and matches Spotify's home pattern.
   const likedTile = `
     <button class="quick-pick" onclick="loadView('favorites')" title="Liked Songs">
         <div class="quick-pick-cover quick-pick-cover-favorites">
@@ -484,7 +455,7 @@ function _renderQuickPicksGrid() {
             <div class="quick-pick-cover">
                 ${
                   thumb
-                    ? `<img src="${thumb}" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'${fallback}\\'></i>'">`
+                    ? `<img src="${ui.escHtml(thumb)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'${fallback}\\'></i>'">`
                     : `<i data-lucide="${fallback}"></i>`
                 }
             </div>
@@ -500,7 +471,7 @@ function _renderQuickPicksGrid() {
             <div class="quick-pick-cover quick-pick-cover-mix">
                 ${
                   thumb
-                    ? `<img src="${thumb}" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'sparkles\\'></i>'">`
+                    ? `<img src="${ui.escHtml(thumb)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'sparkles\\'></i>'">`
                     : `<i data-lucide="sparkles"></i>`
                 }
             </div>
@@ -521,7 +492,37 @@ function _renderQuickPicksGrid() {
       </button>`;
   };
 
-  return `<div class="quick-picks-grid" role="region" aria-label="Quick access">${likedTile}${slots.map(tile).join('')}</div>`;
+  return `<div class="quick-picks-grid" role="region" aria-label="${ui.t('home.quick_access', 'Quick access')}">${likedTile}${slots.map(tile).join('')}</div>`;
+}
+
+let shelfResizeObserver = null;
+
+function syncShelfNavigation(rail) {
+  const buttons = rail.closest('.home-shelf').querySelectorAll('.shelf-nav');
+  if (buttons.length !== 2) return;
+  buttons[0].disabled = rail.scrollLeft <= 1;
+  buttons[1].disabled = rail.scrollLeft + rail.clientWidth >= rail.scrollWidth - 1;
+}
+
+function homeShelf(title, cards) {
+  return `<section class="shelf-section home-shelf">
+    <div class="shelf-header"><h2 class="shelf-title">${ui.escHtml(title)}</h2>
+      <div class="shelf-navigation">
+        <button type="button" class="shelf-nav" onclick="scrollHomeShelf(this, -1)" aria-label="${ui.t('nav.previous_items', 'Previous items')}"><i data-lucide="chevron-left"></i></button>
+        <button type="button" class="shelf-nav" onclick="scrollHomeShelf(this, 1)" aria-label="${ui.t('nav.next_items', 'Next items')}"><i data-lucide="chevron-right"></i></button>
+      </div>
+    </div>
+    <div class="grid-shelf home-rail" tabindex="0" aria-label="${ui.escHtml(title)}">${cards}</div>
+  </section>`;
+}
+
+export function scrollHomeShelf(button, direction) {
+  const rail = button.closest('.home-shelf')?.querySelector('.home-rail');
+  if (!rail) return;
+  rail.scrollBy({
+    left: direction * rail.clientWidth * 0.8,
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'
+  });
 }
 
 export async function renderHome(container) {
@@ -584,24 +585,12 @@ export async function renderHome(container) {
   }
 
   if (mixes && mixes.length > 0) {
-    html += `
-            <section class="shelf-section home-shelf">
-                <div class="shelf-header">
-                    <h2 class="shelf-title">${ui.t('home.your_mixes', 'Your Mixes')}</h2>
-                </div>
-                <div class="grid-shelf home-rail" tabindex="0" aria-label="Your Mixes">${mixes.map(createMixCard).join('')}</div>
-            </section>`;
+    html += homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join(''));
   }
 
   if (sections && sections.length > 0) {
     sections.forEach((s) => {
-      html += `
-            <section class="shelf-section home-shelf">
-                <div class="shelf-header">
-                    <h2 class="shelf-title">${ui.escHtml(s.title)}</h2>
-                </div>
-                <div class="grid-shelf home-rail" tabindex="0" aria-label="${ui.escHtml(s.title)}">${s.items.map(createCard).join('')}</div>
-            </section>`;
+      html += homeShelf(s.title, s.items.map(createCard).join(''));
     });
   } else if (!quickPicks && !mixes?.length) {
     html += `<div class="empty-state glass-panel">
@@ -611,6 +600,16 @@ export async function renderHome(container) {
   }
 
   container.innerHTML = html;
+  shelfResizeObserver?.disconnect();
+  if (typeof window.ResizeObserver === 'function') {
+    shelfResizeObserver = new window.ResizeObserver((entries) =>
+      entries.forEach(({ target }) => syncShelfNavigation(target))
+    );
+    container.querySelectorAll('.home-rail').forEach((rail) => {
+      shelfResizeObserver.observe(rail);
+      rail.addEventListener('scroll', () => syncShelfNavigation(rail), { passive: true });
+    });
+  }
   // Scope to the home container only — see ui.refreshIcons rationale.
   ui.refreshIcons(container);
 }
@@ -803,17 +802,13 @@ export async function renderWrapped(container, yearParam = null) {
 }
 
 // === SEARCH VIEW ===
-// On desktop the canonical search input lives in the top bar; the view
-// only renders chips + results so transitioning into search feels like an
-// inline panel. On mobile the desktop top bar is hidden, so we ALSO
-// render a mobile-only search pill at the top of this view (only visible
-// at <=768px, controlled by mobile_shell.css). The mobile input mirrors
-// the topbar one — typing in either fires handleTopbarSearch which
-// forwards to the shared handleSearch pipeline.
+// Both search inputs feed the same query and debounce pipeline.
 
 export function renderSearch(container) {
   const seedQuery = (document.getElementById('topbar-search-input')?.value || '').trim();
   container.innerHTML = `
+      <section class="search-shell">
+        <header class="search-heading"><h1 class="hero-greeting">${ui.t('menu.search', 'Search')}</h1><p>${ui.t('search.browse_subtitle', 'Find music across your library and connected sources.')}</p></header>
         <div class="m-search-pill">
             <i data-lucide="search" class="m-search-pill-icon"></i>
             <input
@@ -821,6 +816,7 @@ export function renderSearch(container) {
                 id="m-search-input"
                 class="m-search-pill-input"
                 placeholder="${ui.t('search.placeholder', 'Artists, songs, or playlists')}"
+                aria-label="${ui.t('menu.search', 'Search')}"
                 autocomplete="off"
                 spellcheck="false"
                 value="${ui.escHtml(seedQuery)}"
@@ -835,16 +831,15 @@ export function renderSearch(container) {
             <button type="button" class="chip" onclick="setSource(this, 'local')">${ui.t('search.chip_local', 'Local')}</button>
             <button type="button" class="chip" onclick="setSource(this, 'users')"><i data-lucide="users" width="13" height="13" style="margin-right:4px;"></i> ${ui.t('search.chip_users', 'Users')}</button>
         </div>
-        <label class="collection-search-toggle"><input type="checkbox" role="switch" id="collection-search-toggle" ${search.collectionSearchEnabled ? 'checked' : ''} onchange="setCollectionSearch(this.checked)"> Search albums and playlists (Spotify / YouTube)</label>
-        <div id="search-results"></div>`;
+        <label class="collection-search-toggle"><input type="checkbox" role="switch" id="collection-search-toggle" ${search.collectionSearchEnabled ? 'checked' : ''} onchange="setCollectionSearch(this.checked)"> ${ui.t('search.collections', 'Search albums and playlists (Spotify / YouTube)')}</label>
+        <div id="search-results"></div>
+      </section>`;
   container.querySelectorAll('.source-chips .chip').forEach((chip) => {
     const active = chip.getAttribute('onclick').includes(`'${state.currentSource}'`);
     chip.classList.toggle('active', active);
     chip.setAttribute('aria-pressed', String(active));
   });
   ui.refreshIcons(container);
-  // Seed with the current topbar query (so refresh / direct navigation
-  // still surface results that match what's typed up there).
   search.executeSearch(seedQuery);
 }
 
@@ -1524,22 +1519,7 @@ export function handleCardClick(data, cardElement) {
   else downloads.triggerDownload(track);
 }
 
-// === SIDEBAR RENDERING ===
-//
-// New Spotify-style sidebar markup:
-//   <nav id="sidebar-list">
-//     <a class="sidebar-item sidebar-item-favorites">…</a>     ← first scrolling row
-//     <div id="sidebar-items">                                  ← dynamic slot
-//       <a class="sidebar-item">cover + meta</a>                ← per item
-//       …
-//     </div>
-//   </nav>
-//
-// Both playlists and radios now share a single ordered list, sorted by the
-// most-recent activity timestamp the API exposes. We call this from the same
-// places `renderSidebarRecents()` was previously invoked, so existing
-// triggers (after a track plays, after a playlist is opened, after sync ticks)
-// keep wiring up unchanged.
+// === LIBRARY SIDEBAR ===
 
 function _sidebarPlaylistRow(pl) {
   const name = ui.escHtml(pl.name || 'Playlist');
@@ -1555,12 +1535,12 @@ function _sidebarPlaylistRow(pl) {
           ? 'Public playlist'
           : 'Playlist';
   return `
-    <a class="sidebar-item" data-sb-key="playlist-${pl.id}"
+    <button type="button" class="sidebar-item" data-sb-key="playlist-${ui.escHtml(pl.id)}" data-kind="${pl.kind === 'album' ? 'album' : 'playlist'}" data-view="playlist" data-param="${ui.escHtml(pl.id)}"
        onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')" title="${name}">
         <div class="sidebar-cover">
             ${
               thumb
-                ? `<img src="${thumb}" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'${fallbackIcon}\\'></i>'">`
+                ? `<img src="${ui.escHtml(thumb)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'${fallbackIcon}\\'></i>'">`
                 : `<i data-lucide="${fallbackIcon}"></i>`
             }
         </div>
@@ -1568,7 +1548,7 @@ function _sidebarPlaylistRow(pl) {
             <div class="sidebar-name">${name}</div>
             <div class="sidebar-sub">${sub}</div>
         </div>
-    </a>`;
+    </button>`;
 }
 
 function _sidebarRadioRow(r) {
@@ -1577,7 +1557,7 @@ function _sidebarRadioRow(r) {
   const idJs = ui.escJs(r.id || '');
   const url = encodeURIComponent(r.streamUrl || '');
   return `
-    <a class="sidebar-item" data-sb-key="radio-${idJs}"
+    <button type="button" class="sidebar-item" data-sb-key="radio-${idJs}" data-kind="radio"
        onclick="playSavedRadio('${url}', '${nameJs}', '${idJs}')" title="${name}">
         <div class="sidebar-cover sidebar-cover-radio">
             <i data-lucide="radio"></i>
@@ -1586,7 +1566,7 @@ function _sidebarRadioRow(r) {
             <div class="sidebar-name">${name}</div>
             <div class="sidebar-sub">Radio</div>
         </div>
-    </a>`;
+    </button>`;
 }
 
 function _sidebarMixRow(m) {
@@ -1594,12 +1574,12 @@ function _sidebarMixRow(m) {
   const keyJs = ui.escJs(m.key || '');
   const thumb = m.thumbnail && !m.thumbnail.includes('default') ? m.thumbnail : '';
   return `
-    <a class="sidebar-item" data-sb-key="mix-${keyJs}"
+    <button type="button" class="sidebar-item" data-sb-key="mix-${keyJs}" data-kind="mix" data-view="mix" data-param="${ui.escHtml(m.key || '')}"
        onclick="loadView('mix', '${keyJs}')" title="${name}">
         <div class="sidebar-cover sidebar-cover-mix">
             ${
               thumb
-                ? `<img src="${thumb}" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'sparkles\\'></i>'">`
+                ? `<img src="${ui.escHtml(thumb)}" alt="" loading="lazy" decoding="async" onerror="this.outerHTML='<i data-lucide=\\'sparkles\\'></i>'">`
                 : `<i data-lucide="sparkles"></i>`
             }
         </div>
@@ -1607,13 +1587,10 @@ function _sidebarMixRow(m) {
             <div class="sidebar-name">${name}</div>
             <div class="sidebar-sub">Mix</div>
         </div>
-    </a>`;
+    </button>`;
 }
 
 function _sidebarCreateButton() {
-  // Always rendered as the last item: lets new users start fast (when the
-  // list above is empty it's the only thing visible) and gives existing
-  // users a 21st affordance after their 20 most recent items.
   return `
     <button type="button" class="sidebar-item sidebar-item-create" data-sb-key="__create__"
             onclick="showCreatePlaylistModal()" title="Create playlist">
@@ -1631,69 +1608,30 @@ export function renderSidebarRecents() {
   const container = document.getElementById('sidebar-items');
   if (!container) return;
 
-  // FLIP-style reorder animation:
-  //  1. Snapshot the top of every existing item by its data-sb-key.
-  //  2. Re-render the list (innerHTML swap).
-  //  3. For each item that survived: animate from its old top to the
-  //     new one (browser already placed it; we just play it backwards).
-  //  4. For each newly-introduced item: fade in with a tiny upward slide.
-  // The user perceives playlists smoothly settling into a new order
-  // when something is just played, instead of the list snapping.
-  const oldTops = new Map();
-  container.querySelectorAll('[data-sb-key]').forEach((el) => {
-    oldTops.set(el.dataset.sbKey, el.getBoundingClientRect().top);
-  });
-
   const rows = [];
-  state.recentPlaylists.forEach((pl) => rows.push(_sidebarPlaylistRow(pl)));
+  const collections = new Map([...state.recentPlaylists, ...state.userPlaylists].map((pl) => [String(pl.id), pl]));
+  collections.forEach((pl) => rows.push(_sidebarPlaylistRow(pl)));
   state.recentMixes.forEach((m) => rows.push(_sidebarMixRow(m)));
   state.recentRadios.forEach((r) => rows.push(_sidebarRadioRow(r)));
-  // Always finish with the create-playlist affordance so it's both the
-  // empty-state CTA for new users and the persistent "new" button for
-  // power users.
   rows.push(_sidebarCreateButton());
 
   container.innerHTML = rows.join('');
+  filterSidebarLibrary();
+  window.markBottomNavActive?.(state.currentViewName, state.currentViewParam);
 
-  // Schedule the FLIP animations on the next frame so the browser has
-  // already laid out the new positions.
-  const newItems = container.querySelectorAll('[data-sb-key]');
-  newItems.forEach((el) => {
-    const oldTop = oldTops.get(el.dataset.sbKey);
-    const newTop = el.getBoundingClientRect().top;
-
-    if (oldTop === undefined) {
-      // New entry — fade + slide-down 6px into place
-      el.style.opacity = '0';
-      el.style.transform = 'translateY(-6px)';
-      requestAnimationFrame(() => {
-        el.style.transition = 'opacity 220ms ease, transform 220ms ease';
-        el.style.opacity = '1';
-        el.style.transform = '';
-      });
-      return;
-    }
-
-    const dy = oldTop - newTop;
-    if (Math.abs(dy) < 1) return;
-
-    // Existing item — start at old position then animate to current (0)
-    el.style.transition = 'none';
-    el.style.transform = `translateY(${dy}px)`;
-    // Force reflow so the transform takes effect before the transition
-    // is re-enabled in the next frame.
-    void el.offsetHeight;
-    requestAnimationFrame(() => {
-      el.style.transition = 'transform 280ms cubic-bezier(0.2, 0, 0.1, 1)';
-      el.style.transform = '';
-    });
-  });
-
-  ui.refreshIcons();
+  ui.refreshIcons(container);
 }
 
 export function renderSidebarPlaylists() {
   renderSidebarRecents();
+}
+
+export function filterSidebarLibrary() {
+  const query = (document.getElementById('sidebar-query')?.value || '').trim().toLocaleLowerCase();
+  const kind = document.getElementById('sidebar-kind')?.value || 'all';
+  document.querySelectorAll('#sidebar-list [data-kind]').forEach((row) => {
+    row.hidden = (kind !== 'all' && row.dataset.kind !== kind) || !row.textContent.toLocaleLowerCase().includes(query);
+  });
 }
 
 export async function refreshRecentActivity() {

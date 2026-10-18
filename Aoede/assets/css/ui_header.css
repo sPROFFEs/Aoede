@@ -16,13 +16,13 @@
     z-index: 60;
     flex-shrink: 0;
     height: 64px;
-    padding: 0 24px;
+    padding: 0 16px;
     background: rgba(24, 24, 24, 0.92);
     border-bottom: 0;
     display: grid;
-    grid-template-columns: minmax(120px, auto) minmax(0, 1fr) minmax(120px, auto);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     align-items: center;
-    gap: 16px;
+    gap: 12px;
 }
 
 .user-menu-panel {
@@ -34,7 +34,7 @@
 
 .top-bar-left,
 .header-actions {
-    gap: 12px;
+    gap: 4px;
 }
 
 /* ── Centre column: home button + search pill ───────────────────── */
@@ -237,6 +237,11 @@
     .top-bar-center {
         display: none;
     }
+}
+
+@media (min-width: 769px) and (max-width: 1100px) {
+    :root:not([data-sidebar-mode="collapsed"]) { --sidebar-width: 240px; }
+    .topbar-home-btn { display: none; }
 }
 
 /* Filter a separate toolbar plane: dropdowns must see the page, not a filtered ancestor. */

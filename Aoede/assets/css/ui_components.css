@@ -240,6 +240,7 @@
 }
 
 .library-card {
+    min-width: 0;
     background: var(--surface-1, #181818);
     border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
     border-radius: var(--radius-md, 8px);
@@ -271,7 +272,7 @@
     position: relative;
 }
 .library-card-cover.artist-cover {
-    border-radius: 50%;
+    border-radius: 50% !important;
 }
 .library-card-cover img {
     width: 100%;
@@ -316,7 +317,7 @@
 .collaborator-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; }
 .collaborator-row > span { overflow-wrap: anywhere; min-width: 0; }
 .library-list-heading { display: flex; align-items: center; gap: 8px; margin-top: 24px; font-size: 0.85rem; font-weight: 600; }
-.library-liked .library-card-cover { background: linear-gradient(135deg, #4d20d8, #b9e6d6); }
+.library-liked .library-card-cover { background: linear-gradient(135deg, #4f46e5, #ec4899); }
 .library-liked .library-card-cover svg { color: white; fill: white; width: 28px; }
 .search-browse { margin-top: 28px; }
 .search-browse h2 { font-size: 1.4rem; margin-bottom: 20px; letter-spacing: -0.025em; }
@@ -328,6 +329,11 @@
 .browse-radio { background: #087968; }
 .browse-library { background: #af3151; }
 .browse-public { background: #28599d; }
+.browse-albums { background: #a64a20; }
+.browse-party { background: #6844a3; }
+.search-heading { margin-bottom: 24px; }
+.search-heading p { color: var(--text-sub); margin-top: 8px; }
+.search-browse-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; }
 .create-option:focus-visible, .create-menu-close:focus-visible, .library-card:focus-visible, .search-browse-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 
 /* User Profile Cards in Community & Search */
@@ -338,6 +344,11 @@
     margin: 16px 0 28px;
 }
 @media (max-width: 768px) {
+    .search-heading { display: none; }
+    .search-shell { padding-inline: 16px; }
+    .search-shell :is(.m-search-pill, .search-browse, .collection-search-toggle) { margin-inline: 0; max-width: 100%; }
+    .search-shell .source-chips { padding-inline: 0; }
+    .search-shell .search-browse-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .user-cards-grid {
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
         gap: 12px;
@@ -2474,6 +2485,50 @@
 .library-pagination { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 20px; }
 .library-pagination .library-facet-count { flex: 1; margin: 0; }
 .library-pagination button:disabled { opacity: .4; cursor: default; }
+
+/* Shared browsing geometry; themes supply their own colours and materials. */
+.library-head { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+.library-head .hero-kicker { display: none; }
+.library-head .hero-sub { color: var(--text-sub); margin-top: 8px; max-width: 48ch; font-size: .9rem; line-height: 1.5; }
+.library-actions-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.library-filters { margin: 16px 0; }
+.library-toolbar.library-sort { grid-template-columns: minmax(0, 1fr) minmax(140px, 200px) auto; grid-template-areas: "query sort submit"; gap: 12px; margin-block: 20px; }
+.library-query { grid-area: query; display: flex; align-items: center; gap: 4px; min-width: 0; }
+.library-query input { min-width: 0; width: 100%; }
+.library-layout { grid-area: submit; display: flex; gap: 4px; }
+.library-layout .library-icon-btn[aria-pressed="true"] { color: var(--primary); background: var(--surface-3); }
+.library-section-title { font-size: 1.15rem; margin-top: 24px; }
+.library-shell[data-layout="grid"] .library-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 160px), 1fr)); gap: 20px; }
+.library-shell[data-layout="grid"] :is(.library-card-name, .library-card-sub) { width: 100%; align-self: stretch; text-align: left; }
+.library-shell[data-layout="list"] .library-cards-grid { display: flex; flex-direction: column; gap: 4px; }
+.library-shell[data-layout="list"] .library-card { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: 1fr 1fr; gap: 4px 16px; padding: 8px; border: 0; background: transparent; min-height: 72px; }
+.library-shell[data-layout="list"] .library-card:hover { background: var(--surface-2); transform: none; }
+.library-shell[data-layout="list"] .library-card-cover { grid-row: 1 / 3; width: 56px; height: 56px; aspect-ratio: 1; }
+.library-shell[data-layout="list"] .library-card-name { align-self: end; margin: 0; }
+.library-shell[data-layout="list"] .library-card-sub { align-self: start; }
+.library-pagination { padding-block: 12px; border-top: 1px solid var(--border-subtle); }
+.library-pagination button { min-height: 44px; }
+.playlist-info { min-width: 0; flex: 1; }
+.playlist-title { font-size: clamp(2rem, 4vw, 4rem); line-height: 1.12; }
+.playlist-actions { flex-wrap: wrap; gap: 12px; }
+.source-chips { gap: 8px; overflow-x: auto; flex-wrap: nowrap; padding-block: 4px; }
+.source-chips .chip { flex-shrink: 0; min-height: 40px; }
+
+@media (max-width: 1050px) {
+    .library-toolbar.library-sort { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "query query" "sort submit"; }
+}
+@media (max-width: 768px) {
+    .library-head { margin-bottom: 16px; }
+    .library-head > div:first-child { display: none; }
+    .library-actions-row { width: 100%; justify-content: flex-end; }
+    .library-actions-row button { min-height: 44px; }
+    .library-shell[data-layout="grid"] .library-cards-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .library-shell[data-layout="grid"] .library-card { display: flex; padding: 8px; gap: 6px; }
+    .library-shell[data-layout="grid"] .library-card-cover { width: 100%; height: auto; aspect-ratio: 1; }
+    .library-shell[data-layout="grid"] .library-card-name { font-size: .9rem; }
+    .library-toolbar.library-sort { margin-block: 16px; }
+    .library-query input, .library-toolbar select { font-size: 16px; }
+}
 
 /* The same native switch semantics and visible thumb in Classic, too. */
 input[type="checkbox"][role="switch"] {

@@ -67,6 +67,8 @@
 }
 
 .m-topbar-avatar {
+    border: 0;
+    padding: 0;
     width: 36px;
     height: 36px;
     border-radius: 50%;
@@ -192,6 +194,7 @@
     /* Stack flushed: bottom nav (60) + mini player (64) + safe area
      * + 24px comfort margin so the last list row clears the player. */
     padding-bottom: calc(60px + 64px + 24px + env(safe-area-inset-bottom, 0px)) !important;
+    scroll-padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Most views render their own outer padding via .hero-section etc. The
@@ -794,7 +797,7 @@ body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { d
 .home-overview { padding: 0 16px !important; background: transparent; margin-bottom: 24px; box-sizing: border-box; }
 .home-overview::before { display: none; }
 .home-tab.active { background: var(--primary); color: #101010; }
-.home-overview .quick-picks-grid { margin: 0 16px 26px; }
+.home-overview .quick-picks-grid { margin: 0 0 20px; }
 .quick-pick-name { white-space: normal; line-height: 1.25; font-weight: 700; }
 .home-shelf { margin-top: 26px; }
 .shelf-title { font-size: 1.35rem; letter-spacing: -0.04em; }
@@ -805,8 +808,8 @@ body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { d
 .library-shell { padding: 0 16px; }
 .library-shell > .home-overview { display: none; }
 .library-filters { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; scrollbar-width: none; }
-.library-filter { flex-shrink: 0; border: 0; background: #292929; border-radius: 999px; padding: 10px 16px; }
-.library-filter.active { background: #1ed760; color: #101010; }
+.library-filter { flex-shrink: 0; min-height: 44px; border: 0; background: var(--surface-2); border-radius: 999px; padding: 10px 16px; }
+.library-filter.active { background: var(--primary); color: var(--background); }
 .library-cards-grid { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 .library-card {
     display: grid;
