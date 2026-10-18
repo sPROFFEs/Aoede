@@ -118,6 +118,17 @@ jobs:
         with:
           name: aoede-android
           path: artifacts
+      - name: Preserve the original remote-wrapper backup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AOEDE_REPOSITORY: ${{ github.repository }}
+        run: |
+          gh release download v1.2.7 --repo "$AOEDE_REPOSITORY" --dir wrapper-backup \
+            --pattern aoede-android-wrapper-1.0.5.apk --pattern aoede-android-wrapper-1.0.5-source.zip
+          sha256sum --check <<'CHECKSUMS'
+          9cc715cddf454ec662f87edc2c57f3aa61e44ba6e6b991d780fb2e7cc350fdda  wrapper-backup/aoede-android-wrapper-1.0.5.apk
+          6f5364f9b93a4785645e90d54d7be598c6ef3b9666308e38e5242ec0566d34df  wrapper-backup/aoede-android-wrapper-1.0.5-source.zip
+          CHECKSUMS
       - name: Update Android assets in the existing release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -125,4 +136,4 @@ jobs:
           AOEDE_REPOSITORY: ${{ github.repository }}
         run: |
           gh release view "$AOEDE_RELEASE_TAG" --repo "$AOEDE_REPOSITORY"
-          gh release upload "$AOEDE_RELEASE_TAG" artifacts/aoede-android.apk artifacts/aoede-android-source.zip --clobber --repo "$AOEDE_REPOSITORY"
+          gh release upload "$AOEDE_RELEASE_TAG" artifacts/aoede-android.apk artifacts/aoede-android-source.zip wrapper-backup/*.apk wrapper-backup/*.zip --clobber --repo "$AOEDE_REPOSITORY"

@@ -8,6 +8,9 @@ The project documents two Android artifacts alongside releases:
 
 - `aoede-android.apk` — installable APK.
 - `aoede-android-source.zip` — complete Android Studio project, frontend compiler and editable frontend sources.
+- `aoede-android-wrapper-1.0.5.apk` and `aoede-android-wrapper-1.0.5-source.zip` — preserved original remote-wrapper backup, for servers without the new bootstrap API.
+
+The backup and new client use the same Android package identity. They cannot be installed side by side; Android normally requires uninstalling the newer version before reinstalling an older APK, removing local app data. Download any needed backup before switching.
 
 Release page:
 
@@ -18,6 +21,8 @@ https://github.com/sPROFFEs/Aoede/releases
 ## Requirements
 
 Android **5.0+**, a current Android System WebView and a backend exposing `/api/mobile/bootstrap` protocol 1 are required. Update the Aoede backend alongside this APK. An older backend displays an update instruction; a connection failure offers Retry and server configuration.
+
+The bootstrap endpoint uses the existing signed session cookie and checks expiry, revocation, account activity, service-account exclusion and session version. It returns only the authenticated account's display context and the same shared quota shown in the portal, never passwords, tokens, provider credentials or another user's profile. Responses are private and cannot be cached. Invalid sessions return 401; a session-verification outage returns a generic 503 without logging the user out. Browser origin policy/CORS still governs reads, and the Android bridge accepts only the configured origin's main frame, including its exact port.
 
 ## Install
 

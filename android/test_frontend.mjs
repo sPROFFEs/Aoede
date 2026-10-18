@@ -38,10 +38,11 @@ assert.deepEqual(result.redirects, ['/login']);
 assert.equal(result.storage.has('aoede.android.bootstrap'), false);
 result = await boot({ offline: true, cache: alice });
 assert.equal(JSON.parse(result.messages[0]).offline, true);
-for (const args of [{ offline: true }, { status: 500, cache: alice }, { status: 404 }, { data: { ...alice, username: '</script>' } }, { data: { ...alice, protocol: 2 } }]) {
+for (const args of [{ offline: true }, { status: 500, cache: alice }, { status: 503, cache: alice }, { status: 404 }, { data: { ...alice, username: '</script>' } }, { data: { ...alice, protocol: 2 } }]) {
   result = await boot(args);
   assert.equal(result.messages.length, 0);
   assert.equal(result.elements['boot-retry'].hidden, false);
+  if (args.cache) assert.equal(result.storage.has('aoede.android.bootstrap'), true);
   result.elements['boot-settings'].onclick();
   assert.equal(result.messages[0], 'settings');
 }

@@ -40,6 +40,8 @@ Android 1.0.4 introduces the stable distribution key because the old debug key w
 
 For GitHub Actions configure those three credentials and `AOEDE_ANDROID_KEYSTORE_BASE64` as repository secrets. The Android workflow tests, lints, builds and packages every Android change. Dispatch it with `release_tag` to update the APK and source ZIP on an existing release after validation. Unsigned builds are retained as workflow artifacts and never replace the published installable APK.
 
+Publishing also preserves the original 1.0.5 remote wrapper and its sources as `aoede-android-wrapper-1.0.5.apk` and `aoede-android-wrapper-1.0.5-source.zip`. The workflow retrieves the archived originals from v1.2.7 and verifies their pinned SHA-256 hashes before publishing any APK. Use this backup with older backends. Both clients have the same package ID; reverting to an older version normally requires uninstalling the newer app and removes its local data.
+
 ## Device acceptance checks
 
 - Play several tracks with the screen locked; verify queue progression, notification progress and Bluetooth controls.
