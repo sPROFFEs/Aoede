@@ -75,6 +75,8 @@ The theme preference belongs to an account on its home server. Viewing another n
 
 All web clients, including the Android WebView and desktop wrappers, receive the same stylesheet. No new native binary is required for this frontend feature. Light/dark appearance remains device-specific while the Classic/Glass/Vitrine choice follows the account.
 
+The server supplies the selected request-language catalogue to the SPA, with the same English fallback used by server-rendered pages. Placeholders for search, collection creation/renaming, collaborator invitations, parties and administration use the shared English/Spanish/German catalogues in every theme. Translated attribute values are HTML-escaped; named values in counters and room-name examples are substituted before escaping. Catalogue checks cover missing keys, matching format parameters and untranslated placeholders.
+
 The desktop profile trigger has a 44 px square circular target with a centred, clipped avatar. Favorites, offline downloads and dynamic library entries share the same row geometry and scroll together in both sidebar modes.
 
 The desktop header has its own stacking layer above animated view content so its user menu remains clickable in every theme. Context menus and playlist flyouts live under the document body, while modal backdrops remain above the app shell. Short windows scroll the user menu internally; Escape closes it and restores focus to its disclosure control.

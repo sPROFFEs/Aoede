@@ -174,7 +174,7 @@
             <div class="admin-library-actions">
                 <div class="admin-input-wrap">
                     <i data-lucide="search" width="16" height="16"></i>
-                    <input type="text" id="library-search-input" placeholder="Search tracks by title or artist..." onkeyup="if(event.key==='Enter') adminSearchLibrary()">
+                    <input type="text" id="library-search-input" placeholder="{{ _('admin.library_search_placeholder') }}" onkeyup="if(event.key==='Enter') adminSearchLibrary()">
                 </div>
                 <button onclick="adminSearchLibrary()" class="admin-submit">
                     <i data-lucide="search" width="16" height="16"></i>
@@ -250,8 +250,8 @@
                 </p>
 
                 <form class="federation-add-form federation-add-form-2col" onsubmit="federationIssueToken(event)">
-                    <input type="text" id="fed-issue-name" placeholder="Peer name (e.g. Friend's pool)" required>
-                    <input type="url" id="fed-issue-url" placeholder="Peer URL (optional, for reference)">
+                    <input type="text" id="fed-issue-name" placeholder="{{ _('admin.peer_name_placeholder') }}" required>
+                    <input type="url" id="fed-issue-url" placeholder="{{ _('admin.peer_url_placeholder') }}">
                     <button class="admin-submit" type="submit">
                         <i data-lucide="plus" width="16" height="16"></i>
                         <span>Issue token</span>
@@ -277,9 +277,9 @@
                 </p>
 
                 <form class="federation-add-form" onsubmit="federationAddInstance(event)">
-                    <input type="text" id="fed-add-name" placeholder="Display name (e.g. Friend's pool)" required>
+                    <input type="text" id="fed-add-name" placeholder="{{ _('admin.peer_display_placeholder') }}" required>
                     <input type="url" id="fed-add-url" placeholder="https://music.example.com" required>
-                    <input type="text" id="fed-add-token" placeholder="Federation token" required>
+                    <input type="text" id="fed-add-token" placeholder="{{ _('admin.federation_token_placeholder') }}" required>
                     <button class="admin-submit" type="submit">
                         <i data-lucide="plus" width="16" height="16"></i>
                         <span>Add peer</span>

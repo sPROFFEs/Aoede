@@ -225,7 +225,7 @@ function renderDuplicateScanResult(container, data) {
         ${data.scan_limited ? '<p class="admin-feedback">The scan reached its candidate limit. Review these groups and scan again after cleanup.</p>' : ''}
         <div class="admin-library-actions">
           <label>Match type<select data-duplicate-filter="type" class="modal-input"><option value="all">All candidates</option><option value="exact">Exact source / file matches</option><option value="possible">Possible metadata matches</option></select></label>
-          <label>Filter results<input data-duplicate-filter="query" class="modal-input" type="search" placeholder="Song, artist, album or filename"></label>
+          <label>Filter results<input data-duplicate-filter="query" class="modal-input" type="search" placeholder="${ui.escHtml(ui.t('admin.duplicate_filter_placeholder', 'Song, artist, album or filename'))}"></label>
           <span data-duplicate-visible role="status"></span>
         </div>
         <p class="admin-feedback-meta">Suggested to keep: an available file, then the song used in the most collections, then the oldest entry. Compare possible matches by listening. Deleting a pool song removes its playlist and favorite references.</p>

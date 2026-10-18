@@ -35,7 +35,7 @@ export async function renderRadio(container) {
             <div class="search-bar-row radio-search-bar" style="margin-bottom: 20px;">
                 <div class="search-input-wrapper glass-panel" style="margin:0; flex:1;">
                     <i data-lucide="radio" class="search-icon"></i>
-                    <input type="text" id="radio-search-input" placeholder="${ui.t('radios.search_placeholder', 'Search city or station...')}" value="${state.currentRadioHub}" onkeyup="if(event.key==='Enter') executeRadioSearch()">
+                    <input type="text" id="radio-search-input" placeholder="${ui.escHtml(ui.t('radios.search_placeholder', 'Search city or station...'))}" value="${state.currentRadioHub}" onkeyup="if(event.key==='Enter') executeRadioSearch()">
                 </div>
                 <button onclick="executeRadioSearch()" class="btn-primary radio-search-btn">
                     <i data-lucide="search"></i>

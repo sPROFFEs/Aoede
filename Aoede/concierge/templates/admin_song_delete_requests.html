@@ -59,12 +59,12 @@
                     <div class="admin-delete-request-actions">
                         <form action="/admin/song-delete-requests/{{ req.id }}/decision" method="post" class="admin-delete-decision-form">
                             <input type="hidden" name="decision" value="reject">
-                            <input type="text" name="review_note" maxlength="300" placeholder="Optional note to explain rejection">
+                            <input type="text" name="review_note" maxlength="300" placeholder="{{ _('admin.rejection_note_placeholder') }}">
                             <button type="submit" class="admin-secondary-btn">Reject</button>
                         </form>
                         <form action="/admin/song-delete-requests/{{ req.id }}/decision" method="post" class="admin-delete-decision-form">
                             <input type="hidden" name="decision" value="approve">
-                            <input type="text" name="review_note" maxlength="300" placeholder="Optional internal note">
+                            <input type="text" name="review_note" maxlength="300" placeholder="{{ _('admin.internal_note_placeholder') }}">
                             <button type="submit" class="admin-danger-btn">Approve and Delete</button>
                         </form>
                     </div>

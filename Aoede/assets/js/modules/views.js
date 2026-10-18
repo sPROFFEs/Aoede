@@ -492,7 +492,7 @@ function _renderQuickPicksGrid() {
       </button>`;
   };
 
-  return `<div class="quick-picks-grid" role="region" aria-label="${ui.t('home.quick_access', 'Quick access')}">${likedTile}${slots.map(tile).join('')}</div>`;
+  return `<div class="quick-picks-grid" role="region" aria-label="${ui.escHtml(ui.t('home.quick_access', 'Quick access'))}">${likedTile}${slots.map(tile).join('')}</div>`;
 }
 
 let shelfResizeObserver = null;
@@ -508,8 +508,8 @@ function homeShelf(title, cards) {
   return `<section class="shelf-section home-shelf">
     <div class="shelf-header"><h2 class="shelf-title">${ui.escHtml(title)}</h2>
       <div class="shelf-navigation">
-        <button type="button" class="shelf-nav" onclick="scrollHomeShelf(this, -1)" aria-label="${ui.t('nav.previous_items', 'Previous items')}"><i data-lucide="chevron-left"></i></button>
-        <button type="button" class="shelf-nav" onclick="scrollHomeShelf(this, 1)" aria-label="${ui.t('nav.next_items', 'Next items')}"><i data-lucide="chevron-right"></i></button>
+        <button type="button" class="shelf-nav" onclick="scrollHomeShelf(this, -1)" aria-label="${ui.escHtml(ui.t('nav.previous_items', 'Previous items'))}"><i data-lucide="chevron-left"></i></button>
+        <button type="button" class="shelf-nav" onclick="scrollHomeShelf(this, 1)" aria-label="${ui.escHtml(ui.t('nav.next_items', 'Next items'))}"><i data-lucide="chevron-right"></i></button>
       </div>
     </div>
     <div class="grid-shelf home-rail" tabindex="0" aria-label="${ui.escHtml(title)}">${cards}</div>
@@ -815,8 +815,8 @@ export function renderSearch(container) {
                 type="text"
                 id="m-search-input"
                 class="m-search-pill-input"
-                placeholder="${ui.t('search.placeholder', 'Artists, songs, or playlists')}"
-                aria-label="${ui.t('menu.search', 'Search')}"
+                placeholder="${ui.escHtml(ui.t('search.placeholder', 'Artists, songs, or playlists'))}"
+                aria-label="${ui.escHtml(ui.t('menu.search', 'Search'))}"
                 autocomplete="off"
                 spellcheck="false"
                 value="${ui.escHtml(seedQuery)}"
@@ -876,17 +876,17 @@ export async function renderMix(container, mixKey) {
                     ${
                       tracks.length > 0
                         ? `
-                    <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.t('player.play', 'Play')}" aria-label="${ui.t('player.play', 'Play')}">
+                    <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.play', 'Play'))}" aria-label="${ui.escHtml(ui.t('player.play', 'Play'))}">
                         <i data-lucide="play" width="20" height="20"></i>
                         <span class="playlist-btn-label">${ui.t('player.play', 'Play')}</span>
                     </button>
-                    <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.t('player.shuffle', 'Shuffle')}" aria-label="${ui.t('player.shuffle', 'Shuffle')}">
+                    <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.shuffle', 'Shuffle'))}" aria-label="${ui.escHtml(ui.t('player.shuffle', 'Shuffle'))}">
                         <i data-lucide="shuffle" width="20" height="20"></i>
                         <span class="playlist-btn-label">${ui.t('player.shuffle', 'Shuffle')}</span>
                     </button>`
                         : ''
                     }
-                    <button onclick="showSaveMixModal('${ui.escJs(mix.key)}', '${ui.escJs(mix.title || 'Mix')}')" class="btn-secondary-lg playlist-action-btn" title="${ui.t('player.save_as_playlist', 'Save as playlist')}" aria-label="${ui.t('player.save_as_playlist', 'Save as playlist')}">
+                    <button onclick="showSaveMixModal('${ui.escJs(mix.key)}', '${ui.escJs(mix.title || 'Mix')}')" class="btn-secondary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.save_as_playlist', 'Save as playlist'))}" aria-label="${ui.escHtml(ui.t('player.save_as_playlist', 'Save as playlist'))}">
                         <i data-lucide="save" width="20" height="20"></i>
                         <span class="playlist-btn-label">${ui.t('player.save_as_playlist', 'Save as Playlist')}</span>
                     </button>
@@ -985,7 +985,7 @@ export function showTrackDeleteRequestModal(trackId, title, artist = '') {
             <p style="color: var(--text-sub); margin-bottom: 14px;">
                 Send a deletion request for <strong style="color:white;">${safeTitle}</strong> · ${safeArtist}.
             </p>
-            <textarea id="track-delete-reason" class="monitor-input" rows="4" maxlength="1000" placeholder="Why should this track be removed? (required)"></textarea>
+            <textarea id="track-delete-reason" class="monitor-input" rows="4" maxlength="1000" placeholder="${ui.escHtml(ui.t('delete_request.reason_placeholder', 'Why should this track be removed? (required)'))}"></textarea>
             <div class="modal-actions" style="margin-top: 16px;">
                 <button class="modal-btn-cancel" onclick="this.closest('.modal-overlay').remove()">Cancel</button>
                 <button class="modal-btn-danger" onclick="submitTrackDeleteRequest(${Number(trackId)}, this)">Send Request</button>
@@ -1768,7 +1768,7 @@ export function showSaveMixModal(mixKey, mixTitle) {
             </div>
             <div class="modal-body">
                 <label class="settings-label" for="mix-save-name">Playlist Name</label>
-                <input id="mix-save-name" class="modal-input" type="text" value="${defaultName}" maxlength="120" placeholder="Choose a playlist name">
+                <input id="mix-save-name" class="modal-input" type="text" value="${defaultName}" maxlength="120" placeholder="${ui.escHtml(ui.t('library.smart_playlist_name', 'Playlist name'))}">
                 <div class="playlist-actions" style="margin-top:16px;">
                     <button class="btn-primary-lg playlist-action-btn" onclick="saveMixAsPlaylistAction('${mixKey}')">
                         <i data-lucide="save" width="18" height="18"></i>
@@ -2455,11 +2455,11 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
                 ${
                   trackCount > 0
                     ? `
-                <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.t('player.play_all', 'Play All')}">
+                <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.play_all', 'Play All'))}">
                     <i data-lucide="play" width="20" height="20"></i>
                     <span class="playlist-btn-label">${ui.t('player.play_all', 'Play All')}</span>
                 </button>
-                <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.t('player.shuffle', 'Shuffle')}">
+                <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.shuffle', 'Shuffle'))}">
                     <i data-lucide="shuffle" width="20" height="20"></i>
                     <span class="playlist-btn-label">${ui.t('player.shuffle', 'Shuffle')}</span>
                 </button>`
@@ -2502,7 +2502,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
       trackCount > 0 || offlinePlaylists.length > 0
         ? `<div class="offline-search-bar">
             <i data-lucide="search" width="16" height="16" style="color:var(--text-sub);"></i>
-            <input id="offline-filter-input" placeholder="${ui.t('offline.search_placeholder', 'Search downloaded tracks or playlists...')}" oninput="
+            <input id="offline-filter-input" placeholder="${ui.escHtml(ui.t('offline.search_placeholder', 'Search downloaded tracks or playlists...'))}" oninput="
               const q = this.value.trim().toLowerCase();
               document.querySelectorAll('#offline-tracks-container .track-row').forEach(row => {
                 const title = (row.querySelector('.track-name-sm')?.textContent || '').toLowerCase();
@@ -2836,7 +2836,7 @@ export async function renderCommunity(container) {
       <div class="shelf-header" style="margin-bottom:16px;">
         <h2 class="shelf-title">${ui.t('community.server_members', 'Server Members')} (${users.length})</h2>
         <div style="min-width:200px; max-width:320px;">
-          <input id="community-search-input" class="modal-input" placeholder="${ui.t('community.filter_placeholder', 'Filter by username...')}" style="padding:7px 14px; font-size:0.85rem;" oninput="
+          <input id="community-search-input" class="modal-input" placeholder="${ui.escHtml(ui.t('community.filter_placeholder', 'Filter by username...'))}" style="padding:7px 14px; font-size:0.85rem;" oninput="
             const query = this.value.trim().toLowerCase();
             const cards = document.querySelectorAll('.user-cards-grid .user-profile-card');
             cards.forEach(card => {

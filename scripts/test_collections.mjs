@@ -17,7 +17,15 @@ async function load(file, globals, dependencies) {
   await module.evaluate();
   return { api: module.namespace, imports };
 }
-const ui = (await load('ui.js', { document: { addEventListener() {} }, window: {} }, { './state.js': {}, './audio_engine.js': {} })).api;
+const translationWindow = {};
+const ui = (await load('ui.js', { document: { addEventListener() {} }, window: translationWindow }, { './state.js': {}, './audio_engine.js': {} })).api;
+translationWindow.__I18N__ = { count: 'Mostrando {start}–{end} de {total}', greeting: 'Party con {user}' };
+assert.equal(ui.t('count', '', { start: 0, end: 0, total: 0 }), 'Mostrando 0–0 de 0');
+assert.equal(ui.t('greeting', '', { user: 'Alice "$&" <test>' }), 'Party con Alice "$&" <test>');
+assert.equal(ui.t('missing', 'Hello {user}', { user: 'Bob' }), 'Hello Bob');
+assert.equal(ui.t('missing', 'Keep {unknown}'), 'Keep {unknown}');
+assert.equal(ui.t('greeting', '', Object.create({ user: 'inherited' })), 'Party con {user}');
+delete translationWindow.__I18N__;
 const decodeHtml = value => value.replaceAll('&quot;', '"').replaceAll('&gt;', '>').replaceAll('&lt;', '<').replaceAll('&amp;', '&');
 for (const value of ["Song's name", 'slash\\\' and "quotes"', '<img onerror="bad">\n\r\u2028', 0]) {
   const encoded = ui.escJs(value);
@@ -529,6 +537,16 @@ const sortedCollections = [...libraryPage.innerHTML.matchAll(/class="library-car
 assert.equal(sortedCollections[0], 'Remote collection');
 assert.equal(sortedCollections[1], 'Saved 55');
 console.log('PASS: unified collection kinds, creator/node search, offline filtering and track-count sorting.');
+
+translationWindow.__I18N__ = JSON.parse(await readFile(new URL('../Aoede/concierge/locales/es.json', import.meta.url), 'utf8'));
+translationWindow.__I18N__['library.search_saved'] = 'Buscar "música" & álbumes';
+await library.renderLibrary(libraryPage, 'all');
+assert.match(libraryPage.innerHTML, /placeholder="Buscar &quot;música&quot; &amp; álbumes"/);
+assert.match(libraryPage.innerHTML, /Mostrando 1–50 de 58/);
+assert.match(libraryPage.innerHTML, />Anterior<\/button>/);
+assert.equal(libraryPage.innerHTML.includes('{start}'), false);
+delete translationWindow.__I18N__;
+console.log('PASS: localized runtime collection copy, parameter substitution and HTML-safe translated placeholders.');
 
 // Saved collections are available before first play, with one fresh row per ID.
 const sidebarMarkup = { innerHTML: '', querySelectorAll: () => [] };

@@ -78,11 +78,11 @@ export function initSettingsTabs(scope = document) {
 
 // === FORMATTERS ===
 
-export function t(key, fallback = '') {
-  if (typeof window !== 'undefined' && window.__I18N__ && window.__I18N__[key]) {
-    return window.__I18N__[key];
-  }
-  return fallback || key;
+export function t(key, fallback = '', values = {}) {
+  const message = (typeof window !== 'undefined' && window.__I18N__?.[key]) || fallback || key;
+  return String(message).replace(/\{(\w+)\}/g, (token, name) =>
+    Object.prototype.hasOwnProperty.call(values, name) ? String(values[name]) : token
+  );
 }
 
 export function fmtTime(s) {

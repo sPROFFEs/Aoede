@@ -28,12 +28,12 @@ export function showCreateMenu() {
   selectedImportTracks = [];
   document.getElementById('modal-container').innerHTML = `
     <div class="modal-overlay create-menu-overlay" onclick="if(event.target===this) closeModal()">
-      <div class="modal create-menu" role="dialog" aria-modal="true" aria-label="Create">
-        <button class="create-option" onclick="startPlaylistCreation(false)"><span class="create-option-icon"><i data-lucide="music"></i></span><span><strong>Playlist</strong><small>Create a playlist with your favorite songs</small></span></button>
-        <button class="create-option" onclick="startPlaylistCreation(false, 'album')"><span class="create-option-icon"><i data-lucide="disc-3"></i></span><span><strong>Album</strong><small>Create an album with ordered songs</small></span></button>
-        <button class="create-option" onclick="startPlaylistCreation(true)"><span class="create-option-icon"><i data-lucide="users"></i></span><span><strong>Collaborative playlist</strong><small>Create a playlist together with friends</small></span></button>
-        <button class="create-option" onclick="showCreateSmartPlaylistModal()"><span class="create-option-icon"><i data-lucide="sparkles"></i></span><span><strong>Smart playlist</strong><small>Let your library build a mix from your rules</small></span></button>
-        <button class="create-menu-close" onclick="closeModal()" aria-label="Close create menu"><i data-lucide="x"></i></button>
+      <div class="modal create-menu" role="dialog" aria-modal="true" aria-label="${ui.escHtml(ui.t('library.create', 'Create'))}">
+        <button class="create-option" onclick="startPlaylistCreation(false)"><span class="create-option-icon"><i data-lucide="music"></i></span><span><strong>${ui.t('library.playlist', 'Playlist')}</strong><small>${ui.t('library.create_playlist_desc', 'Create a playlist with your favorite songs')}</small></span></button>
+        <button class="create-option" onclick="startPlaylistCreation(false, 'album')"><span class="create-option-icon"><i data-lucide="disc-3"></i></span><span><strong>${ui.t('library.album', 'Album')}</strong><small>${ui.t('library.create_album_desc', 'Create an album with ordered songs')}</small></span></button>
+        <button class="create-option" onclick="startPlaylistCreation(true)"><span class="create-option-icon"><i data-lucide="users"></i></span><span><strong>${ui.t('library.collaborative_playlist', 'Collaborative playlist')}</strong><small>${ui.t('library.create_collaborative_desc', 'Create a playlist together with friends')}</small></span></button>
+        <button class="create-option" onclick="showCreateSmartPlaylistModal()"><span class="create-option-icon"><i data-lucide="sparkles"></i></span><span><strong>${ui.t('library.smart_playlist', 'Smart playlist')}</strong><small>${ui.t('library.create_smart_desc', 'Let your library build a mix from your rules')}</small></span></button>
+        <button class="create-menu-close" onclick="closeModal()" aria-label="${ui.escHtml(ui.t('common.close', 'Close'))}"><i data-lucide="x"></i></button>
       </div>
     </div>`;
   ui.refreshIcons(document.getElementById('modal-container'));
@@ -98,7 +98,7 @@ export async function showCollaboratorsModal(playlistId) {
           <div style="margin-bottom: 16px;">
             <label class="modal-label" for="collaborator-username">Add Collaborator</label>
             <div class="collaborator-form" style="position:relative;">
-              <input id="collaborator-username" class="modal-input" maxlength="100" autocomplete="off" placeholder="Search user to invite..." style="margin-bottom:0;" oninput="filterCollaboratorUsers(this.value, ${playlistId})">
+              <input id="collaborator-username" class="modal-input" maxlength="100" autocomplete="off" placeholder="${ui.escHtml(ui.t('library.invite_search', 'Search user to invite...'))}" style="margin-bottom:0;" oninput="filterCollaboratorUsers(this.value, ${playlistId})">
               <button class="btn-primary" type="button" onclick="submitInviteCollaborator(${playlistId})">Invite</button>
             </div>
             <div id="collab-user-suggestions" class="glass-panel" style="margin-top:8px; max-height:160px; overflow-y:auto; border-radius:8px; padding:6px; display:${availableUsers.length ? 'flex' : 'none'}; flex-direction:column; gap:4px;">
@@ -892,17 +892,17 @@ function _renderAddToPlaylistModal(trackId, editablePlaylists) {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal modal-playlist" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2><i data-lucide="list-music"></i> Add to Playlist</h2>
+                <h2><i data-lucide="list-music"></i> ${ui.t('player.add_to_playlist', 'Add to Playlist')}</h2>
                 <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-search">
                 <i data-lucide="search"></i>
-                <input type="text" id="modal-playlist-search" placeholder="Find a playlist" autocomplete="off">
+                <input type="text" id="modal-playlist-search" placeholder="${ui.escHtml(ui.t('library.find_playlist', 'Find a playlist'))}" autocomplete="off">
             </div>
             <div class="modal-list" id="modal-playlist-list">${playlistItems}</div>
             <div class="modal-actions">
                 <button class="modal-btn-primary" onclick="showCreatePlaylistModal(${trackId == null ? 'null' : `'${ui.escJs(String(trackId))}'`})">
-                    <i data-lucide="plus"></i> New Playlist
+                    <i data-lucide="plus"></i> ${ui.t('library.new_playlist', 'New Playlist')}
                 </button>
             </div>
         </div>
@@ -957,17 +957,17 @@ function _renderAddToPlaylistFlyout(trackId, editablePlaylists, anchorRect) {
 
   flyout.innerHTML = `
     <div class="atp-header">
-      <span class="atp-title">Add to playlist</span>
+      <span class="atp-title">${ui.t('player.add_to_playlist', 'Add to playlist')}</span>
       <button class="atp-close" onclick="closeAddToPlaylistFlyout()"><i data-lucide="x"></i></button>
     </div>
     <div class="atp-body" id="atp-body">
       <div class="atp-search">
         <i data-lucide="search"></i>
-        <input type="text" id="atp-search-input" placeholder="Find a playlist" autocomplete="off">
+        <input type="text" id="atp-search-input" placeholder="${ui.escHtml(ui.t('library.find_playlist', 'Find a playlist'))}" autocomplete="off">
       </div>
       <div class="atp-list" id="atp-list">${listHtml}</div>
       <button class="atp-new-btn" onclick="showCreatePlaylistInline(${trackId == null ? 'null' : `'${ui.escJs(String(trackId))}'`})">
-        <i data-lucide="plus"></i> New playlist
+        <i data-lucide="plus"></i> ${ui.t('library.new_playlist', 'New playlist')}
       </button>
     </div>`;
 
@@ -1055,11 +1055,11 @@ export function showCreatePlaylistInline(trackIdToAdd = null) {
 
   body.innerHTML = `
     <div class="atp-create-form">
-      <input type="text" id="atp-create-input" class="atp-create-input" maxlength="120" placeholder="Playlist name" autocomplete="off">
+      <input type="text" id="atp-create-input" class="atp-create-input" maxlength="120" placeholder="${ui.escHtml(ui.t('library.smart_playlist_name', 'Playlist name'))}" autocomplete="off">
       <div class="atp-create-actions">
-        <button class="atp-create-cancel" onclick="_atpBackToList()">Back</button>
+        <button class="atp-create-cancel" onclick="_atpBackToList()">${ui.t('common.back', 'Back')}</button>
         <button class="atp-create-submit" onclick="createPlaylistInline(${trackIdToAdd == null ? 'null' : `'${ui.escJs(String(trackIdToAdd))}'`})">
-          <i data-lucide="check"></i> Create
+          <i data-lucide="check"></i> ${ui.t('library.create', 'Create')}
         </button>
       </div>
     </div>`;
@@ -1133,11 +1133,11 @@ function _atpBackToList() {
   body.innerHTML = `
     <div class="atp-search">
       <i data-lucide="search"></i>
-      <input type="text" id="atp-search-input" placeholder="Find a playlist" autocomplete="off">
+      <input type="text" id="atp-search-input" placeholder="${ui.escHtml(ui.t('library.find_playlist', 'Find a playlist'))}" autocomplete="off">
     </div>
     <div class="atp-list" id="atp-list">${listHtml}</div>
     <button class="atp-new-btn" onclick="showCreatePlaylistInline(${_atpTrackId == null ? 'null' : `'${ui.escJs(String(_atpTrackId))}'`})">
-      <i data-lucide="plus"></i> New playlist
+      <i data-lucide="plus"></i> ${ui.t('library.new_playlist', 'New playlist')}
     </button>`;
   lucide.createIcons();
   document.getElementById('atp-search-input')?.focus();
@@ -1191,12 +1191,12 @@ export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') 
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal modal-create" onclick="event.stopPropagation()" style="max-width: 520px;">
             <div class="modal-header">
-                <h2><i data-lucide="folder-plus"></i> ${creatingKind === 'album' ? 'Create Album' : creatingCollaborative ? 'Collaborative playlist' : ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
+                <h2><i data-lucide="folder-plus"></i> ${creatingKind === 'album' ? ui.t('library.create_album_title', 'Create album') : creatingCollaborative ? ui.t('library.collaborative_playlist', 'Collaborative playlist') : ui.t('library.create_playlist_title', 'Create Playlist')}</h2>
                 <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <label class="modal-label">${creatingKind === 'album' ? 'Album Name' : ui.t('library.smart_playlist_name', 'Playlist Name')}</label>
-                <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" value="${ui.escHtml(nameVal)}" placeholder="${ui.t('library.playlist_name_placeholder', 'My awesome playlist...')}" autofocus>
+                <label class="modal-label">${creatingKind === 'album' ? ui.t('library.album_name', 'Album name') : ui.t('library.smart_playlist_name', 'Playlist Name')}</label>
+                <input type="text" id="new-playlist-name" class="modal-input" maxlength="120" value="${ui.escHtml(nameVal)}" placeholder="${ui.escHtml(creatingKind === 'album' ? ui.t('library.album_name_placeholder', 'My new album...') : ui.t('library.playlist_name_placeholder', 'My awesome playlist...'))}" autofocus>
 
                 ${
                   !trackIdToAdd
@@ -1242,7 +1242,7 @@ export function showCreatePlaylistModal(trackIdToAdd = null, existingName = '') 
             <div class="modal-actions" style="margin-top: 20px;">
                 <button class="modal-btn-cancel" onclick="closeModal()">${ui.t('common.cancel', 'Cancel')}</button>
                 <button class="modal-btn-primary" onclick="createPlaylist(${trackIdToAdd == null ? 'null' : `'${ui.escJs(String(trackIdToAdd))}'`})">
-                    <i data-lucide="check"></i> ${ui.t('library.add_button', 'Create')}
+                    <i data-lucide="check"></i> ${ui.t('library.create', 'Create')}
                 </button>
             </div>
         </div>
@@ -1413,11 +1413,11 @@ export function showDeletePlaylistModal(playlistId, playlistName) {
 export function showEditPlaylistModal(id, currentName) {
   const html = `<div class="modal-overlay" onclick="closeModal()">
         <div class="modal" onclick="event.stopPropagation()">
-            <h2 style="margin-bottom: 16px;">Rename ${collectionLabel(id)}</h2>
-            <input type="text" id="edit-playlist-name-input" class="modal-input" value="${ui.escHtml(currentName)}" maxlength="120" placeholder="New ${collectionLabel(id).toLowerCase()} name" style="margin-bottom: 24px;">
+            <h2 style="margin-bottom: 16px;">${ui.t('library.rename_collection', 'Rename collection')}</h2>
+            <input type="text" id="edit-playlist-name-input" class="modal-input" value="${ui.escHtml(currentName)}" maxlength="120" placeholder="${ui.escHtml(ui.t('library.rename_placeholder', 'New name'))}" style="margin-bottom: 24px;">
             <div class="modal-actions">
-                <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn-primary" onclick="editPlaylistName('${id}', document.getElementById('edit-playlist-name-input').value)">Save</button>
+                <button class="modal-btn-cancel" onclick="closeModal()">${ui.t('common.cancel', 'Cancel')}</button>
+                <button class="modal-btn-primary" onclick="editPlaylistName('${id}', document.getElementById('edit-playlist-name-input').value)">${ui.t('common.save', 'Save')}</button>
             </div>
         </div>
     </div>`;

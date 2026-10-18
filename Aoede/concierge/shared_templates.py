@@ -45,4 +45,9 @@ templates = Jinja2Templates(directory=str(TEMPLATES_DIR), context_processors=[ap
 templates.env.globals["static_v"] = _compute_static_version()
 templates.env.globals["_"] = lambda key: i18n.get_text(key)
 templates.env.globals["current_lang"] = lambda: "en"
+# The SPA uses the same request language and English fallback as server-rendered text.
+templates.env.globals["get_all_translations"] = lambda: {
+    **i18n.translations.get(i18n.DEFAULT_LANG, {}),
+    **i18n.translations.get(templates.env.globals["current_lang"](), {}),
+}
 templates.env.globals["domain"] = "localhost"

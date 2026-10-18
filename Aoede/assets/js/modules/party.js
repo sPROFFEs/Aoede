@@ -188,7 +188,7 @@ export async function showCreateModal() {
           </div>
         </div>
 
-        <label class="party-field"><span>${ui.t('party.room_name', 'Room name')}</span><input id="party-room-name" maxlength="80" placeholder="${ui.escHtml(window.USER_DATA?.username || 'My')}’s ${ui.t('party.room_name_placeholder', 'Party')}"></label>
+        <label class="party-field"><span>${ui.t('party.room_name', 'Room name')}</span><input id="party-room-name" maxlength="80" placeholder="${ui.escHtml(ui.t('party.room_name_example', 'Party with {user}', { user: window.USER_DATA?.username || 'Aoede' }))}"></label>
         <label class="party-field"><span>User limit</span><select id="party-room-limit">${Array.from(
           { length: 14 },
           (_, i) => i + 2
@@ -393,7 +393,7 @@ function paintRoom(container) {
       <aside class="party-side-column">
         ${
           room.can_add_songs
-            ? `<div class="party-add-panel glass-panel"><h2>${ui.t('party.add_songs', 'Add songs')}</h2><p>${ui.t('party.add_songs_desc', 'Search tracks already in this Aoede library.')}</p><div class="party-search"><input id="party-track-search" placeholder="${ui.t('party.search_placeholder', 'Song or artist')}" oninput="searchPartyTracks(this.value)"><i data-lucide="search"></i></div><div id="party-search-results" class="party-search-results"></div></div>`
+            ? `<div class="party-add-panel glass-panel"><h2>${ui.t('party.add_songs', 'Add songs')}</h2><p>${ui.t('party.add_songs_desc', 'Search tracks already in this Aoede library.')}</p><div class="party-search"><input id="party-track-search" placeholder="${ui.escHtml(ui.t('party.search_placeholder', 'Song or artist'))}" oninput="searchPartyTracks(this.value)"><i data-lucide="search"></i></div><div id="party-search-results" class="party-search-results"></div></div>`
             : `<div class="party-locked-panel glass-panel"><i data-lucide="lock"></i><h3>Host-managed queue</h3><p>${ui.escHtml(room.owner_username)} has disabled guest additions.</p></div>`
         }
         ${room.is_owner ? `<button class="party-delete-btn" onclick="deletePartyRoom()"><i data-lucide="trash-2"></i> ${ui.t('common.delete', 'Delete room')}</button>` : ''}

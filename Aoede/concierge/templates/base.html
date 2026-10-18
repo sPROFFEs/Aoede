@@ -321,8 +321,8 @@
                 <i data-lucide="library"></i>
                 <span>{{ _('menu.library') if _ else 'Your Library' }}</span>
             </button>
-            <button class="m-nav-item" onclick="showCreateMenu()" aria-label="Create a playlist">
-                <i data-lucide="plus"></i><span>Create</span>
+            <button class="m-nav-item" onclick="showCreateMenu()" aria-label="{{ _('library.create') }}">
+                <i data-lucide="plus"></i><span>{{ _('library.create') }}</span>
             </button>
         </nav>
 
