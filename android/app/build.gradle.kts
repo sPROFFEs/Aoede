@@ -5,7 +5,8 @@ plugins {
 
 android {
     namespace = "com.aoede.twa"
-    compileSdk = 34
+    compileSdk = 35
+    buildToolsVersion = "35.0.0"
 
     buildFeatures {
         buildConfig = true   // needed for the BuildConfig.DEBUG gate in MainActivity
@@ -14,9 +15,9 @@ android {
     defaultConfig {
         applicationId = "com.aoede.twa"
         minSdk = 21
-        targetSdk = 34
-        versionCode = 5
-        versionName = "1.0.5"
+        targetSdk = 35
+        versionCode = 6
+        versionName = "1.1.0"
     }
 
     buildTypes {
@@ -58,6 +59,13 @@ android {
         jvmTarget = "1.8"
     }
 }
+
+val bundleFrontend by tasks.registering(Exec::class) {
+    workingDir(rootProject.projectDir)
+    val localPython = rootProject.projectDir.resolve("../.venv/bin/python")
+    commandLine(if (localPython.exists()) localPython.absolutePath else "python3", "build_frontend.py")
+}
+tasks.named("preBuild") { dependsOn(bundleFrontend) }
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")

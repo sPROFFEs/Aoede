@@ -11,6 +11,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
+import androidx.appcompat.widget.SwitchCompat
 
 class SetupActivity : AppCompatActivity() {
 
@@ -31,6 +32,8 @@ class SetupActivity : AppCompatActivity() {
         val urlInput     = findViewById<EditText>(R.id.url_input)
         val saveBtn      = findViewById<Button>(R.id.btn_save)
         val cancelBtn    = findViewById<Button>(R.id.btn_cancel)
+        val effects = findViewById<SwitchCompat>(R.id.reduce_effects)
+        effects.isChecked = prefs.getBoolean("reduce_effects", (getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice)
 
         if (firstRun) {
             titleView.setText(R.string.setup_welcome_title)
@@ -61,12 +64,14 @@ class SetupActivity : AppCompatActivity() {
 
             // Basic validation: must have a host
             val uri = Uri.parse(url)
-            if (ServerOrigin.from(uri) == null || uri.query != null || uri.fragment != null) {
+            val origin = ServerOrigin.from(uri)
+            if (origin == null || uri.query != null || uri.fragment != null || uri.path.orEmpty() !in setOf("", "/")) {
                 urlInput.error = getString(R.string.setup_error_invalid_url)
                 return@setOnClickListener
             }
 
-            prefs.edit().putString(MainActivity.KEY_URL, url).apply()
+            prefs.edit().putString(MainActivity.KEY_URL, origin.rule).putBoolean("reduce_effects", effects.isChecked).apply()
+            (application as AoedeApp).destroyPlayer()
 
             Toast.makeText(this, R.string.setup_toast_saved, Toast.LENGTH_SHORT).show()
 

@@ -6,11 +6,14 @@ on:
     tags: ['v*']
     paths:
       - 'android/**'
+      - 'Aoede/assets/**'
+      - 'Aoede/concierge/templates/**'
+      - 'Aoede/concierge/locales/**'
       - 'scripts/package_android.py'
       - 'scripts/test_android.mjs'
       - '.github/workflows/android.yml'
   pull_request:
-    paths: ['android/**', 'scripts/package_android.py', 'scripts/test_android.mjs', '.github/workflows/android.yml']
+    paths: ['android/**', 'Aoede/assets/**', 'Aoede/concierge/templates/**', 'Aoede/concierge/locales/**', 'scripts/package_android.py', 'scripts/test_android.mjs', '.github/workflows/android.yml']
   workflow_dispatch:
     inputs:
       release_tag:
@@ -37,8 +40,15 @@ jobs:
         with:
           node-version: '22'
       - uses: gradle/actions/setup-gradle@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the frontend compiler
+        run: python3 -m pip install 'Jinja2==3.1.6'
       - name: Test the multimedia bridge and party interruptions
-        run: node --experimental-vm-modules scripts/test_android.mjs
+        run: |
+          node --experimental-vm-modules scripts/test_android.mjs
+          node android/test_frontend.mjs
       - name: Test, lint and build Android
         working-directory: android
         run: ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease
@@ -56,7 +66,7 @@ jobs:
             chmod 600 "$AOEDE_ANDROID_KEYSTORE"
             trap 'rm -f "$AOEDE_ANDROID_KEYSTORE"' EXIT
             (cd android && ./gradlew --no-daemon assembleRelease)
-            "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
+            "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs android/app/build/outputs/apk/release/app-release.apk
             echo 'signed=true' >> "$GITHUB_OUTPUT"
           else
             echo 'signed=false' >> "$GITHUB_OUTPUT"
@@ -66,7 +76,7 @@ jobs:
         run: python3 scripts/package_android.py
       - name: Verify the release APK manifest
         run: |
-          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging android/dist/*.apk > "$RUNNER_TEMP/android-badging.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging android/dist/*.apk > "$RUNNER_TEMP/android-badging.txt"
           cat "$RUNNER_TEMP/android-badging.txt"
           if grep -q '^application-debuggable' "$RUNNER_TEMP/android-badging.txt"; then exit 1; fi
           grep -q '^package: name='"'com.aoede.twa'" "$RUNNER_TEMP/android-badging.txt"
@@ -78,8 +88,8 @@ jobs:
           AOEDE_REPOSITORY: ${{ github.repository }}
         run: |
           gh release download "$AOEDE_RELEASE_TAG" --pattern aoede-android.apk --dir "$RUNNER_TEMP/current-android" --repo "$AOEDE_REPOSITORY"
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/current-android/aoede-android.apk" > "$RUNNER_TEMP/old-certificate.txt"
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs android/dist/aoede-android.apk > "$RUNNER_TEMP/new-certificate.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/current-android/aoede-android.apk" > "$RUNNER_TEMP/old-certificate.txt"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs android/dist/aoede-android.apk > "$RUNNER_TEMP/new-certificate.txt"
           sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/old-certificate.txt" > "$RUNNER_TEMP/old-digest.txt"
           sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/new-certificate.txt" > "$RUNNER_TEMP/new-digest.txt"
           test -s "$RUNNER_TEMP/new-digest.txt"

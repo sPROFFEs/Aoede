@@ -20,11 +20,15 @@
         android:theme="@style/Theme.Aoede"
         android:usesCleartextTraffic="true">
 
+        <receiver android:name=".PlaybackWidget" android:exported="false" android:label="@string/widget_description">
+            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/playback_widget" />
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -35,7 +39,6 @@
         <activity
             android:name=".SetupActivity"
             android:exported="false"
-            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize" />
 
         <service

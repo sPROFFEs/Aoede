@@ -603,6 +603,28 @@ async def portal(request: Request, db: Session = Depends(get_db)):
     return _render_app_shell(request, user, db)
 
 
+@app.get("/api/mobile/bootstrap")
+def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
+    """Private context for the frontend installed inside the Android APK."""
+    headers = {"Cache-Control": "private, no-store", "Vary": "Cookie, Accept-Language"}
+    try:
+        user = auth.get_current_user(request, db)
+    except Exception:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401, headers=headers)
+    used, limit, percent = manager.get_pool_status(db)
+    return JSONResponse(
+        {
+            "protocol": 1,
+            "username": user.username,
+            "is_admin": bool(user.is_admin),
+            "theme": user.theme or "classic",
+            "language": current_lang.get(),
+            "pool": {"used": used, "limit": limit, "percent": percent},
+        },
+        headers=headers,
+    )
+
+
 @app.get("/wrapped/story")
 @app.get("/wrapped/story/")
 @app.get("/wrapped/story/{year}")

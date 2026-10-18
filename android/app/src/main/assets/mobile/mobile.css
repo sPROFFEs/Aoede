@@ -1,0 +1,27 @@
+/* Native window insets are consumed by Android; CSS sees the usable viewport. */
+.native-boot { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #101115; color: #f5f5f7; font: 16px system-ui, sans-serif; }
+.native-boot main { padding: 28px; text-align: center; max-width: 420px; }
+.native-boot img { border-radius: 24px; }
+.native-boot button { min-height: 48px; margin: 8px; padding: 12px 18px; border-radius: 24px; border: 1px solid #555; background: #25262b; color: inherit; font: inherit; }
+html[data-client="android"] { -webkit-text-size-adjust: 100%; }
+html[data-client="android"] :is(body, .app-layout) { max-width: 100%; }
+html[data-client="android"] :is(input, textarea, select) { font-size: max(16px, 1em); }
+html[data-client="android"] :is(.user-menu-item, .icon-btn, .icon-btn-sm, .modal-close, .btn-close, .native-server-settings) { min-width: 44px; min-height: 44px; }
+html[data-client="android"] :is(.main-content, #main-view, .content-area, .settings-container) { min-width: 0; }
+html[data-client="android"] :is(.modal-content, .modal-box, .dropdown-menu, .user-menu-panel) { max-width: min(100%, calc(100vw - 24px)); }
+html[data-client="android"] .fullscreen-player { height: 100dvh; max-height: 100dvh; }
+html[data-client="android"] .native-server-settings { color: var(--text-main, inherit); cursor: pointer; }
+html[data-client="android"] #pwa-banner { display: none !important; }
+@media (max-width: 480px) {
+  html[data-client="android"] :is(.settings-grid, .form-grid, .admin-settings-grid) { grid-template-columns: minmax(0, 1fr); }
+  html[data-client="android"] .login-card { padding-inline: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-client="android"] :is(.fullscreen-player, .modal-content, .user-menu-panel) { animation: none; transition: none; }
+}
+html[data-native-effects="reduced"] { --square-blur: none; }
+html[data-native-effects="reduced"] :is(*, *::before, *::after) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+html[data-native-effects="reduced"] :is(.sidebar, .m-topbar, .player-footer, .modal-content, .user-menu-panel) {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background-color: var(--surface-1, #18191d) !important;
+}
+html[data-native-effects="reduced"] .fullscreen-player .fs-background { filter: none !important; background: #111218 !important; }

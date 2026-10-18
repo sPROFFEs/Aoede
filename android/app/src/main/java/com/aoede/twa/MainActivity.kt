@@ -15,6 +15,9 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.WindowCompat
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 
 class MainActivity : AppCompatActivity() {
     private val app get() = application as AoedeApp
@@ -50,6 +53,12 @@ class MainActivity : AppCompatActivity() {
             return
         }
         setContentView(R.layout.activity_main)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_root)) { root, insets ->
+            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
+            root.setPadding(safe.left, safe.top, safe.right, safe.bottom)
+            WindowInsetsCompat.CONSUMED
+        }
         val view = app.attachPlayer(this, url)
         findViewById<FrameLayout>(R.id.webview_container).addView(view)
         updatePage(view.url ?: url)
@@ -58,7 +67,7 @@ class MainActivity : AppCompatActivity() {
             failedUrl?.let { view.loadUrl(it) }
         }
         findViewById<ImageButton>(R.id.btn_settings).setOnClickListener {
-            startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_FIRST_RUN, false))
+            openServerSettings()
         }
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
@@ -67,10 +76,14 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
+    fun openServerSettings() {
+        startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_FIRST_RUN, false))
+    }
+
     fun updatePage(url: String) {
         val path = android.net.Uri.parse(url).path.orEmpty()
         findViewById<ImageButton>(R.id.btn_settings)?.visibility =
-            if (path.startsWith("/login") || failedUrl != null) View.VISIBLE else View.GONE
+            if (path.startsWith("/login") || path == "/_aoede/start" || failedUrl != null) View.VISIBLE else View.GONE
     }
 
     fun clearConnectionError() {

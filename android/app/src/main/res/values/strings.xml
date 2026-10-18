@@ -2,6 +2,10 @@
 <!-- Default language: English -->
 <resources>
     <string name="app_name">Aoede</string>
+    <string name="widget_description">Aoede player</string>
+    <string name="widget_open">Open your music</string>
+    <string name="widget_cover">Open Aoede</string>
+    <string name="setup_reduce_effects">Reduce visual effects</string>
 
     <!-- Setup / first-launch screen -->
     <string name="setup_welcome_title">Welcome to Aoede</string>
@@ -14,7 +18,7 @@
 
     <!-- Setup validation -->
     <string name="setup_error_empty_url">Please enter a URL</string>
-    <string name="setup_error_invalid_url">Invalid URL</string>
+    <string name="setup_error_invalid_url">Enter the server root URL, including its port if needed, without a path or query.</string>
     <string name="setup_toast_saved">Server saved</string>
 
     <!-- Main screen -->

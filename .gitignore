@@ -78,6 +78,7 @@ android/local.properties
 *.jks
 *.p12
 /.android-signing/
+/android/app/src/main/assets/web/
 
 # Frontend / package managers
 node_modules/

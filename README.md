@@ -686,6 +686,10 @@ The Android application supports:
 
 - Android 5.0+;
 - configurable Aoede server URL;
+- frontend and three responsive themes installed inside the APK;
+- native home-screen player widget;
+- offline startup for downloaded music;
+- phone, landscape and tablet layouts with an option to reduce visual effects;
 - background playback;
 - system media notification;
 - album artwork in notifications;

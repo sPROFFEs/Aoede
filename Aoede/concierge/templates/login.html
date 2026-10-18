@@ -442,6 +442,7 @@
 
     <script>
     (function () {
+        if (window.AOEDE_ANDROID) return;
         var DISMISS_KEY = 'aoede_pwa_dismissed';
         var banner      = document.getElementById('pwa-banner');
         var installBtn  = document.getElementById('pwa-install-btn');

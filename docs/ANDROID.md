@@ -1,13 +1,13 @@
 # Android App
 
-Aoede releases can include an Android APK that wraps the web application and integrates with Android media controls.
+Aoede Android 1.1.0 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
 
 ## Release artifacts
 
 The project documents two Android artifacts alongside releases:
 
 - `aoede-android.apk` — installable APK.
-- `aoede-android-source.zip` — Android Studio project sources for the wrapper.
+- `aoede-android-source.zip` — complete Android Studio project, frontend compiler and editable frontend sources.
 
 Release page:
 
@@ -17,7 +17,7 @@ https://github.com/sPROFFEs/Aoede/releases
 
 ## Requirements
 
-The documented APK target supports Android **5.0+**.
+Android **5.0+**, a current Android System WebView and a backend exposing `/api/mobile/bootstrap` protocol 1 are required. Update the Aoede backend alongside this APK. An older backend displays an update instruction; a connection failure offers Retry and server configuration.
 
 ## Install
 
@@ -35,17 +35,29 @@ The documented APK target supports Android **5.0+**.
 
 ## Features
 
-The documented wrapper provides:
+The application provides:
 
+- an installed frontend with Classic, Glass and Vitrine themes, without startup CDN requests;
+- responsive phone, landscape and tablet layouts with keyboard, cutout and system-bar handling;
+- an **Aoede player** home-screen widget with cover, title, artist and transport controls;
 - native system media notification;
 - album artwork, title and artist in the notification;
 - play / pause / next / previous media actions;
 - background playback that continues when the screen is off or the app is not foregrounded;
-- configurable server URL from the login screen.
+- headphone/Bluetooth disconnection pause, including a local pause in party rooms;
+- offline startup with the last validated account and existing downloaded tracks;
+- configurable server URL from login, connection errors and user settings;
+- a device-local **Reduce visual effects** option, enabled by default on low-memory devices.
+
+Add the widget from your launcher's widget picker. During playback, controls operate in the background; when the player process is absent, a tap opens Aoede. Force-stopping the application ends playback. Music that has not been downloaded and online/federation/admin functions require the backend.
+
+The APK keeps the backend's original origin, scheme and port for authentication, API calls, streaming and uploads. HTTP can be explicitly configured, while invalid HTTPS certificates remain blocked. Upgrading 1.0.4/1.0.5 preserves the package identity and distribution signature, login cookies and downloaded files. APK 1.0.3 used a lost debug signing key and still needs uninstalling first.
 
 ## Changing server URL
 
-Use the gear/settings control on the login screen to change the server URL later.
+Use **Configure server** in user settings or the gear on the login/connection screen. Enter the root URL, including a custom port if needed; do not include `/portal` or another path. Saving reloads the player. Theme preferences remain attached to the backend account, while effects preferences stay on this device.
+
+Build instructions, signing configuration and device acceptance checks are in [the Android project guide](../android/README.md).
 
 ## README screenshot recommendation
 

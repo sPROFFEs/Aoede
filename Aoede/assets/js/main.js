@@ -463,7 +463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // (a non-blocking inline <script> that runs before this deferred module).
   // We are the *only* caller of loadView on page load — the template no longer
   // calls it a second time, eliminating the double-render (fix Q-10).
-  const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+  const isDeviceOffline = window.AOEDE_NATIVE_OFFLINE || (typeof navigator !== 'undefined' && !navigator.onLine);
   const _serverView = isDeviceOffline ? 'offline' : (window.AOEDE_INITIAL_VIEW ?? 'home');
   const _serverParam = isDeviceOffline ? null : (window.AOEDE_INITIAL_PARAM ?? null);
 
@@ -497,7 +497,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Register PWA service worker
-  if ('serviceWorker' in navigator) {
+  if (!window.AOEDE_ANDROID && 'serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
       console.warn('[SW] Registration failed:', err);
     });

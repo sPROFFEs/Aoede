@@ -1,6 +1,16 @@
 # Aoede Android
 
-The Android app embeds the configured Aoede server in a WebView. The application owns one retained WebView, so its document, queue and offline Blob URLs survive activity recreation and returning from the background. A media playback foreground service runs during playback, publishes the MediaSession controls and holds a CPU wake lock; it does not keep the display awake.
+Android 1.1.0 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+
+Bundled resources are served only at the configured origin, including its exact scheme and port. Music streams, federation, uploads and API requests continue to reach that backend with its normal session cookie; no CORS proxy or copied token is involved. Server-rendered settings, help and admin forms still require the backend. The installed frontend updates with the APK. Backend support for `/api/mobile/bootstrap` (protocol 1, introduced with this client) is required; older servers display an update instruction instead of a JSON parsing error.
+
+The application owns one retained WebView, so its document, queue and offline Blob URLs survive activity recreation and returning from the background. A media playback foreground service runs during playback, publishes the MediaSession controls and holds a CPU wake lock; it does not keep the display awake.
+
+Add **Aoede player** from the launcher's widget picker. Its cover and metadata follow the native media session; play/pause and previous/next control the existing player without opening the app. If Android has stopped the process, tapping the widget opens the app without pretending playback survived. Updates follow media events, with no periodic polling.
+
+Phones, landscape and tablets use the same responsive themes with touch targets, keyboard/cutout/system-bar insets and viewport-sized fullscreen playback. **Reduce visual effects** in server configuration disables expensive glass blur; low-memory devices default to reduced effects. Account theme preferences continue to sync through the backend.
+
+After a successful login, the last validated account context and installed shell can open downloaded music without the server. A 401/403 response or entering login clears that context; explicit logout also clears it before submission. A server outage can use the cached context, but HTTP errors and incompatible protocols never impersonate a valid login. The old wrapper's service worker is unregistered during migration; existing cookies and IndexedDB downloads are preserved. Force stop/process death still ends playback, and online features require a reachable backend.
 
 Headphone/Bluetooth disconnection and Android media pause controls pause this device, including in party rooms. Playback remains locally paused until an explicit play action. Chromium manages audio focus; the wrapper does not request a competing audio focus owner. The bridge accepts messages only from the configured origin's main frame. HTTP servers remain supported when explicitly configured.
 
@@ -8,17 +18,19 @@ Internal navigation stays inside the configured origin, including its port. Auto
 
 ## Build and checks
 
-Requires JDK 17, Android SDK 34 and an up-to-date Android System WebView on the device. Minimum Android version is 5.0 (API 21).
+Requires Python 3 with Jinja2 3.1.6, JDK 17, Android SDK/build-tools 35 and an up-to-date Android System WebView on the device. Minimum Android version is 5.0 (API 21).
 
 ```sh
+python3 -m pip install Jinja2==3.1.6
 cd android
 ./gradlew testDebugUnitTest lintRelease assembleRelease
+node test_frontend.mjs
 cd ..
 node --experimental-vm-modules scripts/test_android.mjs
 python3 scripts/package_android.py
 ```
 
-Unsigned builds are named `aoede-android-unsigned.apk`. They cannot be installed until signed. The source ZIP includes the Gradle wrapper, app, media bridge and tests, and excludes SDK paths, build directories and signing keys.
+Gradle runs `build_frontend.py` before building; it compiles the repository's canonical Jinja templates for EN/ES/DE without starting Python services. The source ZIP includes those editable templates, assets and catalogues under `frontend-source/`, the generated bundle, compiler, Gradle wrapper, native app and tests, so it also builds outside the monorepo. Unsigned builds are named `aoede-android-unsigned.apk` and need signing before installation. SDK paths, build directories and signing keys are excluded.
 
 ## Distribution signing
 
@@ -36,6 +48,9 @@ For GitHub Actions configure those three credentials and `AOEDE_ANDROID_KEYSTORE
 - Repeat as a party guest: local pause must survive room updates and must not pause the host.
 - Interrupt with another music app and a phone call; verify focus loss and appropriate resumption.
 - Check offline downloaded tracks, failed streams, long buffering and changing servers.
+- Add multiple player widgets; verify metadata, transport controls, local pause as a party guest and cold-process taps.
+- Check each theme at 320/360/412dp, landscape and tablet widths, including keyboard, user menus, modals, fullscreen lyrics and queue.
+- Upgrade an installed 1.0.4/1.0.5 without uninstalling; verify cookies/downloads remain and old service-worker caches cannot replace installed modules.
 - Open Admin from System Monitor behind an HTTPS tunnel and on a server with a custom port; verify navigation, form submission and Back stay in the app.
 - Upload an avatar, a playlist cover and a cookies file; cancel the file picker and try again.
 - Open an unreachable server, retry, then change its URL from the error screen. Check that an individual missing image does not trigger that screen.

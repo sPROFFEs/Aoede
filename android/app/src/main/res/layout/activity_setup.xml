@@ -64,6 +64,15 @@
             android:textSize="15sp"
             android:layout_marginBottom="20dp" />
 
+        <androidx.appcompat.widget.SwitchCompat
+            android:id="@+id/reduce_effects"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="48dp"
+            android:layout_marginBottom="16dp"
+            android:textColor="#FFFFFF"
+            android:text="@string/setup_reduce_effects" />
+
         <!-- Save button -->
         <Button
             android:id="@+id/btn_save"

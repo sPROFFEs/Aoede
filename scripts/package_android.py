@@ -22,9 +22,20 @@ with zipfile.ZipFile(output / "aoede-android-source.zip", "w", zipfile.ZIP_DEFLA
         relative = source.relative_to(project)
         if not source.is_file() or any(part in {"build", "dist", ".gradle", ".idea"} for part in relative.parts):
             continue
-        if source.suffix in {".jks", ".keystore", ".key", ".pem"} or source.name == "local.properties":
+        if source.suffix in {".jks", ".keystore", ".key", ".pem", ".p12", ".pyc"} or source.name == "local.properties":
             continue
-        if source.suffix not in {".kt", ".kts", ".js", ".xml", ".png", ".properties", ".jar", ".pro", ".md", ".bat"} and source.name != "gradlew":
+        if "__pycache__" in relative.parts:
+            continue
+        if source.suffix not in {
+            ".kt", ".kts", ".js", ".mjs", ".xml", ".png", ".ico", ".jpg", ".jpeg", ".svg", ".webp",
+            ".css", ".html", ".json", ".webmanifest", ".woff", ".woff2", ".ttf", ".otf",
+            ".properties", ".jar", ".pro", ".md", ".bat", ".py", ".txt",
+        } and source.name != "gradlew":
             continue
         archive.write(source, Path("aoede-android") / relative)
+    # Keep editable canonical sources alongside the generated bundle for standalone builds.
+    for folder in ("assets", "concierge/templates", "concierge/locales"):
+        for source in sorted((root / "Aoede" / folder).rglob("*")):
+            if source.is_file() and source.suffix not in {".pyc", ".mo"}:
+                archive.write(source, Path("aoede-android/frontend-source") / source.relative_to(root / "Aoede"))
 print(f"Packaged {name} and aoede-android-source.zip")

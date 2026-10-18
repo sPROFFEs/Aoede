@@ -22,6 +22,8 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import androidx.webkit.ServiceWorkerClientCompat
+import androidx.webkit.ServiceWorkerControllerCompat
 import org.json.JSONObject
 import java.lang.ref.WeakReference
 
@@ -50,6 +52,7 @@ class AoedeApp : Application() {
             return it
         }
         val origin = ServerOrigin.from(Uri.parse(url)) ?: error("Invalid server URL")
+        val frontend = MobileFrontend(this, origin)
         playerUrl = url
         mediaController.serverOrigin = origin
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
@@ -68,9 +71,19 @@ class AoedeApp : Application() {
             mediaPlaybackRequiresUserGesture = false
             userAgentString += " AoedeAndroid/${BuildConfig.VERSION_NAME}"
         }
-        val shim = assets.open("media-session.js").bufferedReader().use { it.readText() }
+        val reduced = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE).getBoolean("reduce_effects",
+            (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice)
+        val nativeFlags = "window.AOEDE_ANDROID=true;document.addEventListener('DOMContentLoaded',function(){document.documentElement.dataset.nativeEffects='${if (reduced) "reduced" else "full"}';});"
+        val shim = nativeFlags + assets.open("media-session.js").bufferedReader().use { it.readText() }
         val messages = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
         if (messages) {
+            WebViewCompat.addWebMessageListener(view, "AoedeHost", setOf(origin.rule)) {
+                _, message, source, mainFrame, _ ->
+                if (mainFrame && ServerOrigin.from(source) == origin) {
+                    if (message.data == "settings") activity.get()?.openServerSettings()
+                    else frontend.prepare(message.data.orEmpty())?.let { target -> view.loadUrl(target) }
+                }
+            }
             WebViewCompat.addWebMessageListener(view, "AoedeMedia", setOf(origin.rule)) {
                 _, message, source, mainFrame, _ ->
                 if (mainFrame && ServerOrigin.from(source) == origin) {
@@ -87,6 +100,9 @@ class AoedeApp : Application() {
             )
         }
         view.webViewClient = object : WebViewClient() {
+            override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
+                frontend.intercept(request.url, request.method, request.isForMainFrame)
+
             private fun navigate(uri: Uri, userInitiated: Boolean = true): Boolean {
                 if (ServerOrigin.from(uri) == origin) return false
                 if (uri.scheme in setOf("https", "http")) {
@@ -178,7 +194,13 @@ class AoedeApp : Application() {
                 return true
             }
         }
-        view.loadUrl(url)
+        if (messages && WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
+            ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
+                override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
+                    frontend.intercept(request.url, request.method, request.isForMainFrame)
+            })
+        }
+        view.loadUrl(origin.rule + "/_aoede/start")
         return view
     }
 

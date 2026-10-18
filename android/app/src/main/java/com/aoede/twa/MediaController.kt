@@ -42,6 +42,8 @@ class MediaController(private val app: AoedeApp) {
     }
     var serverOrigin: ServerOrigin? = null
     var onChanged: (() -> Unit)? = null
+    var metadata = MediaMetadataCompat.Builder().build()
+        private set
     var state = "none"
         private set
     val isPlaying get() = state == "playing"
@@ -62,6 +64,7 @@ class MediaController(private val app: AoedeApp) {
     }
 
     fun setActionInvoker(value: ((String, Long) -> Unit)?) { invoker = value }
+    fun supports(action: String) = action in actions
 
     fun command(action: String, position: Long = 0) {
         if (action in setOf("play", "nexttrack", "previoustrack")) locallyPaused = false
@@ -127,13 +130,14 @@ class MediaController(private val app: AoedeApp) {
     }
 
     private fun emitMetadata() {
-        val metadata = MediaMetadataCompat.Builder()
+        val builder = MediaMetadataCompat.Builder()
             .putString(MediaMetadataCompat.METADATA_KEY_TITLE, title)
             .putString(MediaMetadataCompat.METADATA_KEY_ARTIST, artist)
             .putString(MediaMetadataCompat.METADATA_KEY_ALBUM, album)
             .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, durationMs)
-        artwork?.let { metadata.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) }
-        mediaSession.setMetadata(metadata.build())
+        artwork?.let { builder.putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, it) }
+        metadata = builder.build()
+        mediaSession.setMetadata(metadata)
         notifyChanged()
     }
 
@@ -162,6 +166,7 @@ class MediaController(private val app: AoedeApp) {
         if (fingerprint != lastNotified) {
             lastNotified = fingerprint
             onChanged?.invoke()
+            PlaybackWidget.update(app)
         }
     }
 
