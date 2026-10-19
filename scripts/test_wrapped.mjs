@@ -52,7 +52,7 @@ function launch({ reduced = false, ready = 0 } = {}) {
     createElement: () => new Node()
   };
   const window = {
-    WRAPPED_STORY: { year: 2026, username: '<alice>' }, location: {}, performance: { now: () => now },
+    WRAPPED_STORY: { year: 2026, username: '<alice>' }, location: { replace(url) { this.replaced = url; } }, performance: { now: () => now },
     matchMedia: () => ({ matches: reduced }), addEventListener() {},
     setTimeout(callback, delay) { const id = ++sequence; timers.set(id, { callback, at: now + delay }); return id; },
     clearTimeout: id => timers.delete(id), setInterval: () => ++sequence, clearInterval() {}
@@ -136,15 +136,21 @@ app.context.fetch = async url => {
   if (url.endsWith('/party')) throw Error('Party unavailable');
   return { ok: true, json: async () => payload };
 };
+app.context.navigator.mediaSession = { setActionHandler() {} }; // Android bridge without a MediaMetadata constructor.
 await app.init();
+assert.equal(app.context.navigator.mediaSession.metadata.title, 'Aoede Wrapped 2026');
 assert.equal(app.state.slides.length, 10); assert.equal(app.state.index, 0);
 assert.equal(app.state.preloadedAudios.size, 0);
 app.setStoryPaused(true);
 for (let i = 1; i < 10; i++) app.go(1);
 assert.equal(app.state.index, 9); assert.equal(app.nodes.get('story-stage').children.length, 1);
 assert.match(app.state.slides[4].html, /&lt;script&gt;bad&lt;\/script&gt;/);
-app.go(-1); app.go(-1); assert.equal(app.state.index, 7); // Rapid navigation cannot leave a stale slide.
-app.stopStoryAudio();
+app.state.keydownHandler({ key: 'ArrowLeft', target: { closest: selector => selector.includes('button') ? {} : null }, preventDefault() {}, stopPropagation() {}, stopImmediatePropagation() {} });
+assert.equal(app.state.index, 8);
+app.go(-1); assert.equal(app.state.index, 7); // Rapid navigation cannot leave a stale slide.
+app.go(1); app.go(1); assert.equal(app.nodes.get('story-next').disabled, false);
+app.go(1); assert.equal(app.window.location.replaced, '/wrapped/2026');
+assert.equal(app.state.closed, true);
 app.context.fetch = async () => ({ ok: true, json: async () => { throw SyntaxError('HTML'); } });
 assert.equal(await app.fetchJson('/api/wrapped/2026'), null);
 console.log('PASS: Wrapped clocks, pause/visibility, cancelled previews, repeat continuation, Aoede intro, reduced motion, navigation and partial API failure.');

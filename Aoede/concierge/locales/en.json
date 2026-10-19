@@ -491,5 +491,9 @@
     "admin.internal_note_placeholder": "Optional internal note",
     "admin.duplicate_filter_placeholder": "Song, artist, album or filename",
     "delete_request.reason_placeholder": "Why should this track be removed? (required)",
-    "library.favorites_only": "Favorites only"
+    "library.favorites_only": "Favorites only",
+    "admin.login_security": "Sign-in security",
+    "admin.login_blocked": "{user}: repeated failed sign-ins have blocked {sources} associated IP address(es). Remaining: {minutes}m {seconds}s.",
+    "admin.login_unblocked": "{user}: no active brute-force IP restriction.",
+    "admin.login_status_error": "Could not check sign-in restrictions."
 }

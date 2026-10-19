@@ -491,5 +491,9 @@
     "admin.internal_note_placeholder": "Nota interna opcional",
     "admin.duplicate_filter_placeholder": "Canción, artista, álbum o nombre del archivo",
     "delete_request.reason_placeholder": "¿Por qué debería eliminarse esta canción? (obligatorio)",
-    "library.favorites_only": "Solo favoritos"
+    "library.favorites_only": "Solo favoritos",
+    "admin.login_security": "Seguridad de acceso",
+    "admin.login_blocked": "{user}: los intentos fallidos han bloqueado {sources} IP(s) asociadas. Tiempo restante: {minutes} min {seconds} s.",
+    "admin.login_unblocked": "{user}: sin bloqueo activo de IP por fuerza bruta.",
+    "admin.login_status_error": "No se han podido consultar las restricciones de acceso."
 }

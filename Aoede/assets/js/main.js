@@ -390,6 +390,7 @@ if (window.USER_DATA?.is_admin) {
     window.toggleRole = admin.toggleRole;
     window.createUser = admin.createUser;
     window.resetPassword = admin.resetPassword;
+    window.showLoginLockInfo = admin.showLoginLockInfo;
     window.adminSearchLibrary = admin.adminSearchLibrary;
     window.adminFindDuplicates = admin.adminFindDuplicates;
     window.adminAuditLibrary = admin.adminAuditLibrary;
@@ -469,18 +470,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _serverView = isDeviceOffline ? 'offline' : (window.AOEDE_INITIAL_VIEW ?? 'home');
   const _serverParam = isDeviceOffline ? null : (window.AOEDE_INITIAL_PARAM ?? null);
 
-  if (window.location.pathname === '/' || window.location.pathname === '/index.html') {
+  const hasInitialView = window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home';
+  if (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname)) {
     if (isDeviceOffline) {
       views.loadView('offline', null, { replaceHistory: true });
-    } else if (restoredSession?.view && restoredSession.view !== 'home') {
-      views.loadView(restoredSession.view, restoredSession.param ?? null, { replaceHistory: true });
-    } else {
-      views.loadView(_serverView, _serverParam, { replaceHistory: true });
-    }
-  } else if (window.location.pathname === '/portal') {
-    if (isDeviceOffline) {
-      views.loadView('offline', null, { replaceHistory: true });
-    } else if (restoredSession?.view && restoredSession.view !== 'home') {
+    } else if (!hasInitialView && restoredSession?.view && restoredSession.view !== 'home') {
       views.loadView(restoredSession.view, restoredSession.param ?? null, { replaceHistory: true });
     } else {
       views.loadView(_serverView, _serverParam, { replaceHistory: true });

@@ -483,7 +483,7 @@ async def login(
     # But as it is an HTML form, sometimes it is better to capture it to show it nicely,
     # although HTTPException works well.
     try:
-        security.check_brute_force(request)
+        security.check_brute_force(request, username)
     except Exception as e:
         # B-01: .detail only exists on HTTPException; use getattr as safe fallback
         detail = getattr(e, "detail", str(e))
@@ -509,7 +509,7 @@ async def login(
             auth.verify_password(password, user.hashed_password)
         except Exception:
             pass
-        is_blocked = security.register_failed_attempt(request)
+        is_blocked = security.register_failed_attempt(request, username)
         msg = "Invalid credentials"
         if is_blocked:
             msg = "Temporarily blocked for security (15 min)."
@@ -522,7 +522,7 @@ async def login(
         or not auth.verify_password(password, user.hashed_password)
     ):
         # Register the hit
-        is_blocked = security.register_failed_attempt(request)
+        is_blocked = security.register_failed_attempt(request, username)
 
         msg = "Invalid credentials"
         if is_blocked:

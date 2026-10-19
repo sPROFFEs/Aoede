@@ -245,3 +245,19 @@ assert.equal(browserModal.dataset.provider, 'qobuz');
 assert.equal(browserFrame.src, '/admin/auth-browser/vnc.html');
 assert.deepEqual(verifyButtons.map(button => button.disabled), [false, false, true]);
 console.log('PASS: verification startup blocks duplicate requests, preserves unavailable providers and recovers after resource/network failures.');
+
+// Execute the real initial-route selection, including server-rendered deep links.
+const entry = await readFile(new URL('../Aoede/assets/js/main.js', import.meta.url), 'utf8');
+const initialRoute = entry.slice(entry.indexOf('  const restoredSession ='), entry.indexOf('  // Initialize Lucide icons'));
+for (const pathname of ['/wrapped/2026', '/wrapped', '/portal']) {
+  const loads = [];
+  const routeContext = vm.createContext({
+    window: { location: { pathname }, AOEDE_INITIAL_VIEW: 'wrapped', AOEDE_INITIAL_PARAM: 2026 },
+    navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'playlist', param: 123 }) },
+    views: { loadView: (...args) => loads.push(args) }, console
+  });
+  await vm.runInContext(`(async () => {${initialRoute}})()`, routeContext);
+  assert.equal(loads.length, 1);
+  assert.equal(loads[0][0], 'wrapped'); assert.equal(loads[0][1], 2026);
+}
+console.log('PASS: Wrapped summary deep links start the actual initial view and override a restored playback view.');

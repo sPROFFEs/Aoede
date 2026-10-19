@@ -21,6 +21,7 @@ import media_metadata
 import operations_service
 import path_security
 import psutil
+import security
 import storage_maintenance
 import track_identity
 import wrapped_service
@@ -212,10 +213,22 @@ async def admin_panel(request: Request, db: Session = Depends(get_db)):
             "username": admin.username,
             "is_admin": True,
             "users": users,
+            "login_blocks": security.get_login_blocks(),
             "stats": stats,
             "pool": {"used": u_gb, "limit": l_gb, "percent": pct},
         },
     )
+
+
+@router.get("/api/users/{user_id}/login-lock")
+def user_login_lock(user_id: int, db: Session = Depends(get_db), admin: database.User = Depends(get_current_admin)):
+    user = db.get(database.User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    status = security.get_login_blocks().get(
+        user.username, {"blocked": False, "blocked_sources": 0, "remaining_seconds": 0, "expires_at": None}
+    )
+    return JSONResponse({"username": user.username, **status}, headers={"Cache-Control": "private, no-store"})
 
 
 @router.get("/song-delete-requests")

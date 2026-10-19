@@ -24,6 +24,8 @@
     }
     const menu = document.querySelector('details[open]');
     if (menu) { menu.open = false; menu.querySelector('summary')?.focus(); return true; }
+    const storyClose = document.querySelector('#story-close');
+    if (storyClose) { storyClose.click(); return true; }
     return false;
   };
   document.addEventListener('submit', event => {

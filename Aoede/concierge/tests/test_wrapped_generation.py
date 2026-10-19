@@ -1,3 +1,4 @@
+import asyncio
 import json
 import threading
 import time
@@ -196,13 +197,13 @@ def test_top_songs_save_batches_track_lookup_keeps_order_and_avoids_empty_playli
 
     event.listen(db_session.bind, "before_cursor_execute", record)
     try:
-        result = routes.save_wrapped_top_songs_playlist(2026, None, db_session)
+        result = asyncio.run(routes.save_wrapped_top_songs_playlist(2026, None, db_session))
         assert result.status_code == 200 and json.loads(result.body)["track_count"] == 2
         assert len(selects) == 1
         saved = db_session.query(database.PlaylistItem).order_by(database.PlaylistItem.position).all()
         assert [(item.track_id, item.position) for item in saved] == [(ids[2], 0), (ids[0], 1)]
         payload["top_songs_playlist"]["tracks"] = [{"db_id": 999}]
-        assert routes.save_wrapped_top_songs_playlist(2026, None, db_session).status_code == 404
+        assert asyncio.run(routes.save_wrapped_top_songs_playlist(2026, None, db_session)).status_code == 404
         assert db_session.query(database.Playlist).count() == 1
     finally:
         event.remove(db_session.bind, "before_cursor_execute", record)
@@ -228,3 +229,82 @@ def test_dashboard_availability_requires_auth_respects_window_and_never_builds_s
         assert response.headers["cache-control"] == "private, no-store"
     monkeypatch.setattr(routes, "get_current_user_safe", lambda *a: None)
     assert routes.get_user_wrapped(2026, None, summary=False, db=db_session).status_code == 401
+
+
+def test_real_wrapped_routes_build_summary_save_top100_and_schedule_sync_on_event_loop(
+    db_session, tmp_path, monkeypatch
+):
+    import auth
+    import httpx
+    import personalization_service as history
+    from fastapi import FastAPI
+
+    with patch("docker.from_env", return_value=MagicMock()):
+        from routers.music import favorites, playlists
+        from routers.music import wrapped as routes
+
+    def cache(username):
+        path = tmp_path / username / "cache"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    monkeypatch.setattr(history, "_user_cache_dir", cache)
+    monkeypatch.setattr(wrapped, "get_wrapped_summary_db_path", lambda: tmp_path / "wrapped.db")
+    monkeypatch.setattr(wrapped, "WRAPPED_ARTIST_IMAGE_CACHE_PATH", tmp_path / "artists.json")
+    monkeypatch.setattr(playlists.settings, "MUSIC_ROOT", str(tmp_path / "music"))
+    user = database.User(username="alice", hashed_password="unused", is_active=True)
+    db_session.add(user)
+    tracks = [
+        database.Track(title=f"Song {i}", artist="Artist", duration=180, filepath=f"/pool/{i}.mp3") for i in range(105)
+    ]
+    db_session.add_all(tracks)
+    db_session.commit()
+    wrapped.update_wrapped_settings(db_session, enabled=True)
+    year = wrapped.get_operational_wrapped_year(db_session)
+    history.ensure_user_activity_db(user.username)
+    with closing(history._connect(user.username)) as conn, conn:
+        conn.executemany(
+            "INSERT INTO user_tracking_raw(event_type, track_id, session_id, played_ms, duration_ms, timestamp_utc, dedupe_key, inserted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    "play_complete",
+                    t.id,
+                    f"session-{t.id}",
+                    180000,
+                    180000,
+                    f"{year}-01-01T12:00:00+00:00",
+                    f"key-{t.id}",
+                    f"{year}-01-01T12:00:00+00:00",
+                )
+                for t in tracks
+            ],
+        )
+    app = FastAPI()
+    app.include_router(routes.router)
+    app.dependency_overrides[routes.get_db] = lambda: db_session
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="https://aoede.test") as client:
+            assert (await client.get(f"/api/wrapped/{year}")).status_code == 401
+            client.cookies.set("access_token", auth.create_access_token({"sub": "alice"}))
+            response = await client.get(f"/api/wrapped/{year}")
+            assert response.status_code == 200
+            payload = response.json()
+            assert payload["qualified_event_count"] == 105 and len(payload["top_songs_playlist"]["tracks"]) == 100
+            assert (await client.get(f"/api/wrapped/{year}/party")).json()["user_count"] == 1
+            response = await client.post(f"/api/wrapped/{year}/top-songs/playlist")
+            assert response.status_code == 200 and response.json()["track_count"] == 100
+            playlist = db_session.get(database.Playlist, response.json()["id"])
+            assert [item.track_id for item in sorted(playlist.items, key=lambda i: i.position)] == [
+                t["db_id"] for t in payload["top_songs_playlist"]["tracks"]
+            ]
+            assert len(open(playlist.m3u_path).read().split("#EXTINF:")) == 101
+            # Real scheduling functions must run successfully; no mocked scheduler can hide a thread/loop error.
+            assert user.username in playlists._playlist_sync_tasks
+            assert user.username in favorites._navidrome_sync_tasks
+            for jobs in (playlists._playlist_sync_tasks, favorites._navidrome_sync_tasks):
+                task = jobs.pop(user.username)
+                task.cancel()
+                await asyncio.gather(task, return_exceptions=True)
+
+    asyncio.run(check())

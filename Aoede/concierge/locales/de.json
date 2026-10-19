@@ -491,5 +491,9 @@
     "admin.internal_note_placeholder": "Optionale interne Notiz",
     "admin.duplicate_filter_placeholder": "Song, Künstler, Album oder Dateiname",
     "delete_request.reason_placeholder": "Warum soll dieser Song entfernt werden? (erforderlich)",
-    "library.favorites_only": "Nur Favoriten"
+    "library.favorites_only": "Nur Favoriten",
+    "admin.login_security": "Anmeldesicherheit",
+    "admin.login_blocked": "{user}: Fehlgeschlagene Anmeldungen haben {sources} zugehörige IP-Adresse(n) gesperrt. Verbleibend: {minutes} Min. {seconds} Sek.",
+    "admin.login_unblocked": "{user}: keine aktive Brute-Force-IP-Sperre.",
+    "admin.login_status_error": "Anmeldebeschränkungen konnten nicht geprüft werden."
 }

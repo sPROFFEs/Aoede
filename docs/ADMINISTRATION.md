@@ -95,6 +95,10 @@ unset AOEDE_ADMIN_USERNAME AOEDE_ADMIN_PASSWORD
 
 The password is read without terminal echo and passed through the environment rather than as a visible command-line argument.
 
+### Sign-in restrictions
+
+The info button beside each username checks current brute-force restrictions and displays their reason and remaining minutes/seconds in a translated toast. Its Refresh action rechecks the countdown; active restrictions highlight the button. Only administrators can query this status. The existing protection is IP-based: usernames are associated with attempted sign-ins from a blocked IP, including another user attempting access from that same IP. Other IPs remain unaffected. Client IPs are not returned by the status endpoint. Restrictions expire after the existing 15-minute period and the failure counter then starts again. As before, this state is in memory in the serving process and resets on restart.
+
 ## System Monitor
 
 The System Monitor combines operational information and actions:
@@ -115,6 +119,8 @@ Storage cleanup and Wrapped reset actions are intentionally destructive. Read th
 When Wrapped is enabled and within its visibility window, **Watch Wrapped** appears near the top of Home in every theme. The dashboard checks availability without generating an annual summary; reports load when opened. An unrelated feed failure cannot hide the available entry. Android clients need APK 1.1.5 for this dashboard fix.
 
 Full regeneration analyzes each active listener once, then reuses those summaries for the community ranking and year-end snapshot. Service accounts are excluded. Artist images are deduplicated across listeners, fetched with at most four concurrent lookups and cached (30 days for a match, seven days for an empty result); a failed refresh retains an existing image. Large track lookups use batches of 500 IDs. Summary generation runs outside the asynchronous request loop, and snapshots resolve missing summaries before opening their SQLite write transaction. Finalized snapshots remain immutable.
+
+Summary deep links take priority over a restored playback view. Saving Top Songs stores up to 100 ranked tracks, refreshes the sidebar and opens the saved playlist; synchronization runs on the event loop. Story Close and Android Back return to Home, and the last Next button opens Summary. Leaving replaces the story history entry so Back cannot reopen an already-stopped story.
 
 The story presentation has an Aoede wordmark intro, geometric motion, staggered rankings and responsive controls with safe-area insets. Its original CSS animation takes inspiration from [Spotify Design's account of Wrapped motion](https://medium.com/spotify-design/how-we-brought-2020-wrapped-to-life-in-the-mobile-app-4ed1b839ed23), with no Spotify assets or external animation CDN. Reduced-motion preferences and Android's reduced-effects setting disable decorative movement. Pausing or hiding the page preserves slide, preview and repeat-list timing; returning does not override a manual pause. Music previews load only when needed, and navigation cancels pending playback. Failed requests offer a retry, while an unavailable community ranking does not block personal stories.
 

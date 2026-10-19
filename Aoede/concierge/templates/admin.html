@@ -106,7 +106,11 @@
                     {% for u in users %}
                     <tr>
                         <td data-label="{{ _('admin.table_identity') }}">
-                            <div class="admin-user-name">{{ u.username }}</div>
+                            <div class="admin-user-name"><span>{{ u.username }}</span>
+                                <button type="button" class="admin-icon-btn{{ ' danger' if (login_blocks|default({})).get(u.username) else '' }}" onclick="showLoginLockInfo({{ u.id }}, this)" title="{{ _('admin.login_security') }}" aria-label="{{ _('admin.login_security') }}: {{ u.username }}">
+                                    <i data-lucide="info" width="16" height="16"></i>
+                                </button>
+                            </div>
                             <div class="admin-user-meta">AUTH_ID: {{ u.id }}</div>
                         </td>
                         <td data-label="{{ _('admin.table_privileges') }}">

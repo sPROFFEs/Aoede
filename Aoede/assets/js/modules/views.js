@@ -718,7 +718,7 @@ function renderWrappedParty(party) {
 
 export async function renderWrapped(container, yearParam = null) {
   const year = Number(yearParam || new Date().getFullYear());
-  const [wrapped, party] = await Promise.all([api.fetchWrapped(year), api.fetchWrappedParty(year)]);
+  const [wrapped, party] = await Promise.all([api.fetchWrapped(year), api.fetchWrappedParty(year).catch(() => null)]);
   if (!wrapped || wrapped.enabled === false || wrapped.visible === false || wrapped.error) {
     container.innerHTML = `<div class="empty-state glass-panel"><p>Wrapped is not available right now.</p></div>`;
     return;
@@ -748,7 +748,7 @@ export async function renderWrapped(container, yearParam = null) {
                         <i data-lucide="sparkles"></i>
                         <span>Watch Story</span>
                     </a>
-                    <button class="btn-primary-lg" onclick="saveWrappedTopSongsPlaylist(${year})">
+                    <button class="btn-primary-lg" onclick="saveWrappedTopSongsPlaylist(${year}, this)" ${tracks.length ? '' : 'disabled'}>
                         <i data-lucide="save"></i>
                         <span>Save Top Songs</span>
                     </button>
@@ -1805,15 +1805,20 @@ export async function saveMixAsPlaylistAction(mixKey) {
   loadView('playlist', saved.id);
 }
 
-export async function saveWrappedTopSongsPlaylist(year) {
-  const saved = await api.saveWrappedTopSongsPlaylist(year);
-  if (!saved) {
-    ui.showToast('Could not save Wrapped playlist', 'error');
-    return;
+export async function saveWrappedTopSongsPlaylist(year, button = null) {
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    const saved = await api.saveWrappedTopSongsPlaylist(year);
+    if (!saved) throw new Error('Could not save Wrapped playlist');
+    await loadUserData();
+    ui.showToast('Wrapped playlist saved', 'success');
+    await loadView('playlist', saved.id);
+  } catch (error) {
+    ui.showToast(error.message || 'Could not save Wrapped playlist', 'error');
+  } finally {
+    if (button) button.disabled = false;
   }
-  await api.loadUserData();
-  ui.showToast('Wrapped playlist saved', 'success');
-  loadView('playlist', saved.id);
 }
 
 export function initHeartbeatLifecycle() {

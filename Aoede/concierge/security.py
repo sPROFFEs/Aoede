@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import math
 import time
 from urllib.parse import urlparse
 
@@ -108,7 +109,33 @@ def validate_same_origin(request: Request) -> None:
         raise HTTPException(status_code=403, detail="Cross-origin request rejected")
 
 
-def check_brute_force(request: Request):
+def _remember_login_username(record: dict, username: str | None) -> None:
+    if not isinstance(username, str) or not 0 < len(username) <= 32:
+        return
+    names = record.setdefault("usernames", set())
+    # ponytail: bounded attribution per IP; a persistent audit is a separate feature.
+    if len(names) < 64:
+        names.add(username)
+
+
+def get_login_blocks() -> dict[str, dict]:
+    """Attribute active IP restrictions to attempted usernames, without exposing client IPs."""
+    now = time.time()
+    blocks = {}
+    for record in list(login_attempts.values()):
+        until = record["block_until"]
+        if until <= now:
+            continue
+        for username in tuple(record.get("usernames", ())):
+            block = blocks.setdefault(username, {"blocked": True, "blocked_sources": 0, "expires_at": 0})
+            block["blocked_sources"] += 1
+            block["expires_at"] = max(block["expires_at"], until)
+    for block in blocks.values():
+        block["remaining_seconds"] = math.ceil(block["expires_at"] - now)
+    return blocks
+
+
+def check_brute_force(request: Request, username: str | None = None):
     """
     Called BEFORE processing login. If banned, raises 429 error.
     Also triggers a periodic sweep of stale entries (every _PURGE_EVERY calls).
@@ -129,6 +156,7 @@ def check_brute_force(request: Request):
 
     # 1. Is IP currently in jail?
     if record["block_until"] > now:
+        _remember_login_username(record, username)
         remaining = int(record["block_until"] - now)
         logger.warning(f"Blocked IP {client_ip} tried to enter. Remaining {remaining}s")
         raise HTTPException(
@@ -137,21 +165,27 @@ def check_brute_force(request: Request):
 
     # 2. If reset time passed without block, clear history
     # (Ex: failed 2 times yesterday, today enters clean)
-    if record["block_until"] == 0 and (now - record["last_seen"] > RESET_TIME):
+    if record["block_until"] > 0 or (now - record["last_seen"] > RESET_TIME):
         del login_attempts[client_ip]
 
 
-def register_failed_attempt(request: Request) -> bool:
+def register_failed_attempt(request: Request, username: str | None = None) -> bool:
     """
     Called when password fails. Returns True if just blocked.
     """
     client_ip = get_real_ip(request)
     now = time.time()
 
+    previous = login_attempts.get(client_ip)
+    if previous and (
+        0 < previous["block_until"] <= now or previous["block_until"] == 0 and now - previous["last_seen"] > RESET_TIME
+    ):
+        del login_attempts[client_ip]
     if client_ip not in login_attempts:
         login_attempts[client_ip] = {"attempts": 0, "block_until": 0, "last_seen": now}
 
     record = login_attempts[client_ip]
+    _remember_login_username(record, username)
     record["attempts"] += 1
     record["last_seen"] = now
 

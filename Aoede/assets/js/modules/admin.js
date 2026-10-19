@@ -6,6 +6,34 @@
 import * as state from './state.js';
 import * as ui from './ui.js';
 
+export async function showLoginLockInfo(userId, button = null) {
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    const response = await fetch(`/admin/api/users/${encodeURIComponent(userId)}/login-lock`, { cache: 'no-store' });
+    if (!response.ok) throw new Error();
+    const status = await response.json();
+    button?.classList.toggle('danger', status.blocked);
+    const remaining = Math.max(0, Math.ceil(Number(status.remaining_seconds) || 0));
+    const message = status.blocked
+      ? ui.t('admin.login_blocked', '', {
+          user: status.username,
+          sources: status.blocked_sources,
+          minutes: Math.floor(remaining / 60),
+          seconds: remaining % 60
+        })
+      : ui.t('admin.login_unblocked', '', { user: status.username });
+    ui.showToast(message, status.blocked ? 'warning' : 'info', {
+      label: ui.t('library.refresh_button', 'Refresh'),
+      callback: () => showLoginLockInfo(userId, button)
+    });
+  } catch {
+    ui.showToast(ui.t('admin.login_status_error', 'Could not check sign-in restrictions.'), 'error');
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 // === TOGGLE PASSWORD RESET ROW ===
 
 export function toggleReset(id) {

@@ -5,6 +5,7 @@ import wrapped_service
 from fastapi import APIRouter, BackgroundTasks, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from .core import get_current_user_safe, get_db
 
@@ -70,7 +71,7 @@ def get_wrapped_party(
 
 
 @router.post("/api/wrapped/{year}/top-songs/playlist")
-def save_wrapped_top_songs_playlist(year: int, request: Request, db: Session = Depends(get_db)):
+async def save_wrapped_top_songs_playlist(year: int, request: Request, db: Session = Depends(get_db)):
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -80,7 +81,7 @@ def save_wrapped_top_songs_playlist(year: int, request: Request, db: Session = D
 
     operational_year = int(visibility.get("year") or wrapped_service.get_operational_wrapped_year(db))
     try:
-        summary = wrapped_service.get_or_build_user_wrapped_summary(db, user, operational_year)
+        summary = await run_in_threadpool(wrapped_service.get_or_build_user_wrapped_summary, db, user, operational_year)
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 

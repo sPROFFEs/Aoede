@@ -92,6 +92,13 @@ assert.equal(closed, true);
 assert.equal(escaped, false);
 console.log('Android viewport and Back: safe areas, keyboard, dialogs and player dismissal passed');
 
+surfaces.clear();
+let storyClosed = false;
+surfaces.set('#story-close', { click() { storyClosed = true; } });
+assert.equal(runtimeWindow.__aoedeBack(), true);
+assert.equal(storyClosed, true);
+surfaces.clear();
+
 surfaces.delete('#modal-container .modal');
 let staticDialogClosed = false;
 surfaces.set('.modal-overlay:not(.hidden) .modal-close', { click: () => staticDialogClosed = true });

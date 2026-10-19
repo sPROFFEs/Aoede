@@ -176,20 +176,33 @@
 
   function updateWrappedMediaSession() {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.playbackState = state.paused ? 'paused' : 'playing';
+    try {
+      navigator.mediaSession.playbackState = state.paused ? 'paused' : 'playing';
+    } catch {
+      /* Optional WebView API. */
+    }
   }
 
   function setupWrappedMediaSession() {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.metadata = new MediaMetadata({
+    const metadata = {
       title: `Aoede Wrapped ${state.year}`,
       artist: state.username || 'Aoede',
       album: 'Wrapped'
-    });
+    };
+    try {
+      navigator.mediaSession.metadata = typeof MediaMetadata === 'function' ? new MediaMetadata(metadata) : metadata;
+    } catch {
+      /* Unsupported native metadata must not prevent story navigation. */
+    }
     ['play', 'pause'].forEach((action) => {
-      navigator.mediaSession.setActionHandler(action, () => {
-        setStoryPaused(action === 'pause');
-      });
+      try {
+        navigator.mediaSession.setActionHandler(action, () => {
+          setStoryPaused(action === 'pause');
+        });
+      } catch {
+        /* Some WebViews expose only part of MediaSession. */
+      }
     });
     ['previoustrack', 'nexttrack', 'seekbackward', 'seekforward', 'seekto'].forEach((action) => {
       try {
@@ -603,7 +616,7 @@
         </div>
         <div class="story-actions">
             <button class="story-action" type="button" id="story-save-playlist">Save Top Songs</button>
-            <a class="story-action secondary" href="/wrapped/${state.year}">Summary</a>
+            <a class="story-action secondary" id="story-open-summary" href="/wrapped/${state.year}">Summary</a>
         </div>`,
         className: 'story-slide-copy'
       }
@@ -648,7 +661,8 @@
     playSlideAudio(slide);
     startRepeatList(slide);
     prev.disabled = state.index === 0;
-    next.disabled = state.index === state.slides.length - 1;
+    next.disabled = false;
+    next.setAttribute('aria-label', state.index === state.slides.length - 1 ? 'Open summary' : 'Next slide');
     scheduleNext();
   }
 
@@ -663,7 +677,7 @@
     stopPreviewLoudnessNormalization();
     if (state.currentAudio) {
       state.currentAudio.pause();
-      state.currentAudio.currentTime = 0;
+      if (state.currentAudio.readyState > 0) state.currentAudio.currentTime = 0;
       state.currentAudio = null;
     }
     if (!state.closed) fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_NORMAL, 600);
@@ -781,6 +795,10 @@
   }
 
   function bindSlideActions() {
+    document.getElementById('story-open-summary')?.addEventListener('click', (event) => {
+      event.preventDefault();
+      closeStoryToResume();
+    });
     const save = document.getElementById('story-save-playlist');
     if (!save) return;
     save.addEventListener('click', async () => {
@@ -815,7 +833,10 @@
   function go(direction) {
     if (state.introVisible || state.closed || !state.slides.length) return;
     const nextIndex = Math.min(Math.max(state.index + direction, 0), state.slides.length - 1);
-    if (nextIndex === state.index) return;
+    if (nextIndex === state.index) {
+      if (direction > 0 && state.index === state.slides.length - 1) closeStoryToResume();
+      return;
+    }
     state.index = nextIndex;
     renderSlide(direction);
   }
@@ -882,7 +903,12 @@
 
   function closeStoryToResume() {
     stopStoryAudio();
-    window.location.href = `/wrapped/${state.year}`;
+    window.location.replace(`/wrapped/${state.year}`);
+  }
+
+  function closeStory() {
+    stopStoryAudio();
+    window.location.replace('/portal');
   }
 
   async function init() {
@@ -893,7 +919,7 @@
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      closeStoryToResume();
+      closeStory();
     });
     prev.addEventListener('click', () => go(-1));
     next.addEventListener('click', () => go(1));
@@ -912,7 +938,9 @@
       setStoryPaused(!state.userPaused);
     });
     state.keydownHandler = (event) => {
-      if (event.target.closest?.('a, button, input, textarea, select, [contenteditable]')) return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      if (event.target.closest?.('input, textarea, select, [contenteditable]')) return;
+      if (event.key === ' ' && event.target.closest?.('a, button')) return;
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         event.stopPropagation();
@@ -935,7 +963,7 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        closeStoryToResume();
+        closeStory();
       }
     };
     window.addEventListener('keydown', state.keydownHandler, true);
@@ -952,7 +980,10 @@
         syncPaused();
       }
     });
-    resumeTop.addEventListener('click', stopStoryAudio);
+    resumeTop.addEventListener('click', (event) => {
+      event.preventDefault();
+      closeStoryToResume();
+    });
     const intro = renderIntro();
 
     const [wrapped, party] = await Promise.all([

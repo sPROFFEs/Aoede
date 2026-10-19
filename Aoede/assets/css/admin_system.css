@@ -919,6 +919,9 @@
 }
 
 .admin-user-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     color: var(--admin-text);
     font-weight: 700;
 }
@@ -928,6 +931,9 @@
     font-size: .82rem;
     margin-top: 4px;
 }
+
+.admin-user-name > span { min-width: 0; overflow-wrap: anywhere; }
+.admin-user-name > button { flex-shrink: 0; }
 
 .admin-badge {
     display: inline-flex;

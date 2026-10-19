@@ -652,3 +652,20 @@ duplicateQuery.value = 'not found';
 duplicateHandlers.input({ target: { matches: () => true } });
 assert.deepEqual(duplicateGroups.map(group => group.hidden), [true, true, true]);
 console.log('PASS: duplicate match filters, file comparison, manual review hints and escaped metadata.');
+
+const lockNotices = [];
+let lockData = { username: 'alice', blocked: true, blocked_sources: 2, remaining_seconds: 61 };
+const lockButton = { disabled: false, classList: { toggle(_, active) { this.active = active; } } };
+const locks = (await load('admin.js', { fetch: async () => Response.json(lockData) }, {
+  './state.js': {}, './ui.js': { ...ui, t: (key, fallback, values) => key === 'admin.login_blocked' ? `${values.user}: ${values.sources} IPs, ${values.minutes}m ${values.seconds}s` : key === 'admin.login_unblocked' ? `${values.user}: no active restriction` : fallback,
+    showToast: (message, type) => lockNotices.push({ message, type }) }
+})).api;
+await locks.showLoginLockInfo(1, lockButton);
+assert.equal(lockNotices[0].message, 'alice: 2 IPs, 1m 1s');
+assert.equal(lockButton.classList.active, true);
+assert.equal(lockButton.disabled, false);
+lockData = { username: 'alice', blocked: false, blocked_sources: 0, remaining_seconds: 0 };
+await locks.showLoginLockInfo(1, lockButton);
+assert.equal(lockNotices[1].message, 'alice: no active restriction');
+assert.equal(lockButton.classList.active, false);
+console.log('PASS: admin sign-in restriction toast reports remaining time and clears expired status.');
