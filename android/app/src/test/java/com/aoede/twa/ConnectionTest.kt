@@ -89,6 +89,18 @@ class ConnectionTest {
         assertEquals(View.GONE, activity.findViewById<View>(R.id.connection_error).visibility)
     }
 
+    @Test fun recreationKeepsLightThemeBarsAndTheRetainedPlayer() {
+        val player = app.player
+        app.darkAppearance = false
+        lifecycle.recreate()
+        activity = lifecycle.get()
+        assertSame(player, app.player)
+        val sdk = android.os.Build.VERSION.SDK_INT
+        assertEquals(if (sdk < 23) 0x66000000 else android.graphics.Color.TRANSPARENT, activity.window.statusBarColor)
+        assertEquals(if (sdk < 26) 0x66000000 else android.graphics.Color.TRANSPARENT, activity.window.navigationBarColor)
+        if (sdk >= 23) assertTrue(androidx.core.view.WindowCompat.getInsetsController(activity.window, activity.window.decorView).isAppearanceLightStatusBars)
+    }
+
     @Test @Config(sdk = [34]) fun edgeToEdgeKeepsBarsInCssAndResizesOnlyOnceForKeyboard() {
         val root = activity.findViewById<View>(R.id.main_root)
         fun dispatch(keyboard: Boolean): androidx.core.view.WindowInsetsCompat {

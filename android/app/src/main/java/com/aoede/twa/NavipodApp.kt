@@ -35,6 +35,7 @@ class AoedeApp : Application() {
     private var playerUrl: String? = null
     var connectionFailure: Pair<String, String>? = null
         private set
+    internal var darkAppearance = true
     @Volatile var viewport = "{}"
         private set
     private val mobileRuntime by lazy { assets.open("mobile/runtime.js").bufferedReader().use { it.readText() } }
@@ -101,7 +102,7 @@ class AoedeApp : Application() {
                     else if (message.data.orEmpty().length < 128 && runCatching {
                         val payload = JSONObject(message.data.orEmpty())
                         if (payload.optString("type") != "appearance" || payload.opt("dark") !is Boolean) false
-                        else { activity.get()?.applyAppearance(payload.getBoolean("dark")); true }
+                        else { darkAppearance = payload.getBoolean("dark"); activity.get()?.applyAppearance(darkAppearance); true }
                     }.getOrDefault(false)) Unit
                     else frontend.prepare(message.data.orEmpty())?.let { target -> view.loadUrl(target) }
                 }
