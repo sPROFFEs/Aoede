@@ -126,7 +126,10 @@ def test_theme_migration_preserves_users_and_rendering_starts_with_saved_theme(d
     assert 'html[data-theme="vitrine"]' in vitrine
     assert "forced-colors" in vitrine and "prefers-reduced-transparency" in vitrine
     assert "prefers-color-scheme: dark" in css and "prefers-reduced-motion" in css and "forced-colors" in css
-    assert "safe-area-inset-bottom" in css and "@supports not" in css
+    assert "var(--safe-area-bottom" in css and "@supports not" in css
+    assert (
+        "env(safe-area-inset-bottom" in (Path(__file__).resolve().parents[2] / "assets/css/ui_tokens.css").read_text()
+    )
     assert (
         json.loads((Path(__file__).resolve().parents[1] / "locales/es.json").read_text())["appearance.title"]
         == "Apariencia"

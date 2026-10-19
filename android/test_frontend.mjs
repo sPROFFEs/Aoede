@@ -57,3 +57,43 @@ assert.deepEqual(result.redirects, ['reload']);
 assert.equal(result.calls[0], 'unregister');
 assert.equal(result.storage.has('aoede.android.bootstrap'), true);
 console.log('Android frontend: authentication, offline launch, compatibility, language and wrapper migration passed');
+
+// Exercise native Back and viewport updates without depending on an Android WebView.
+const surfaces = new Map(), properties = new Map();
+const root = { dataset: {}, style: { setProperty: (key, value) => properties.set(key, value) } };
+const runtimeWindow = {};
+vm.runInNewContext(readFileSync(new URL('./app/src/main/assets/mobile/runtime.js', import.meta.url), 'utf8'), {
+  window: runtimeWindow, Number,
+  document: { documentElement: root, readyState: 'loading', addEventListener() {}, querySelector: selector => surfaces.get(selector) },
+  KeyboardEvent: class { constructor(type, options) { this.type = type; Object.assign(this, options); } }
+});
+runtimeWindow.__aoedeApplyViewport({ top: 28, bottom: 24, left: 12, right: 0, keyboard: false });
+assert.equal(properties.get('--safe-area-left'), '12px');
+assert.equal(properties.get('--safe-area-bottom'), '24px');
+runtimeWindow.__aoedeApplyViewport({ bottom: 0, top: 'bad', keyboard: true });
+assert.equal(properties.get('--safe-area-top'), '28px');
+assert.equal(properties.get('--safe-area-bottom'), '0px');
+assert.equal(root.dataset.keyboard, 'open');
+assert.equal(runtimeWindow.__aoedeBack(), false);
+let focused = false, closed = false, escaped = false;
+const menu = { open: true, querySelector: () => ({ focus: () => focused = true }) };
+surfaces.set('details[open]', menu);
+assert.equal(runtimeWindow.__aoedeBack(), true);
+assert.equal(menu.open, false);
+assert.equal(focused, true);
+surfaces.set('.fullscreen-player.open', { dispatchEvent: event => { escaped = event.key === 'Escape' && event.bubbles; } });
+assert.equal(runtimeWindow.__aoedeBack(), true);
+assert.equal(escaped, true);
+runtimeWindow.closeModal = () => { closed = true; };
+surfaces.set('#modal-container .modal', {});
+escaped = false;
+assert.equal(runtimeWindow.__aoedeBack(), true);
+assert.equal(closed, true);
+assert.equal(escaped, false);
+console.log('Android viewport and Back: safe areas, keyboard, dialogs and player dismissal passed');
+
+surfaces.delete('#modal-container .modal');
+let staticDialogClosed = false;
+surfaces.set('.modal-overlay:not(.hidden) .modal-close', { click: () => staticDialogClosed = true });
+assert.equal(runtimeWindow.__aoedeBack(), true);
+assert.equal(staticDialogClosed, true);

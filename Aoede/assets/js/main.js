@@ -25,21 +25,17 @@ import * as audioEngine from './modules/audio_engine.js';
 import * as party from './modules/party.js';
 
 function initUserMenu() {
-  const userMenu = document.getElementById('user-menu');
-  if (!userMenu || userMenu.dataset.bound === 'true') return;
-  userMenu.dataset.bound = 'true';
-
-  document.addEventListener('click', (event) => {
-    if (!userMenu.hasAttribute('open')) return;
-    if (userMenu.contains(event.target)) return;
-    userMenu.removeAttribute('open');
-  });
-
-  document.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    if (!userMenu.hasAttribute('open')) return;
-    userMenu.removeAttribute('open');
-    userMenu.querySelector('summary')?.focus();
+  document.querySelectorAll('#user-menu, #m-topbar-more').forEach((userMenu) => {
+    if (userMenu.dataset.bound === 'true') return;
+    userMenu.dataset.bound = 'true';
+    document.addEventListener('click', (event) => {
+      if (userMenu.open && !event.composedPath().includes(userMenu)) userMenu.open = false;
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key !== 'Escape' || !userMenu.open) return;
+      userMenu.open = false;
+      userMenu.querySelector('summary')?.focus();
+    });
   });
 }
 

@@ -1,6 +1,6 @@
 # Android App
 
-Aoede Android 1.1.0 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.1 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
 
 ## Release artifacts
 
@@ -43,7 +43,9 @@ The bootstrap endpoint uses the existing signed session cookie and checks expiry
 The application provides:
 
 - an installed frontend with Classic, Glass and Vitrine themes, without startup CDN requests;
-- responsive phone, landscape and tablet layouts with keyboard, cutout and system-bar handling;
+- edge-to-edge phone and touch-landscape layouts with safe controls around cutouts and system bars;
+- a dock that adapts to playback and the keyboard, compact Vitrine spacing and a mobile More menu;
+- Android Back dismissing dialogs, fullscreen playback and menus before navigating;
 - an **Aoede player** home-screen widget with cover, title, artist and transport controls;
 - native system media notification;
 - album artwork, title and artist in the notification;

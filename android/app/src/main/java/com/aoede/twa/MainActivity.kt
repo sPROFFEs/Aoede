@@ -3,6 +3,7 @@ package com.aoede.twa
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
@@ -18,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.graphics.Insets
 
 class MainActivity : AppCompatActivity() {
     private val app get() = application as AoedeApp
@@ -54,13 +56,31 @@ class MainActivity : AppCompatActivity() {
         }
         setContentView(R.layout.activity_main)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.statusBarColor = Color.TRANSPARENT
+        window.navigationBarColor = Color.TRANSPARENT
+        if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_root)) { root, insets ->
-            val safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.ime())
-            root.setPadding(safe.left, safe.top, safe.right, safe.bottom)
-            WindowInsetsCompat.CONSUMED
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
+            val keyboard = insets.isVisible(WindowInsetsCompat.Type.ime()) && ime.bottom > bars.bottom
+            // Resize for the keyboard ourselves, including older WebViews. Forward system bars
+            // and zero only the handled IME type to avoid a second resize on WebView 139+.
+            root.setPadding(0, 0, 0, if (keyboard) ime.bottom else 0)
+            app.updateViewport(bars, keyboard)
+            val gear = findViewById<ImageButton>(R.id.btn_settings)
+            (gear.layoutParams as FrameLayout.LayoutParams).apply {
+                val density = resources.displayMetrics.density
+                marginEnd = (16 * density).toInt() + if (root.layoutDirection == View.LAYOUT_DIRECTION_RTL) bars.left else bars.right
+                bottomMargin = (24 * density).toInt() + if (keyboard) 0 else bars.bottom
+                gear.layoutParams = this
+            }
+            val errorPadding = (32 * resources.displayMetrics.density).toInt()
+            findViewById<View>(R.id.connection_error).setPadding(bars.left + errorPadding, bars.top + errorPadding, bars.right + errorPadding, bars.bottom + errorPadding)
+            WindowInsetsCompat.Builder(insets).setInsets(WindowInsetsCompat.Type.ime(), Insets.NONE).build()
         }
         val view = app.attachPlayer(this, url)
         findViewById<FrameLayout>(R.id.webview_container).addView(view)
+        ViewCompat.requestApplyInsets(findViewById(R.id.main_root))
         updatePage(view.url ?: url)
         app.connectionFailure?.let { (failed, detail) -> showConnectionError(failed, detail) }
         findViewById<View>(R.id.btn_retry).setOnClickListener {
@@ -71,9 +91,23 @@ class MainActivity : AppCompatActivity() {
         }
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (view.canGoBack()) view.goBack() else moveTaskToBack(true)
+                view.evaluateJavascript("Boolean(window.__aoedeBack && window.__aoedeBack())") { handled ->
+                    if (handled != "true" && !isFinishing && !isDestroyed) {
+                        if (view.canGoBack()) view.goBack() else moveTaskToBack(true)
+                    }
+                }
             }
         })
+    }
+
+    fun applyAppearance(dark: Boolean) {
+        // Older Android cannot draw dark bar icons; retain a scrim for light themes there.
+        window.statusBarColor = if (!dark && android.os.Build.VERSION.SDK_INT < 23) 0x66000000 else Color.TRANSPARENT
+        window.navigationBarColor = if (!dark && android.os.Build.VERSION.SDK_INT < 26) 0x66000000 else Color.TRANSPARENT
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
+        }
     }
 
     fun openServerSettings() {
@@ -94,6 +128,7 @@ class MainActivity : AppCompatActivity() {
     fun showConnectionError(url: String, detail: String) {
         if (ServerOrigin.from(Uri.parse(url)) != app.mediaController.serverOrigin) return
         failedUrl = url
+        applyAppearance(true)
         findViewById<TextView>(R.id.connection_error_detail).text = detail
         findViewById<View>(R.id.connection_error).visibility = View.VISIBLE
         updatePage(url)

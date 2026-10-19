@@ -89,6 +89,36 @@ class ConnectionTest {
         assertEquals(View.GONE, activity.findViewById<View>(R.id.connection_error).visibility)
     }
 
+    @Test @Config(sdk = [34]) fun edgeToEdgeKeepsBarsInCssAndResizesOnlyOnceForKeyboard() {
+        val root = activity.findViewById<View>(R.id.main_root)
+        fun dispatch(keyboard: Boolean): androidx.core.view.WindowInsetsCompat {
+            val insets = androidx.core.view.WindowInsetsCompat.Builder()
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.statusBars(), androidx.core.graphics.Insets.of(0, 28, 0, 0))
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars(), androidx.core.graphics.Insets.of(0, 0, 0, 24))
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.displayCutout(), androidx.core.graphics.Insets.of(12, 0, 0, 0))
+                .setInsets(androidx.core.view.WindowInsetsCompat.Type.ime(), androidx.core.graphics.Insets.of(0, 0, 0, if (keyboard) 280 else 0))
+                .setVisible(androidx.core.view.WindowInsetsCompat.Type.ime(), keyboard).build()
+            return androidx.core.view.ViewCompat.dispatchApplyWindowInsets(root, insets)
+        }
+        var forwarded = dispatch(false)
+        assertFalse(forwarded.isConsumed)
+        assertEquals(0, root.paddingTop)
+        assertEquals(0, root.paddingLeft)
+        assertEquals(0, root.paddingBottom)
+        val density = activity.resources.displayMetrics.density.toDouble()
+        assertEquals(28 / density, org.json.JSONObject(app.viewport).getDouble("top"), .01)
+        assertEquals(12 / density, org.json.JSONObject(app.viewport).getDouble("left"), .01)
+        forwarded = dispatch(true)
+        assertEquals(280, root.paddingBottom)
+        assertEquals(0, forwarded.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime()).bottom)
+        assertEquals(24, forwarded.getInsets(androidx.core.view.WindowInsetsCompat.Type.navigationBars()).bottom)
+        assertTrue(org.json.JSONObject(app.viewport).getBoolean("keyboard"))
+        assertEquals(0.0, org.json.JSONObject(app.viewport).getDouble("bottom"), .01)
+        dispatch(false)
+        assertEquals(0, root.paddingBottom)
+        assertEquals(24 / density, org.json.JSONObject(app.viewport).getDouble("bottom"), .01)
+    }
+
     @Test fun fileUploadsDeliverSelectedContentToWebviewAndCancellationCompletes() {
         val view = app.player!!
         val chrome = requireNotNull(shadowOf(view).webChromeClient)

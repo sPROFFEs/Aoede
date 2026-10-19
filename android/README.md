@@ -1,6 +1,6 @@
 # Aoede Android
 
-Android 1.1.0 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+Android 1.1.1 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
 
 Bundled resources are served only at the configured origin, including its exact scheme and port. Music streams, federation, uploads and API requests continue to reach that backend with its normal session cookie; no CORS proxy or copied token is involved. Server-rendered settings, help and admin forms still require the backend. The installed frontend updates with the APK. Backend support for `/api/mobile/bootstrap` (protocol 1, introduced with this client) is required; older servers display an update instruction instead of a JSON parsing error.
 
@@ -9,6 +9,9 @@ The application owns one retained WebView, so its document, queue and offline Bl
 Add **Aoede player** from the launcher's widget picker. Its cover and metadata follow the native media session; play/pause and previous/next control the existing player without opening the app. If Android has stopped the process, tapping the widget opens the app without pretending playback survived. Updates follow media events, with no periodic polling.
 
 Phones, landscape and tablets use the same responsive themes with touch targets, keyboard/cutout/system-bar insets and viewport-sized fullscreen playback. **Reduce visual effects** in server configuration disables expensive glass blur; low-memory devices default to reduced effects. Account theme preferences continue to sync through the backend.
+
+Version 1.1.1 draws backgrounds behind Android's system bars and forwards safe areas to the frontend, including older WebViews. Android resizes the viewport for the keyboard and zeroes only the handled IME insets, preventing a second resize in newer WebViews, following [Android's window inset guidance](https://developer.android.com/develop/ui/views/layout/webapps/understand-window-insets). The mobile dock hides while typing, with focus preserved; Back dismisses dialogs, player sheets and menus before navigating. The same mobile shell is used in touch landscape, and Vitrine uses tighter spacing on phones and desktop. Secondary actions (Create, Downloads, deletion responses and Admin) are in the mobile header's More menu; Library retains its search and create shortcuts.
+
 
 After a successful login, the last validated account context and installed shell can open downloaded music without the server. A 401/403 response or entering login clears that context; explicit logout also clears it before submission. A server outage can use the cached context, but HTTP errors and incompatible protocols never impersonate a valid login. The old wrapper's service worker is unregistered during migration; existing cookies and IndexedDB downloads are preserved. Force stop/process death still ends playback, and online features require a reachable backend.
 
@@ -51,7 +54,7 @@ Publishing also preserves the original 1.0.5 remote wrapper and its sources as `
 - Interrupt with another music app and a phone call; verify focus loss and appropriate resumption.
 - Check offline downloaded tracks, failed streams, long buffering and changing servers.
 - Add multiple player widgets; verify metadata, transport controls, local pause as a party guest and cold-process taps.
-- Check each theme at 320/360/412dp, landscape and tablet widths, including keyboard, user menus, modals, fullscreen lyrics and queue.
+- Check each theme at 320/360/412dp, landscape and tablet widths, including gesture/three-button navigation, keyboard, cutouts, user menus, modals, fullscreen lyrics and queue. Check bar icon contrast after changing theme and after opening/closing the fullscreen player.
 - Upgrade an installed 1.0.4/1.0.5 without uninstalling; verify cookies/downloads remain and old service-worker caches cannot replace installed modules.
 - Open Admin from System Monitor behind an HTTPS tunnel and on a server with a custom port; verify navigation, form submission and Back stay in the app.
 - Upload an avatar, a playlist cover and a cookies file; cancel the file picker and try again.

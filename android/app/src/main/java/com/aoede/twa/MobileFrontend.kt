@@ -59,7 +59,7 @@ class MobileFrontend(private val context: Context, private val origin: ServerOri
             if (login && loginError.isBlank()) document = Regex("<div class=\"error-pill-pro\">.*?</div>", RegexOption.DOT_MATCHES_ALL).replace(document, "")
             document = Regex("AOEDE_MOBILE_(USERNAME|THEME|POOL_USED|POOL_LIMIT|LOGIN_ERROR)").replace(document) { replacements.getValue(it.groupValues[1]) }
             val offline = payload.optBoolean("offline") && !login
-            val flags = "<script>window.AOEDE_ANDROID=true;window.AOEDE_NATIVE_OFFLINE=$offline;window.AOEDE_NATIVE_POOL=${number("percent").coerceAtMost(100.0)};</script>"
+            val flags = "<script>window.AOEDE_ANDROID=true;window.AOEDE_VIEWPORT=${(context.applicationContext as AoedeApp).viewport};window.AOEDE_NATIVE_OFFLINE=$offline;window.AOEDE_NATIVE_POOL=${number("percent").coerceAtMost(100.0)};</script>"
             document = document.replace("<head>", "<head>$flags")
             val reduced = context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).getBoolean("reduce_effects",
                 (context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice)

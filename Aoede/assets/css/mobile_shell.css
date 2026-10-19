@@ -28,6 +28,15 @@
  *  Sidebar disappears; top-bar (search pill + history) disappears;
  *  the layout grid collapses to a single column for the main view. */
 
+body {
+    --mobile-nav-height: 60px;
+    --mobile-nav-offset: var(--safe-area-bottom, 0px);
+    --mobile-player-height: 60px;
+    --mobile-dock-gap: 8px;
+    --mobile-player-space: 0px;
+    --mobile-bottom-clearance: calc(var(--mobile-nav-height) + var(--mobile-nav-offset) + var(--mobile-player-space) + 16px);
+}
+
 .app-layout {
     grid-template-columns: 1fr !important;
     grid-template-rows: 1fr 0 !important;
@@ -37,6 +46,10 @@
     height: 100dvh !important;        /* dynamic viewport — copes with iOS toolbar */
 }
 
+body:has(.player-footer:not(.player-hidden)) {
+    --mobile-player-space: calc(var(--mobile-player-height) + var(--mobile-dock-gap));
+}
+
 .sidebar,
 .top-bar {
     display: none !important;
@@ -44,6 +57,7 @@
 
 .main-view {
     grid-area: main;
+    padding-inline: var(--safe-area-left, 0px) var(--safe-area-right, 0px) !important;
     border-radius: 0 !important;
     overflow: hidden;
 }
@@ -57,20 +71,20 @@
 .m-topbar {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px;
+    gap: 10px;
+    padding: calc(6px + var(--safe-area-top, 0px)) 16px 6px;
     background: #121212;
     flex-shrink: 0;
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: 80;
 }
 
 .m-topbar-avatar {
     border: 0;
     padding: 0;
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--surface-3);
     overflow: hidden;
@@ -190,11 +204,10 @@
 .view-content {
     padding: 0 !important;
     overflow-y: auto;
-    height: 100%;
-    /* Stack flushed: bottom nav (60) + mini player (64) + safe area
-     * + 24px comfort margin so the last list row clears the player. */
-    padding-bottom: calc(60px + 64px + 24px + env(safe-area-inset-bottom, 0px)) !important;
-    scroll-padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px));
+    flex: 1;
+    min-height: 0;
+    padding-bottom: var(--mobile-bottom-clearance) !important;
+    scroll-padding-bottom: var(--mobile-bottom-clearance);
 }
 
 /* Most views render their own outer padding via .hero-section etc. The
@@ -313,11 +326,11 @@
  * #player-cover). */
 .player-footer {
     position: fixed !important;
-    left: 8px !important;
-    right: 8px !important;
-    bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+    left: calc(8px + var(--safe-area-left, 0px)) !important;
+    right: calc(8px + var(--safe-area-right, 0px)) !important;
+    bottom: calc(var(--mobile-nav-height) + var(--mobile-nav-offset) + var(--mobile-dock-gap)) !important;
     width: auto !important;
-    height: 58px !important;
+    height: var(--mobile-player-height) !important;
     border-radius: 8px !important;
     display: flex !important;
     flex-direction: row !important;
@@ -470,8 +483,8 @@
     left: 0;
     right: 0;
     bottom: 0;
-    height: calc(64px + env(safe-area-inset-bottom, 0px));
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    height: calc(var(--mobile-nav-height) + var(--safe-area-bottom, 0px));
+    padding: 0 var(--safe-area-right, 0px) var(--safe-area-bottom, 0px) var(--safe-area-left, 0px);
     display: flex;
     align-items: stretch;
     /* Same surface colour as the mini player above so the two stack
@@ -792,16 +805,16 @@ body, .main-view, .view-content { background: #121212 !important; }
 .view-content { min-height: 0; overscroll-behavior-y: contain; }
 .m-library-action { display: none; }
 body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
-body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { display: none; }
+
 .home-overview > .hero-section { display: none; }
-.home-overview { padding: 0 16px !important; background: transparent; margin-bottom: 24px; box-sizing: border-box; }
+.home-overview { padding: 0 16px !important; background: transparent; margin-bottom: 16px; box-sizing: border-box; }
 .home-overview::before { display: none; }
 .home-tab.active { background: var(--primary); color: #101010; }
 .home-overview .quick-picks-grid { margin: 0 0 20px; }
 .quick-pick-name { white-space: normal; line-height: 1.25; font-weight: 700; }
-.home-shelf { margin-top: 26px; }
+.home-shelf { margin-top: 20px; }
 .shelf-title { font-size: 1.35rem; letter-spacing: -0.04em; }
-.home-rail { grid-auto-columns: 43vw !important; gap: 16px; padding-bottom: 8px; }
+.home-rail { display: grid !important; grid-auto-flow: column; grid-template-columns: none !important; grid-auto-columns: clamp(140px, 43vw, 200px) !important; gap: 16px; padding-bottom: 8px; }
 .home-rail > .card { padding: 0; background: transparent; border: 0; }
 .home-rail .card-img-container { border-radius: 4px; }
 .home-rail .card-subtitle { white-space: normal; line-height: 1.45; }
@@ -833,10 +846,10 @@ body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { d
 .search-browse-card { min-height: 120px; padding: 16px; font-size: 1.15rem; }
 .source-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 .source-chips .chip { flex-shrink: 0; }
-.create-menu-overlay { padding: 0 8px calc(80px + env(safe-area-inset-bottom, 0px)); }
+.create-menu-overlay { padding: 0 8px calc(80px + var(--safe-area-bottom, 0px)); }
 .create-menu { border-radius: 20px !important; padding: 12px; position: relative; overflow: visible; }
 .create-menu-close { position: absolute; right: 8px; bottom: -66px; }
-.modal:not(.create-menu) { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.modal:not(.create-menu) { padding-bottom: calc(24px + var(--safe-area-bottom, 0px)); }
 .modal input, .modal select { font-size: 16px; }
 .track-drag-handle { min-height: 44px; border: 0; background: transparent; color: var(--text-sub); opacity: 1; }
 @media (max-width: 359px) {
@@ -848,3 +861,30 @@ body[data-mobile-view="library"] .m-topbar-actions > :not(.m-library-action) { d
 
 /* The fullscreen player (still works on tap-cover) takes the whole
  * screen on mobile — no override needed beyond what already exists. */
+
+/* Secondary actions stay reachable without squeezing the page title. */
+.m-topbar-more { position: relative; }
+.m-topbar-more > summary { list-style: none; }
+.m-topbar-more > summary::-webkit-details-marker { display: none; }
+.m-topbar-more[open] > summary { background: var(--surface-2); }
+.m-more-panel {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    width: min(280px, calc(100vw - 32px)); padding: 6px;
+    border: 1px solid var(--border-strong); border-radius: 16px;
+    background: var(--surface-1); color: var(--text-main);
+    box-shadow: 0 12px 36px #0005;
+}
+.m-more-panel :is(button, a) {
+    display: flex; align-items: center; gap: 12px; width: 100%;
+    min-height: 48px; padding: 10px 12px; border: 0; border-radius: 10px;
+    background: transparent; color: inherit; text-align: start; text-decoration: none;
+    font: inherit; font-size: .9rem; cursor: pointer;
+}
+.m-more-panel :is(button, a):is(:hover, :focus-visible) { background: var(--surface-2); }
+.m-more-panel :is(svg, i) { flex: 0 0 22px; width: 22px; height: 22px; }
+.m-more-panel .m-badge { position: static; margin-inline-start: auto; flex-shrink: 0; }
+.view-content .user-settings-shell { padding-inline: 16px; }
+.modal-overlay { padding-inline: 0; padding-bottom: 0; }
+.modal-overlay > .modal:not(.create-menu) { border-radius: 20px 20px 0 0 !important; }
+html[data-keyboard="open"] body { --mobile-bottom-clearance: 16px; }
+html[data-keyboard="open"] :is(.m-bottom-nav, .player-footer) { display: none !important; }

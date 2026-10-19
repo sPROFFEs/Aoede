@@ -35,11 +35,28 @@ class AoedeApp : Application() {
     private var playerUrl: String? = null
     var connectionFailure: Pair<String, String>? = null
         private set
+    @Volatile var viewport = "{}"
+        private set
+    private val mobileRuntime by lazy { assets.open("mobile/runtime.js").bufferedReader().use { it.readText() } }
     private var activity = WeakReference<MainActivity>(null)
 
     override fun onCreate() {
         super.onCreate()
         mediaController = MediaController(this)
+    }
+
+    fun updateViewport(bars: androidx.core.graphics.Insets, keyboard: Boolean) {
+        val density = resources.displayMetrics.density
+        viewport = JSONObject().put("top", bars.top / density).put("bottom", if (keyboard) 0f else bars.bottom / density)
+            .put("left", bars.left / density).put("right", bars.right / density).put("keyboard", keyboard).toString()
+        syncViewport()
+    }
+
+    private fun syncViewport() {
+        val view = player ?: return
+        if (ServerOrigin.from(Uri.parse(view.url.orEmpty())) == mediaController.serverOrigin) {
+            view.evaluateJavascript("window.__aoedeApplyViewport && window.__aoedeApplyViewport($viewport)", null)
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -81,6 +98,11 @@ class AoedeApp : Application() {
                 _, message, source, mainFrame, _ ->
                 if (mainFrame && ServerOrigin.from(source) == origin) {
                     if (message.data == "settings") activity.get()?.openServerSettings()
+                    else if (message.data.orEmpty().length < 128 && runCatching {
+                        val payload = JSONObject(message.data.orEmpty())
+                        if (payload.optString("type") != "appearance" || payload.opt("dark") !is Boolean) false
+                        else { activity.get()?.applyAppearance(payload.getBoolean("dark")); true }
+                    }.getOrDefault(false)) Unit
                     else frontend.prepare(message.data.orEmpty())?.let { target -> view.loadUrl(target) }
                 }
             }
@@ -166,6 +188,8 @@ class AoedeApp : Application() {
                 if (messages && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
                     view.evaluateJavascript(shim, null)
                 }
+                view.evaluateJavascript(mobileRuntime, null)
+                syncViewport()
                 activity.get()?.updatePage(url)
                 CookieManager.getInstance().flush()
             }

@@ -1,11 +1,50 @@
 (() => {
+  if (window.__aoedeApplyViewport) { window.__aoedeApplyViewport(window.AOEDE_VIEWPORT); return; }
   window.AOEDE_ANDROID = true;
+  window.__aoedeApplyViewport = (viewport = {}) => {
+    const root = document.documentElement;
+    for (const side of ['top', 'right', 'bottom', 'left']) {
+      const value = Number(viewport[side]);
+      if (Number.isFinite(value) && value >= 0) root.style.setProperty(`--safe-area-${side}`, `${value}px`);
+    }
+    root.dataset.keyboard = viewport.keyboard ? 'open' : 'closed';
+    window.AOEDE_VIEWPORT = viewport;
+  };
+  window.__aoedeApplyViewport(window.AOEDE_VIEWPORT);
+  // Dismiss overlays before leaving the current page, using their own close paths.
+  window.__aoedeBack = () => {
+    const modal = document.querySelector('#modal-container .modal');
+    if (modal && typeof window.closeModal === 'function') { window.closeModal(); return true; }
+    const close = document.querySelector('.modal-overlay:not(.hidden) .modal-close');
+    if (close) { close.click(); return true; }
+    const fullscreen = document.querySelector('.fullscreen-player.open');
+    if (fullscreen) {
+      fullscreen.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      return true;
+    }
+    const menu = document.querySelector('details[open]');
+    if (menu) { menu.open = false; menu.querySelector('summary')?.focus(); return true; }
+    return false;
+  };
   document.addEventListener('submit', event => {
     if (event.target?.getAttribute('action') === '/logout') localStorage.removeItem('aoede.android.bootstrap');
   }, true);
-  document.addEventListener('DOMContentLoaded', () => {
+  const ready = () => {
     const root = document.documentElement;
     root.dataset.client = 'android';
+    let lastDark;
+    const appearance = () => {
+      const text = getComputedStyle(document.body).color.match(/[\d.]+/g) || [];
+      const dark = !!document.querySelector('.fullscreen-player.open') || Number(text[0]) > 128;
+      if (dark === lastDark) return;
+      lastDark = dark;
+      window.AoedeHost?.postMessage(JSON.stringify({ type: 'appearance', dark }));
+    };
+    new MutationObserver(appearance).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+    const fullscreen = document.getElementById('fullscreen-player');
+    if (fullscreen) new MutationObserver(appearance).observe(fullscreen, { attributes: true, attributeFilter: ['class'] });
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', appearance);
+    appearance();
     const labels = { en: 'Configure server', es: 'Configurar servidor', de: 'Server konfigurieren' };
     const settings = document.createElement('button');
     settings.type = 'button';
@@ -32,5 +71,7 @@
     // The APK already is installed; suppress the website's install promotion.
     document.getElementById('pwa-banner')?.remove();
     try { localStorage.setItem('aoede_pwa_dismissed', '1'); } catch (_) { /* Optional storage. */ }
-  }, { once: true });
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ready, { once: true });
+  else ready();
 })();

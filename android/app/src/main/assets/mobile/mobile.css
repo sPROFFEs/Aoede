@@ -1,4 +1,4 @@
-/* Native window insets are consumed by Android; CSS sees the usable viewport. */
+/* System bars become CSS safe areas; Android resizes only for the keyboard. */
 .native-boot { margin: 0; min-height: 100dvh; display: grid; place-items: center; background: #101115; color: #f5f5f7; font: 16px system-ui, sans-serif; }
 .native-boot main { padding: 28px; text-align: center; max-width: 420px; }
 .native-boot img { border-radius: 24px; }
@@ -25,3 +25,6 @@ html[data-native-effects="reduced"] :is(.sidebar, .m-topbar, .player-footer, .mo
   backdrop-filter: none !important; -webkit-backdrop-filter: none !important; background-color: var(--surface-1, #18191d) !important;
 }
 html[data-native-effects="reduced"] .fullscreen-player .fs-background { filter: none !important; background: #111218 !important; }
+
+html[data-client="android"] body:not(:has(.app-layout)) { padding: var(--safe-area-top, 0px) var(--safe-area-right, 0px) var(--safe-area-bottom, 0px) var(--safe-area-left, 0px); }
+.native-boot main { margin: var(--safe-area-top, 0px) var(--safe-area-right, 0px) var(--safe-area-bottom, 0px) var(--safe-area-left, 0px); }

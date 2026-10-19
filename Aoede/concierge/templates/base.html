@@ -27,8 +27,8 @@
     {% endif %}
     <!-- Mobile-only stylesheet. Browser still downloads it (media attribute
          is a hint, not a gate) but only applies its rules when the viewport
-         is <=768px, so desktop layouts stay untouched. -->
-    <link rel="stylesheet" href="/assets/css/mobile_shell.css?v={{ static_v }}" media="(max-width: 768px)">
+         is <=768px or a short touch landscape display. -->
+    <link rel="stylesheet" href="/assets/css/mobile_shell.css?v={{ static_v }}" media="(max-width: 768px), (max-height: 500px) and (pointer: coarse)">
 
     <!-- Relative ES-module imports otherwise bypass the cache token on
          main.js and can mix incompatible files from different releases.
@@ -279,19 +279,15 @@
                 <div class="m-topbar-actions">
                     <button class="m-icon-btn m-library-action" onclick="document.getElementById('library-facet-query')?.focus()" aria-label="{{ _('library.search_saved') }}"><i data-lucide="search"></i></button>
                     <button class="m-icon-btn m-library-action" onclick="showCreateMenu()" aria-label="{{ _('library.create') }}"><i data-lucide="plus"></i></button>
-                    <button class="m-icon-btn" onclick="openDownloadsModal()" title="Downloads">
-                        <i data-lucide="download-cloud"></i>
-                        <span id="m-download-badge" class="m-badge" style="display:none;">0</span>
-                    </button>
-                    <button class="m-icon-btn" onclick="openDeleteResponsesModal()" title="Delete responses">
-                        <i data-lucide="messages-square"></i>
-                        <span id="m-delete-badge" class="m-badge" style="display:none;">0</span>
-                    </button>
-                    {% if is_admin %}
-                    <a href="/admin/" class="m-icon-btn" title="Admin">
-                        <i data-lucide="settings"></i>
-                    </a>
-                    {% endif %}
+                    <details class="m-topbar-more" id="m-topbar-more">
+                        <summary class="m-icon-btn" aria-label="{{ _('header.more') }}"><i data-lucide="ellipsis"></i></summary>
+                        <div class="m-more-panel">
+                            <button type="button" onclick="this.closest('details').open=false;showCreateMenu()"><i data-lucide="plus"></i>{{ _('library.create') }}</button>
+                            <button type="button" onclick="this.closest('details').open=false;openDownloadsModal()"><i data-lucide="download-cloud"></i>{{ _('header.downloads') }}<span id="m-download-badge" class="m-badge" style="display:none;">0</span></button>
+                            <button type="button" onclick="this.closest('details').open=false;openDeleteResponsesModal()"><i data-lucide="messages-square"></i>{{ _('header.delete_responses') }}<span id="m-delete-badge" class="m-badge" style="display:none;">0</span></button>
+                            {% if is_admin %}<a href="/admin/"><i data-lucide="settings"></i>{{ _('header.admin_settings') }}</a>{% endif %}
+                        </div>
+                    </details>
                 </div>
             </header>
 
@@ -301,8 +297,7 @@
         </main>
 
         <!-- ─── MOBILE BOTTOM NAV ──────────────────────────────────────
-             Sits above the mini player. Three primary destinations
-             matching Spotify's pattern. Active state is wired by
+             Four primary destinations, with Create in the header menu. Active state is wired by
              markBottomNavActive() in the inline script below. -->
         <nav class="m-bottom-nav" id="m-bottom-nav">
             <button class="m-nav-item" data-view="home" onclick="loadView('home')">
@@ -320,9 +315,6 @@
             <button class="m-nav-item" data-view="library" onclick="loadView('library')">
                 <i data-lucide="library"></i>
                 <span>{{ _('menu.library') if _ else 'Your Library' }}</span>
-            </button>
-            <button class="m-nav-item" onclick="showCreateMenu()" aria-label="{{ _('library.create') }}">
-                <i data-lucide="plus"></i><span>{{ _('library.create') }}</span>
             </button>
         </nav>
 
@@ -583,12 +575,13 @@
         applyMobileGreeting();
 
         /* Mobile bottom-nav active-state. Maps a few related views onto the
-         * three primary tabs (Home gets all the home-tab variants, Library
+         * four primary tabs (Home gets all the home-tab variants, Library
          * absorbs playlist detail, etc.) so the highlight matches the
          * user's current location even when they're not on the canonical
          * top-level view. Called from views.loadView() via window. */
         window.markBottomNavActive = function (view, param = null) {
             document.body.dataset.mobileView = view;
+            document.getElementById('m-topbar-more')?.removeAttribute('open');
             const title = document.getElementById('m-topbar-title');
             const titles = { home: {{ _('menu.home')|tojson }}, search: {{ _('menu.search')|tojson }}, library: {{ _('library.title')|tojson }}, playlist: {{ _('library.playlists')|tojson }}, favorites: {{ _('menu.liked')|tojson }}, discovery: {{ _('tabs.discover')|tojson }}, offline: {{ _('offline.title')|tojson }} };
             if (title) title.textContent = titles[view] || 'Aoede';
