@@ -604,6 +604,8 @@ Wrapped can summarize:
 
 Top tracks from a Wrapped report can also be saved as a playlist.
 
+Stories use Aoede branding, responsive geometric animations and reduced-motion support. Pause preserves slide and music-preview timing, including when the app goes into the background. Regeneration reuses each listener's summary for rankings and snapshots and batches cached artist-image lookups. See [Wrapped generation and stories](docs/ADMINISTRATION.md#wrapped-generation-and-stories) for details.
+
 ---
 
 # 🎉 Party Rooms

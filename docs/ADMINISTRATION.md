@@ -110,6 +110,14 @@ User statistics can be sorted and paginated. Listening events are finalized when
 
 Storage cleanup and Wrapped reset actions are intentionally destructive. Read their confirmation text and create a backup before using them to repair data.
 
+### Wrapped generation and stories
+
+Full regeneration analyzes each active listener once, then reuses those summaries for the community ranking and year-end snapshot. Service accounts are excluded. Artist images are deduplicated across listeners, fetched with at most four concurrent lookups and cached (30 days for a match, seven days for an empty result); a failed refresh retains an existing image. Large track lookups use batches of 500 IDs. Summary generation runs outside the asynchronous request loop, and snapshots resolve missing summaries before opening their SQLite write transaction. Finalized snapshots remain immutable.
+
+The story presentation has an Aoede wordmark intro, geometric motion, staggered rankings and responsive controls with safe-area insets. Its original CSS animation takes inspiration from [Spotify Design's account of Wrapped motion](https://medium.com/spotify-design/how-we-brought-2020-wrapped-to-life-in-the-mobile-app-4ed1b839ed23), with no Spotify assets or external animation CDN. Reduced-motion preferences and Android's reduced-effects setting disable decorative movement. Pausing or hiding the page preserves slide, preview and repeat-list timing; returning does not override a manual pause. Music previews load only when needed, and navigation cancels pending playback. Failed requests offer a retry, while an unavailable community ranking does not block personal stories.
+
+Install the updated Android APK for its bundled story assets and update the backend for generation fixes. Existing Wrapped visibility, operational-year resolution and scheduling still apply. Metadata similarity suggestions in the Duplicates tab are a separate, manual review tool; Wrapped does not alter listening history or delete tracks.
+
 ## Updates from the UI
 
 The documented flow is:

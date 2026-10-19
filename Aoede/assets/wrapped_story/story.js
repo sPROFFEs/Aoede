@@ -1,4 +1,4 @@
-/* global window, document, requestAnimationFrame, fetch, Audio, MediaMetadata, navigator, gsap */
+/* global window, document, fetch, Audio, MediaMetadata, navigator */
 
 (function () {
   const state = {
@@ -7,18 +7,17 @@
     slides: [],
     index: 0,
     paused: false,
-    timer: null,
-    audioTimer: null,
-    repeatTimer: null,
+    userPaused: false,
+    closed: false,
+    timers: new Map(),
     bgFadeTimer: null,
     intervalMs: 10000,
-    audio: new Audio(),
     currentAudio: null,
     preloadedAudios: new Map(),
-    repeatActive: false,
-    preloadedSrc: '',
-    topTrackReady: false,
-    activePreviewToken: '',
+    preview: null,
+    activePreviewToken: 0,
+    finishIntro: null,
+    introVisible: false,
     introAudio: new Audio('/assets/wrapped_story/audio/light-transition.mp3'),
     backgroundAudio: new Audio('/assets/wrapped_story/audio/wrapped-background.mp3'),
     loudness: {
@@ -33,8 +32,7 @@
       currentGain: 1,
       enabled: false
     },
-    keydownHandler: null,
-    resizeHandler: null
+    keydownHandler: null
   };
   const maxReasonableMinutes = 365 * 24 * 60;
   const repeatTrackMs = 10000;
@@ -215,9 +213,18 @@
   }
 
   function startBackgroundAudio() {
+    if (state.paused || state.closed || state.introVisible) return;
     state.backgroundAudio
       .play()
-      .then(() => fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_NORMAL, 2200))
+      .then(() => {
+        if (state.paused || state.closed) state.backgroundAudio.pause();
+        else
+          fadeAudio(
+            state.backgroundAudio,
+            state.preview && !state.preview.finished ? BACKGROUND_VOLUME_DUCK : BACKGROUND_VOLUME_NORMAL,
+            1200
+          );
+      })
       .catch(showSoundPrompt);
   }
 
@@ -300,30 +307,29 @@
     }, 130);
   }
 
-  function preloadTrackAudios(tracks) {
-    tracks.forEach((track, index) => {
-      const src = trackStream(track);
-      if (!src || state.preloadedAudios.has(src)) return;
-      const audio = new Audio(src);
-      audio.preload = 'auto';
-      audio.volume = 0.13;
-      audio.load();
-      state.preloadedAudios.set(src, audio);
-      if (index === 0) {
-        state.preloadedSrc = src;
-        audio.addEventListener(
-          'canplaythrough',
-          () => {
-            state.topTrackReady = true;
-          },
-          { once: true }
-        );
-      }
-    });
+  // One clock for slide, preview and repeat slots: pauses preserve their remaining time.
+  function clearTimer(name) {
+    window.clearTimeout(state.timers.get(name)?.id);
+    state.timers.delete(name);
+  }
+
+  function armTimer(name, timer) {
+    timer.startedAt = window.performance.now();
+    timer.id = window.setTimeout(() => {
+      state.timers.delete(name);
+      if (!state.closed) timer.callback();
+    }, timer.remaining);
+  }
+
+  function setTimer(name, callback, remaining) {
+    clearTimer(name);
+    const timer = { callback, remaining, startedAt: 0, id: null };
+    state.timers.set(name, timer);
+    if (!state.paused && !state.closed) armTimer(name, timer);
   }
 
   function showSoundPrompt() {
-    if (document.getElementById('story-sound-enable')) return;
+    if (state.closed || document.getElementById('story-sound-enable')) return;
     const button = document.createElement('button');
     button.id = 'story-sound-enable';
     button.className = 'story-sound-enable';
@@ -333,7 +339,8 @@
       'click',
       () => {
         button.remove();
-        state.introAudio.play().catch(() => {});
+        setStoryPaused(false);
+        resumePreview();
         startBackgroundAudio();
       },
       { once: true }
@@ -341,338 +348,79 @@
     root.appendChild(button);
   }
 
-  function brushSpans(prefix, count) {
-    return Array.from({ length: count }, (_, index) => {
-      const variable = prefix === 'lamp' ? '--lamp-index' : '--fur-index';
-      return `<span class="${prefix}-${index + 1}" style="${variable}:${index + 1}"></span>`;
-    }).join('');
-  }
-
-  function introHelper(number, withLights = false) {
-    return `<div class="story-intro-helper-${number}">
-      <div class="story-intro-brush">${brushSpans('fur', 31)}</div>
-      ${withLights ? `<div class="story-intro-lights">${brushSpans('lamp', 28)}</div>` : ''}
-    </div>`;
+  function reducedMotion() {
+    return (
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches ||
+      document.documentElement.dataset.nativeEffects === 'reduced'
+    );
   }
 
   function renderIntro() {
-    const word = 'AOEDE';
-    const letters = word
-      .split('')
-      .map((ch, i) => {
-        const isLast = i === word.length - 1;
-        const delay = (1.25 + i * 0.08).toFixed(2);
-        return `<span class="intro-letter${isLast ? ' glow-pulse' : ''}" style="animation-delay:${delay}s">${ch}</span>`;
-      })
-      .join('');
-
-    const intro = document.createElement('div');
-    intro.className = 'story-intro';
-    intro.innerHTML = `
-      <div class="story-intro-container" aria-hidden="true">
-        <div class="story-intro-logo" data-letter="N">
-          ${introHelper(1, true)}
-          ${introHelper(2)}
-          ${introHelper(3)}
-        </div>
-      </div>
-      <div class="story-intro-word" aria-label="Aoede">${letters}</div>`;
-    root.appendChild(intro);
-    state.introAudio.play().catch(showSoundPrompt);
-    window.setTimeout(() => {
-      intro.classList.add('leaving');
-      startBackgroundAudio();
-    }, 3100);
-    window.setTimeout(() => intro.remove(), 4300);
-  }
-
-  /* ---- Background: GSAP panel animation (Spotify Wrapped style) ---- */
-  const numberOfPanels = 12;
-  const rotationCoef = 5;
-  let bgTimeline = null;
-
-  function createPanels() {
-    let html = '';
-    for (let i = 0; i < numberOfPanels; i++) html += `<div class="story-panel1"></div>`;
-    for (let i = 0; i < numberOfPanels; i++) html += `<div class="story-panel2"></div>`;
-    bg.innerHTML = html;
-    requestAnimationFrame(() => {
-      root.classList.add('ready');
-      buildBgTimeline();
+    if (reducedMotion()) return Promise.resolve();
+    return new Promise((resolve) => {
+      const intro = document.createElement('div');
+      intro.className = 'story-intro';
+      intro.innerHTML = `<div class="story-intro-orbit" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="story-intro-identity"><span class="story-intro-eyebrow">Your year in sound</span>
+        <div class="story-intro-word" aria-label="Aoede">${'AOEDE'
+          .split('')
+          .map((letter, index) => `<span aria-hidden="true" style="--letter:${index}">${letter}</span>`)
+          .join('')}</div>
+        <div class="story-intro-edition">WRAPPED <strong>${state.year}</strong></div></div>
+        <button class="story-link story-intro-skip" type="button">Skip intro</button>`;
+      state.introVisible = true;
+      const finish = () => {
+        clearTimer('intro');
+        clearTimer('intro-exit');
+        intro.remove();
+        state.introVisible = false;
+        state.finishIntro = null;
+        state.introAudio.pause();
+        resolve();
+      };
+      state.finishIntro = finish;
+      intro.querySelector('button').addEventListener('click', finish);
+      root.appendChild(intro);
+      if (!state.paused) state.introAudio.play().catch(() => {});
+      setTimer(
+        'intro',
+        () => {
+          intro.classList.add('is-leaving');
+          setTimer('intro-exit', finish, 300);
+        },
+        2100
+      );
     });
   }
 
-  function buildBgTimeline() {
-    if (bgTimeline) bgTimeline.kill();
-
-    const panels = bg.querySelectorAll('.story-panel1');
-    const secondaryPanels = bg.querySelectorAll('.story-panel2');
-    const elH = window.innerHeight / numberOfPanels;
-    const elW = window.innerWidth / numberOfPanels;
-    const grad90 =
-      'linear-gradient(90deg,rgba(255,180,200,1) 0%,rgba(255,89,226,1) 6%,rgba(255,0,211,1) 19%,rgba(255,0,0,1) 72%,rgba(0,0,0,1) 100%)';
-
-    bgTimeline = gsap.timeline({ repeat: -1, paused: false });
-
-    panels.forEach((panel, i) => {
-      const stop = 100 - i;
-      const wi = window.innerWidth - elW * (12 - i) + elW;
-      const he = window.innerHeight - elH * (12 - i) + elH;
-      const grad105 = `linear-gradient(105deg,rgba(255,149,236,1) 0%,rgba(255,89,226,1) 6%,rgba(255,0,211,1) 19%,rgba(255,0,0,1) 72%,rgba(0,0,0,1) ${stop}%)`;
-      const gradStop = `linear-gradient(90deg,rgba(255,180,200,1) 0%,rgba(255,89,226,1) 6%,rgba(255,0,211,1) 19%,rgba(255,0,0,1) 72%,rgba(0,0,0,1) ${stop}%)`;
-
-      // Initial rotation: unfold from center
-      bgTimeline.fromTo(
-        panel,
-        {
-          y: elH * 5.5,
-          x: elW * 5.5,
-          width: 0,
-          height: 0,
-          rotation: -360,
-          background: grad105
-        },
-        {
-          width: wi,
-          height: he,
-          y: -elH / 1.33 + ((12 - i) * elH) / 1.33,
-          x: 0,
-          duration: 1 + 0.1 * (12 - i),
-          ease: 'sine.inOut',
-          rotation: 0,
-          background: grad105
-        },
-        0
-      );
-
-      // Linear rotation
-      bgTimeline.to(
-        panel,
-        {
-          rotation: 12 * rotationCoef - (i + 1) * rotationCoef,
-          duration: 3,
-          background: gradStop,
-          ease: 'linear'
-        },
-        '>'
-      );
-
-      // Reordering
-      bgTimeline.to(
-        panel,
-        {
-          rotation: 360,
-          y: -elH / 6 + ((12 - i) * elH) / 6,
-          x: -elW / 1.2 + ((12 - i) * elW) / 1.2,
-          background: grad90,
-          ease: 'sine.inOut',
-          duration: 1
-        },
-        '>'
-      );
-
-      // Linear rotation 2
-      bgTimeline.to(
-        panel,
-        {
-          rotation: 12 * rotationCoef - (i + 1) * rotationCoef + 360,
-          duration: 4,
-          background: grad90,
-          ease: 'linear'
-        },
-        '>'
-      );
-
-      if (i === 0) bgTimeline.addLabel('splitStart', '-=0.8');
-
-      // Secondary panels
-      secondaryPanels.forEach((twoPanel, index) => {
-        const wi2 = window.innerWidth - elW * index + elW;
-        bgTimeline.fromTo(
-          twoPanel,
-          {
-            y: elH * 5.5,
-            x: elW * 5.5,
-            width: 0,
-            height: 0,
-            rotation: -360,
-            background:
-              'linear-gradient(105deg,rgba(255,149,236,1) 0%,rgba(255,89,226,1) 6%,rgba(255,0,211,1) 19%,rgba(255,0,0,1) 72%,rgba(0,0,0,1) 100%)'
-          },
-          {
-            rotation: -90,
-            y: (index * elH) / 4 - wi2,
-            x: -elW / 2 + (index * elW) / 2,
-            width: wi2,
-            height: wi2,
-            background: grad90,
-            ease: 'sine.inOut',
-            duration: 1
-          },
-          'splitStart+=' + 0.05 * index
-        );
-
-        bgTimeline.to(
-          twoPanel,
-          {
-            rotation: 12 * rotationCoef - (12 - index) * rotationCoef - 90,
-            duration: 5,
-            background: grad90,
-            ease: 'linear'
-          },
-          '>'
-        );
-
-        bgTimeline.to(
-          twoPanel,
-          {
-            rotation: 300,
-            y: (index * elH) / 2 - wi2,
-            x: window.innerWidth * 1.1 - wi2 * 1.2,
-            width: wi2,
-            height: wi2,
-            background: grad90,
-            ease: 'sine.inOut',
-            duration: 1
-          },
-          '>'
-        );
-
-        bgTimeline.to(
-          twoPanel,
-          {
-            rotation: '+=15',
-            duration: 5,
-            background: grad90,
-            ease: 'linear'
-          },
-          '>'
-        );
-
-        bgTimeline.to(
-          twoPanel,
-          {
-            rotation: '+=360',
-            y: '-=' + wi2 * 2,
-            x: '+=' + wi2 * 2,
-            width: wi2,
-            height: wi2,
-            background: grad90,
-            ease: 'sine.inOut',
-            duration: 1
-          },
-          '>'
-        );
-      });
-
-      // Primary panel exit / continuation
-      if (i === 0) {
-        bgTimeline.to(
-          panel,
-          {
-            rotation: 720 + 90,
-            y: window.innerHeight - ((12 - i) * elH) / 4,
-            x: -elW / 2 + ((12 - i) * elW) / 2,
-            width: 0,
-            height: 0,
-            opacity: 0,
-            background: grad90,
-            ease: 'sine.inOut',
-            duration: 1
-          },
-          'splitStart+=' + 0.05 * i
-        );
-      } else {
-        bgTimeline.to(
-          panel,
-          {
-            rotation: 720 + 90,
-            y: window.innerHeight - ((12 - i) * elH) / 4,
-            x: -elW / 2 + ((12 - i) * elW) / 2,
-            width: wi,
-            height: wi,
-            background: grad90,
-            ease: 'sine.inOut',
-            duration: 1
-          },
-          'splitStart+=' + 0.05 * i
-        );
-
-        bgTimeline.to(
-          panel,
-          {
-            rotation: (12 * rotationCoef - (i + 1) * rotationCoef) / 1.2 + 810,
-            duration: 5,
-            background: grad90,
-            ease: 'linear'
-          },
-          '>'
-        );
-
-        bgTimeline.to(
-          panel,
-          {
-            y: window.innerHeight - ((12 - i) * elH) / 2,
-            x: -elW * 1.2,
-            rotation: (12 * rotationCoef - (i + 1) * rotationCoef) / 1.2 + 1180,
-            ease: 'sine.inOut',
-            duration: 1,
-            background: grad90
-          },
-          '>'
-        );
-
-        bgTimeline.to(
-          panel,
-          {
-            rotation: (12 * rotationCoef - (i + 1) * rotationCoef) / 1.2 + 1200,
-            duration: 5,
-            background: grad90,
-            ease: 'linear'
-          },
-          '>'
-        );
-
-        bgTimeline.to(
-          panel,
-          {
-            y: '+=' + elH * 4,
-            x: '-=' + elW * 4,
-            rotation: (12 * rotationCoef - (i + 1) * rotationCoef) / 1.2 + 1500,
-            ease: 'sine.inOut',
-            duration: 1,
-            background: grad90
-          },
-          '>'
-        );
-      }
-    });
+  function createBackdrop() {
+    bg.innerHTML =
+      '<i class="story-shape story-ring"></i><i class="story-shape story-ribbon"></i><i class="story-shape story-disc"></i>';
+    root.classList.toggle('is-reduced-motion', reducedMotion());
   }
 
   function setSlideTheme() {
+    const palettes = [
+      ['#ff9369', '#b994ff'],
+      ['#b9ef78', '#76ccba'],
+      ['#faba77', '#ff7e98'],
+      ['#d1b2ff', '#8c9aff'],
+      ['#f4ed83', '#ff9d85']
+    ];
+    const [a, b] = palettes[state.index % palettes.length];
     root.dataset.slide = String(state.index);
-    bg.style.setProperty('--story-hue', `${(state.index * 18) % 360}deg`);
-    // Smoothly advance the GSAP timeline to match the current slide position
-    if (bgTimeline) {
-      const total = Math.max(1, state.slides.length);
-      const targetProgress = state.index / total;
-      gsap.to(bgTimeline, { progress: targetProgress, duration: 1.5, ease: 'power2.inOut', overwrite: true });
-    }
-  }
-
-  function setBackgroundPaused(paused) {
-    if (!bgTimeline) return;
-    if (paused) {
-      bgTimeline.pause();
-    } else {
-      bgTimeline.resume();
-    }
+    bg.style.setProperty('--story-panel-a', a);
+    bg.style.setProperty('--story-panel-b', b);
+    bg.style.setProperty('--story-turn', `${state.index * 27}deg`);
   }
 
   async function fetchJson(url) {
-    const res = await fetch(url, { credentials: 'same-origin' });
-    if (!res.ok) return null;
-    return res.json();
+    try {
+      const res = await fetch(url, { credentials: 'same-origin' });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    }
   }
 
   function listItems(items, mapper, className = '') {
@@ -843,9 +591,9 @@
         className: 'story-slide-copy'
       },
       {
-        kicker: 'Resume',
+        kicker: 'Summary',
         title: 'Your wrapped at a glance',
-        copy: 'Save your top songs playlist, then open the full resume panel.',
+        copy: 'Save your top songs playlist, then open the full summary.',
         html: `<div class="story-resume-grid">
             <div><span>Listened</span><strong>${esc(personalDuration.label)}</strong></div>
             <div><span>Tracked listens</span><strong>${number(trackedListens)}</strong></div>
@@ -854,8 +602,8 @@
             <div><span>Top Songs playlist</span><strong>${number(topPlayableSongs.length)} tracks</strong></div>
         </div>
         <div class="story-actions">
-            <a class="story-action" href="#" id="story-save-playlist">Save Top Songs</a>
-            <a class="story-action secondary" href="/wrapped/${state.year}">Resume</a>
+            <button class="story-action" type="button" id="story-save-playlist">Save Top Songs</button>
+            <a class="story-action secondary" href="/wrapped/${state.year}">Summary</a>
         </div>`,
         className: 'story-slide-copy'
       }
@@ -878,113 +626,114 @@
 
   function renderSlide(direction = 1) {
     const slide = state.slides[state.index];
-    if (!slide) return;
-
-    // Clear the initial loading message on first render
-    const loading = stage.querySelector('.story-loading');
-    if (loading) loading.remove();
-
+    if (!slide || state.closed) return;
     stopAudio();
     renderProgress(slide);
-
-    // Build the new article off-DOM
     const article = document.createElement('article');
-    article.className = `story-slide ${slide.className || ''}`;
+    article.className = `story-slide ${slide.className || ''} ${direction < 0 ? 'slide-enter-left' : 'slide-enter-right'}`;
+    if (state.paused) article.classList.add('is-static');
     article.dataset.slide = String(state.index);
     article.innerHTML = `
         <div class="story-kicker">${esc(slide.kicker)}</div>
         <h1 class="story-title">${slide.title}</h1>
         ${slide.copy ? `<p class="story-copy">${esc(slide.copy)}</p>` : ''}
         ${slide.html || ''}`;
-
-    const existingArticle = stage.querySelector('.story-slide');
-
-    if (existingArticle) {
-      // --- Sequenced transition: exit first, then enter ---
-      state.transitioning = true;
-      existingArticle.style.pointerEvents = 'none';
-      const exitClass = direction < 0 ? 'slide-exit-right' : 'slide-exit';
-      existingArticle.classList.add(exitClass);
-
-      const enterDelay = 300; // ms — wait for exit to mostly finish
-      window.setTimeout(() => {
-        existingArticle.remove();
-        article.classList.add(direction < 0 ? 'slide-enter-left' : 'slide-enter-right');
-        stage.appendChild(article);
-        // Sync background to new slide after exit is done
-        setSlideTheme();
-        bindSlideActions();
-        playSlideAudio(slide);
-        startRepeatList(slide);
-        state.transitioning = false;
-      }, enterDelay);
-    } else {
-      // First slide — no exit needed, enter immediately
-      stage.appendChild(article);
-      setSlideTheme();
-      bindSlideActions();
-      playSlideAudio(slide);
-      startRepeatList(slide);
-    }
-
+    article.querySelectorAll('.story-list li, .story-resume-grid > div').forEach((item, index) => {
+      item.style.setProperty('--item-index', index);
+    });
+    stage.replaceChildren(article);
+    stage.scrollTop = 0;
+    setSlideTheme();
+    bindSlideActions();
+    playSlideAudio(slide);
+    startRepeatList(slide);
+    prev.disabled = state.index === 0;
+    next.disabled = state.index === state.slides.length - 1;
     scheduleNext();
   }
 
-  function stopAudio() {
-    window.clearTimeout(state.audioTimer);
-    window.clearTimeout(state.repeatTimer);
-    state.repeatActive = false;
+  function stopAudio(clearRepeat = true) {
+    clearTimer('preview');
+    if (clearRepeat) clearTimer('repeat');
+    state.activePreviewToken += 1;
+    if (state.preview) {
+      state.preview.audio.removeEventListener('canplay', state.preview.onReady);
+      state.preview = null;
+    }
     stopPreviewLoudnessNormalization();
     if (state.currentAudio) {
       state.currentAudio.pause();
       state.currentAudio.currentTime = 0;
+      state.currentAudio = null;
     }
-    fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_NORMAL, 600);
+    if (!state.closed) fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_NORMAL, 600);
   }
 
-  function audioForSrc(src) {
-    return state.preloadedAudios.get(src) || null;
-  }
-
-  function playPreviewAudio(src, durationMs, volume = PREVIEW_BASE_VOLUME_TOP, fallbackDuration = 0) {
-    if (!src) return;
-    window.clearTimeout(state.audioTimer);
-    fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_DUCK, 450);
-    if (state.currentAudio) {
-      state.currentAudio.pause();
-      state.currentAudio.currentTime = 0;
-    }
-
-    const audio = audioForSrc(src) || state.audio;
-    if (audio === state.audio && state.audio.src !== src) {
-      state.audio.src = src;
-      state.audio.load();
-    }
-    audio.volume = volume;
-    state.currentAudio = audio;
-    const previewToken = `${src}:${Date.now()}`;
-    state.activePreviewToken = previewToken;
-
-    const startPlayback = () => {
-      if (state.activePreviewToken !== previewToken) return;
+  function resumePreview() {
+    const preview = state.preview;
+    if (!preview || preview.finished || state.paused || state.closed || preview.audio.readyState < 3) return;
+    const { audio, token, durationMs, fallbackDuration } = preview;
+    if (!preview.positioned) {
       const duration = Number(audio.duration || fallbackDuration || 0);
       if (Number.isFinite(duration) && duration > 18) {
         const maxStart = Math.max(0, duration - durationMs / 1000 - 2);
         audio.currentTime = Math.floor(Math.random() * maxStart);
       }
-      audio.play().catch(() => {});
-      startPreviewLoudnessNormalization(audio);
-      updateWrappedMediaSession();
-      state.audioTimer = window.setTimeout(() => {
-        audio.pause();
-        stopPreviewLoudnessNormalization();
-      }, durationMs);
-    };
+      preview.positioned = true;
+    }
+    audio
+      .play()
+      .then(() => {
+        if (state.activePreviewToken !== token || state.closed) return;
+        if (state.paused) {
+          audio.pause();
+          return;
+        }
+        fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_DUCK, 450);
+        startPreviewLoudnessNormalization(audio);
+        updateWrappedMediaSession();
+        if (!state.timers.has('preview'))
+          setTimer(
+            'preview',
+            () => {
+              preview.finished = true;
+              audio.pause();
+              stopPreviewLoudnessNormalization();
+              fadeAudio(state.backgroundAudio, BACKGROUND_VOLUME_NORMAL, 450);
+            },
+            durationMs
+          );
+      })
+      .catch(showSoundPrompt);
+  }
 
-    if (audio.readyState >= 3) {
-      startPlayback();
-    } else {
-      audio.addEventListener('canplay', startPlayback, { once: true });
+  function playPreviewAudio(src, durationMs, volume = PREVIEW_BASE_VOLUME_TOP, fallbackDuration = 0) {
+    if (!src || state.closed) return;
+    // Invalidate loading callbacks before reusing a media element on another slide.
+    stopAudio(false);
+    let audio = state.preloadedAudios.get(src);
+    if (!audio) {
+      audio = new Audio();
+      audio.preload = 'none';
+      audio.src = src;
+      state.preloadedAudios.set(src, audio);
+    }
+    audio.volume = volume;
+    state.currentAudio = audio;
+    state.preview = {
+      audio,
+      token: state.activePreviewToken,
+      durationMs,
+      fallbackDuration,
+      positioned: false,
+      finished: false,
+      onReady: resumePreview
+    };
+    audio.addEventListener('canplay', resumePreview, { once: true });
+    if (audio.readyState >= 3) resumePreview();
+    else {
+      audio.preload = 'auto';
+      audio.load();
     }
   }
 
@@ -997,9 +746,8 @@
     const tracks = (slide.repeatTracks || []).filter((track) => trackStream(track));
     if (!tracks.length) return;
 
-    window.clearTimeout(state.audioTimer);
-    window.clearTimeout(state.repeatTimer);
-    state.repeatActive = true;
+    clearTimer('preview');
+    clearTimer('repeat');
 
     const now = document.getElementById('story-repeat-now');
     const rows = [...stage.querySelectorAll('.story-repeat-list li')];
@@ -1007,8 +755,7 @@
     let index = 0;
 
     const showTrack = () => {
-      if (state.paused) return;
-      if (state.slides[state.index] !== slide) return;
+      if (state.closed || state.slides[state.index] !== slide) return;
       const track = tracks[index % tracks.length];
       rows.forEach((row, rowIndex) => row.classList.toggle('is-playing', rowIndex === index % tracks.length));
       if (now) {
@@ -1026,9 +773,7 @@
       playPreviewAudio(trackStream(track), slotMs - 350, PREVIEW_BASE_VOLUME_REPEAT, Number(track.duration || 0));
       index += 1;
       if (index < tracks.length) {
-        state.repeatTimer = window.setTimeout(showTrack, slotMs);
-      } else {
-        state.repeatActive = false;
+        setTimer('repeat', showTrack, slotMs);
       }
     };
 
@@ -1038,64 +783,74 @@
   function bindSlideActions() {
     const save = document.getElementById('story-save-playlist');
     if (!save) return;
-    save.addEventListener('click', async (event) => {
-      event.preventDefault();
-      save.textContent = 'Saving...';
-      const res = await fetch(`/api/wrapped/${encodeURIComponent(state.year)}/top-songs/playlist`, {
-        method: 'POST',
-        credentials: 'same-origin'
-      });
-      if (!res.ok) {
-        save.textContent = 'Could not save';
-        return;
+    save.addEventListener('click', async () => {
+      if (save.disabled) return;
+      save.disabled = true;
+      save.textContent = 'Saving…';
+      try {
+        const res = await fetch(`/api/wrapped/${encodeURIComponent(state.year)}/top-songs/playlist`, {
+          method: 'POST',
+          credentials: 'same-origin'
+        });
+        if (!res.ok) throw new Error('Could not save');
+        const payload = await res.json();
+        try {
+          window.sessionStorage.setItem('aoede:lastSavedWrappedPlaylist', String(payload.id || ''));
+        } catch {
+          /* Storage may be disabled in a private browser. */
+        }
+        closeStoryToResume();
+      } catch {
+        save.textContent = 'Try saving again';
+        save.disabled = false;
       }
-      const payload = await res.json();
-      window.location.href = `/wrapped/${state.year}`;
-      window.sessionStorage.setItem('aoede:lastSavedWrappedPlaylist', String(payload.id || ''));
     });
   }
 
   function scheduleNext() {
-    window.clearTimeout(state.timer);
-    if (state.paused || state.index >= state.slides.length - 1) return;
-    state.timer = window.setTimeout(() => go(1), slideDuration());
+    clearTimer('slide');
+    if (state.index < state.slides.length - 1) setTimer('slide', () => go(1), slideDuration());
   }
 
   function go(direction) {
-    if (state.transitioning) return; // Prevent overlapping transitions
+    if (state.introVisible || state.closed || !state.slides.length) return;
     const nextIndex = Math.min(Math.max(state.index + direction, 0), state.slides.length - 1);
     if (nextIndex === state.index) return;
     state.index = nextIndex;
     renderSlide(direction);
   }
 
-  function setStoryPaused(paused) {
+  function syncPaused(forcePaused = false) {
+    const paused = state.userPaused || document.hidden || forcePaused;
+    if (state.closed || state.paused === paused) return;
     state.paused = paused;
-    pause.innerHTML = icon(state.paused ? 'play' : 'pause');
-    if (state.paused) {
-      window.clearTimeout(state.audioTimer);
-      window.clearTimeout(state.repeatTimer);
+    root.classList.toggle('is-paused', paused);
+    pause.innerHTML = icon(paused ? 'play' : 'pause');
+    pause.setAttribute('aria-label', paused ? 'Play story' : 'Pause story');
+    pause.setAttribute('aria-pressed', String(paused));
+    for (const [name, timer] of state.timers) {
+      if (paused) {
+        window.clearTimeout(timer.id);
+        timer.remaining = Math.max(0, timer.remaining - (window.performance.now() - timer.startedAt));
+      } else armTimer(name, timer);
+    }
+    if (paused) {
       state.currentAudio?.pause();
-      stopPreviewLoudnessNormalization();
       state.backgroundAudio.pause();
-      setBackgroundPaused(true);
-    } else if (state.slides[state.index]?.repeatTracks?.length) {
-      state.currentAudio?.pause();
-      if (state.currentAudio) state.currentAudio.currentTime = 0;
-      startRepeatList(state.slides[state.index]);
-      state.backgroundAudio.play().catch(showSoundPrompt);
-      setBackgroundPaused(false);
-    } else if (state.currentAudio?.src) {
-      state.currentAudio.play().catch(() => {});
-      startPreviewLoudnessNormalization(state.currentAudio);
-      state.backgroundAudio.play().catch(showSoundPrompt);
-      setBackgroundPaused(false);
-    } else {
-      state.backgroundAudio.play().catch(showSoundPrompt);
-      setBackgroundPaused(false);
+      state.introAudio.pause();
+      window.clearInterval(state.bgFadeTimer);
+      stopPreviewLoudnessNormalization();
+    } else if (state.introVisible) state.introAudio.play().catch(() => {});
+    else if (state.slides.length) {
+      startBackgroundAudio();
+      resumePreview();
     }
     updateWrappedMediaSession();
-    scheduleNext();
+  }
+
+  function setStoryPaused(paused) {
+    state.userPaused = paused;
+    syncPaused();
   }
 
   function teardownWrappedMediaSession() {
@@ -1115,35 +870,23 @@
   }
 
   function stopStoryAudio() {
-    window.clearTimeout(state.timer);
-    window.clearTimeout(state.audioTimer);
-    window.clearTimeout(state.repeatTimer);
-    stopPreviewLoudnessNormalization();
-    try {
-      state.currentAudio?.pause();
-    } catch (e) {
-      void e;
-    }
-    try {
-      state.backgroundAudio.pause();
-    } catch (e) {
-      void e;
-    }
-    try {
-      state.introAudio.pause();
-    } catch (e) {
-      void e;
-    }
+    state.closed = true;
+    state.finishIntro?.();
+    for (const name of state.timers.keys()) clearTimer(name);
+    stopAudio();
+    window.clearInterval(state.bgFadeTimer);
+    state.backgroundAudio.pause();
+    state.introAudio.pause();
+    teardownWrappedMediaSession();
   }
 
   function closeStoryToResume() {
     stopStoryAudio();
-    teardownWrappedMediaSession();
     window.location.href = `/wrapped/${state.year}`;
   }
 
   async function init() {
-    createPanels();
+    createBackdrop();
     resumeTop.href = `/wrapped/${state.year}`;
     setupWrappedMediaSession();
     close.addEventListener('click', (event) => {
@@ -1157,15 +900,19 @@
     prev.innerHTML = icon('prev');
     next.innerHTML = icon('next');
     pause.innerHTML = icon('pause');
+    prev.setAttribute('aria-label', 'Previous slide');
+    next.setAttribute('aria-label', 'Next slide');
+    pause.setAttribute('aria-label', 'Pause story');
+    prev.disabled = next.disabled = true;
+    syncPaused();
     pause.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
-      setStoryPaused(!state.paused);
+      setStoryPaused(!state.userPaused);
     });
-    state.resizeHandler = () => buildBgTimeline();
-    window.addEventListener('resize', state.resizeHandler);
     state.keydownHandler = (event) => {
+      if (event.target.closest?.('a, button, input, textarea, select, [contenteditable]')) return;
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
         event.stopPropagation();
@@ -1182,7 +929,7 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
-        setStoryPaused(!state.paused);
+        setStoryPaused(!state.userPaused);
       }
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -1192,19 +939,37 @@
       }
     };
     window.addEventListener('keydown', state.keydownHandler, true);
-    window.addEventListener('pagehide', stopStoryAudio);
-    window.addEventListener('beforeunload', () => {
-      stopStoryAudio();
-      teardownWrappedMediaSession();
+    document.addEventListener('visibilitychange', () => syncPaused());
+    window.addEventListener('pagehide', (event) => {
+      if (event.persisted) {
+        syncPaused(true);
+        teardownWrappedMediaSession();
+      } else stopStoryAudio();
     });
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) {
+        setupWrappedMediaSession();
+        syncPaused();
+      }
+    });
+    resumeTop.addEventListener('click', stopStoryAudio);
+    const intro = renderIntro();
 
     const [wrapped, party] = await Promise.all([
       fetchJson(`/api/wrapped/${encodeURIComponent(state.year)}`),
       fetchJson(`/api/wrapped/${encodeURIComponent(state.year)}/party`)
     ]);
 
-    if (!wrapped || wrapped.visible === false || wrapped.enabled === false || wrapped.error) {
-      stage.innerHTML = '<div class="story-error">Not enough listening data yet. Keep playing and come back later.</div>';
+    await intro;
+    if (state.closed) return;
+    if (!wrapped) {
+      stage.innerHTML =
+        '<div class="story-error">Could not load Wrapped. Check your connection and <a class="story-link" href="">try again</a>.</div>';
+      return;
+    }
+    if (wrapped.visible === false || wrapped.enabled === false || wrapped.error) {
+      stage.innerHTML =
+        '<div class="story-error">Not enough listening data yet. Keep playing and come back later.</div>';
       return;
     }
 
@@ -1212,11 +977,14 @@
     resumeTop.href = `/wrapped/${state.year}`;
     state.slides = buildSlides(wrapped, party);
 
-    preloadTrackAudios((wrapped.top_songs_playlist?.tracks || []).slice(0, 5));
-
-    renderIntro();
+    setupWrappedMediaSession();
     renderSlide(1);
+    if (!state.paused) startBackgroundAudio();
   }
 
-  init();
+  init().catch(() => {
+    stopStoryAudio();
+    stage.innerHTML =
+      '<div class="story-error">Wrapped could not start. <a class="story-link" href="">Try again</a>.</div>';
+  });
 })();

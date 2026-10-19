@@ -4,6 +4,8 @@ Android 1.1.4 installs the Aoede frontend in the APK: the login and player shell
 
 Login HTML preparation inserts native scripts only into the actual document head; literal `<head>` text inside script comments stays untouched.
 
+Version 1.1.4 also bundles the Aoede Wrapped intro and story animations, preserves story/preview timing across pauses and background transitions, and shares the fullscreen artwork play/pause zoom across all themes. Wrapped statistics require the updated backend; stories remain subject to its availability settings.
+
 Bundled resources are served only at the configured origin, including its exact scheme and port. Music streams, federation, uploads and API requests continue to reach that backend with its normal session cookie; no CORS proxy or copied token is involved. Server-rendered settings, help and admin forms still require the backend. The installed frontend updates with the APK. Backend support for `/api/mobile/bootstrap` (protocol 1, introduced with this client) is required; older servers display an update instruction instead of a JSON parsing error.
 
 The application owns one retained WebView, so its document, queue and offline Blob URLs survive activity recreation and returning from the background. A media playback foreground service runs during playback, publishes the MediaSession controls and holds a CPU wake lock; it does not keep the display awake.

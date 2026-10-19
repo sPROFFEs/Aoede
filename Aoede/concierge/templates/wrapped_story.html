@@ -14,7 +14,7 @@
       <div class="story-bg" id="story-bg" aria-hidden="true"></div>
 
       <header class="story-topbar">
-        <a class="story-link" id="story-resume-top" href="/wrapped">Resume</a>
+        <a class="story-link" id="story-resume-top" href="/wrapped">Summary</a>
         <div class="story-progress" id="story-progress" aria-hidden="true"></div>
         <button class="story-link story-button" id="story-close" type="button">Close</button>
       </header>
@@ -36,7 +36,6 @@
           username: {{ username|tojson }}
       };
     </script>
-    <script src="https://unpkg.com/gsap@3/dist/gsap.min.js"></script>
     <script src="/assets/wrapped_story/story.js?v={{ range(1, 99999) | random }}"></script>
     <script type="module">
       import { initAppearance } from '/assets/js/modules/appearance.js?v={{ static_v }}';

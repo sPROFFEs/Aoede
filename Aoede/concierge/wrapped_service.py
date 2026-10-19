@@ -4,10 +4,12 @@ import json
 import logging
 import sqlite3
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime, timezone
 from math import isfinite
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 import database
@@ -32,6 +34,7 @@ WRAPPED_ARTIST_IMAGE_POSITIVE_TTL_SECONDS = 30 * 24 * 60 * 60
 WRAPPED_ARTIST_IMAGE_NEGATIVE_TTL_SECONDS = 7 * 24 * 60 * 60
 WRAPPED_REGEN_LOCK_PREFIX = "wrapped_regen_lock:"
 WRAPPED_REGEN_LOCK_TIMEOUT_SECONDS = 4 * 60 * 60
+_artist_cache_lock = Lock()
 
 
 def utcnow() -> datetime:
@@ -118,6 +121,7 @@ def _extract_artist_image_from_youtube(artist_name: str) -> str:
 
     try:
         with yt_dlp.YoutubeDL(base_opts) as ydl:
+            seen_channels = set()
             for query in search_queries:
                 result = ydl.extract_info(query, download=False)
                 entries = (result or {}).get("entries") or []
@@ -134,7 +138,8 @@ def _extract_artist_image_from_youtube(artist_name: str) -> str:
                     if not channel_url and channel_id:
                         channel_url = f"https://www.youtube.com/channel/{channel_id}"
 
-                    if channel_url:
+                    if channel_url and channel_url not in seen_channels:
+                        seen_channels.add(channel_url)
                         try:
                             channel_info = ydl.extract_info(channel_url, download=False)
                         except Exception:
@@ -153,8 +158,8 @@ def _resolve_artist_images(artist_names: list[str], *, allow_fetch: bool) -> dic
     cache_payload = _load_artist_image_cache()
     artists_cache = cache_payload.get("artists") or {}
     now_ts = _safe_unix_now()
-    changed = False
     resolved: dict[str, str] = {}
+    pending = {}
 
     for artist in artist_names:
         normalized = _normalize_artist_name(artist)
@@ -165,7 +170,10 @@ def _resolve_artist_images(artist_names: list[str], *, allow_fetch: bool) -> dic
         image_url = ""
         if isinstance(cached, dict):
             image_url = str(cached.get("image_url") or "").strip()
-            checked_at = int(cached.get("checked_at") or 0)
+            try:
+                checked_at = int(cached.get("checked_at") or 0)
+            except (TypeError, ValueError):
+                checked_at = 0
             ttl = WRAPPED_ARTIST_IMAGE_POSITIVE_TTL_SECONDS if image_url else WRAPPED_ARTIST_IMAGE_NEGATIVE_TTL_SECONDS
             if checked_at and checked_at + ttl > now_ts:
                 if image_url:
@@ -173,22 +181,29 @@ def _resolve_artist_images(artist_names: list[str], *, allow_fetch: bool) -> dic
                 continue
 
         if allow_fetch:
-            fetched_url = _extract_artist_image_from_youtube(artist)
-            artists_cache[normalized] = {
-                "artist": artist,
-                "image_url": fetched_url,
-                "checked_at": now_ts,
-                "source": "youtube",
-            }
-            changed = True
-            if fetched_url:
-                resolved[normalized] = fetched_url
+            pending.setdefault(normalized, (artist, image_url))
         elif image_url:
             resolved[normalized] = image_url
 
-    if changed:
-        cache_payload["artists"] = artists_cache
-        _save_artist_image_cache(cache_payload)
+    if pending:
+        changes = {}
+        with ThreadPoolExecutor(max_workers=min(4, len(pending))) as workers:
+            urls = workers.map(_extract_artist_image_from_youtube, (item[0] for item in pending.values()))
+            for (normalized, (artist, previous_url)), fetched_url in zip(pending.items(), urls):
+                image_url = fetched_url or previous_url
+                changes[normalized] = {
+                    "artist": artist,
+                    "image_url": image_url,
+                    "checked_at": now_ts,
+                    "source": "youtube",
+                }
+                if image_url:
+                    resolved[normalized] = image_url
+        # Merge only fetched entries: concurrent year jobs must not overwrite another cache update.
+        with _artist_cache_lock:
+            latest = _load_artist_image_cache()
+            latest["artists"].update(changes)
+            _save_artist_image_cache(latest)
 
     return resolved
 
@@ -422,8 +437,23 @@ def _safe_played_seconds(value: Any) -> float:
 def _track_lookup(db: Session, track_ids: set[int]) -> dict[int, database.Track]:
     if not track_ids:
         return {}
-    tracks = db.query(database.Track).filter(database.Track.id.in_(sorted(track_ids))).all()
-    return {int(track.id): track for track in tracks}
+    ids = sorted(track_ids)
+    tracks = {}
+    for start in range(0, len(ids), 500):
+        tracks.update(
+            {
+                int(track.id): track
+                for track in db.query(database.Track).filter(database.Track.id.in_(ids[start : start + 500])).all()
+            }
+        )
+    return tracks
+
+
+def _summary_artist_items(payload):
+    return [
+        *(payload.get("top_artists") or []),
+        *(item for month in payload.get("top_artist_sprint") or [] for item in month.get("artists") or []),
+    ]
 
 
 def _artist_key(track: database.Track | None) -> str:
@@ -693,20 +723,13 @@ def _build_user_summary_from_rows(
 
     sprint_payload = _build_artist_sprint(monthly_artist_stats)
 
-    artist_names_for_images: list[str] = []
-    artist_names_for_images.extend([str(item.get("artist") or "") for item in top_artists])
-    for month in sprint_payload:
-        for item in month.get("artists") or []:
-            artist_names_for_images.append(str(item.get("artist") or ""))
+    artist_items = _summary_artist_items({"top_artists": top_artists, "top_artist_sprint": sprint_payload})
+    artist_names_for_images = [str(item.get("artist") or "") for item in artist_items]
     artist_image_map = _resolve_artist_images(artist_names_for_images, allow_fetch=bool(resolve_artist_images))
 
-    for item in top_artists:
+    for item in artist_items:
         normalized_artist = _normalize_artist_name(str(item.get("artist") or ""))
         item["artist_image"] = artist_image_map.get(normalized_artist, "")
-    for month in sprint_payload:
-        for item in month.get("artists") or []:
-            normalized_artist = _normalize_artist_name(str(item.get("artist") or ""))
-            item["artist_image"] = artist_image_map.get(normalized_artist, "")
 
     payload = {
         "version": WRAPPED_SUMMARY_VERSION,
@@ -860,10 +883,17 @@ def _party_source_marker(year: int) -> str:
     return str((row["max_generated_at"] if row else "") or "")
 
 
-def build_party_summary(db: Session, year: int | None = None) -> dict[str, Any]:
+def build_party_summary(db: Session, year: int | None = None, *, user_summaries=None) -> dict[str, Any]:
     year = _safe_year(year)
-    users = db.query(database.User).filter(database.User.is_active == True).order_by(database.User.username.asc()).all()
-    summaries = [get_or_build_user_wrapped_summary(db, user, year) for user in users]
+    if user_summaries is None:
+        users = (
+            db.query(database.User)
+            .filter(database.User.is_active == True, database.User.is_service_account == False)
+            .order_by(database.User.username.asc())
+            .all()
+        )
+        user_summaries = [get_or_build_user_wrapped_summary(db, user, year) for user in users]
+    summaries = user_summaries
     active_summaries = [
         summary
         for summary in summaries
@@ -1121,16 +1151,25 @@ def _snapshot_year_closed(year: int) -> bool:
     return utcnow() >= close_at
 
 
-def finalize_wrapped_year_snapshot(db: Session, year: int) -> dict[str, Any]:
+def finalize_wrapped_year_snapshot(db: Session, year: int, *, user_summaries=None, party=None) -> dict[str, Any]:
     year = _safe_year(year)
     if not _snapshot_year_closed(year):
         return {"year": year, "finalized": False, "reason": "year_not_closed"}
 
-    users = db.query(database.User).filter(database.User.is_active == True).order_by(database.User.username.asc()).all()
+    # Resolve caches before opening a write transaction: rebuilding one here can deadlock SQLite.
+    if user_summaries is None:
+        users = (
+            db.query(database.User)
+            .filter(database.User.is_active == True, database.User.is_service_account == False)
+            .order_by(database.User.username.asc())
+            .all()
+        )
+        user_summaries = [get_or_build_user_wrapped_summary(db, user, year, force_refresh=False) for user in users]
+    if party is None:
+        party = get_or_build_party_summary(db, year, force_refresh=False)
     user_snapshot_count = 0
     with closing(_connect_summary()) as conn, conn:
-        for user in users:
-            summary = get_or_build_user_wrapped_summary(db, user, year, force_refresh=False)
+        for summary in user_summaries:
             cur = conn.execute(
                 """
                 INSERT OR IGNORE INTO wrapped_yearly_snapshots (
@@ -1139,8 +1178,8 @@ def finalize_wrapped_year_snapshot(db: Session, year: int) -> dict[str, Any]:
                 """,
                 (
                     int(year),
-                    int(user.id),
-                    str(user.username),
+                    int(summary["user"]["id"]),
+                    str(summary["user"]["username"]),
                     _iso_now(),
                     int(summary.get("wrapped_schema_version") or WRAPPED_SCHEMA_VERSION),
                     json.dumps(summary, ensure_ascii=False, separators=(",", ":")),
@@ -1148,7 +1187,6 @@ def finalize_wrapped_year_snapshot(db: Session, year: int) -> dict[str, Any]:
             )
             user_snapshot_count += 1 if cur.rowcount > 0 else 0
 
-        party = get_or_build_party_summary(db, year, force_refresh=False)
         conn.execute(
             """
             INSERT OR IGNORE INTO wrapped_yearly_party_snapshots (
@@ -1177,7 +1215,7 @@ def regenerate_wrapped_year(
     year = _safe_year(year)
     ensure_wrapped_summary_db()
 
-    query = db.query(database.User).filter(database.User.is_active == True)
+    query = db.query(database.User).filter(database.User.is_active == True, database.User.is_service_account == False)
     if target_username:
         query = query.filter(database.User.username == target_username)
     users = query.order_by(database.User.username.asc()).all()
@@ -1187,13 +1225,11 @@ def regenerate_wrapped_year(
     qualified_event_total = 0
     for user in users:
         if force_refresh:
-            payload = save_user_wrapped_summary(
-                build_user_wrapped_summary(
-                    db,
-                    user,
-                    year,
-                    resolve_artist_images=True,
-                )
+            payload = build_user_wrapped_summary(
+                db,
+                user,
+                year,
+                resolve_artist_images=False,
             )
         else:
             payload = get_or_build_user_wrapped_summary(db, user, year, force_refresh=False)
@@ -1201,8 +1237,16 @@ def regenerate_wrapped_year(
         raw_event_total += int(payload.get("raw_event_count") or 0)
         qualified_event_total += int(payload.get("qualified_event_count") or 0)
 
-    party = get_or_build_party_summary(db, year, force_refresh=True)
-    snapshot = finalize_wrapped_year_snapshot(db, year)
+    if force_refresh:
+        artist_items = [item for payload in generated for item in _summary_artist_items(payload)]
+        images = _resolve_artist_images([str(item.get("artist") or "") for item in artist_items], allow_fetch=True)
+        for item in artist_items:
+            item["artist_image"] = images.get(_normalize_artist_name(item.get("artist")), "")
+        for payload in generated:
+            save_user_wrapped_summary(payload)
+    all_summaries = generated if not target_username else None
+    party = build_party_summary(db, year, user_summaries=all_summaries)
+    snapshot = finalize_wrapped_year_snapshot(db, year, user_summaries=all_summaries, party=party)
 
     return {
         "year": year,

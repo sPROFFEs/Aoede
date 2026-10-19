@@ -35,6 +35,9 @@ npm run lint
 npm run format:check
 node --experimental-vm-modules scripts/test_party_desktop.mjs
 node scripts/test_desktop.mjs
+node scripts/test_wrapped.mjs
+npx eslint Aoede/assets/wrapped_story/story.js
+npx prettier --check Aoede/assets/wrapped_story/story.js Aoede/assets/wrapped_story/story.css
 node --experimental-vm-modules scripts/test_webapp.mjs
 node --experimental-vm-modules scripts/test_collections.mjs
 node --experimental-vm-modules scripts/test_appearance.mjs

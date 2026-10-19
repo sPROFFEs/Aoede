@@ -12,7 +12,7 @@ router = APIRouter()
 
 
 @router.get("/api/wrapped/{year}")
-async def get_user_wrapped(
+def get_user_wrapped(
     year: int,
     request: Request,
     force_refresh: bool = Query(False),
@@ -39,7 +39,7 @@ async def get_user_wrapped(
 
 
 @router.get("/api/wrapped/{year}/party")
-async def get_wrapped_party(
+def get_wrapped_party(
     year: int,
     request: Request,
     force_refresh: bool = Query(False),
@@ -64,7 +64,7 @@ async def get_wrapped_party(
 
 
 @router.post("/api/wrapped/{year}/top-songs/playlist")
-async def save_wrapped_top_songs_playlist(year: int, request: Request, db: Session = Depends(get_db)):
+def save_wrapped_top_songs_playlist(year: int, request: Request, db: Session = Depends(get_db)):
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
@@ -72,7 +72,6 @@ async def save_wrapped_top_songs_playlist(year: int, request: Request, db: Sessi
     if not visibility["visible"]:
         return JSONResponse({"error": "Wrapped is not available"}, status_code=403)
 
-    visibility = wrapped_service.get_wrapped_settings(db)
     operational_year = int(visibility.get("year") or wrapped_service.get_operational_wrapped_year(db))
     try:
         summary = wrapped_service.get_or_build_user_wrapped_summary(db, user, operational_year)
@@ -83,31 +82,28 @@ async def save_wrapped_top_songs_playlist(year: int, request: Request, db: Sessi
     if not tracks:
         return JSONResponse({"error": "No Wrapped tracks available"}, status_code=404)
 
+    track_ids = list(dict.fromkeys(int(item.get("db_id") or item.get("id") or 0) for item in tracks))
+    existing_ids = {row[0] for row in db.query(database.Track.id).filter(database.Track.id.in_(track_ids)).all()}
+    track_ids = [track_id for track_id in track_ids if track_id in existing_ids]
+    if not track_ids:
+        return JSONResponse({"error": "Wrapped tracks are no longer available"}, status_code=404)
+
     from .favorites import schedule_navidrome_sync
     from .playlists import build_unique_copy_name, generate_m3u_for_playlist, schedule_playlist_sync
 
     playlist_name = build_unique_copy_name(db, user.id, f"Your Top Songs {summary['year']}")
     playlist = database.Playlist(name=playlist_name, owner_id=user.id)
     db.add(playlist)
-    db.commit()
-    db.refresh(playlist)
+    db.flush()
 
-    position = 0
-    for item in tracks:
-        track_id = int(item.get("db_id") or item.get("id") or 0)
-        if not track_id:
-            continue
-        exists = db.query(database.Track.id).filter(database.Track.id == track_id).first()
-        if not exists:
-            continue
+    for position, track_id in enumerate(track_ids):
         db.add(database.PlaylistItem(playlist_id=playlist.id, track_id=track_id, position=position))
-        position += 1
 
     db.commit()
     generate_m3u_for_playlist(db, playlist, user.username)
     schedule_playlist_sync(db, user, force_now=True)
     schedule_navidrome_sync(user.id, user.username, delay_seconds=2.0)
-    return JSONResponse({"id": playlist.id, "name": playlist.name, "track_count": position})
+    return JSONResponse({"id": playlist.id, "name": playlist.name, "track_count": len(track_ids)})
 
 
 @router.post("/admin/api/wrapped/{year}/regenerate")
@@ -166,7 +162,11 @@ async def admin_wrapped_status(year: int, request: Request, db: Session = Depend
     except ValueError as e:
         return JSONResponse({"error": str(e)}, status_code=400)
 
-    user_count = db.query(database.User).filter(database.User.is_active == True).count()
+    user_count = (
+        db.query(database.User)
+        .filter(database.User.is_active == True, database.User.is_service_account == False)
+        .count()
+    )
     party = wrapped_service.get_cached_party_summary(year)
     latest_audit = wrapped_service.get_latest_regeneration_audit(year)
     settings = wrapped_service.get_wrapped_settings(db)
