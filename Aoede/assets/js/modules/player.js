@@ -1323,6 +1323,7 @@ export async function fetchRandomTrackAndPlay() {
 
 export function syncPlayerShellVisibility(track = state.currentTrack) {
   const hasTrack = Boolean(track);
+  document.body.classList.toggle('has-player', hasTrack);
   const footer = document.querySelector('.player-footer');
   const mainView = document.querySelector('.main-view');
 

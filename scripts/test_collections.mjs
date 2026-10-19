@@ -257,9 +257,10 @@ const playback = { API: '/api', audio, currentTrack: { title: 'Party' }, current
   setCurrentTrack(value) { playback.currentTrack = value; playerImports.setExport('currentTrack', value); },
   setIsPlaying(value) { playback.isPlaying = value; },
   setContextQueue() { throw new Error('Party context must stay unchanged'); } };
+const shellClasses = new Set();
 const playerNode = { style: {}, classList: { add() {}, remove() {} } };
 const player = await load('player.js', {
-  window: { setTimeout: () => 7 }, clearTimeout() {}, document: { getElementById: () => playerNode, querySelector: () => null, querySelectorAll: () => [] }, console, URL, URLSearchParams, atob,
+  window: { setTimeout: () => 7 }, clearTimeout() {}, document: { body: { classList: { toggle(name, value) { value ? shellClasses.add(name) : shellClasses.delete(name); } } }, getElementById: () => playerNode, querySelector: () => null, querySelectorAll: () => [] }, console, URL, URLSearchParams, atob,
   localStorage: { removeItem() {} },
   navigator: { mediaSession: { setActionHandler(action) { mediaActions.push(action); } } },
   lucide: { createIcons() {} }
@@ -267,6 +268,10 @@ const player = await load('player.js', {
   './api.js': {}, './offline_store.js': {},
   './audio_engine.js': { resetFade() {}, applyReplayGain: value => routingGains.push(value), resumeIfSuspended() {} } });
 playerImports = player.imports['./state.js'];
+player.api.syncPlayerShellVisibility({ title: 'Track' });
+assert.equal(shellClasses.has('has-player'), true);
+player.api.syncPlayerShellVisibility(null);
+assert.equal(shellClasses.has('has-player'), false);
 player.api.setPartyController({ isActive: () => true });
 await player.api.playTrack({ db_id: 2 });
 await player.api.playFederatedTrack({ fed_instance_id: 12, fed_remote_id: 777 });

@@ -46,7 +46,7 @@ body {
     height: 100dvh !important;        /* dynamic viewport — copes with iOS toolbar */
 }
 
-body:has(.player-footer:not(.player-hidden)) {
+body.has-player {
     --mobile-player-space: calc(var(--mobile-player-height) + var(--mobile-dock-gap));
 }
 
@@ -888,3 +888,6 @@ body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 .modal-overlay > .modal:not(.create-menu) { border-radius: 20px 20px 0 0 !important; }
 html[data-keyboard="open"] body { --mobile-bottom-clearance: 16px; }
 html[data-keyboard="open"] :is(.m-bottom-nav, .player-footer) { display: none !important; }
+
+/* A header blur clips its popup's backdrop; regular material keeps text readable. */
+html:is([data-theme="glass"], [data-theme="vitrine"]) .m-topbar-more .m-more-panel { background-color: var(--square-base) !important; }
