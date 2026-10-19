@@ -470,7 +470,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const _serverView = isDeviceOffline ? 'offline' : (window.AOEDE_INITIAL_VIEW ?? 'home');
   const _serverParam = isDeviceOffline ? null : (window.AOEDE_INITIAL_PARAM ?? null);
 
-  const hasInitialView = window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home';
+  const hasInitialView =
+    window.location.hash === '#home' || (window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home');
   if (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname)) {
     if (isDeviceOffline) {
       views.loadView('offline', null, { replaceHistory: true });

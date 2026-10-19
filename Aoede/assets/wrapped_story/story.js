@@ -908,7 +908,7 @@
 
   function closeStory() {
     stopStoryAudio();
-    window.location.replace('/portal');
+    window.location.replace('/portal#home');
   }
 
   async function init() {

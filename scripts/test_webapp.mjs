@@ -261,3 +261,10 @@ for (const pathname of ['/wrapped/2026', '/wrapped', '/portal']) {
   assert.equal(loads[0][0], 'wrapped'); assert.equal(loads[0][1], 2026);
 }
 console.log('PASS: Wrapped summary deep links start the actual initial view and override a restored playback view.');
+const homeExitLoads = [];
+await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
+  window: { location: { pathname: '/portal', hash: '#home' }, AOEDE_INITIAL_VIEW: 'home' },
+  navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'wrapped', param: 2026 }) },
+  views: { loadView: view => homeExitLoads.push(view) }, console
+});
+assert.deepEqual(homeExitLoads, ['home']); // Closing a story cannot reopen the summary from a saved playback session.
