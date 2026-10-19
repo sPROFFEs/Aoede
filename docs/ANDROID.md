@@ -1,6 +1,6 @@
 # Android App
 
-Aoede Android 1.1.1 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.2 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
 
 ## Release artifacts
 
@@ -46,7 +46,7 @@ The application provides:
 - edge-to-edge phone and touch-landscape layouts with safe controls around cutouts and system bars;
 - a dock that adapts to playback and the keyboard, compact Vitrine spacing and a mobile More menu;
 - Android Back dismissing dialogs, fullscreen playback and menus before navigating;
-- an **Aoede player** home-screen widget with cover, title, artist and transport controls;
+- a resizable **Aoede player** widget with compact, full-control and large-artwork layouts, cover-based colours and a prominent play/pause button;
 - native system media notification;
 - album artwork, title and artist in the notification;
 - play / pause / next / previous media actions;
@@ -57,6 +57,10 @@ The application provides:
 - a device-local **Reduce visual effects** option, enabled by default on low-memory devices.
 
 Add the widget from your launcher's widget picker. During playback, controls operate in the background; when the player process is absent, a tap opens Aoede. Force-stopping the application ends playback. Music that has not been downloaded and online/federation/admin functions require the backend.
+
+![Compact, playback and artwork widget layouts](images/android-widgets.png)
+
+Native layout previews rendered by the Android view tests; dimensions and launcher spacing vary by device.
 
 The APK keeps the backend's original origin, scheme and port for authentication, API calls, streaming and uploads. HTTP can be explicitly configured, while invalid HTTPS certificates remain blocked. Upgrading 1.0.4/1.0.5 preserves the package identity and distribution signature, login cookies and downloaded files. APK 1.0.3 used a lost debug signing key and still needs uninstalling first.
 

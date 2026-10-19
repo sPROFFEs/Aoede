@@ -162,7 +162,7 @@ class MediaController(private val app: AoedeApp) {
     }
 
     private fun notifyChanged() {
-        val fingerprint = listOf(state, title, artist, artwork, actions.toSet())
+        val fingerprint = listOf(state, title, artist, album, artwork, actions.toSet())
         if (fingerprint != lastNotified) {
             lastNotified = fingerprint
             onChanged?.invoke()

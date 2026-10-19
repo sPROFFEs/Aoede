@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal"
+    android:gravity="center_vertical" android:layoutDirection="ltr">
+    <ImageButton android:id="@+id/widget_previous" style="@style/Widget.Aoede.Control"
+        android:src="@drawable/ic_skip_previous" android:contentDescription="@string/playback_action_prev" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+    <FrameLayout android:layout_width="56dp" android:layout_height="56dp">
+        <ImageView android:id="@+id/widget_toggle_surface" android:layout_width="match_parent" android:layout_height="match_parent"
+            android:src="@drawable/widget_button_solid" android:importantForAccessibility="no" />
+        <!-- The launcher inflates platform views; AppCompat tint is unavailable in RemoteViews. -->
+        <ImageButton tools:ignore="UseAppTint" android:id="@+id/widget_toggle" style="@style/Widget.Aoede.Control"
+            android:layout_width="match_parent" android:layout_height="match_parent" android:padding="16dp"
+            android:src="@drawable/ic_play" android:tint="#201B2D" android:contentDescription="@string/playback_action_play" />
+    </FrameLayout>
+    <LinearLayout android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
+    <ImageButton android:id="@+id/widget_next" style="@style/Widget.Aoede.Control"
+        android:src="@drawable/ic_skip_next" android:contentDescription="@string/playback_action_next" />
+</LinearLayout>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aoede</string>
+    <string name="widget_description">Aoede-Player</string>
+    <string name="widget_open">Deine Musik öffnen</string>
+    <string name="widget_cover">Aoede öffnen</string>
+    <string name="widget_empty_hint">Antippen und weiterhören</string>
+    <string name="widget_playing">Wiedergabe</string>
+    <string name="widget_paused">Pausiert</string>
+    <string name="widget_buffering">Laden…</string>
+    <string name="setup_reduce_effects">Visuelle Effekte reduzieren</string>
+    <string name="setup_welcome_title">Willkommen bei Aoede</string>
+    <string name="setup_welcome_subtitle">Gib zum Starten die URL deines Servers ein</string>
+    <string name="setup_change_title">Server ändern</string>
+    <string name="setup_change_subtitle">Nach dem Speichern wird die App mit der neuen URL neu geladen</string>
+    <string name="setup_btn_connect">Verbinden</string>
+    <string name="setup_btn_cancel">Abbrechen</string>
+    <string name="setup_error_empty_url">Bitte gib eine URL ein</string>
+    <string name="setup_error_invalid_url">Gib die Stamm-URL des Servers inklusive Port, aber ohne Pfad oder Abfrageparameter ein.</string>
+    <string name="setup_toast_saved">Server gespeichert</string>
+    <string name="main_btn_settings_desc">Server konfigurieren</string>
+    <string name="main_update_webview">Aktualisiere Android System WebView für Hintergrundwiedergabe und Mediensteuerung.</string>
+    <string name="main_no_browser">Kein Browser zum Öffnen dieses Links verfügbar.</string>
+    <string name="main_no_file_picker">Keine Dateiauswahl verfügbar.</string>
+    <string name="main_connection_error">Verbindung zu Aoede fehlgeschlagen</string>
+    <string name="main_retry">Erneut versuchen</string>
+    <string name="main_tls_error">Das Serverzertifikat konnte nicht überprüft werden. Prüfe die HTTPS-Konfiguration.</string>
+    <string name="main_external_redirect">Der Server hat an eine andere Adresse weitergeleitet. Prüfe die Server-URL und Proxy-Konfiguration.</string>
+    <string name="playback_channel_name">Wiedergabe</string>
+    <string name="playback_channel_desc">Hält die App aktiv, damit die Musik im Hintergrund weiterläuft</string>
+    <string name="playback_notif_title">Aoede</string>
+    <string name="playback_notif_text">Wiedergabe aktiv</string>
+    <string name="playback_action_play">Wiedergeben</string>
+    <string name="playback_action_pause">Pausieren</string>
+    <string name="playback_action_next">Weiter</string>
+    <string name="playback_action_prev">Zurück</string>
+</resources>

@@ -1,12 +1,15 @@
 # Aoede Android
 
-Android 1.1.1 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+Android 1.1.2 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
 
 Bundled resources are served only at the configured origin, including its exact scheme and port. Music streams, federation, uploads and API requests continue to reach that backend with its normal session cookie; no CORS proxy or copied token is involved. Server-rendered settings, help and admin forms still require the backend. The installed frontend updates with the APK. Backend support for `/api/mobile/bootstrap` (protocol 1, introduced with this client) is required; older servers display an update instruction instead of a JSON parsing error.
 
 The application owns one retained WebView, so its document, queue and offline Blob URLs survive activity recreation and returning from the background. A media playback foreground service runs during playback, publishes the MediaSession controls and holds a CPU wake lock; it does not keep the display awake.
 
 Add **Aoede player** from the launcher's widget picker. Its cover and metadata follow the native media session; play/pause and previous/next control the existing player without opening the app. If Android has stopped the process, tapping the widget opens the app without pretending playback survived. Updates follow media events, with no periodic polling.
+
+The widget has three resize-aware layouts: a compact row, a player with previous/play/next controls, and a larger artwork card. Its dark colour gradient and primary button adapt to the existing cover; no extra artwork requests are made. Artwork rendering is cached and widget updates follow media changes rather than a polling timer. Large text falls back to a layout that fits, unavailable skip actions are disabled, and an empty player opens Aoede. Android 12+ uses [responsive RemoteViews](https://developer.android.com/develop/ui/views/appwidgets/layouts); older launchers get separate portrait and landscape layouts. Existing widget instances update in place.
+
 
 Phones, landscape and tablets use the same responsive themes with touch targets, keyboard/cutout/system-bar insets and viewport-sized fullscreen playback. **Reduce visual effects** in server configuration disables expensive glass blur; low-memory devices default to reduced effects. Account theme preferences continue to sync through the backend.
 
@@ -53,7 +56,7 @@ Publishing also preserves the original 1.0.5 remote wrapper and its sources as `
 - Repeat as a party guest: local pause must survive room updates and must not pause the host.
 - Interrupt with another music app and a phone call; verify focus loss and appropriate resumption.
 - Check offline downloaded tracks, failed streams, long buffering and changing servers.
-- Add multiple player widgets; verify metadata, transport controls, local pause as a party guest and cold-process taps.
+- Add multiple player widgets; resize each between compact, standard and artwork layouts in both orientations. Verify metadata, cover colours, 48dp or larger controls, large system fonts, disabled skip actions, local pause as a party guest and cold-process taps.
 - Check each theme at 320/360/412dp, landscape and tablet widths, including gesture/three-button navigation, keyboard, cutouts, user menus, modals, fullscreen lyrics and queue. Check bar icon contrast after changing theme and after opening/closing the fullscreen player.
 - Upgrade an installed 1.0.4/1.0.5 without uninstalling; verify cookies/downloads remain and old service-worker caches cannot replace installed modules.
 - Open Admin from System Monitor behind an HTTPS tunnel and on a server with a custom port; verify navigation, form submission and Back stay in the app.

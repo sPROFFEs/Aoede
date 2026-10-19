@@ -4,6 +4,10 @@
     <string name="app_name">Aoede</string>
     <string name="widget_description">Aoede player</string>
     <string name="widget_open">Open your music</string>
+    <string name="widget_playing">Playing</string>
+    <string name="widget_paused">Paused</string>
+    <string name="widget_buffering">Buffering…</string>
+    <string name="widget_empty_hint">Tap to continue listening</string>
     <string name="widget_cover">Open Aoede</string>
     <string name="setup_reduce_effects">Reduce visual effects</string>
 

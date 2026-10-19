@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="widget_corner_radius">28dp</dimen>
+    <style name="Widget.Aoede.Title" parent="android:style/Widget.TextView">
+        <item name="android:textSize">18sp</item><item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">#FFFFFF</item><item name="android:includeFontPadding">false</item>
+        <item name="android:maxLines">1</item><item name="android:ellipsize">end</item>
+    </style>
+    <style name="Widget.Aoede.Artist" parent="android:style/Widget.TextView">
+        <item name="android:textSize">13sp</item><item name="android:textColor">#D9FFFFFF</item>
+        <item name="android:includeFontPadding">false</item><item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+    </style>
+    <style name="Widget.Aoede.Brand" parent="android:style/Widget.TextView">
+        <item name="android:textSize">10sp</item><item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:textColor">#CCFFFFFF</item><item name="android:letterSpacing">0.14</item>
+        <item name="android:includeFontPadding">false</item><item name="android:textAllCaps">true</item>
+    </style>
+    <style name="Widget.Aoede.Control" parent="android:style/Widget.ImageButton">
+        <item name="android:layout_width">48dp</item><item name="android:layout_height">56dp</item>
+        <item name="android:background">@drawable/widget_button_ripple</item><item name="android:padding">12dp</item>
+        <item name="android:scaleType">centerInside</item>
+    </style>
+</resources>
