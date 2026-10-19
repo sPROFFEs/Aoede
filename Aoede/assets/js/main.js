@@ -460,18 +460,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const restoredSession = await player.restorePlaybackSession();
 
-  // Load initial view
-  // Load initial view only if we are on the root/portal path.
-  // window.AOEDE_INITIAL_VIEW / AOEDE_INITIAL_PARAM are set by app_shell.html
-  // (a non-blocking inline <script> that runs before this deferred module).
-  // We are the *only* caller of loadView on page load — the template no longer
-  // calls it a second time, eliminating the double-render (fix Q-10).
+  // Explicit destinations win over a restored view; initialize the SPA once.
   const isDeviceOffline = window.AOEDE_NATIVE_OFFLINE || (typeof navigator !== 'undefined' && !navigator.onLine);
   const _serverView = isDeviceOffline ? 'offline' : (window.AOEDE_INITIAL_VIEW ?? 'home');
   const _serverParam = isDeviceOffline ? null : (window.AOEDE_INITIAL_PARAM ?? null);
 
-  const hasInitialView =
-    window.location.hash === '#home' || (window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home');
+  const homeExit = window.location.hash === '#home';
+  const hasInitialView = homeExit || (window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home');
   if (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname)) {
     if (isDeviceOffline) {
       views.loadView('offline', null, { replaceHistory: true });
@@ -487,6 +482,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (window.location.pathname.includes('/admin/system')) state.setCurrentViewName('system_monitor');
     else if (window.location.pathname.includes('/admin/downloads')) state.setCurrentViewName('admin_downloads');
   }
+
+  if (homeExit)
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
 
   // Initialize Lucide icons
   if (window.lucide) {

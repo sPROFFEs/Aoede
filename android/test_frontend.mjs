@@ -12,7 +12,7 @@ async function boot({ status = 200, data = alice, offline = false, cache = null,
   const context = {
     document: { cookie: '', getElementById: id => elements[id] },
     navigator: { language: 'en-US', ...(worker ? { serviceWorker: { controller: {}, getRegistrations: async () => [{ unregister: async () => calls.push('unregister') }] } } : {}) },
-    location: { pathname: path.split('?')[0], search: path.includes('?') ? '?' + path.split('?')[1] : '', replace: url => redirects.push(url), reload: () => redirects.push('reload') },
+    location: { pathname: path.split(/[?#]/)[0], search: path.includes('?') ? '?' + path.split('?')[1].split('#')[0] : '', hash: path.includes('#') ? '#' + path.split('#')[1] : '', replace: url => redirects.push(url), reload: () => redirects.push('reload') },
     localStorage, sessionStorage: { ...localStorage },
     window: { AoedeHost: { postMessage: value => messages.push(value) } },
     setTimeout, clearTimeout, AbortController, URLSearchParams,
@@ -33,6 +33,10 @@ assert.equal(JSON.parse(result.messages[0]).language, 'es');
 assert.equal(JSON.parse(result.messages[0]).offline, false);
 assert.equal(result.calls[0].options.credentials, 'same-origin');
 assert.equal(result.calls[0].options.cache, 'no-store');
+result = await boot({ path: '/portal#home' });
+assert.equal(JSON.parse(result.messages[0]).home, true);
+result = await boot({ path: '/portal#unknown' });
+assert.equal(JSON.parse(result.messages[0]).home, false);
 result = await boot({ status: 401, cache: alice });
 assert.deepEqual(result.redirects, ['/login']);
 assert.equal(result.storage.has('aoede.android.bootstrap'), false);

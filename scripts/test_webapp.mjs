@@ -262,9 +262,11 @@ for (const pathname of ['/wrapped/2026', '/wrapped', '/portal']) {
 }
 console.log('PASS: Wrapped summary deep links start the actual initial view and override a restored playback view.');
 const homeExitLoads = [];
+const homeExitUrls = [];
 await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
-  window: { location: { pathname: '/portal', hash: '#home' }, AOEDE_INITIAL_VIEW: 'home' },
+  window: { location: { pathname: '/portal', search: '', hash: '#home' }, AOEDE_INITIAL_VIEW: 'home', history: { state: null, replaceState: (_state, _title, url) => homeExitUrls.push(url) } },
   navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'wrapped', param: 2026 }) },
   views: { loadView: view => homeExitLoads.push(view) }, console
 });
 assert.deepEqual(homeExitLoads, ['home']); // Closing a story cannot reopen the summary from a saved playback session.
+assert.deepEqual(homeExitUrls, ['/portal']); // Consume the intent once so later launches can restore other views.

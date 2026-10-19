@@ -68,6 +68,9 @@ class MobileFrontendTest {
         val reload = frontend.intercept(Uri.parse(target), mainFrame = true)!!.data.bufferedReader().readText()
         assertTrue(reload.contains("/_aoede/boot.js"))
         assertFalse(reload.contains("username: \"alice\""))
+        val home = frontend.prepare(JSONObject(payload()).put("home", true).toString())!!
+        assertEquals("${origin.rule}/portal?native=1#home", home)
+        assertTrue(frontend.intercept(Uri.parse(home), mainFrame = true)!!.data.bufferedReader().readText().contains("window.AOEDE_INITIAL_VIEW"))
     }
 
     @Test fun widgetsShowNativeMetadataAndColdActionsOpenAppWithoutStartingPlayback() {

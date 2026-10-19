@@ -66,7 +66,9 @@ class MobileFrontend(private val context: Context, private val origin: ServerOri
             document = document.replaceFirst("<html ", "<html data-native-effects=\"${if (reduced) "reduced" else "full"}\" ")
             val path = if (login) "/login" else "/portal"
             nextDocument.set(path to document)
-            origin.rule + path + "?native=1" + if (loginError.isNotEmpty()) "&error=" + Uri.encode(loginError) else ""
+            origin.rule + path + "?native=1" +
+                (if (loginError.isNotEmpty()) "&error=" + Uri.encode(loginError) else "") +
+                (if (!login && payload.optBoolean("home")) "#home" else "")
         } catch (_: org.json.JSONException) { null }
     }
 

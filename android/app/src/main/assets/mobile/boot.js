@@ -64,7 +64,7 @@
     // A new document preserves document-start media hooks and normal module loading.
     if (!window.AoedeHost) throw new Error('webview');
     const loginError = login ? new URLSearchParams(location.search).get('error')?.slice(0, 512) || '' : '';
-    window.AoedeHost.postMessage(JSON.stringify({ type: 'render', data, language: lang, offline, login, loginError }));
+    window.AoedeHost.postMessage(JSON.stringify({ type: 'render', data, language: lang, offline, login, loginError, home: location.hash === '#home' }));
   }
   start().catch(error => {
     document.getElementById('boot-message').textContent = labels[error.message === 'compatibility' ? 3 : 4];

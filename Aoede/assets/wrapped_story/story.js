@@ -615,7 +615,7 @@
             <div><span>Top Songs playlist</span><strong>${number(topPlayableSongs.length)} tracks</strong></div>
         </div>
         <div class="story-actions">
-            <button class="story-action" type="button" id="story-save-playlist">Save Top Songs</button>
+            <button class="story-action" type="button" id="story-save-playlist" ${topPlayableSongs.length ? '' : 'disabled'}>Save Top Songs</button>
             <a class="story-action secondary" id="story-open-summary" href="/wrapped/${state.year}">Summary</a>
         </div>`,
         className: 'story-slide-copy'
