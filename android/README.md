@@ -1,10 +1,12 @@
 # Aoede Android
 
-Android 1.1.2 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+Android 1.1.3 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
 
 Bundled resources are served only at the configured origin, including its exact scheme and port. Music streams, federation, uploads and API requests continue to reach that backend with its normal session cookie; no CORS proxy or copied token is involved. Server-rendered settings, help and admin forms still require the backend. The installed frontend updates with the APK. Backend support for `/api/mobile/bootstrap` (protocol 1, introduced with this client) is required; older servers display an update instruction instead of a JSON parsing error.
 
 The application owns one retained WebView, so its document, queue and offline Blob URLs survive activity recreation and returning from the background. A media playback foreground service runs during playback, publishes the MediaSession controls and holds a CPU wake lock; it does not keep the display awake.
+
+**More → About & updates** shows the running server version, release highlights and current Android/desktop downloads. Update the backend for the authenticated `/api/about` endpoint.
 
 Add **Aoede player** from the launcher's widget picker. Its cover and metadata follow the native media session; play/pause and previous/next control the existing player without opening the app. If Android has stopped the process, tapping the widget opens the app without pretending playback survived. Updates follow media events, with no periodic polling.
 

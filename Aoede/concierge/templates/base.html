@@ -59,6 +59,7 @@
                 "/assets/js/modules/sync.js": "/assets/js/modules/sync.js?v={{ static_v }}",
                 "/assets/js/modules/system_monitor.js": "/assets/js/modules/system_monitor.js?v={{ static_v }}",
                 "/assets/js/modules/ui.js": "/assets/js/modules/ui.js?v={{ static_v }}",
+                "/assets/js/modules/about.js": "/assets/js/modules/about.js?v={{ static_v }}",
                 "/assets/js/modules/update_progress.js": "/assets/js/modules/update_progress.js?v={{ static_v }}",
                 "/assets/js/modules/views.js": "/assets/js/modules/views.js?v={{ static_v }}"
             }
@@ -245,6 +246,7 @@
                                     <i data-lucide="help-circle"></i>
                                     <span>{{ _('menu.help') if _ else 'Help' }}</span>
                                 </button>
+                                <button type="button" class="user-menu-item" onclick="this.closest('details').open=false;openAbout(this)"><i data-lucide="info"></i><span>About &amp; updates</span></button>
                                 <div style="border-top:1px solid rgba(255,255,255,0.08); margin:6px 0; padding:6px 8px;">
                                     <div style="font-size:0.72rem; text-transform:uppercase; color:var(--text-sub); letter-spacing:0.04em; margin-bottom:6px; padding-left:4px;">{{ _('header.language') if _ else 'Language' }}</div>
                                     <div style="display:flex; gap:6px;">
@@ -285,6 +287,7 @@
                             <button type="button" onclick="this.closest('details').open=false;showCreateMenu()"><i data-lucide="plus"></i>{{ _('library.create') }}</button>
                             <button type="button" onclick="this.closest('details').open=false;openDownloadsModal()"><i data-lucide="download-cloud"></i>{{ _('header.downloads') }}<span id="m-download-badge" class="m-badge" style="display:none;">0</span></button>
                             <button type="button" onclick="this.closest('details').open=false;openDeleteResponsesModal()"><i data-lucide="messages-square"></i>{{ _('header.delete_responses') }}<span id="m-delete-badge" class="m-badge" style="display:none;">0</span></button>
+                            <button type="button" onclick="this.closest('details').open=false;openAbout(this)"><i data-lucide="info"></i>About &amp; updates</button>
                             {% if is_admin %}<a href="/admin/"><i data-lucide="settings"></i>{{ _('header.admin_settings') }}</a>{% endif %}
                         </div>
                     </details>

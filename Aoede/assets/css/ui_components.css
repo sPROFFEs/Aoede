@@ -1,3 +1,41 @@
+.modal.about-panel { width: min(100%, 680px) !important; max-height: min(88vh, 850px); overflow-y: auto; color: var(--text-main); }
+#modal-container .about-panel { background: var(--square-film-strong, var(--surface-0)) !important; }
+#modal-container .about-overlay { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+.about-panel :is(h2, h3, h4, p) { margin: 0; }
+.about-header, .about-section-heading, .about-footer { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.about-header h2 { font-size: 1.15rem; letter-spacing: -.025em; margin-top: 5px; }
+.about-eyebrow { font-size: .62rem; letter-spacing: .14em; color: var(--text-sub); font-weight: 600; }
+.about-header .modal-close { flex: 0 0 44px; width: 44px; height: 44px; }
+.about-brand { display: flex; align-items: center; gap: 16px; padding: 26px 0; border-bottom: 1px solid var(--border-strong); }
+.about-brand img { border-radius: 16px; flex: 0 0 64px; }
+.about-brand strong { font-size: 1.9rem; letter-spacing: -.055em; }
+#about-version { color: var(--text-sub); font-size: .8rem; margin-top: 3px; overflow-wrap: anywhere; }
+.about-content { min-width: 0; }
+.about-release, .about-downloads { padding-top: 22px; }
+.about-panel h3 { font-size: 1rem; letter-spacing: -.02em; }
+.about-panel h4 { font-size: .93rem; margin-top: 12px; overflow-wrap: anywhere; }
+.about-panel p { font-size: .85rem; line-height: 1.65; margin-top: 8px; overflow-wrap: anywhere; }
+.about-tag { font-size: .72rem; color: var(--primary); border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 10px; white-space: nowrap; }
+.about-panel a { color: var(--text-main); text-decoration: none; }
+.about-panel a:not(.about-file) { display: inline-flex; align-items: center; gap: 5px; font-size: .8rem; min-height: 44px; }
+.about-panel svg { width: 18px; height: 18px; flex-shrink: 0; }
+.about-tabs { display: flex; gap: 4px; margin: 14px 0 8px; padding: 4px; border: 1px solid var(--border-strong); border-radius: 12px; }
+.about-tabs button { flex: 1; min-width: 0; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--text-sub); font: inherit; font-size: .8rem; cursor: pointer; }
+.about-tabs [aria-selected="true"] { color: var(--text-main); background: var(--surface-2); box-shadow: var(--shadow-sm); }
+.about-file { display: flex; gap: 12px; align-items: center; min-height: 64px; padding: 12px 8px; border-bottom: 1px solid var(--border-subtle); border-radius: 8px; }
+.about-file span { min-width: 0; flex: 1; }
+.about-file strong, .about-file small { display: block; overflow-wrap: anywhere; }
+.about-file strong { font-size: .85rem; font-weight: 600; }
+.about-file small { color: var(--text-sub); font-size: .71rem; margin-top: 4px; }
+.about-file > svg:first-child { color: var(--text-sub); }
+.about-file:hover { background: var(--surface-1); }
+.about-panel a:hover { text-decoration: underline; }
+.about-panel :is(a, button, [role="tabpanel"]):focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.about-footnote { display: block; color: var(--text-sub); font-size: .72rem; line-height: 1.6; margin-top: 12px; }
+.about-footer { border-top: 1px solid var(--border-strong); margin-top: 22px; padding-top: 10px; flex-wrap: wrap; }
+.about-footer > span, .about-status { color: var(--text-sub); font-size: .72rem; }
+.about-panel [hidden] { display: none !important; }
+
 .search-input-wrapper,
 .empty-state.glass-panel,
 .modal,

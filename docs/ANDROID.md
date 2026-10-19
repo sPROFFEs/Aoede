@@ -1,6 +1,6 @@
 # Android App
 
-Aoede Android 1.1.2 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.3 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
 
 ## Release artifacts
 
@@ -46,6 +46,7 @@ The application provides:
 - edge-to-edge phone and touch-landscape layouts with safe controls around cutouts and system bars;
 - a dock that adapts to playback and the keyboard, compact Vitrine spacing and a mobile More menu;
 - Android Back dismissing dialogs, fullscreen playback and menus before navigating;
+- **More → About & updates** with the server version, release highlights and current Android/desktop downloads (requires the updated backend);
 - a resizable **Aoede player** widget with compact, full-control and large-artwork layouts, cover-based colours and a prominent play/pause button;
 - native system media notification;
 - album artwork, title and artist in the notification;

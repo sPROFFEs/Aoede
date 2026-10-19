@@ -62,13 +62,17 @@ for (const platform of ['MacIntel', 'Win32', 'Linux x86_64', 'iPhone']) {
 
 // Confirmation uses the existing app modal, including cancel, Escape and focus return.
 const modalDocument = new EventTarget();
-const returnFocus = { isConnected: true, focus() { modalDocument.activeElement = this; } };
+const returnFocus = { isConnected: true, closest() { return null; }, focus() { modalDocument.activeElement = this; } };
 modalDocument.activeElement = returnFocus;
 const overlay = new EventTarget();
 const modal = new EventTarget();
 const cancel = new EventTarget();
 const confirm = new EventTarget();
-for (const button of [cancel, confirm]) button.focus = () => { modalDocument.activeElement = button; };
+for (const button of [cancel, confirm]) {
+  button.focus = () => { modalDocument.activeElement = button; };
+  button.tabIndex = 0;
+  button.getClientRects = () => [{}];
+}
 modal.querySelectorAll = () => [cancel, confirm];
 const modalContainer = {
   firstElementChild: overlay,
@@ -92,6 +96,25 @@ for (const outcome of ['confirm', 'cancel', 'escape', 'backdrop']) {
   assert.equal(await pending, outcome === 'confirm');
   assert.equal(modalDocument.activeElement, returnFocus);
 }
+
+// Download links stay inside the trap; hidden platform panels do not receive focus.
+const link = { tabIndex: 0, getClientRects: () => [{}], focus() { modalDocument.activeElement = this; } };
+const hiddenLink = { tabIndex: 0, getClientRects: () => [], focus() { throw new Error('Hidden link focused'); } };
+modal.querySelectorAll = selector => {
+  assert.match(selector, /a\[href\]/);
+  return [cancel, confirm, link, hiddenLink];
+};
+const pendingLinkDialog = ui.confirmDialog({ message: 'Download' });
+cancel.focus();
+const reverseTab = new Event('keydown', { cancelable: true });
+Object.defineProperties(reverseTab, { key: { value: 'Tab' }, shiftKey: { value: true } });
+modal.dispatchEvent(reverseTab);
+assert.equal(modalDocument.activeElement, link);
+const summary = { focus() { modalDocument.activeElement = this; } };
+returnFocus.closest = () => ({ querySelector: () => summary });
+cancel.dispatchEvent(new Event('click'));
+await pendingLinkDialog;
+assert.equal(modalDocument.activeElement, summary);
 
 const paths = [];
 const queueBodies = [];

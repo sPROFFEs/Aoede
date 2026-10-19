@@ -20,6 +20,7 @@ import operations_service
 import party_service
 import ram_audit
 import reaper
+import release_service
 import security
 import spotify_service
 import track_identity
@@ -601,6 +602,18 @@ async def portal(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/login")
 
     return _render_app_shell(request, user, db)
+
+
+@app.get("/api/about")
+async def about_info(request: Request, db: Session = Depends(get_db)):
+    headers = {"Cache-Control": "private, no-store", "Vary": "Cookie"}
+    try:
+        auth.get_current_user(request, db)
+    except HTTPException:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401, headers=headers)
+    except Exception:
+        return JSONResponse({"error": "Session verification unavailable"}, status_code=503, headers=headers)
+    return JSONResponse(await release_service.get_about_info(), headers=headers)
 
 
 @app.get("/api/mobile/bootstrap")

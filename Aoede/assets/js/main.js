@@ -24,6 +24,11 @@ import * as lyrics from './modules/lyrics.js';
 import * as audioEngine from './modules/audio_engine.js';
 import * as party from './modules/party.js';
 
+window.openAbout = async (trigger) => {
+  trigger?.closest('details')?.querySelector('summary')?.focus();
+  (await import('./modules/about.js')).openAbout();
+};
+
 function initUserMenu() {
   document.querySelectorAll('#user-menu, #m-topbar-more').forEach((userMenu) => {
     if (userMenu.dataset.bound === 'true') return;
@@ -69,6 +74,7 @@ function initDesktopWrapper() {
 function initKeyboardShortcuts() {
   document.addEventListener('keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (document.querySelector('#modal-container [role="dialog"]')) return;
     if (isTypingTarget(e.target)) return;
 
     if (e.key === '/') {

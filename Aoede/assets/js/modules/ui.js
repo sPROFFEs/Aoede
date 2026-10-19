@@ -277,7 +277,9 @@ export function focusModal() {
   if (!modal) return;
   if (!modalReturnFocus?.isConnected) modalReturnFocus = document.activeElement;
   const focusable = () =>
-    Array.from(modal.querySelectorAll('button:not(:disabled), input:not(:disabled), select, [tabindex="0"]'));
+    Array.from(
+      modal.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select, [tabindex="0"]')
+    ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length);
   modal.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -300,7 +302,7 @@ export function focusModal() {
 
 export function closeModal() {
   document.getElementById('modal-container').innerHTML = '';
-  modalReturnFocus?.focus();
+  (modalReturnFocus?.closest('details:not([open])')?.querySelector('summary') || modalReturnFocus)?.focus();
   modalReturnFocus = null;
   document.dispatchEvent(new Event('aoede:modalclosed'));
 }

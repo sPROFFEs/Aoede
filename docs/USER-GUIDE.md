@@ -14,6 +14,12 @@ The top search field searches music. The Home filters provide focused views:
 
 The side rail gives quick access to favorites and playlists. The player remains available at the bottom while you browse.
 
+## About and app downloads
+
+Open **About & updates** from the user menu on desktop or **More (⋯)** on mobile. The panel is in English and shows the running server version separately from the latest published release, a short update summary and release notes. The platform tabs list the installed-frontend Android APK, the original Android wrapper backup and sources, plus available macOS, Windows and Linux packages. Only uploaded assets in the current official release are listed; an absent platform links back to the releases page.
+
+Release metadata is checked when the panel opens, with a shared five-minute server cache. GitHub failures retain the last successful result with a visible notice and a one-minute retry delay; the official release page remains accessible when no result is available. No GitHub key or administrator permission is required. Update the backend to expose the authenticated, read-only `/api/about` endpoint; existing clients get the panel on reload, while the installed Android frontend includes it from APK 1.1.3.
+
 ## Home and personal mixes
 
 Home adapts to the library and listening activity available to your account. Its local-library mixes include:
