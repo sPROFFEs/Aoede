@@ -169,7 +169,8 @@
 .fullscreen-player button:disabled { opacity: .35; cursor: not-allowed; }
 .fullscreen-player .fs-minimize { position: static; transform: none; width: 44px; height: 44px; flex: 0 0 44px; }
 .fs-stage { grid-area: stage; display: block; position: relative; isolation: isolate; min-height: 0; min-width: 0; margin: 0 -20px; overflow: hidden; }
-.fullscreen-player .fs-cover { display: block; width: 100%; height: 100%; max-width: none; margin: 0; object-fit: contain; box-shadow: none; animation: none; }
+.fullscreen-player .fs-cover { display: block; width: 100%; height: 100%; max-width: none; margin: 0; object-fit: contain; box-shadow: none; animation: none; transition: scale .5s ease; }
+.fullscreen-player[data-playing="false"][data-view="cover"] .fs-cover { scale: .84; }
 .fullscreen-player.open .fs-cover { animation: none; }
 .fullscreen-player[data-view="lyrics"] .fs-cover, .fullscreen-player[data-view="queue"] .fs-cover { visibility: hidden; }
 .fullscreen-player .fs-info { grid-area: info; display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; max-width: none; min-height: 72px; padding: 10px 10px 10px 20px; margin: 0; text-align: left; border-radius: var(--radius-lg); background: var(--surface-0); }

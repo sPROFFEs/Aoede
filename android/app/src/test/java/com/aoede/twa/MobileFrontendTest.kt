@@ -105,5 +105,10 @@ class MobileFrontendTest {
         val normal = frontend.prepare("{\"type\":\"render\",\"login\":true}")!!
         val clean = frontend.intercept(Uri.parse(normal), mainFrame = true)!!.data.bufferedReader().readText()
         assertFalse(clean.contains("<div class=\"error-pill-pro\">"))
+        // A literal <head> inside the PWA script comment must not receive another script injection.
+        assertEquals(1, Regex("<script>window.AOEDE_ANDROID=true;").findAll(clean).count())
+        assertEquals(1, Regex("src=\"/_aoede/media-session.js\"").findAll(clean).count())
+        assertTrue(clean.contains("is in <head>\n"))
+        System.getenv("AOEDE_LOGIN_PREVIEW")?.let { java.io.File(it).writeText(clean) }
     }
 }

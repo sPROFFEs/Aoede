@@ -4,6 +4,7 @@ import json
 import logging
 from contextvars import ContextVar
 from datetime import timedelta
+from html.parser import HTMLParser
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -127,6 +128,25 @@ def test_android_compiler_bundles_canonical_modules_themes_translations_and_no_s
     compiler.build(bundle)
     manifest = json.loads((bundle / "manifest.json").read_text())
     assert manifest["protocol"] == 1
+
+    class LoginText(HTMLParser):
+        def __init__(self):
+            super().__init__()
+            self.script = False
+            self.text = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "script":
+                self.script = True
+
+        def handle_endtag(self, tag):
+            if tag == "script":
+                self.script = False
+
+        def handle_data(self, data):
+            if not self.script:
+                self.text.append(data)
+
     assert (bundle / "assets/js/main.js").read_bytes() == (ROOT / "Aoede/assets/js/main.js").read_bytes()
     for theme in ("theme_glass.css", "theme_vitrine.css", "style.css"):
         assert f"assets/css/{theme}" in manifest["files"]
@@ -138,4 +158,9 @@ def test_android_compiler_bundles_canonical_modules_themes_translations_and_no_s
             assert "/assets/vendor/fontawesome/css/all.min.css" in html
             assert "/_aoede/runtime.js" in html
         catalogue = json.loads((ROOT / f"Aoede/concierge/locales/{lang}.json").read_text())
-        assert catalogue["login.username_placeholder"] in (bundle / f"{lang}-login.html").read_text()
+        login = (bundle / f"{lang}-login.html").read_text()
+        assert catalogue["login.username_placeholder"] in login
+        visible = LoginText()
+        visible.feed(login)
+        assert "navigator.serviceWorker.register" not in "".join(visible.text)
+        assert login.count('src="/_aoede/media-session.js"') == 1

@@ -220,11 +220,11 @@ function renderDuplicateScanResult(container, data) {
     : '';
 
   container.innerHTML = `
-        <div class="admin-duplicate-summary">${data.count} candidate groups · ${Number(data.exact_count || 0)} exact · ${Number(data.possible_count || 0)} possible</div>
+        <div class="admin-duplicate-summary">${data.count} candidate groups · ${Number(data.exact_count || 0)} exact · ${Number(data.possible_count || 0)} possible · ${Number(data.similar_count || 0)} similar</div>
         ${truncatedNote}
         ${data.scan_limited ? '<p class="admin-feedback">The scan reached its candidate limit. Review these groups and scan again after cleanup.</p>' : ''}
         <div class="admin-library-actions">
-          <label>Match type<select data-duplicate-filter="type" class="modal-input"><option value="all">All candidates</option><option value="exact">Exact source / file matches</option><option value="possible">Possible metadata matches</option></select></label>
+          <label>Match type<select data-duplicate-filter="type" class="modal-input"><option value="all">All candidates</option><option value="exact">Exact source / file matches</option><option value="possible">Possible metadata matches</option><option value="similar">Similar tracks</option></select></label>
           <label>Filter results<input data-duplicate-filter="query" class="modal-input" type="search" placeholder="${ui.escHtml(ui.t('admin.duplicate_filter_placeholder', 'Song, artist, album or filename'))}"></label>
           <span data-duplicate-visible role="status"></span>
         </div>
@@ -233,20 +233,22 @@ function renderDuplicateScanResult(container, data) {
             ${data.groups
               .map(
                 (group) => `
-                <section class="admin-duplicate-group" data-duplicate-group data-match-type="${group.match_type === 'exact' ? 'exact' : 'possible'}" data-search="${ui.escHtml(
+                <section class="admin-duplicate-group" data-duplicate-group data-match-type="${ui.escHtml(group.match_type || 'possible')}" data-search="${ui.escHtml(
                   group.tracks
                     .map((track) => `${track.title} ${track.artist} ${track.album || ''} ${track.filename || ''}`)
                     .join(' ')
                     .toLocaleLowerCase()
                 )}">
-                    <div class="admin-duplicate-group-key">${group.match_type === 'exact' ? 'Exact source / file match' : 'Possible metadata match'} · ${ui.escHtml(group.tracks[0]?.title || 'Unknown song')}</div>
+                    <div class="admin-duplicate-group-key">${group.match_type === 'exact' ? 'Exact source / file match' : group.match_type === 'similar' ? 'Similar tracks' : 'Possible metadata match'} · ${ui.escHtml(group.tracks[0]?.title || 'Unknown song')}</div>
+                    ${group.similarity ? `<div class="admin-feedback-meta">${Number(group.similarity.score)}% metadata score · Title ${Number(group.similarity.title)}% · ${group.similarity.artist == null ? 'Artist unavailable' : `Artist ${Number(group.similarity.artist)}%`} · ${group.similarity.duration_delta == null ? 'Duration unavailable' : `Duration difference: ${Number(group.similarity.duration_delta)}s`}${group.similarity.different_versions ? ' · Different version tags — compare recordings' : ''}. Compare by listening; this score does not compare audio.</div>` : ''}
                     <div class="admin-feedback-meta">${Array.from(new Set(group.reasons || []))
                       .map((reason) =>
                         ui.escHtml(
                           {
                             source_id: 'Same source ID',
                             file_hash: 'Identical file hash',
-                            semantic: 'Same artist, title and recognized version'
+                            semantic: 'Same artist, title and recognized version',
+                            similarity: 'Similar title, artist or filename with compatible duration'
                           }[reason] || reason
                         )
                       )

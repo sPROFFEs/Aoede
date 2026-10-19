@@ -43,9 +43,10 @@ def build(output=None):
             html = re.sub(r'<link\b[^>]*https://fonts\.[^>]*>', '', html)
             html = html.replace("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css", "/assets/vendor/fontawesome/css/all.min.css")
             html = re.sub(r'<script\b[^>]*src="https://unpkg\.com/[^>]*></script>', '', html)
-            html = html.replace('<html lang="en"', f'<html lang="{lang}" data-client="android"')
-            html = html.replace('<head>', '<head><script src="/_aoede/media-session.js"></script>')
-            html = html.replace('</head>', '<link rel="stylesheet" href="/_aoede/mobile.css"><script src="/_aoede/runtime.js"></script></head>')
+            html = html.replace('<html lang="en"', f'<html lang="{lang}" data-client="android"', 1)
+            # Template scripts can mention <head> in comments; only modify the real document head.
+            html = html.replace('<head>', '<head><script src="/_aoede/media-session.js"></script>', 1)
+            html = html.replace('</head>', '<link rel="stylesheet" href="/_aoede/mobile.css"><script src="/_aoede/runtime.js"></script></head>', 1)
             (output / f"{lang}-{role}.html").write_text(html, encoding="utf-8")
     files = {str(p.relative_to(output)): hashlib.sha256(p.read_bytes()).hexdigest()
              for p in sorted(output.rglob("*")) if p.is_file()}

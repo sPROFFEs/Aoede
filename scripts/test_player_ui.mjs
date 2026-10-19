@@ -104,6 +104,11 @@ assert.equal(full.getAttribute('aria-hidden'), 'true');
 // All themes embed the same panels and retain the selected view on a theme change.
 for (const theme of ['classic', 'glass', 'vitrine']) {
   document.documentElement.dataset.theme = theme;
+  for (const playing of [false, true, false]) {
+    stateModule.setExport('isPlaying', playing);
+    ui.updateFullscreenPlayButton();
+    assert.equal(full.dataset.playing, String(playing));
+  }
   ui.toggleFullscreenPlayer(); queueApi.toggleQueue();
   assert.equal(full.dataset.view, 'queue'); assert.equal(queue.parentElement, theme === 'vitrine' ? detailStage : stage);
   if (theme === 'vitrine') { assert.equal(cover.parentElement, info); assert.equal(volumePanel.parentElement, volumeSlot); assert.equal(shuffle.parentElement, menu); }

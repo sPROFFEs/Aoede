@@ -614,7 +614,7 @@ console.log('PASS: settings tab grouping, existing panel IDs, keyboard controls,
 const duplicateFilter = { value: 'all' };
 const duplicateQuery = { value: '' };
 const visibleDuplicates = {};
-const duplicateGroups = ['exact', 'possible'].map(matchType => ({ dataset: { matchType, search: 'song artist' } }));
+const duplicateGroups = ['exact', 'possible', 'similar'].map(matchType => ({ dataset: { matchType, search: 'song artist' } }));
 const duplicateHandlers = {};
 const duplicatePanel = { dataset: {}, isConnected: true, contains: () => true, addEventListener: (name, callback) => { duplicateHandlers[name] = callback; },
   querySelectorAll: () => duplicateGroups, querySelector: selector => selector.includes('="type"') ? duplicateFilter : selector.includes('="query"') ? duplicateQuery : visibleDuplicates };
@@ -622,13 +622,17 @@ const scanButton = {};
 let comparedTrack;
 const admin = (await load('admin.js', { document: { getElementById: id => id === 'duplicate-results' ? duplicatePanel : scanButton }, window: { playTrack: track => { comparedTrack = track; } },
   fetch: async (_url, options) => Response.json(options?.method === 'POST' ? { job_id: 1 } : { status: 'completed', details: { result: {
-    count: 1, exact_count: 0, possible_count: 1, groups: [{ match_type: 'possible', recommended_track_id: 1, reasons: ['semantic'], tracks: [
+    count: 2, exact_count: 0, possible_count: 1, similar_count: 1, groups: [{ match_type: 'possible', recommended_track_id: 1, reasons: ['semantic'], tracks: [
       { id: 1, title: '<Song>', artist: 'Artist', filepath: '"unsafe', file_exists: true, format: 'MP3', file_size: 100, playlist_count: 2 },
       { id: 2, title: '<Song>', artist: 'Artist', file_exists: false }
-    ] }] } } })
+    ] }, { match_type: 'similar', reasons: ['similarity'], similarity: { score: 96, title: 98, artist: 100, duration_delta: 2, different_versions: true }, tracks: [{ id: 3, title: 'Similar <Song>', artist: 'Artist', file_exists: false }, { id: 4, title: 'Similar song', artist: 'Artist', file_exists: false }] }] } } })
 }, { './state.js': {}, './ui.js': ui })).api;
 await admin.adminFindDuplicates();
 assert.match(duplicatePanel.innerHTML, /Possible metadata match/);
+assert.match(duplicatePanel.innerHTML, /96% metadata score/);
+assert.match(duplicatePanel.innerHTML, /Duration difference: 2s/);
+assert.match(duplicatePanel.innerHTML, /Different version tags/);
+assert.match(duplicatePanel.innerHTML, /Similar &lt;Song&gt;/);
 assert.match(duplicatePanel.innerHTML, /Suggested to keep/);
 assert.match(duplicatePanel.innerHTML, /File missing/);
 assert.match(duplicatePanel.innerHTML, /&lt;Song&gt;/);
@@ -640,8 +644,11 @@ assert.equal(comparedTrack.title, '<Song>');
 assert.equal(scanButton.disabled, false);
 duplicateFilter.value = 'exact';
 duplicateHandlers.change({ target: { matches: () => true } });
-assert.deepEqual(duplicateGroups.map(group => group.hidden), [false, true]);
+assert.deepEqual(duplicateGroups.map(group => group.hidden), [false, true, true]);
+duplicateFilter.value = 'similar';
+duplicateHandlers.change({ target: { matches: () => true } });
+assert.deepEqual(duplicateGroups.map(group => group.hidden), [true, true, false]);
 duplicateQuery.value = 'not found';
 duplicateHandlers.input({ target: { matches: () => true } });
-assert.deepEqual(duplicateGroups.map(group => group.hidden), [true, true]);
+assert.deepEqual(duplicateGroups.map(group => group.hidden), [true, true, true]);
 console.log('PASS: duplicate match filters, file comparison, manual review hints and escaped metadata.');

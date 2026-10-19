@@ -78,7 +78,8 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # regression here catches accidental large bundles before transfer cost is
     # multiplied across every navigation.
     # Includes player controls and localized collection/form copy with English fallbacks.
-    assert sum(path.stat().st_size for path in javascript if path != appearance) < 620_000
+    # Includes the administrator's metadata similarity explanations and comparison filter.
+    assert sum(path.stat().st_size for path in javascript if path != appearance) < 622_000
     # Shared navigation, collection list/grid layouts and responsive browsing controls.
     assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 312_000
     # Bound the account theme, including form states and accessibility fallbacks,

@@ -127,6 +127,9 @@ def test_duplicate_scan_merges_overlapping_matches_and_compares_available_files(
     db_session.commit()
     exact = admin._build_duplicate_scan_result(db_session, 50)
     assert exact["exact_count"] == 2 and exact["possible_count"] == 0
+    assert exact["similar_count"] == 2
+    limited = admin._build_duplicate_scan_result(db_session, 3)
+    assert any(group["match_type"] == "similar" for group in limited["groups"])
     for index, track in enumerate(entries[:2]):
         track.source_id = " "
         track.file_hash = f"different-{index}"

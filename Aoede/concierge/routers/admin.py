@@ -25,6 +25,7 @@ import storage_maintenance
 import track_identity
 import wrapped_service
 from aoede_config import settings
+from duplicate_service import MAX_CANDIDATES, find_similar_tracks
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
@@ -1189,6 +1190,17 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
                 continue
             _append_duplicate_group(groups_by_members, "semantic", f"semantic:{fingerprint}", tracks)
 
+    report("Comparing similar titles, artists and durations", "similarity", 80)
+    similar, similarity_limited = find_similar_tracks(db, groups_by_members.values(), MAX_DUPLICATE_VALUE_SCAN)
+    similar_groups = [
+        {
+            "reasons": ["similarity"],
+            "keys": [f"similar:{pair['tracks'][0].id}:{pair['tracks'][1].id}"],
+            "tracks": [_serialize_track(track) for track in pair["tracks"]],
+            "similarity": pair["similarity"],
+        }
+        for pair in similar
+    ]
     report("Preparing duplicate groups", "summarize", 90)
     references = dict(
         db.query(database.PlaylistItem.track_id, func.count(func.distinct(database.PlaylistItem.playlist_id)))
@@ -1197,7 +1209,7 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
         .all()
     )
     groups = []
-    for group in groups_by_members.values():
+    for group in [*groups_by_members.values(), *similar_groups]:
         for track in group["tracks"]:
             filepath = Path(track["filepath"]) if track["filepath"] else None
             try:
@@ -1227,26 +1239,41 @@ def _build_duplicate_scan_result(db: Session, limit_groups: int, progress_callba
             {
                 "key": display_key,
                 "reasons": group["reasons"],
-                "match_type": "exact" if exact else "possible",
+                "match_type": "similar" if "similarity" in group else "exact" if exact else "possible",
+                "similarity": group.get("similarity"),
                 "recommended_track_id": recommended["id"] if recommended["file_exists"] else None,
                 "tracks": group["tracks"],
             }
         )
 
-    groups.sort(key=lambda item: (-len(item["tracks"]), item["key"]))
+    groups.sort(
+        key=lambda item: (
+            item["match_type"] == "similar",
+            -len(item["tracks"]),
+            -(item["similarity"] or {}).get("score", 0),
+            item["key"],
+        )
+    )
     total_count = len(groups)
+    # Keep the new review candidates reachable even when many exact groups fill the result limit.
+    similar_results = [group for group in groups if group["match_type"] == "similar"]
+    other_results = [group for group in groups if group["match_type"] != "similar"]
+    reserved = min(len(similar_results), limit_groups // 3)
+    displayed = other_results[: limit_groups - reserved]
+    displayed += similar_results[: limit_groups - len(displayed)]
     return {
         "count": total_count,
         "returned_count": min(total_count, limit_groups),
         "truncated": total_count > limit_groups,
-        "scan_limited": any(
-            len(values) >= MAX_DUPLICATE_VALUE_SCAN for values in (source_id_dupes, hash_dupes, fingerprint_dupes)
-        ),
+        "scan_limited": similarity_limited
+        or any(len(values) >= MAX_DUPLICATE_VALUE_SCAN for values in (source_id_dupes, hash_dupes, fingerprint_dupes)),
         "exact_count": sum(group["match_type"] == "exact" for group in groups),
         "possible_count": sum(group["match_type"] == "possible" for group in groups),
-        "groups": groups[:limit_groups],
+        "similar_count": sum(group["match_type"] == "similar" for group in groups),
+        "groups": displayed,
         "scan_limits": {
             "max_duplicate_values_per_strategy": MAX_DUPLICATE_VALUE_SCAN,
+            "max_similarity_candidates_per_track": MAX_CANDIDATES,
             "limit_groups": limit_groups,
         },
     }
@@ -1553,12 +1580,12 @@ async def admin_delete_track(
 
 
 @router.get("/api/library/duplicates")
-async def admin_find_duplicates(
+def admin_find_duplicates(
     limit_groups: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     admin: database.User = Depends(get_current_admin),
 ):
-    """Find duplicate tracks by source_id, file_hash, or semantic fingerprint (Admin only)"""
+    """Find exact duplicates and metadata-similar candidates for administrator review."""
     return JSONResponse(_build_duplicate_scan_result(db, limit_groups))
 
 
