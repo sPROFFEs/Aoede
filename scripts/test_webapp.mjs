@@ -52,6 +52,7 @@ const redirected = (path = '/login') => {
 fetcher = async (url) => url === '/portal' ? redirected() : new Response('asset');
 await event('install');
 assert.equal(await caches.match('/portal'), undefined); // Pre-login precaching cannot become an offline login shell.
+assert.ok(await caches.match('/assets/js/modules/about.js')); // The About dialog also opens offline before its first use.
 const current = [...stores.keys()][0];
 await caches.open('another-app-cache');
 await caches.open('aoede-shell-old');

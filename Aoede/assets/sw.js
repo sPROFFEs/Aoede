@@ -8,7 +8,7 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v24';
+const CACHE = 'aoede-shell-v25';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
@@ -50,6 +50,7 @@ const PRECACHE_ASSETS = [
   '/assets/css/admin_system.css',
   '/assets/css/admin_downloads.css',
   '/assets/js/main.js',
+  '/assets/js/modules/about.js',
   '/assets/js/modules/admin.js',
   '/assets/js/modules/admin_downloads.js',
   '/assets/js/modules/admin_system.js',
