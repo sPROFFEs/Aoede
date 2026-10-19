@@ -206,3 +206,25 @@ def test_top_songs_save_batches_track_lookup_keeps_order_and_avoids_empty_playli
         assert db_session.query(database.Playlist).count() == 1
     finally:
         event.remove(db_session.bind, "before_cursor_execute", record)
+
+
+def test_dashboard_availability_requires_auth_respects_window_and_never_builds_summary(db_session, monkeypatch):
+    with patch("docker.from_env", return_value=MagicMock()):
+        from routers.music import wrapped as routes
+
+    monkeypatch.setattr(routes, "get_current_user_safe", lambda *a: object())
+    monkeypatch.setattr(
+        wrapped,
+        "get_or_build_user_wrapped_summary",
+        lambda *a, **kw: (_ for _ in ()).throw(AssertionError("Dashboard generated the annual report")),
+    )
+    for enabled, visible in [(True, True), (False, False), (True, False)]:
+        monkeypatch.setattr(
+            wrapped, "get_wrapped_settings", lambda db: {"enabled": enabled, "visible": visible, "year": 2026}
+        )
+        response = routes.get_user_wrapped(2025, None, force_refresh=True, summary=False, db=db_session)
+        assert response.status_code == 200
+        assert json.loads(response.body) == {"enabled": enabled, "visible": visible, "year": 2026}
+        assert response.headers["cache-control"] == "private, no-store"
+    monkeypatch.setattr(routes, "get_current_user_safe", lambda *a: None)
+    assert routes.get_user_wrapped(2026, None, summary=False, db=db_session).status_code == 401

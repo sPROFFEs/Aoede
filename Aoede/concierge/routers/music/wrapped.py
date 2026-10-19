@@ -16,15 +16,21 @@ def get_user_wrapped(
     year: int,
     request: Request,
     force_refresh: bool = Query(False),
+    summary: bool = Query(True),
     db: Session = Depends(get_db),
 ):
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     visibility = wrapped_service.get_wrapped_settings(db)
+    operational_year = int(visibility.get("year") or wrapped_service.get_operational_wrapped_year(db))
+    if not summary:
+        return JSONResponse(
+            {"enabled": visibility["enabled"], "visible": visibility["visible"], "year": operational_year},
+            headers={"Cache-Control": "private, no-store"},
+        )
     if not visibility["visible"]:
         return JSONResponse({"enabled": False, "visible": False, "year": year})
-    operational_year = int(visibility.get("year") or wrapped_service.get_operational_wrapped_year(db))
 
     try:
         payload = wrapped_service.get_or_build_user_wrapped_summary(

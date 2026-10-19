@@ -99,19 +99,24 @@ const handlers = new Map();
 const bodyHandlers = new Map();
 let settingsMounts = 0;
 let navigation;
+let homeWrapped = { year: 2026, enabled: true, visible: true };
+const homeCalls = [];
 const container = { children: [], style: {}, innerHTML: '' };
 const document = { body: { addEventListener(name, handler) { bodyHandlers.set(name, handler); } }, getElementById: () => container };
 const window = { location: { pathname: '/admin/system', assign(url) { navigation = url; } },
   history: { state: null, replaceState(value) { this.state = value; history.push(['replace', value]); },
     pushState(value) { this.state = value; history.push(['push', value]); } },
   addEventListener(name, handler) { handlers.set(name, handler); } };
-const context = vm.createContext({ window, document, console, URL, requestAnimationFrame(callback) { callback(); },
+const context = vm.createContext({ window, document, console, URL, navigator: { onLine: true }, requestAnimationFrame(callback) { callback(); },
   localStorage: { getItem(key) { return key === 'aoede.replaygain.enabled' ? '1' : '4'; } },
   fetch: async () => ({ redirected: true, url: 'https://aoede.test/login' }) });
 const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/views.js', import.meta.url), 'utf8'), { context });
 await module.link(name => {
-  const values = name === './state.js' ? { setCurrentViewName() {}, setCurrentViewParam() {} }
-    : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; } }
+  const values = name === './state.js' ? { setCurrentViewName() {}, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
+    : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; }, escHtml: String, t: (_, fallback) => fallback, getGreeting: () => 'Hello', homeTabsBar: () => '', refreshIcons() {} }
+    : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; } }
+    : name === './party.js' ? { fetchRooms: async () => [], renderHomeShelf: () => '<section>Parties</section>' }
+    : name === './offline_store.js' ? { saveLibrarySnapshot() {}, getLibrarySnapshot: async () => ({ wrapped: { year: 2025 } }) }
     : name === './appearance.js' ? { syncThemeControls() {} }
     : name === './system_monitor.js' ? { initSystemMonitor() {} }
     : name === './admin_downloads.js' ? { initDownloadManager() {} } : {};
@@ -139,6 +144,19 @@ assert.equal(settingsMounts, 1);
 assert.equal(replaygain.checked, true); // Uploaded avatar/cookies replace settings; playback controls must be initialized again.
 assert.equal(savePrefs.disabled, true);
 console.log('PASS: proxy-independent navigation history, API offline errors, safe shell caching and logout invalidation.');
+
+await module.namespace.renderHome(container);
+assert.equal(homeCalls[0].summary, false); // Availability must never depend on generating an annual report.
+assert.match(container.innerHTML, /href="\/wrapped\/story\/2026"/);
+assert.ok(container.innerHTML.indexOf('Watch Wrapped') < container.innerHTML.indexOf('quick-picks-grid'));
+assert.ok(container.innerHTML.indexOf('Watch Wrapped') < container.innerHTML.indexOf('Parties'));
+assert.doesNotMatch(container.innerHTML, /0 seconds listened/);
+for (const unavailable of [null, { enabled: false }, { visible: false }, { error: 'Unavailable' }]) {
+  homeWrapped = unavailable;
+  await module.namespace.renderHome(container);
+  assert.doesNotMatch(container.innerHTML, /Watch Wrapped/); // Do not revive the stale cached enabled state online.
+}
+console.log('PASS: Wrapped availability survives unrelated feed errors, appears above quick access, and respects enable/visibility changes.');
 
 // Deferred actions keep their account and order; a 401/503 cannot discard changes.
 const actions = [

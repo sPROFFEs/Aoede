@@ -480,10 +480,14 @@ export async function saveMixAsPlaylist(mixKey, name) {
   return null;
 }
 
-export async function fetchWrapped(year, { forceRefresh = false } = {}) {
+export async function fetchWrapped(year, { forceRefresh = false, summary = true } = {}) {
   try {
-    const suffix = forceRefresh ? '?force_refresh=true' : '';
-    const res = await fetch(`${state.API}/wrapped/${encodeURIComponent(year)}${suffix}`);
+    const params = new URLSearchParams();
+    if (forceRefresh) params.set('force_refresh', 'true');
+    if (!summary) params.set('summary', 'false');
+    const query = params.toString();
+    const suffix = query ? `?${query}` : '';
+    const res = await fetch(`${state.API}/wrapped/${encodeURIComponent(year)}${suffix}`, { cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch (e) {
     console.error('[WRAPPED] Fetch error:', e);

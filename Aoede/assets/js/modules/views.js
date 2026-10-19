@@ -535,18 +535,23 @@ export async function renderHome(container) {
   try {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       const currentYear = new Date().getFullYear();
-      const [recommendations, personalizedMixes, wrappedPayload, rooms] = await Promise.all([
-        api.fetchRecommendations(),
-        api.fetchMixes(),
-        api.fetchWrapped(currentYear),
-        party.fetchRooms().catch((error) => {
-          console.warn('Party rooms unavailable:', error);
-          return [];
-        })
-      ]);
+      const [recommendations, personalizedMixes, wrappedPayload, rooms] = (
+        await Promise.allSettled([
+          api.fetchRecommendations(),
+          api.fetchMixes(),
+          api.fetchWrapped(currentYear, { summary: false }),
+          party.fetchRooms().catch((error) => {
+            console.warn('Party rooms unavailable:', error);
+            return [];
+          })
+        ])
+      ).map((result) => (result.status === 'fulfilled' ? result.value : null));
       sections = recommendations || [];
       mixes = personalizedMixes || [];
-      wrapped = wrappedPayload?.visible !== false && wrappedPayload?.enabled !== false ? wrappedPayload : null;
+      wrapped =
+        wrappedPayload && !wrappedPayload.error && wrappedPayload.visible !== false && wrappedPayload.enabled !== false
+          ? wrappedPayload
+          : null;
       partyRooms = rooms || [];
       offlineStore.saveLibrarySnapshot('home_feed', { sections, mixes, wrapped, partyRooms });
     } else {
@@ -575,14 +580,11 @@ export async function renderHome(container) {
           <div class="hero-kicker">${ui.t('home.hero_kicker', 'Your library, tuned for right now')}</div>
           <h1 class="hero-greeting"><span class="vitrine-home-title">${ui.t('menu.home', 'Home')}</span><span class="home-greeting-copy">${ui.getGreeting()}, <span class="hero-username">${username}</span></span></h1>
       </div>
+      ${wrapped ? createWrappedHomeCard(wrapped) : ''}
       ${quickPicks}
     </section>`;
 
   html += party.renderHomeShelf(partyRooms);
-
-  if (wrapped) {
-    html += createWrappedHomeCard(wrapped);
-  }
 
   if (mixes && mixes.length > 0) {
     html += homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join(''));
@@ -623,7 +625,7 @@ function createWrappedHomeCard(wrapped) {
         <section class="wrapped-home-card">
             <div>
                 <h2>Aoede Wrapped ${year}</h2>
-                <p>${listenedTime} listened · Top artist: ${ui.escHtml(topArtist)}</p>
+                <p>${wrapped.minutes_listened != null ? `${listenedTime} listened · Top artist: ${ui.escHtml(topArtist)}` : 'Your year in music is ready. Explore your listening highlights.'}</p>
                 ${topSong ? `<p class="wrapped-home-sub">#1 song: ${ui.escHtml(topSong.title)} — ${ui.escHtml(topSong.artist)}</p>` : ''}
             </div>
             <a class="btn-secondary-lg" href="/wrapped/story/${year}">
