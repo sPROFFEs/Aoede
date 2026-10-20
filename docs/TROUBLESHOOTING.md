@@ -8,6 +8,12 @@ docker compose ps
 docker compose logs -f concierge
 ```
 
+## Android opens slowly or shows “Open directly”
+
+Update both the APK (1.1.7 or newer) and backend. Older clients waited indefinitely for playback queue state before rendering Home, and Home waited for every feed, including federated party discovery. A restored settings/admin view could also show “Open directly” if a page request or redundant CDN script failed; Android's installed shell deliberately blocks those external vendor scripts.
+
+The updated APK starts on Home, bounds queue recovery, displays shelves independently and reuses its installed scripts. Failed settings/admin pages show their path and HTTP/network/timeout reason with Retry. A 401/403 bootstrap response still returns to login; a 5xx response never silently loads a cached account. If the error persists, report the displayed path/status and whether it happens on Wi-Fi, mobile data or both. The backend also moves pool filesystem measurement out of the bootstrap response; the initial quota is the last measurement, refreshed for subsequent launches.
+
 ## Downloads fail
 
 Check:

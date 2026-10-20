@@ -100,22 +100,25 @@ const bodyHandlers = new Map();
 let settingsMounts = 0;
 let navigation;
 let homeWrapped = { year: 2026, enabled: true, visible: true };
+let pendingRooms = null;
+let fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
 const homeCalls = [];
-const container = { children: [], style: {}, innerHTML: '' };
+const retryButton = {};
+const container = { children: [], style: {}, innerHTML: '', querySelector: () => retryButton };
 const document = { body: { addEventListener(name, handler) { bodyHandlers.set(name, handler); } }, getElementById: () => container };
 const window = { location: { pathname: '/admin/system', assign(url) { navigation = url; } },
   history: { state: null, replaceState(value) { this.state = value; history.push(['replace', value]); },
     pushState(value) { this.state = value; history.push(['push', value]); } },
   addEventListener(name, handler) { handlers.set(name, handler); } };
-const context = vm.createContext({ window, document, console, URL, navigator: { onLine: true }, requestAnimationFrame(callback) { callback(); },
+const context = vm.createContext({ window, document, console, URL, AbortController, setTimeout, clearTimeout, navigator: { onLine: true }, requestAnimationFrame(callback) { callback(); },
   localStorage: { getItem(key) { return key === 'aoede.replaygain.enabled' ? '1' : '4'; } },
-  fetch: async () => ({ redirected: true, url: 'https://aoede.test/login' }) });
+  fetch: (...args) => fetchView(...args) });
 const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/views.js', import.meta.url), 'utf8'), { context });
 await module.link(name => {
   const values = name === './state.js' ? { setCurrentViewName() {}, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
     : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; }, escHtml: String, t: (_, fallback) => fallback, getGreeting: () => 'Hello', homeTabsBar: () => '', refreshIcons() {} }
     : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; } }
-    : name === './party.js' ? { fetchRooms: async () => [], renderHomeShelf: () => '<section>Parties</section>' }
+    : name === './party.js' ? { fetchRooms: () => pendingRooms || Promise.resolve([]), renderHomeShelf: () => '<section>Parties</section>' }
     : name === './offline_store.js' ? { saveLibrarySnapshot() {}, getLibrarySnapshot: async () => ({ wrapped: { year: 2025 } }) }
     : name === './appearance.js' ? { syncThemeControls() {} }
     : name === './system_monitor.js' ? { initSystemMonitor() {} }
@@ -157,6 +160,42 @@ for (const unavailable of [null, { enabled: false }, { visible: false }, { error
   assert.doesNotMatch(container.innerHTML, /Watch Wrapped/); // Do not revive the stale cached enabled state online.
 }
 console.log('PASS: Wrapped availability survives unrelated feed errors, appears above quick access, and respects enable/visibility changes.');
+
+let finishRooms, finishSettings;
+pendingRooms = new Promise(resolve => { finishRooms = resolve; });
+homeWrapped = { year: 2026, enabled: true };
+fetchView = () => new Promise(resolve => { finishSettings = resolve; });
+const staleSettings = module.namespace.loadView('settings_user');
+const fastHome = module.namespace.loadView('home');
+assert.match(container.innerHTML, /hero-greeting/); // No feed/party response is needed for the first paint.
+await new Promise(setImmediate);
+assert.match(container.innerHTML, /Watch Wrapped/); // A pending party federation cannot hide other shelves.
+finishSettings({ ok: false, status: 503 });
+await staleSettings;
+assert.match(container.innerHTML, /hero-greeting/); // A late failure cannot replace the new Home.
+fetchView = async () => ({ ok: false, status: 503 });
+await module.namespace.loadView('settings_user');
+assert.match(container.innerHTML, /\/user\/settings.*HTTP 503/);
+assert.doesNotMatch(container.innerHTML, /Open directly/);
+fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
+await retryButton.onclick();
+assert.equal(navigation, 'https://aoede.test/login');
+const errorHtml = container.innerHTML;
+finishRooms([]);
+await fastHome;
+assert.equal(container.innerHTML, errorHtml); // Late Home feeds cannot replace settings either.
+pendingRooms = null;
+console.log('PASS: immediate Home, independent shelves, stale navigation protection and actionable page retry.');
+context.DOMParser = class {
+  parseFromString() {
+    return { getElementById: () => ({ childNodes: ['Help content'] }),
+      querySelectorAll: () => [{ getAttribute: () => 'https://unpkg.com/lucide@0.468.0' }] };
+  }
+};
+container.replaceChildren = (...nodes) => { container.innerHTML = nodes.join(''); };
+fetchView = async () => ({ ok: true, text: async () => '<html>Old server page with CDN scripts</html>' });
+await module.namespace.loadView('help');
+assert.equal(container.innerHTML, 'Help content'); // Imported HTML must not load any scripts from the old server's head.
 
 // Deferred actions keep their account and order; a 401/503 cannot discard changes.
 const actions = [
@@ -249,10 +288,10 @@ console.log('PASS: verification startup blocks duplicate requests, preserves una
 // Execute the real initial-route selection, including server-rendered deep links.
 const entry = await readFile(new URL('../Aoede/assets/js/main.js', import.meta.url), 'utf8');
 const initialRoute = entry.slice(entry.indexOf('  const restoredSession ='), entry.indexOf('  // Initialize Lucide icons'));
-for (const pathname of ['/wrapped/2026', '/wrapped', '/portal']) {
+for (const native of [false, true]) for (const pathname of ['/wrapped/2026', '/wrapped', '/portal']) {
   const loads = [];
   const routeContext = vm.createContext({
-    window: { location: { pathname }, AOEDE_INITIAL_VIEW: 'wrapped', AOEDE_INITIAL_PARAM: 2026 },
+    window: { AOEDE_ANDROID: native, location: { pathname }, AOEDE_INITIAL_VIEW: 'wrapped', AOEDE_INITIAL_PARAM: 2026 },
     navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'playlist', param: 123 }) },
     views: { loadView: (...args) => loads.push(args) }, console
   });
@@ -270,3 +309,35 @@ await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
 });
 assert.deepEqual(homeExitLoads, ['home']); // Closing a story cannot reopen the summary from a saved playback session.
 assert.deepEqual(homeExitUrls, ['/portal']); // Consume the intent once so later launches can restore other views.
+
+const nativeLoads = [];
+await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
+  window: { AOEDE_ANDROID: true, location: { pathname: '/portal' }, AOEDE_INITIAL_VIEW: 'home' },
+  navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'system_monitor' }) },
+  views: { loadView: view => nativeLoads.push(view) }, console
+});
+assert.deepEqual(nativeLoads, ['home']); // Native launch restores music, without reopening transient admin/settings pages.
+
+// Timeouts must cover response bodies as well as headers, preserving the local queue fallback.
+let queueTimer, queueSignal, queueClears = 0, queueFetches = 0;
+const queueContext = vm.createContext({ window: {}, navigator: { onLine: true }, console,
+  AbortController, setTimeout(callback, delay) { assert.equal(delay, 2500); queueTimer = callback; return 1; },
+  clearTimeout() { queueClears++; },
+  fetch: async (_url, options) => {
+    queueFetches++; queueSignal = options.signal;
+    return { ok: true, json: () => new Promise((_resolve, reject) => options.signal.addEventListener('abort', () => reject(new DOMException('Timed out', 'AbortError')))) };
+  }
+});
+const queueApi = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/api.js', import.meta.url), 'utf8'), { context: queueContext });
+await queueApi.link(name => new vm.SyntheticModule(name === './state.js' ? ['API'] : [], function () { if (name === './state.js') this.setExport('API', '/api'); }, { context: queueContext }));
+await queueApi.evaluate();
+const stalledQueue = queueApi.namespace.fetchPlaybackQueueState();
+await new Promise(setImmediate);
+queueTimer();
+assert.equal(await stalledQueue, null);
+assert.equal(queueSignal.aborted, true);
+assert.equal(queueClears, 1);
+queueContext.window.AOEDE_NATIVE_OFFLINE = true;
+assert.equal(await queueApi.namespace.fetchPlaybackQueueState(), null);
+assert.equal(queueFetches, 1);
+console.log('PASS: bounded queue restoration including a stalled JSON body and immediate offline fallback.');

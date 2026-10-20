@@ -495,5 +495,8 @@
     "admin.login_security": "Anmeldesicherheit",
     "admin.login_blocked": "{user}: Fehlgeschlagene Anmeldungen haben {sources} zugehörige IP-Adresse(n) gesperrt. Verbleibend: {minutes} Min. {seconds} Sek.",
     "admin.login_unblocked": "{user}: keine aktive Brute-Force-IP-Sperre.",
-    "admin.login_status_error": "Anmeldebeschränkungen konnten nicht geprüft werden."
+    "admin.login_status_error": "Anmeldebeschränkungen konnten nicht geprüft werden.",
+    "common.load_failed": "Diese Seite konnte nicht geladen werden.",
+    "common.request_timeout": "Der Server hat zu lange für die Antwort benötigt.",
+    "common.retry": "Erneut versuchen"
 }

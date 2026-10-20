@@ -182,7 +182,7 @@ def invalidate_pool_status_cache():
         _pool_status_cache["timestamp"] = 0.0
 
 
-def _measure_pool_bytes(force_refresh: bool = False):
+def _measure_pool_bytes(force_refresh: bool = False, cached_only: bool = False):
     measure_root = os.path.dirname(DATA_ROOT.rstrip("/"))
     if not measure_root or measure_root == "/":
         measure_root = "/saas-data"
@@ -191,6 +191,10 @@ def _measure_pool_bytes(force_refresh: bool = False):
     ttl = max(int(getattr(settings, "POOL_STATUS_CACHE_TTL_SECONDS", 60) or 0), 0)
 
     with _pool_status_lock:
+        if cached_only:
+            return (
+                int(_pool_status_cache["used_bytes"] or 0) if _pool_status_cache["measure_root"] == measure_root else 0
+            )
         cache_fresh = (
             not force_refresh
             and ttl > 0
@@ -212,7 +216,7 @@ def _measure_pool_bytes(force_refresh: bool = False):
     return used_bytes
 
 
-def get_pool_status(db, force_refresh: bool = False):
+def get_pool_status(db, force_refresh: bool = False, cached_only: bool = False):
     """
     Retorna (used_gb, limit_gb, percent) del Global Pool.
     Calcula el uso total de HOST_DATA_ROOT (/saas-data).
@@ -221,7 +225,7 @@ def get_pool_status(db, force_refresh: bool = False):
     try:
         # 1. Calcular uso total del disco (Global). This recursive scan is
         # cached because admin/system screens poll it frequently.
-        used_bytes = _measure_pool_bytes(force_refresh=force_refresh)
+        used_bytes = _measure_pool_bytes(force_refresh=force_refresh, cached_only=cached_only)
         used_gb = used_bytes / (1024**3)
 
         # 2. Obtener Límite Global

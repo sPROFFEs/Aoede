@@ -187,7 +187,7 @@ assert.equal(navigations, 1);
 let destination;
 const views = await load('Aoede/assets/js/modules/views.js', {
   document: { body: { addEventListener() {} } },
-  window: { location: { assign: (value) => { destination = value; } } }, console, URL,
+  window: { location: { assign: (value) => { destination = value; } } }, console, URL, AbortController, setTimeout, clearTimeout,
   fetch: async () => ({ redirected: true, url: 'https://aoede.example/login' })
 }, Object.fromEntries(['state', 'ui', 'api', 'player', 'audio_engine', 'search', 'radio', 'favorites', 'playlists', 'downloads', 'sync', 'library', 'party', 'offline_store', 'system_monitor', 'admin_downloads', 'appearance'].map(name => [
   `./${name}.js`, name === 'system_monitor' ? { initSystemMonitor() {} } : name === 'admin_downloads' ? { initDownloadManager() {} } : name === 'appearance' ? { syncThemeControls() {} } : {}

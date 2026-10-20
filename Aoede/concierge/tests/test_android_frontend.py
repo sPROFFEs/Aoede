@@ -6,6 +6,7 @@ from contextvars import ContextVar
 from datetime import timedelta
 from html.parser import HTMLParser
 from pathlib import Path
+from threading import Lock
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -18,6 +19,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from request_middleware import RequestContextMiddleware
 from sqlalchemy.orm import Session
+from starlette.background import BackgroundTask
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -32,7 +34,8 @@ def test_mobile_bootstrap_is_authenticated_private_revocable_and_uses_request_la
     language = ContextVar("mobile_language", default="en")
     quota_calls = []
 
-    def quota(db):
+    def quota(db, *, cached_only=False):
+        assert cached_only  # A cold filesystem scan must never block the initial response.
         quota_calls.append(db)
         return 2, 10, 20
 
@@ -45,8 +48,9 @@ def test_mobile_bootstrap_is_authenticated_private_revocable_and_uses_request_la
         auth=auth,
         get_db=lambda: db_session,
         JSONResponse=JSONResponse,
+        BackgroundTask=BackgroundTask,
         current_lang=language,
-        manager=SimpleNamespace(get_pool_status=quota),
+        manager=SimpleNamespace(get_pool_status=quota, _measure_pool_bytes=lambda: None),
         logger=logging.getLogger(__name__),
     )
     exec(compile(ast.Module(body=[route], type_ignores=[]), "mobile-route", "exec"), context)
@@ -116,6 +120,48 @@ def test_mobile_bootstrap_is_authenticated_private_revocable_and_uses_request_la
             ).status_code == 405
 
     asyncio.run(check())
+
+
+def test_mobile_quota_can_read_stale_cache_without_scanning_and_refresh_after_response():
+    import os
+    import time
+
+    source = (ROOT / "Aoede/concierge/manager.py").read_text()
+    measure = next(
+        node
+        for node in ast.parse(source).body
+        if isinstance(node, ast.FunctionDef) and node.name == "_measure_pool_bytes"
+    )
+    cache = {"measure_root": None, "used_bytes": 0, "timestamp": 0}
+    scans = []
+    context = dict(
+        os=os,
+        time=time,
+        DATA_ROOT="/saas-data/users",
+        _pool_status_lock=Lock(),
+        _pool_status_cache=cache,
+        settings=SimpleNamespace(POOL_STATUS_CACHE_TTL_SECONDS=60),
+        get_dir_size=lambda root: scans.append(root) or 42,
+    )
+    exec(compile(ast.Module(body=[measure], type_ignores=[]), "pool-measure", "exec"), context)
+    measure = context["_measure_pool_bytes"]
+    assert measure(cached_only=True) == 0 and not scans
+    cache.update(measure_root="/saas-data", used_bytes=12)
+    assert measure(cached_only=True) == 12 and not scans  # Even an expired cache avoids disk IO.
+
+    async def check():
+        sent = []
+
+        async def send(message):
+            sent.append(message["type"])
+            assert not scans  # Both HTTP headers and body leave before disk measurement starts.
+
+        await JSONResponse({}, background=BackgroundTask(measure))({}, None, send)
+        assert sent == ["http.response.start", "http.response.body"]
+
+    asyncio.run(check())
+    assert scans == ["/saas-data"] and measure(cached_only=True) == 42
+    assert measure() == 42 and len(scans) == 1
 
 
 def test_android_compiler_bundles_canonical_modules_themes_translations_and_no_startup_cdn(tmp_path):

@@ -470,7 +470,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname)) {
     if (isDeviceOffline) {
       views.loadView('offline', null, { replaceHistory: true });
-    } else if (!hasInitialView && restoredSession?.view && restoredSession.view !== 'home') {
+    } else if (!hasInitialView && !window.AOEDE_ANDROID && restoredSession?.view && restoredSession.view !== 'home') {
       views.loadView(restoredSession.view, restoredSession.param ?? null, { replaceHistory: true });
     } else {
       views.loadView(_serverView, _serverParam, { replaceHistory: true });

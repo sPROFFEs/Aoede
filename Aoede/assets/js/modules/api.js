@@ -7,10 +7,6 @@ import * as state from './state.js';
 import * as offlineStore from './offline_store.js';
 import * as sync from './sync.js';
 
-// NOTE: loadUserData lives in views.js — it owns the canonical sidebar/recent
-// rendering and is the only path called from main.js. The duplicate that
-// previously lived here was dead code and shipped 19 LOC to every browser.
-
 export const startHeartbeatSync = sync.startHeartbeatSync;
 export const stopHeartbeatSync = sync.stopHeartbeatSync;
 export const initHeartbeatLifecycle = sync.initHeartbeatLifecycle;
@@ -345,9 +341,9 @@ export async function deleteRadioApi(radioId) {
 
 // === RECOMMENDATIONS API ===
 
-export async function fetchRecommendations() {
+export async function fetchRecommendations(options = {}) {
   try {
-    const res = await fetch(`${state.API}/recommendations`);
+    const res = await fetch(`${state.API}/recommendations`, options);
     if (res.ok) return await res.json();
   } catch (e) {
     console.error('[RECS] Fetch error:', e);
@@ -358,11 +354,16 @@ export async function fetchRecommendations() {
 // === PLAYBACK QUEUE STATE API ===
 
 export async function fetchPlaybackQueueState() {
+  if (window.AOEDE_NATIVE_OFFLINE || !navigator.onLine) return null;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
   try {
-    const res = await fetch(`${state.API}/playback/queue-state`);
+    const res = await fetch(`${state.API}/playback/queue-state`, { signal: controller.signal, cache: 'no-store' });
     if (res.ok) return await res.json();
   } catch (e) {
     console.warn('[PLAYBACK] Queue state fetch failed:', e);
+  } finally {
+    clearTimeout(timer);
   }
   return null;
 }
@@ -415,9 +416,9 @@ export async function savePlaybackVolume(volume) {
   }
 }
 
-export async function fetchMixes() {
+export async function fetchMixes(options = {}) {
   try {
-    const res = await fetch(`${state.API}/mixes`);
+    const res = await fetch(`${state.API}/mixes`, options);
     if (res.ok) return await res.json();
   } catch (e) {
     console.error('[MIXES] Fetch error:', e);
@@ -480,14 +481,14 @@ export async function saveMixAsPlaylist(mixKey, name) {
   return null;
 }
 
-export async function fetchWrapped(year, { forceRefresh = false, summary = true } = {}) {
+export async function fetchWrapped(year, { forceRefresh = false, summary = true, signal } = {}) {
   try {
     const params = new URLSearchParams();
     if (forceRefresh) params.set('force_refresh', 'true');
     if (!summary) params.set('summary', 'false');
     const query = params.toString();
     const suffix = query ? `?${query}` : '';
-    const res = await fetch(`${state.API}/wrapped/${encodeURIComponent(year)}${suffix}`, { cache: 'no-store' });
+    const res = await fetch(`${state.API}/wrapped/${encodeURIComponent(year)}${suffix}`, { cache: 'no-store', signal });
     if (res.ok) return await res.json();
   } catch (e) {
     console.error('[WRAPPED] Fetch error:', e);

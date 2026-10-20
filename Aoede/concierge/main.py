@@ -627,7 +627,7 @@ def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
     except Exception:
         logger.warning("Mobile bootstrap session verification unavailable")
         return JSONResponse({"error": "Session verification unavailable"}, status_code=503, headers=headers)
-    used, limit, percent = manager.get_pool_status(db)
+    used, limit, percent = manager.get_pool_status(db, cached_only=True)
     return JSONResponse(
         {
             "protocol": 1,
@@ -638,6 +638,7 @@ def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
             "pool": {"used": used, "limit": limit, "percent": percent},
         },
         headers=headers,
+        background=BackgroundTask(manager._measure_pool_bytes),
     )
 
 

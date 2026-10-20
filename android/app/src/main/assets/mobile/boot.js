@@ -2,9 +2,9 @@
 (() => {
   const CACHE = 'aoede.android.bootstrap';
   const messages = {
-    en: ['Connecting to your music…', 'Retry', 'Configure server', 'Update the Aoede backend to use this Android version.', 'Could not connect. Check your server and connection.'],
-    es: ['Conectando con tu música…', 'Reintentar', 'Configurar servidor', 'Actualiza el backend de Aoede para utilizar esta versión de Android.', 'No se ha podido conectar. Revisa el servidor y la conexión.'],
-    de: ['Verbindung zur Musik…', 'Erneut versuchen', 'Server konfigurieren', 'Aktualisiere den Aoede-Server für diese Android-Version.', 'Keine Verbindung. Prüfe den Server und die Verbindung.'],
+    en: ['Connecting to your music…', 'Retry', 'Configure server', 'Update the Aoede backend to use this Android version.', 'Could not connect. Check your server and connection.', 'The server took too long to respond.', 'The server returned an invalid startup response.'],
+    es: ['Conectando con tu música…', 'Reintentar', 'Configurar servidor', 'Actualiza el backend de Aoede para utilizar esta versión de Android.', 'No se ha podido conectar. Revisa el servidor y la conexión.', 'El servidor ha tardado demasiado en responder.', 'El servidor ha devuelto una respuesta de inicio no válida.'],
+    de: ['Verbindung zur Musik…', 'Erneut versuchen', 'Server konfigurieren', 'Aktualisiere den Aoede-Server für diese Android-Version.', 'Keine Verbindung. Prüfe den Server und die Verbindung.', 'Der Server hat zu lange für die Antwort benötigt.', 'Der Server hat eine ungültige Startantwort zurückgegeben.'],
   };
   const deviceLang = (navigator.language || 'en').split('-')[0];
   const labels = messages[deviceLang] || messages.en;
@@ -39,25 +39,26 @@
       const timer = setTimeout(() => controller.abort(), 6000);
       let response;
       try {
+        if (navigator.onLine === false) throw new TypeError('Offline');
         response = await fetch('/api/mobile/bootstrap', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal });
-      } catch (error) {
-        const cached = JSON.parse(localStorage.getItem(CACHE) || 'null');
-        if (!valid(cached)) throw error;
-        data = cached;
-        offline = true;
-      } finally { clearTimeout(timer); }
-      if (response) {
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem(CACHE);
           location.replace('/login');
           return;
         }
         if (response.status === 404 || response.status === 426) throw new Error('compatibility');
-        if (!response.ok) throw new Error('connection');
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         data = await response.json();
         if (!valid(data)) throw new Error('compatibility');
         localStorage.setItem(CACHE, JSON.stringify(data));
-      }
+      } catch (error) {
+        if (response && error.name !== 'AbortError' && !(error instanceof TypeError)) throw error;
+        let cached;
+        try { cached = JSON.parse(localStorage.getItem(CACHE) || 'null'); } catch (_) { /* Ignore corrupt cache. */ }
+        if (!valid(cached)) throw error;
+        data = cached;
+        offline = true;
+      } finally { clearTimeout(timer); }
     }
     const cookieLang = document.cookie.match(/(?:^|;\s*)lang=(en|es|de)(?:;|$)/)?.[1];
     const lang = ['en', 'es', 'de'].includes(data?.language) ? data.language : (cookieLang || (messages[deviceLang] ? deviceLang : 'en'));
@@ -67,7 +68,8 @@
     window.AoedeHost.postMessage(JSON.stringify({ type: 'render', data, language: lang, offline, login, loginError, home: location.hash === '#home' }));
   }
   start().catch(error => {
-    document.getElementById('boot-message').textContent = labels[error.message === 'compatibility' ? 3 : 4];
+    document.getElementById('boot-message').textContent = labels[error.message === 'compatibility' ? 3 : error.name === 'AbortError' ? 5 : error.name === 'SyntaxError' ? 6 : 4];
+    if (/^HTTP \d{3}$/.test(error.message)) document.getElementById('boot-message').textContent += ` (/api/mobile/bootstrap · ${error.message})`;
     document.getElementById('boot-retry').hidden = false;
     document.getElementById('boot-settings').hidden = false;
   });

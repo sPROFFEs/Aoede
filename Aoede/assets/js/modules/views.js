@@ -209,7 +209,11 @@ function _pushSpaHistory(view, param = null, replace = false) {
   }
 }
 
+let navigationVersion = 0;
+
 export async function loadView(view, param = null, options = {}) {
+  const version = ++navigationVersion;
+  const isCurrent = () => version === navigationVersion;
   if (view === 'settings_admin') {
     window.location.assign('/admin/');
     return;
@@ -261,7 +265,7 @@ export async function loadView(view, param = null, options = {}) {
       _pushSpaHistory(view, param, replaceHistory);
     }
 
-    if (view === 'home') await renderHome(container);
+    if (view === 'home') await renderHome(container, isCurrent);
     else if (view === 'offline' || view === 'downloads_offline') await renderOfflineDownloads(container);
     else if (view === 'profile') await renderProfile(container, param);
     else if (view === 'community' || view === 'users') await renderCommunity(container);
@@ -281,27 +285,26 @@ export async function loadView(view, param = null, options = {}) {
     else if (view === 'playlist') {
       await playlists.renderPlaylist(container, param);
       await trackRecentPlaylist(param);
-    } else if (view === 'system_monitor') await renderExternalView(container, '/admin/system');
-    else if (view === 'admin_downloads') await renderExternalView(container, '/admin/downloads');
-    else if (view === 'admin_delete_requests') await renderExternalView(container, '/admin/song-delete-requests');
-    else if (view === 'settings_user') await renderExternalView(container, '/user/settings');
-    else if (view === 'help') await renderExternalView(container, '/help');
+    } else if (view === 'system_monitor') await renderExternalView(container, '/admin/system', isCurrent);
+    else if (view === 'admin_downloads') await renderExternalView(container, '/admin/downloads', isCurrent);
+    else if (view === 'admin_delete_requests')
+      await renderExternalView(container, '/admin/song-delete-requests', isCurrent);
+    else if (view === 'settings_user') await renderExternalView(container, '/user/settings', isCurrent);
+    else if (view === 'help') await renderExternalView(container, '/help', isCurrent);
 
     // Auto-close sidebar on mobile
-    if (state.isSidebarOpen && window.innerWidth <= 768) {
+    if (isCurrent() && state.isSidebarOpen && window.innerWidth <= 768) {
       state.toggleSidebar();
     }
   } catch (e) {
     console.error(e);
-    container.innerHTML = `<div class="empty-state" style="color:#e74c3c;">Error: ${ui.escHtml(e.message)}</div>`;
+    if (isCurrent())
+      container.innerHTML = `<div class="empty-state" style="color:#e74c3c;">Error: ${ui.escHtml(e.message)}</div>`;
   } finally {
-    // Restore opacity. Two rAFs so the new content has been laid out
-    // before the transition kicks in — otherwise the browser may merge
-    // the opacity:0 → 1 change with the innerHTML write and the fade
-    // is skipped.
+    // Two frames let layout finish before fading in.
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        if (container) container.style.opacity = '1';
+        if (isCurrent()) container.style.opacity = '1';
       });
     });
   }
@@ -309,15 +312,19 @@ export async function loadView(view, param = null, options = {}) {
 
 // === EXTERNAL VIEW (HTMX) ===
 
-export async function renderExternalView(container, url) {
+export async function renderExternalView(container, url, isCurrent = () => true) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
   try {
-    const res = await fetch(url, { credentials: 'include', cache: 'no-store' });
+    const res = await fetch(url, { credentials: 'include', cache: 'no-store', signal: controller.signal });
+    if (!isCurrent()) return;
     if (res.redirected && new URL(res.url).pathname !== url) {
       window.location.assign(res.url);
       return;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
+    if (!isCurrent()) return;
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(text, 'text/html');
@@ -350,35 +357,16 @@ export async function renderExternalView(container, url) {
     if (url === '/admin/downloads') {
       initDownloadManager(container);
     }
-    // Admin home page mounts the federation panel — bootstrap it the
-    // same way as user settings, since inline <script> blocks in the
-    // injected fragment are silently dropped by DOMParser+replaceChildren.
-    if (url === '/admin/' && typeof window.initAdminFederationPanel === 'function') {
-      window.initAdminFederationPanel(container);
-    }
-
-    const scripts = doc.querySelectorAll('script[src]');
-    for (const script of scripts) {
-      const src = script.getAttribute('src');
-      if (!src) continue;
-      if (src.includes('/assets/js/main.js') || src.includes('/assets/js/modules/admin_system.js')) {
-        continue;
-      }
-      if (!document.querySelector(`script[src="${src}"]`)) {
-        await new Promise((resolve, reject) => {
-          const s = document.createElement('script');
-          s.src = src;
-          const scriptType = script.getAttribute('type');
-          if (scriptType) s.type = scriptType;
-          s.onload = resolve;
-          s.onerror = reject;
-          document.head.appendChild(s);
-        });
-      }
-    }
   } catch (e) {
-    console.error('External view load failed', e);
-    container.innerHTML = `<div class="empty-state">Failed to load content.<br><a href="${url}" style="color:var(--accent);">Open directly</a></div>`;
+    console.error('External view load failed', url, e);
+    if (!isCurrent()) return;
+    const reason = controller.signal.aborted
+      ? ui.t('common.request_timeout', 'The server took too long to respond.')
+      : e.message;
+    container.innerHTML = `<div class="empty-state" role="alert"><p>${ui.t('common.load_failed', 'Could not load this page.')}</p><p>${ui.escHtml(url)} · ${ui.escHtml(reason)}</p><button type="button" class="btn-secondary-lg">${ui.t('common.retry', 'Retry')}</button></div>`;
+    container.querySelector('button').onclick = () => renderExternalView(container, url, isCurrent);
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -525,35 +513,38 @@ export function scrollHomeShelf(button, direction) {
   });
 }
 
-export async function renderHome(container) {
+export async function renderHome(container, isCurrent = () => true) {
   let sections = [];
   let mixes = [];
   let wrapped = null;
   let partyRooms = [];
   state.setCurrentViewList([]);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  paint();
 
   try {
-    if (typeof navigator !== 'undefined' && navigator.onLine) {
+    if (!window.AOEDE_NATIVE_OFFLINE && typeof navigator !== 'undefined' && navigator.onLine) {
       const currentYear = new Date().getFullYear();
-      const [recommendations, personalizedMixes, wrappedPayload, rooms] = (
-        await Promise.allSettled([
-          api.fetchRecommendations(),
-          api.fetchMixes(),
-          api.fetchWrapped(currentYear, { summary: false }),
-          party.fetchRooms().catch((error) => {
-            console.warn('Party rooms unavailable:', error);
-            return [];
-          })
-        ])
-      ).map((result) => (result.status === 'fulfilled' ? result.value : null));
-      sections = recommendations || [];
-      mixes = personalizedMixes || [];
-      wrapped =
-        wrappedPayload && !wrappedPayload.error && wrappedPayload.visible !== false && wrappedPayload.enabled !== false
-          ? wrappedPayload
-          : null;
-      partyRooms = rooms || [];
-      offlineStore.saveLibrarySnapshot('home_feed', { sections, mixes, wrapped, partyRooms });
+      await Promise.allSettled([
+        api.fetchRecommendations({ signal: controller.signal }).then((value) => {
+          sections = value || [];
+          paint();
+        }),
+        api.fetchMixes({ signal: controller.signal }).then((value) => {
+          mixes = value || [];
+          paint();
+        }),
+        api.fetchWrapped(currentYear, { summary: false, signal: controller.signal }).then((value) => {
+          wrapped = value && !value.error && value.visible !== false && value.enabled !== false ? value : null;
+          paint();
+        }),
+        party.fetchRooms({ signal: controller.signal }).then((value) => {
+          partyRooms = value || [];
+          paint();
+        })
+      ]);
+      if (isCurrent()) offlineStore.saveLibrarySnapshot('home_feed', { sections, mixes, wrapped, partyRooms });
     } else {
       const cached = await offlineStore.getLibrarySnapshot('home_feed');
       if (cached) {
@@ -570,11 +561,17 @@ export async function renderHome(container) {
       mixes = cached.mixes || [];
       wrapped = cached.wrapped || null;
     }
+  } finally {
+    clearTimeout(timer);
   }
 
-  const username = ui.escHtml(window.USER_DATA?.username || 'User');
-  const quickPicks = _renderQuickPicksGrid();
-  let html = `<section class="home-overview">
+  paint();
+
+  function paint() {
+    if (!isCurrent()) return;
+    const username = ui.escHtml(window.USER_DATA?.username || 'User');
+    const quickPicks = _renderQuickPicksGrid();
+    let html = `<section class="home-overview">
       ${ui.homeTabsBar('all')}
       <div class="hero-section">
           <div class="hero-kicker">${ui.t('home.hero_kicker', 'Your library, tuned for right now')}</div>
@@ -584,36 +581,37 @@ export async function renderHome(container) {
       ${quickPicks}
     </section>`;
 
-  html += party.renderHomeShelf(partyRooms);
+    html += party.renderHomeShelf(partyRooms);
 
-  if (mixes && mixes.length > 0) {
-    html += homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join(''));
-  }
+    if (mixes && mixes.length > 0) {
+      html += homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join(''));
+    }
 
-  if (sections && sections.length > 0) {
-    sections.forEach((s) => {
-      html += homeShelf(s.title, s.items.map(createCard).join(''));
-    });
-  } else if (!quickPicks && !mixes?.length) {
-    html += `<div class="empty-state glass-panel">
+    if (sections && sections.length > 0) {
+      sections.forEach((s) => {
+        html += homeShelf(s.title, s.items.map(createCard).join(''));
+      });
+    } else if (!quickPicks && !mixes?.length) {
+      html += `<div class="empty-state glass-panel">
             <i data-lucide="music" class="empty-icon"></i>
             <p>${ui.t('home.welcome_text', 'Welcome! Explore the Search tab to find music.')}</p>
         </div>`;
-  }
+    }
 
-  container.innerHTML = html;
-  shelfResizeObserver?.disconnect();
-  if (typeof window.ResizeObserver === 'function') {
-    shelfResizeObserver = new window.ResizeObserver((entries) =>
-      entries.forEach(({ target }) => syncShelfNavigation(target))
-    );
-    container.querySelectorAll('.home-rail').forEach((rail) => {
-      shelfResizeObserver.observe(rail);
-      rail.addEventListener('scroll', () => syncShelfNavigation(rail), { passive: true });
-    });
+    container.innerHTML = html;
+    shelfResizeObserver?.disconnect();
+    if (typeof window.ResizeObserver === 'function') {
+      shelfResizeObserver = new window.ResizeObserver((entries) =>
+        entries.forEach(({ target }) => syncShelfNavigation(target))
+      );
+      container.querySelectorAll('.home-rail').forEach((rail) => {
+        shelfResizeObserver.observe(rail);
+        rail.addEventListener('scroll', () => syncShelfNavigation(rail), { passive: true });
+      });
+    }
+    // Scope to the home container only — see ui.refreshIcons rationale.
+    ui.refreshIcons(container);
   }
-  // Scope to the home container only — see ui.refreshIcons rationale.
-  ui.refreshIcons(container);
 }
 
 function createWrappedHomeCard(wrapped) {

@@ -495,5 +495,8 @@
     "admin.login_security": "Sign-in security",
     "admin.login_blocked": "{user}: repeated failed sign-ins have blocked {sources} associated IP address(es). Remaining: {minutes}m {seconds}s.",
     "admin.login_unblocked": "{user}: no active brute-force IP restriction.",
-    "admin.login_status_error": "Could not check sign-in restrictions."
+    "admin.login_status_error": "Could not check sign-in restrictions.",
+    "common.load_failed": "Could not load this page.",
+    "common.request_timeout": "The server took too long to respond.",
+    "common.retry": "Retry"
 }

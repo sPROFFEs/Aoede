@@ -70,8 +70,8 @@ async function request(path, options = {}) {
   return body;
 }
 
-export async function fetchRooms() {
-  const data = await request('/rooms');
+export async function fetchRooms(options = {}) {
+  const data = await request('/rooms', options);
   return data.rooms || [];
 }
 
