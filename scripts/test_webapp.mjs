@@ -101,6 +101,7 @@ let settingsMounts = 0;
 let navigation;
 let homeWrapped = { year: 2026, enabled: true, visible: true };
 let pendingRooms = null;
+let sidebarCloses = 0;
 let fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
 const homeCalls = [];
 const retryButton = {};
@@ -115,7 +116,7 @@ const context = vm.createContext({ window, document, console, URL, AbortControll
   fetch: (...args) => fetchView(...args) });
 const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/views.js', import.meta.url), 'utf8'), { context });
 await module.link(name => {
-  const values = name === './state.js' ? { setCurrentViewName() {}, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
+  const values = name === './state.js' ? { isSidebarOpen: true, toggleSidebar() { sidebarCloses++; }, setCurrentViewName() {}, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
     : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; }, escHtml: String, t: (_, fallback) => fallback, getGreeting: () => 'Hello', homeTabsBar: () => '', refreshIcons() {} }
     : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; } }
     : name === './party.js' ? { fetchRooms: () => pendingRooms || Promise.resolve([]), renderHomeShelf: () => '<section>Parties</section>' }
@@ -166,7 +167,9 @@ pendingRooms = new Promise(resolve => { finishRooms = resolve; });
 homeWrapped = { year: 2026, enabled: true };
 fetchView = () => new Promise(resolve => { finishSettings = resolve; });
 const staleSettings = module.namespace.loadView('settings_user');
+window.innerWidth = 360;
 const fastHome = module.namespace.loadView('home');
+assert.equal(sidebarCloses, 1); // Mobile navigation closes the drawer before waiting for a feed.
 assert.match(container.innerHTML, /hero-greeting/); // No feed/party response is needed for the first paint.
 await new Promise(setImmediate);
 assert.match(container.innerHTML, /Watch Wrapped/); // A pending party federation cannot hide other shelves.

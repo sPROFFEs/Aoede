@@ -261,6 +261,7 @@ export async function loadView(view, param = null, options = {}) {
   try {
     state.setCurrentViewName(view);
     state.setCurrentViewParam(param);
+    if (state.isSidebarOpen && window.innerWidth <= 768) state.toggleSidebar();
     if (pushHistory) {
       _pushSpaHistory(view, param, replaceHistory);
     }
@@ -291,11 +292,6 @@ export async function loadView(view, param = null, options = {}) {
       await renderExternalView(container, '/admin/song-delete-requests', isCurrent);
     else if (view === 'settings_user') await renderExternalView(container, '/user/settings', isCurrent);
     else if (view === 'help') await renderExternalView(container, '/help', isCurrent);
-
-    // Auto-close sidebar on mobile
-    if (isCurrent() && state.isSidebarOpen && window.innerWidth <= 768) {
-      state.toggleSidebar();
-    }
   } catch (e) {
     console.error(e);
     if (isCurrent())
