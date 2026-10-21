@@ -3424,6 +3424,7 @@ select.modal-input option {
     display: flex !important;
     justify-content: flex-end;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
 /* Search box inside the Add-to-Playlist modal — mirrors the flyout's

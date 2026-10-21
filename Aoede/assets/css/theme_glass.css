@@ -167,6 +167,8 @@ html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card, .library-card, 
 html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card, .library-card, .quick-pick, .party-card, .radio-card, .discovery-card, .user-profile-card):hover { background: var(--square-wash) !important; }
 html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card, .library-card, .discovery-card, .radio-card) { padding: 14px; }
 html:is([data-theme="glass"], [data-theme="vitrine"]) .theme-option.selected { border-color: var(--primary) !important; outline: 1px solid var(--primary); }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .home-overview.user-profile-shell { margin: 0 0 24px; padding: 24px !important; }
+html:is([data-theme="glass"], [data-theme="vitrine"]) .doc-card { padding: 24px !important; }
 html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card-cover, .library-card-cover, .card-image, .playlist-cover, .party-now-cover, .party-card-icon, .player-cover, .track-cover-sm, .fs-cover, .sidebar-cover) { border-radius: 18px !important; }
 html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card-title, .library-card-name, .track-title, .track-title-main, .track-info strong, .party-card-copy strong, .discovery-title, .radio-name, .sidebar-name, .queue-item-title) { color: var(--text-main) !important; }
 html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.card-subtitle, .library-card-sub, .track-artist, .track-album, .track-album-col, .track-duration-col, .track-source-col, .sidebar-sub, .radio-genre, .discovery-artist, .hero-subtitle, .hero-sub, .library-facet-count, .playlist-owner, .playlist-meta) { color: var(--text-sub) !important; }
@@ -376,6 +378,7 @@ html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.pwa-install-btn) { ba
 /* Floating mobile capsules, with reserved space and safe-area clearance. */
 @media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
     .theme-options { grid-template-columns: 1fr; }
+    html:is([data-theme="glass"], [data-theme="vitrine"]) .home-overview.user-profile-shell { margin-inline: 16px; padding: 20px !important; }
     html:is([data-theme="glass"], [data-theme="vitrine"]) .app-layout { padding: 0 !important; }
     html:is([data-theme="glass"], [data-theme="vitrine"]) :is(.main-view, .view-content) { background: transparent !important; }
     html:is([data-theme="glass"], [data-theme="vitrine"]) .m-topbar { margin: calc(6px + var(--safe-area-top, 0px)) 12px 8px; border-radius: 999px !important; padding: 4px 10px !important; min-height: 52px; }

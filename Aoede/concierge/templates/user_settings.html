@@ -27,9 +27,11 @@
             align-items: center;
             gap: 18px;
             min-width: 0;
+            max-width: 100%;
         }
         .user-settings-avatar-form {
             margin: 0;
+            flex-shrink: 0;
         }
         .user-settings-avatar {
             position: relative;
@@ -93,6 +95,7 @@
             font-size: 2rem;
             line-height: 1.1;
             color: var(--panel-text);
+            overflow-wrap: anywhere;
         }
         .user-settings-title p {
             margin: 0;

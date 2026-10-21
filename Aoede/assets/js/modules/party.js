@@ -285,13 +285,7 @@ function connect(roomId) {
           previous.playback_status !== activeRoom.playback_status ||
           previous.current_track?.db_id !== activeRoom.current_track?.db_id ||
           wasBlocked !== autoplayBlocked;
-        if (
-          shouldPaint &&
-          state.currentViewName === 'party_room' &&
-          String(state.currentViewParam) === String(roomId)
-        ) {
-          paintRoom(document.getElementById('view-container'));
-        }
+        if (shouldPaint) paintActiveRoom();
       })
       .catch((error) => console.error('Failed to apply party state', error));
   });
@@ -344,6 +338,11 @@ export async function renderPartyRoom(container, roomId) {
   connect(data.room.id);
 }
 
+function paintActiveRoom() {
+  if (state.currentViewName === 'party_room' && String(state.currentViewParam) === String(activeRoom?.id))
+    paintRoom(document.getElementById('view-container'));
+}
+
 function paintRoom(container) {
   if (!container || !activeRoom) return;
   const room = activeRoom;
@@ -361,7 +360,7 @@ function paintRoom(container) {
     </section>
     ${
       autoplayBlocked && room.playback_status === 'playing'
-        ? `<button class="party-autoplay-banner" onclick="resumePartyAudio()"><i data-lucide="volume-2"></i><span>Your browser blocked autoplay. Tap to start listening.</span></button>`
+        ? `<button class="party-autoplay-banner" onclick="resumePartyAudio()"><i data-lucide="volume-2"></i><span>${ui.t('party.resume_device', 'Playback is paused on this device. Tap to start listening.')}</span></button>`
         : ''
     }
     <section class="party-layout">
@@ -413,6 +412,7 @@ export async function control(action, expectedItemId = null) {
     // The server accepts transition signals from guests only after the owner
     // has left; normal playback control remains host-owned.
   }
+  if (['play', 'next', 'previous'].includes(action)) player.resumeLocalPlayback();
   try {
     await request(`/rooms/${activeRoom.id}/control`, {
       method: 'POST',
@@ -472,7 +472,7 @@ export async function resumeAudio() {
     return;
   }
   autoplayBlocked = !(await player.syncPartyPlayback(activeRoom));
-  paintRoom(document.getElementById('view-container'));
+  paintActiveRoom();
 }
 
 export function searchTracks(query) {
@@ -636,5 +636,9 @@ export const controller = {
   resumeAudio,
   togglePlayback,
   seekTo,
-  handleEnded
+  handleEnded,
+  onAutoplayBlocked() {
+    autoplayBlocked = true;
+    paintActiveRoom();
+  }
 };

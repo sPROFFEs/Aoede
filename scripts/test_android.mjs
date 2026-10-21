@@ -143,7 +143,8 @@ await player.link((name) => {
   }, { context });
 });
 await player.evaluate();
-player.namespace.setPartyController({ isActive: () => true });
+let blockedStarts = 0;
+player.namespace.setPartyController({ isActive: () => true, onAutoplayBlocked() { blockedStarts++; } });
 const room = { current_track: track, current_item_id: 2, playback_status: 'playing', playback_position_ms: 2000 };
 player.namespace.suspendLocalPlayback();
 assert.equal(await player.namespace.syncPartyPlayback(room), false);
@@ -162,4 +163,10 @@ window.AoedeAndroid.isPaused = true;
 player.namespace.resumeLocalPlayback();
 assert.equal(await player.namespace.syncPartyPlayback(room), true);
 assert.equal(starts, 2);
+audio.paused = true;
+audio.play = async () => { throw new DOMException('Autoplay blocked', 'NotAllowedError'); };
+await player.namespace.syncPartyPlayback({ ...room, playback_starts_at_ms: 5000, server_time_ms: 1000 });
+[...timers.values()].at(-1)();
+await flush();
+assert.equal(blockedStarts, 1); // A delayed play rejection is reported immediately, without waiting for another SSE event.
 console.log('Android media bridge and local party interruption checks passed');

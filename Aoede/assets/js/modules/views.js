@@ -2694,7 +2694,6 @@ export async function renderProfile(container, username) {
   const avatarUrl = profile.avatar_url
     ? `${profile.avatar_url}?t=${Date.now()}`
     : `/user/avatar/${encodeURIComponent(username)}`;
-  const roleLabel = profile.is_admin ? 'Admin' : 'Member';
 
   let playlistsHtml = '';
   if (playlists.length > 0) {
@@ -2754,11 +2753,11 @@ export async function renderProfile(container, username) {
       <button class="library-back" onclick="history.back()" style="margin-bottom:14px; display:inline-flex; align-items:center; gap:6px; background:none; border:none; color:var(--text-sub); cursor:pointer; font-size:0.88rem;">
         <i data-lucide="arrow-left" width="16" height="16"></i> ${ui.t('common.back', 'Back')}
       </button>
-      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+      <div class="profile-identity">
         <div class="profile-avatar-large" style="width:116px; height:116px; border-radius:50%; overflow:hidden; border:2px solid rgba(255,255,255,0.18); flex-shrink:0; box-shadow:0 8px 24px rgba(0,0,0,0.4);">
           <img src="${ui.escHtml(avatarUrl)}" alt="${ui.escHtml(username)}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
         </div>
-        <div style="flex:1; min-width:220px;">
+        <div class="profile-details">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
             <span class="hero-kicker" style="margin:0;">${ui.t('profile.profile', 'Profile')}</span>
             <span class="status-badge finished" style="font-size:0.75rem; text-transform:uppercase;">${profile.is_admin ? ui.t('common.admin', 'Admin') : ui.t('common.member', 'Member')}</span>
@@ -2834,9 +2833,9 @@ export async function renderCommunity(container) {
     </section>
 
     <section class="shelf-section home-shelf">
-      <div class="shelf-header" style="margin-bottom:16px;">
+      <div class="shelf-header community-header" style="margin-bottom:16px;">
         <h2 class="shelf-title">${ui.t('community.server_members', 'Server Members')} (${users.length})</h2>
-        <div style="min-width:200px; max-width:320px;">
+        <div class="community-search">
           <input id="community-search-input" class="modal-input" placeholder="${ui.escHtml(ui.t('community.filter_placeholder', 'Filter by username...'))}" style="padding:7px 14px; font-size:0.85rem;" oninput="
             const query = this.value.trim().toLowerCase();
             const cards = document.querySelectorAll('.user-cards-grid .user-profile-card');

@@ -2192,6 +2192,7 @@ export async function syncPartyPlayback(room) {
         if (_partyScheduledStartKey !== startKey || !_partyController?.isActive?.() || _localPlaybackSuspended) return;
         state.audio.play().catch((error) => {
           if (error?.name !== 'NotAllowedError') console.warn('[PARTY] Scheduled playback failed:', error);
+          else if (_partyScheduledStartKey === startKey) _partyController.onAutoplayBlocked?.();
         });
       }, startDelayMs);
     }

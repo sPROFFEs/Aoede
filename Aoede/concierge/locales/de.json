@@ -498,5 +498,6 @@
     "admin.login_status_error": "Anmeldebeschränkungen konnten nicht geprüft werden.",
     "common.load_failed": "Diese Seite konnte nicht geladen werden.",
     "common.request_timeout": "Der Server hat zu lange für die Antwort benötigt.",
-    "common.retry": "Erneut versuchen"
+    "common.retry": "Erneut versuchen",
+    "party.resume_device": "Die Wiedergabe ist auf diesem Gerät pausiert. Tippe, um zuzuhören."
 }

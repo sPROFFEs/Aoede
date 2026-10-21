@@ -59,6 +59,8 @@ Update both the room host and listener servers to use this origin-aware flow. A 
 
 ## Persistence and limits
 
+The host's Play button resumes audio on this device before sending the room command, including after an Android/headphone pause. Previous/next are also explicit resume actions; automatic room updates and readiness signals never clear a local pause. If a scheduled start is blocked by the browser, a button inside the room offers to resume listening. Resuming from the player keeps the current Library or other view open.
+
 - Rooms and queues survive application restarts.
 - After a restart, room playback resumes in a paused state.
 - Music stops when the last listener disconnects, while the empty room can remain available.

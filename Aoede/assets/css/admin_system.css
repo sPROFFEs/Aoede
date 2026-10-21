@@ -261,6 +261,7 @@
 .monitor-field {
     display: grid;
     gap: 8px;
+    min-width: 0;
 }
 .monitor-field label {
     color: var(--monitor-muted);
@@ -277,6 +278,7 @@
 }
 .monitor-field-action .monitor-primary {
     width: 100%;
+    white-space: normal;
 }
 .monitor-pool-form {
     display: grid;
@@ -300,11 +302,12 @@
     align-items: end;
 }
 .monitor-wrapped-schedule-row {
-    grid-template-columns: minmax(150px, 1fr) minmax(120px, .7fr) minmax(150px, 1fr) minmax(120px, .7fr) auto;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr));
 }
 .monitor-input,
 .monitor-select {
     width: 100%;
+    min-width: 0;
     min-height: 42px;
     padding: 0 12px;
     border-radius: 10px;
@@ -1466,6 +1469,7 @@
     max-width: none;
     margin: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 40px;
 }
 
@@ -1639,7 +1643,7 @@
     border-radius: 0 !important;
     padding: 16px 0 !important;
     display: grid !important;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: max-content minmax(0, 1fr);
     column-gap: 28px;
     row-gap: 6px;
     align-items: baseline;
@@ -1648,6 +1652,7 @@
 .monitor-backup-grid > article.monitor-kv:last-child {
     border-bottom: 0 !important;
 }
+.monitor-backup-grid > article.monitor-kv > .monitor-empty { grid-column: 1 / -1; }
 .monitor-backup-grid > article.monitor-kv > .monitor-slot-head {
     grid-column: 1 / -1;
     margin-bottom: 8px;

@@ -140,6 +140,8 @@ class EventSource {
   close() {}
 }
 let synced;
+let localPaused = true;
+let resumes = 0;
 const party = await load('Aoede/assets/js/modules/party.js', {
   fetch: async (path, options) => {
     paths.push(path);
@@ -152,7 +154,7 @@ const party = await load('Aoede/assets/js/modules/party.js', {
 }, {
   './state.js': state,
   './ui.js': { escHtml: ui.escHtml, t: (_key, fallback) => fallback, refreshIcons() {}, initSettingsTabs() {}, showToast() {}, homeTabsBar: () => '', confirmDialog: async () => { prompts++; return confirmed; } },
-  './player.js': { syncPartyPlayback: async (value) => { synced = value; return true; }, syncPlayerShellVisibility() {}, resumeLocalPlayback() {} }
+  './player.js': { syncPartyPlayback: async (value) => { synced = value; return !localPaused; }, syncPlayerShellVisibility() {}, resumeLocalPlayback() { localPaused = false; resumes++; } }
 });
 assert.match(party.renderHomeShelf([{ ...room, is_remote_federated: true, remote_instance_id: 7 }]), /'fed_7_2'/);
 await party.renderPartyRoom(container, 'fed_7_2');
@@ -164,6 +166,15 @@ assert.equal(synced.current_track.db_id, null);
 assert.equal(synced.is_owner, false);
 await party.control('ready', 9);
 assert.equal(paths.at(-1), '/api/party/remote/7/rooms/2/control');
+assert.equal(resumes, 0); // Automatic synchronization cannot undo a headphone/local pause.
+localPaused = false;
+room.playback_status = 'playing';
+room.revision++;
+source.listeners.state({ data: JSON.stringify({ type: 'state', room }) });
+await new Promise(resolve => setTimeout(resolve, 0));
+assert.doesNotMatch(container.innerHTML, /resumePartyAudio/);
+party.controller.onAutoplayBlocked();
+assert.match(container.innerHTML, /resumePartyAudio/); // Scheduled autoplay failures need an action inside the room.
 party.searchTracks("Song's name");
 await new Promise(resolve => setTimeout(resolve, 300));
 assert.equal(searchResults.innerHTML.includes('onclick='), false);
@@ -175,7 +186,13 @@ assert.deepEqual(queueBodies.at(-1), { origin_url: 'library', track_id: 777 }); 
 await party.deleteRoom();
 assert.equal(prompts, 0); // A remote guest cannot delete the host's room.
 room.is_owner = true;
+room.playback_status = 'paused';
 await party.renderPartyRoom(container, 2);
+localPaused = true;
+const roomPlay = party.control('play');
+assert.equal(localPaused, false); // Room Play unlocks this device synchronously, before the network/SSE round trip.
+assert.equal(resumes, 1);
+await roomPlay;
 await party.deleteRoom();
 assert.equal(prompts, 1);
 assert.equal(deletions.length, 0);

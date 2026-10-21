@@ -498,5 +498,6 @@
     "admin.login_status_error": "No se han podido consultar las restricciones de acceso.",
     "common.load_failed": "No se ha podido cargar esta página.",
     "common.request_timeout": "El servidor ha tardado demasiado en responder.",
-    "common.retry": "Reintentar"
+    "common.retry": "Reintentar",
+    "party.resume_device": "La reproducción está pausada en este dispositivo. Pulsa para escuchar."
 }

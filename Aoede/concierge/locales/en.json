@@ -498,5 +498,6 @@
     "admin.login_status_error": "Could not check sign-in restrictions.",
     "common.load_failed": "Could not load this page.",
     "common.request_timeout": "The server took too long to respond.",
-    "common.retry": "Retry"
+    "common.retry": "Retry",
+    "party.resume_device": "Playback is paused on this device. Tap to start listening."
 }
