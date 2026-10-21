@@ -55,7 +55,12 @@ export function initSettingsTabs(scope = document) {
     } catch (_) {
       /* Keep the in-memory selection. */
     }
-    select(tabs.find((tab) => tab.dataset.settingsTab === saved) || tabs[0]);
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    select(
+      tabs.find((tab) => tab.dataset.settingsTab === requested) ||
+        tabs.find((tab) => tab.dataset.settingsTab === saved) ||
+        tabs[0]
+    );
     root.addEventListener('click', (event) => {
       const tab = event.target.closest('[data-settings-tab]');
       if (tabs.includes(tab)) select(tab);

@@ -4,6 +4,12 @@ Aoede Android 1.1.4 installs the player interface, JavaScript modules, themes, t
 
 Android 1.1.4 fixes native login HTML preparation so JavaScript comments containing `<head>` cannot receive an extra script injection or appear beside the form. Fullscreen artwork now uses the same pause/play zoom in all three themes and respects reduced motion.
 
+## Update notices
+
+Android **1.1.9** adds an in-app updater. Install it once to enable checks against the official release, including when the backend is older. Future updates offer APK download, SHA-256 and signing-certificate verification, and the Android installer. Installation always requires Android confirmation; Android 8+ may also request permission to install from Aoede. No uninstall is needed for a compatible distribution-signed upgrade. Cancelling or declining permission preserves the current installation.
+
+Notices compare the installed client with the published APK version, rather than the server/release tag. They can be postponed for one day and revisited in **More → About & updates**. Legacy remote wrappers use the backend notice and a manual download; install the current packaged APK to gain the native installer. The 1.0.5 backup remains unchanged.
+
 ## Release artifacts
 
 The project documents two Android artifacts alongside releases:

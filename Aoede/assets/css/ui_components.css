@@ -2590,3 +2590,85 @@ input[type="checkbox"][role="switch"]:checked { background: radial-gradient(circ
 input[type="checkbox"][role="switch"]:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 input[type="checkbox"][role="switch"]:disabled { opacity: .5; cursor: not-allowed; }
 @media (forced-colors: active) { input[type="checkbox"][role="switch"] { appearance: auto; -webkit-appearance: auto; background: none; } }
+
+.update-toast {
+    display: none;
+}
+.update-toast-card {
+    background: #17191f;
+    border: 1px solid #2a2e38;
+    border-radius: 12px;
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.28);
+    padding: 14px;
+    display: grid;
+    gap: 12px;
+}
+.update-toast-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+.update-toast-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(var(--accent-rgb), 0.16);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+}
+.update-toast-copy {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+.update-toast-title {
+    font-weight: 700;
+    color: #f3f4f6;
+}
+.update-toast-message {
+    color: #cbd5e1;
+    line-height: 1.4;
+}
+.update-toast-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+.update-toast-btn {
+    min-height: 40px;
+    padding: 0 14px;
+    border-radius: 10px;
+    border: 1px solid #2a2e38;
+    background: #1d2027;
+    color: #f3f4f6;
+    cursor: pointer;
+}
+.update-toast-btn-primary {
+    border-color: rgba(var(--accent-rgb), 0.35);
+    background: rgba(var(--accent-rgb), 0.18);
+}
+
+.update-notices {
+    position: fixed;
+    right: max(12px, env(safe-area-inset-right));
+    bottom: calc(var(--player-height, 90px) + 20px + env(safe-area-inset-bottom));
+    z-index: 2200;
+    width: min(400px, calc(100vw - 24px));
+    max-height: 65dvh;
+    overflow-y: auto;
+    display: grid;
+    gap: 10px;
+    pointer-events: none;
+}
+.update-notices > * { pointer-events: auto; }
+.client-update-details { color: var(--text-sub); font-size: 0.85rem; line-height: 1.5; }
+.about-client-update { margin-bottom: 18px; }
+@media (max-width: 768px) {
+    .update-notices { bottom: calc(160px + env(safe-area-inset-bottom)); }
+    .update-toast-card { padding: 12px; }
+    .update-toast-btn { min-height: 44px; }
+}

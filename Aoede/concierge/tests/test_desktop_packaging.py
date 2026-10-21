@@ -20,7 +20,7 @@ def test_desktop_archives_include_consistent_macos_bundle(tmp_path, monkeypatch)
     assert config["storageLocation"] == "system"
     assert config["dataLocation"] == "system"
     assert set(config["nativeAllowList"]) == {"storage.getData", "storage.setData", "filesystem.readFile"}
-    assert config["modes"]["window"]["extendUserAgentWith"] == "AoedeDesktop"
+    assert config["modes"]["window"]["extendUserAgentWith"] == f"AoedeDesktop/{config['version']}"
     assert "nl_token" not in (root / "desktop/resources/index.html").read_text()
     desktop = tmp_path / "desktop"
     build = desktop / "dist/aoede"

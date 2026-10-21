@@ -32,6 +32,14 @@ class AoedeApp : Application() {
         private set
     var player: WebView? = null
         private set
+    val clientInfo: String get() = JSONObject().put("kind", "android-native").put("version", BuildConfig.VERSION_NAME)
+        .put("versionCode", BuildConfig.VERSION_CODE).put("updater", 1).toString()
+    val updater by lazy { AppUpdater(this) { data ->
+        val view = player
+        if (view != null && ServerOrigin.from(Uri.parse(view.url.orEmpty())) == mediaController.serverOrigin) {
+            view.evaluateJavascript("window.__aoedeClientRelease=$data;window.dispatchEvent(new CustomEvent('aoede-client-update',{detail:window.__aoedeClientRelease}));", null)
+        }
+    } }
     private var playerUrl: String? = null
     var connectionFailure: Pair<String, String>? = null
         private set
@@ -91,7 +99,7 @@ class AoedeApp : Application() {
         }
         val reduced = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE).getBoolean("reduce_effects",
             (getSystemService(ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice)
-        val nativeFlags = "window.AOEDE_ANDROID=true;document.addEventListener('DOMContentLoaded',function(){document.documentElement.dataset.nativeEffects='${if (reduced) "reduced" else "full"}';});"
+        val nativeFlags = "window.AOEDE_ANDROID=true;window.AOEDE_CLIENT=$clientInfo;document.addEventListener('DOMContentLoaded',function(){document.documentElement.dataset.nativeEffects='${if (reduced) "reduced" else "full"}';});"
         val shim = nativeFlags + assets.open("media-session.js").bufferedReader().use { it.readText() }
         val messages = WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)
         if (messages) {
@@ -99,6 +107,8 @@ class AoedeApp : Application() {
                 _, message, source, mainFrame, _ ->
                 if (mainFrame && ServerOrigin.from(source) == origin) {
                     if (message.data == "settings") activity.get()?.openServerSettings()
+                    else if (message.data == "check-update") updater.check()
+                    else if (message.data == "update") activity.get()?.let { updater.offer(it) }
                     else if (message.data.orEmpty().length < 128 && runCatching {
                         val payload = JSONObject(message.data.orEmpty())
                         if (payload.optString("type") != "appearance" || payload.opt("dark") !is Boolean) false

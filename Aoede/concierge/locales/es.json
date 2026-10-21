@@ -499,5 +499,19 @@
     "common.load_failed": "No se ha podido cargar esta página.",
     "common.request_timeout": "El servidor ha tardado demasiado en responder.",
     "common.retry": "Reintentar",
-    "party.resume_device": "La reproducción está pausada en este dispositivo. Pulsa para escuchar."
+    "party.resume_device": "La reproducción está pausada en este dispositivo. Pulsa para escuchar.",
+    "updates.notices": "Actualizaciones",
+    "updates.server_title": "Actualización del servidor disponible",
+    "updates.dismiss": "Descartar",
+    "updates.open_updater": "Abrir actualizador",
+    "updates.server_message": "El servidor {version} está disponible. Abre Updates para revisarlo e instalarlo.",
+    "updates.client_title": "Actualización de la app disponible",
+    "updates.client_unknown": "Comprueba la versión de tu app",
+    "updates.client_versions": "{client}: instalada {installed} · disponible {available}",
+    "updates.unknown": "desconocida",
+    "updates.android_confirm": "Descarga y verifica la APK y confirma la instalación en Android.",
+    "updates.manual_install": "Descarga la nueva versión e instálala en este dispositivo.",
+    "updates.later": "Recordármelo mañana",
+    "updates.install": "Actualizar app",
+    "updates.download": "Descargar actualización"
 }

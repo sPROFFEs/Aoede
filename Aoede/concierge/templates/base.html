@@ -59,6 +59,7 @@
                 "/assets/js/modules/sync.js": "/assets/js/modules/sync.js?v={{ static_v }}",
                 "/assets/js/modules/system_monitor.js": "/assets/js/modules/system_monitor.js?v={{ static_v }}",
                 "/assets/js/modules/ui.js": "/assets/js/modules/ui.js?v={{ static_v }}",
+                "/assets/js/modules/client_updates.js": "/assets/js/modules/client_updates.js?v={{ static_v }}",
                 "/assets/js/modules/about.js": "/assets/js/modules/about.js?v={{ static_v }}",
                 "/assets/js/modules/update_progress.js": "/assets/js/modules/update_progress.js?v={{ static_v }}",
                 "/assets/js/modules/views.js": "/assets/js/modules/views.js?v={{ static_v }}"
@@ -455,6 +456,7 @@
         <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
     </div>
 
+    <aside class="update-notices" aria-label="{{ _('updates.notices') }}">
     {% if is_admin %}
     <div id="update-available-toast" class="update-toast">
         <div class="update-toast-card">
@@ -463,17 +465,20 @@
                     <i data-lucide="download-cloud" width="18" height="18"></i>
                 </div>
                 <div class="update-toast-copy">
-                    <div class="update-toast-title">Update available</div>
-                    <div id="update-toast-message" class="update-toast-message">A new version is available.</div>
+                    <div class="update-toast-title">{{ _('updates.server_title') }}</div>
+                    <div id="update-toast-message" class="update-toast-message" role="status">{{ _('updates.server_title') }}</div>
                 </div>
             </div>
             <div class="update-toast-actions">
-                <button id="update-toast-dismiss" type="button" class="update-toast-btn">Dismiss</button>
-                <button id="update-toast-open" type="button" class="update-toast-btn update-toast-btn-primary">Update</button>
+                <button id="update-toast-dismiss" type="button" class="update-toast-btn">{{ _('updates.dismiss') }}</button>
+                <button id="update-toast-open" type="button" class="update-toast-btn update-toast-btn-primary">{{ _('updates.open_updater') }}</button>
             </div>
         </div>
     </div>
     {% endif %}
+
+    <div id="client-update-notice" class="update-toast"></div>
+    </aside>
 
     <!-- QUEUE SIDE PANEL -->
     <div id="queue-panel" class="queue-panel">

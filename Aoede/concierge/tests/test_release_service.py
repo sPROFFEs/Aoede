@@ -146,3 +146,22 @@ def test_about_route_requires_active_session_allows_non_admin_and_never_runs_upd
                 assert (await client.post("/api/about")).status_code == 405
 
     asyncio.run(check())
+
+
+def test_client_versions_come_from_published_binary_labels_not_server_tags():
+    data = {
+        "tag_name": "v1.2.7",
+        "assets": [
+            {"name": "aoede-android.apk", "state": "uploaded", "label": "Aoede Android 1.1.9 (15)"},
+            {"name": "aoede-mac-universal.tar.gz", "state": "uploaded", "label": "Aoede Desktop 1.2.9"},
+            {"name": "aoede-win-x64.tar.gz", "state": "uploaded", "label": "malformed"},
+            {"name": "aoede-android-wrapper-1.0.5.apk", "state": "uploaded", "label": "Aoede Android 999.0.0 (999)"},
+        ],
+    }
+    files = {item["name"]: item for item in releases._release_details(data)["downloads"]}
+    assert files["aoede-android.apk"]["version"] == "1.1.9"
+    assert files["aoede-android.apk"]["version_code"] == 15
+    assert files["aoede-mac-universal.tar.gz"]["arch"] == "universal"
+    assert files["aoede-mac-universal.tar.gz"]["version"] == "1.2.9"
+    assert "version" not in files["aoede-win-x64.tar.gz"]
+    assert "client" not in files["aoede-android-wrapper-1.0.5.apk"]

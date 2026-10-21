@@ -677,6 +677,8 @@ Portable builds can also be distributed through:
 
 ## 🤖 Android
 
+Admins receive a server-update notice that opens the updater directly. Android and desktop clients receive separate, platform-specific notices based on the actual published binary version. Android 1.1.9 adds verified in-app downloads and Android installation confirmation; install it once to enable future native updates. Desktop upgrades use manual downloads. The original Android remote wrapper remains available as a backup.
+
 Aoede releases can include:
 
 ```text

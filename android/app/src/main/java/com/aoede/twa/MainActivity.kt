@@ -37,6 +37,15 @@ class MainActivity : AppCompatActivity() {
         fileCallback = null
     }
 
+    private val updatePermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        if (android.os.Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()) app.updater.install(this)
+        else Toast.makeText(this, R.string.update_permission_denied, Toast.LENGTH_LONG).show()
+    }
+
+    fun requestUpdatePermission() {
+        updatePermission.launch(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+    }
+
     companion object {
         const val PREFS = "aoede_prefs"
         const val KEY_URL = "server_url"

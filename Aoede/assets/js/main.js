@@ -23,6 +23,7 @@ import * as offlineStore from './modules/offline_store.js';
 import * as lyrics from './modules/lyrics.js';
 import * as audioEngine from './modules/audio_engine.js';
 import * as party from './modules/party.js';
+import { initClientUpdates } from './modules/client_updates.js';
 
 window.openAbout = async (trigger) => {
   trigger?.closest('details')?.querySelector('summary')?.focus();
@@ -444,6 +445,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Initialize Neutralino desktop integration if running within wrapper
   initDesktopWrapper();
+  initClientUpdates();
 
   // Restore persisted volume (server is authoritative, cross-device).
   // Runs async — applies the localStorage value instantly then reconciles

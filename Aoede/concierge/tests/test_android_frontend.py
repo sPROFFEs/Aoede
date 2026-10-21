@@ -210,3 +210,39 @@ def test_android_compiler_bundles_canonical_modules_themes_translations_and_no_s
         visible.feed(login)
         assert "navigator.serviceWorker.register" not in "".join(visible.text)
         assert login.count('src="/_aoede/media-session.js"') == 1
+
+
+def test_android_packaging_uses_current_build_metadata_instead_of_stale_signed_apk(tmp_path):
+    import subprocess
+    import sys
+    import zipfile
+
+    root = Path(__file__).resolve().parents[3]
+    script = tmp_path / "scripts/package_android.py"
+    script.parent.mkdir()
+    script.write_text((root / "scripts/package_android.py").read_text())
+    release = tmp_path / "android/app/build/outputs/apk/release"
+    release.mkdir(parents=True)
+    (release / "app-release.apk").write_bytes(b"stale signed build")
+    (release / "app-release-unsigned.apk").write_bytes(b"current unsigned build")
+    (release / "output-metadata.json").write_text(
+        json.dumps(
+            {
+                "applicationId": "com.aoede.twa",
+                "elements": [{"versionName": "1.9.0", "versionCode": 99, "outputFile": "app-release-unsigned.apk"}],
+            }
+        )
+    )
+    (tmp_path / "android/private.p12").write_text("must not be packaged")
+    for folder in ("assets", "concierge/templates", "concierge/locales"):
+        directory = tmp_path / "Aoede" / folder
+        directory.mkdir(parents=True)
+        (directory / "source.txt").write_text("editable frontend source")
+    subprocess.run([sys.executable, str(script)], check=True, capture_output=True)
+    output = tmp_path / "android/dist"
+    assert (output / "aoede-android-unsigned.apk").read_bytes() == b"current unsigned build"
+    assert not (output / "aoede-android.apk").exists()
+    assert (output / "android-version.txt").read_text() == "Aoede Android 1.9.0 (99)"
+    with zipfile.ZipFile(output / "aoede-android-source.zip") as archive:
+        assert not any(name.endswith(".p12") for name in archive.namelist())
+        assert archive.read("aoede-android/frontend-source/assets/source.txt") == b"editable frontend source"

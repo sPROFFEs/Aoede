@@ -61,14 +61,21 @@ def _release_details(data):
                 "universal": "Universal · Apple silicon & Intel",
             }[match[2]]
         if label:
-            downloads.append(
-                {
-                    "platform": platform,
-                    "label": label,
-                    "name": name,
-                    "url": f"{REPOSITORY}/releases/download/{quote(tag, safe='')}/{quote(name, safe='')}",
-                }
-            )
+            item = {
+                "platform": platform,
+                "label": label,
+                "name": name,
+                "url": f"{REPOSITORY}/releases/download/{quote(tag, safe='')}/{quote(name, safe='')}",
+            }
+            # Release tags track the server; asset labels track the actual client build.
+            metadata = str(asset.get("label") or "")
+            android = re.fullmatch(r"Aoede Android (\d+\.\d+\.\d+) \(([1-9]\d*)\)", metadata)
+            desktop = re.fullmatch(r"Aoede Desktop (\d+\.\d+\.\d+)", metadata)
+            if name == "aoede-android.apk" and android:
+                item.update(client="android-native", version=android[1], version_code=int(android[2]))
+            elif name.endswith(".tar.gz") and desktop:
+                item.update(client="desktop", version=desktop[1], arch=name.split("-")[-1].split(".")[0])
+            downloads.append(item)
     downloads.sort(
         key=lambda item: (
             item["platform"],

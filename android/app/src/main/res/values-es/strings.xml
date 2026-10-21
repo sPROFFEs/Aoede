@@ -40,4 +40,12 @@
     <string name="playback_action_pause">Pausar</string>
     <string name="playback_action_next">Siguiente</string>
     <string name="playback_action_prev">Anterior</string>
+    <string name="update_title">Actualizar Aoede a %1$s</string>
+    <string name="update_description">Se descargará la APK oficial y se verificará su firma. Android pedirá confirmar la instalación. Se conservarán la configuración del servidor y las descargas.</string>
+    <string name="update_download">Descargar actualización</string>
+    <string name="update_downloading">Descargando y verificando la actualización…</string>
+    <string name="update_checking">Consultando la última versión oficial. Inténtalo de nuevo en unos segundos.</string>
+    <string name="update_ready">Actualización descargada. Pulsa Actualizar app para instalarla.</string>
+    <string name="update_failed">No se pudo verificar o instalar la actualización. Revisa tu conexión e inténtalo de nuevo, o descárgala desde Acerca de y actualizaciones.</string>
+    <string name="update_permission_denied">No se concedió permiso de instalación. Puedes intentarlo de nuevo desde Actualizar app.</string>
 </resources>

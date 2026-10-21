@@ -34,4 +34,12 @@
     <string name="playback_action_pause">Pausieren</string>
     <string name="playback_action_next">Weiter</string>
     <string name="playback_action_prev">Zurück</string>
+    <string name="update_title">Aoede auf %1$s aktualisieren</string>
+    <string name="update_description">Die offizielle APK wird heruntergeladen und ihre Signatur geprüft. Android bittet um Bestätigung der Installation. Servereinstellungen und Downloads bleiben erhalten.</string>
+    <string name="update_download">Update herunterladen</string>
+    <string name="update_downloading">Update wird heruntergeladen und geprüft…</string>
+    <string name="update_checking">Die neueste offizielle Version wird geprüft. Bitte gleich erneut versuchen.</string>
+    <string name="update_ready">Update heruntergeladen. Zum Installieren App aktualisieren wählen.</string>
+    <string name="update_failed">Das Update konnte nicht geprüft oder installiert werden. Verbindung prüfen und erneut versuchen oder über Info &amp; Updates herunterladen.</string>
+    <string name="update_permission_denied">Die Installation wurde nicht erlaubt. Über App aktualisieren erneut versuchen.</string>
 </resources>

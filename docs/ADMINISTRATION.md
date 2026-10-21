@@ -134,6 +134,10 @@ The documented flow is:
 Admin → System Monitor → Updates → Check for Updates → Apply Update
 ```
 
+The administrator's server-update notice opens `/admin/system?tab=updates` directly, even if another System Monitor tab was previously selected. It stays separate from client-update notices, rechecks when the page becomes visible and continues checking while open. Opening the updater does not apply an update automatically.
+
+Signed-in Android and desktop users receive notices for their own client and platform. Published asset labels carry the binary's version independently of the server version or release tag. New desktop builds report `AoedeDesktop/<version>`; older builds cannot report their installed version and are offered a clearly labelled version check/manual download. macOS uses the universal archive. Notices can be postponed for one day; About retains the download action. APK 1.1.9 provides a verified native installation flow; earlier packaged APKs must first be updated manually to include it. The original remote-wrapper backup remains published.
+
 The update workflow can create a backup, run schema migrations, rebuild containers when needed and perform health checks.
 
 ## CLI update

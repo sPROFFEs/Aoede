@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release to update (empty builds only)'
+        type: string
+        default: ''
 
 permissions:
   contents: write
@@ -45,11 +50,15 @@ jobs:
           name: desktop-release
           path: desktop/dist/releases/
 
-      - name: Upload Artifacts to GitHub Release
-        uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: |
-            desktop/dist/releases/*.tar.gz
+      - name: Upload artifacts with the actual client version
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.release_tag != '')
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          AOEDE_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
+          AOEDE_REPOSITORY: ${{ github.repository }}
+        run: |
+          version=$(python3 -c 'import json; print(json.load(open("desktop/neutralino.config.json"))["version"])')
+          gh release view "$AOEDE_RELEASE_TAG" --repo "$AOEDE_REPOSITORY"
+          for archive in desktop/dist/releases/*.tar.gz; do
+            gh release upload "$AOEDE_RELEASE_TAG" "$archive#Aoede Desktop $version" --clobber --repo "$AOEDE_REPOSITORY"
+          done

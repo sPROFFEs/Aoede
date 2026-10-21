@@ -10,6 +10,8 @@
     <!-- Held only during playback; the screen can still turn off. -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <application
         android:name=".AoedeApp"
         android:allowBackup="false"
@@ -19,6 +21,11 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Aoede"
         android:usesCleartextTraffic="true">
+
+        <provider android:name=".UpdateFileProvider"
+            android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths" />
+        </provider>
 
         <receiver android:name=".PlaybackWidget" android:exported="false" android:label="@string/widget_description">
             <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>

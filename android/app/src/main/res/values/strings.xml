@@ -46,4 +46,12 @@
     <string name="playback_action_pause">Pause</string>
     <string name="playback_action_next">Next</string>
     <string name="playback_action_prev">Previous</string>
+    <string name="update_title">Update Aoede to %1$s</string>
+    <string name="update_description">Download the official APK and verify its signature. Android will ask you to confirm installation. Your server settings and downloads stay on this device.</string>
+    <string name="update_download">Download update</string>
+    <string name="update_downloading">Downloading and verifying update…</string>
+    <string name="update_checking">Checking the latest official release. Try again shortly.</string>
+    <string name="update_ready">Update downloaded. Tap Update app to install it.</string>
+    <string name="update_failed">The update could not be verified or installed. Check your connection and try again, or download it from About &amp; updates.</string>
+    <string name="update_permission_denied">Installation permission was not granted. You can try again from Update app.</string>
 </resources>

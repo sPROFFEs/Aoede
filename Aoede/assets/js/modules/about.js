@@ -1,3 +1,4 @@
+import { currentClient, renderClientUpdate } from './client_updates.js';
 import { closeModal, escHtml, focusModal, refreshIcons } from './ui.js';
 
 const releases = 'https://github.com/sPROFFEs/Aoede/releases';
@@ -10,6 +11,7 @@ export async function openAbout() {
   container.innerHTML = `<div class="modal-overlay about-overlay"><section class="modal about-panel" role="dialog" aria-modal="true" aria-labelledby="about-title" lang="en">
     <header class="about-header"><div><span class="about-eyebrow">MADE FOR YOUR MUSIC</span><h2 id="about-title">About &amp; updates</h2></div><button type="button" class="modal-close" aria-label="Close"><i data-lucide="x"></i></button></header>
     <div class="about-brand"><img src="/assets/apple-touch-icon.png" alt="" width="64" height="64"><div><strong>Aoede</strong><div id="about-version">Your music. Your server.</div></div></div>
+    <div class="about-client-update"></div>
     <div class="about-content" aria-live="polite" aria-busy="true"><p class="about-status" role="status">Checking the latest release…</p></div>
     <footer class="about-footer"><span data-about-checked>Release information from GitHub</span><a href="${releases}" ${external}>All releases <i data-lucide="arrow-up-right"></i></a></footer>
   </section></div>`;
@@ -20,6 +22,7 @@ export async function openAbout() {
   };
   refreshIcons(panel);
   focusModal();
+  renderClientUpdate(panel.querySelector('.about-client-update'));
   const content = panel.querySelector('.about-content');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15000);
@@ -29,6 +32,9 @@ export async function openAbout() {
     const data = await response.json();
     if (!panel.isConnected) return;
     panel.querySelector('#about-version').textContent = `Server ${data.current.display_version}`;
+    const client = currentClient();
+    if (client) panel.querySelector('#about-version').textContent += ` · ${client.kind} ${client.version || 'unknown'}`;
+    renderClientUpdate(panel.querySelector('.about-client-update'), window.__aoedeClientRelease || data);
     if (!data.release) throw new Error();
     const release = data.release;
     // Only link to the official repository, even if a backend returns malformed data.

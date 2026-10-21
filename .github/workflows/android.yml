@@ -136,4 +136,5 @@ jobs:
           AOEDE_REPOSITORY: ${{ github.repository }}
         run: |
           gh release view "$AOEDE_RELEASE_TAG" --repo "$AOEDE_REPOSITORY"
-          gh release upload "$AOEDE_RELEASE_TAG" artifacts/aoede-android.apk artifacts/aoede-android-source.zip wrapper-backup/*.apk wrapper-backup/*.zip --clobber --repo "$AOEDE_REPOSITORY"
+          label=$(cat artifacts/android-version.txt)
+          gh release upload "$AOEDE_RELEASE_TAG" "artifacts/aoede-android.apk#$label" artifacts/aoede-android-source.zip wrapper-backup/*.apk wrapper-backup/*.zip --clobber --repo "$AOEDE_REPOSITORY"

@@ -499,5 +499,19 @@
     "common.load_failed": "Could not load this page.",
     "common.request_timeout": "The server took too long to respond.",
     "common.retry": "Retry",
-    "party.resume_device": "Playback is paused on this device. Tap to start listening."
+    "party.resume_device": "Playback is paused on this device. Tap to start listening.",
+    "updates.notices": "Updates",
+    "updates.server_title": "Server update available",
+    "updates.dismiss": "Dismiss",
+    "updates.open_updater": "Open updater",
+    "updates.server_message": "Server {version} is available. Open Updates to review and install it.",
+    "updates.client_title": "App update available",
+    "updates.client_unknown": "Check your app version",
+    "updates.client_versions": "{client}: installed {installed} · available {available}",
+    "updates.unknown": "unknown",
+    "updates.android_confirm": "Download and verify the APK, then confirm installation in Android.",
+    "updates.manual_install": "Download the new version and install it on this device.",
+    "updates.later": "Remind me tomorrow",
+    "updates.install": "Update app",
+    "updates.download": "Download update"
 }

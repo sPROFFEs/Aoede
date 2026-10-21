@@ -499,5 +499,19 @@
     "common.load_failed": "Diese Seite konnte nicht geladen werden.",
     "common.request_timeout": "Der Server hat zu lange für die Antwort benötigt.",
     "common.retry": "Erneut versuchen",
-    "party.resume_device": "Die Wiedergabe ist auf diesem Gerät pausiert. Tippe, um zuzuhören."
+    "party.resume_device": "Die Wiedergabe ist auf diesem Gerät pausiert. Tippe, um zuzuhören.",
+    "updates.notices": "Updates",
+    "updates.server_title": "Server-Update verfügbar",
+    "updates.dismiss": "Schließen",
+    "updates.open_updater": "Updater öffnen",
+    "updates.server_message": "Server {version} ist verfügbar. Zum Prüfen und Installieren Updates öffnen.",
+    "updates.client_title": "App-Update verfügbar",
+    "updates.client_unknown": "App-Version prüfen",
+    "updates.client_versions": "{client}: installiert {installed} · verfügbar {available}",
+    "updates.unknown": "unbekannt",
+    "updates.android_confirm": "APK herunterladen und prüfen, dann die Installation in Android bestätigen.",
+    "updates.manual_install": "Neue Version herunterladen und auf diesem Gerät installieren.",
+    "updates.later": "Morgen erinnern",
+    "updates.install": "App aktualisieren",
+    "updates.download": "Update herunterladen"
 }

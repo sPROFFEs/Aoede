@@ -77,11 +77,12 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # These are uncompressed upper bounds. Nginx serves them compressed, so a
     # regression here catches accidental large bundles before transfer cost is
     # multiplied across every navigation.
+    # Includes device-specific update checks and notices without a third-party updater.
     # Includes player controls and localized collection/form copy with English fallbacks.
     # Includes the administrator's metadata similarity explanations and comparison filter.
-    assert sum(path.stat().st_size for path in javascript if path != appearance) < 622_000
+    assert sum(path.stat().st_size for path in javascript if path != appearance) < 633_000
     # Shared navigation, collection list/grid layouts and responsive browsing controls.
-    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 312_000
+    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 313_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
