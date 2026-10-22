@@ -554,3 +554,274 @@ def test_retry_can_copy_job_before_old_history_is_pruned(db_session, importer):
     result = asyncio.run(downloads.retry_download(old_id, background, request, db_session))
     assert db_session.get(database.DownloadJob, result["job_id"]).input_url == "https://youtu.be/abcdefghijk"
     assert db_session.query(database.DownloadJob).filter_by(id=old_id).first() is None
+
+
+def spotify_public_pages(kind, identifier, entries, *, total=None, raw_state=False, embed_uri=None):
+    import base64
+
+    uri = f"spotify:{kind}:{identifier}"
+    state = {
+        "entities": {
+            "items": {
+                uri: {
+                    "name": "Public collection",
+                    "content" if kind == "playlist" else "tracksV2": {
+                        "totalCount": len(entries) if total is None else total,
+                    },
+                }
+            }
+        },
+        "session": {"accessToken": "must-not-leak"},
+    }
+    raw = json.dumps(state)
+    if not raw_state:
+        raw = base64.b64encode(raw.encode()).decode()
+    embed = {
+        "props": {
+            "pageProps": {
+                "state": {
+                    "data": {
+                        "entity": {
+                            "uri": embed_uri or uri,
+                            "name": "Public collection",
+                            "trackList": entries,
+                            "coverArt": {"sources": [{"url": "https://i.scdn.co/image/cover"}]},
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return (
+        f'<script id="initialState" type="text/plain">{raw}</script>',
+        f'<script id="__NEXT_DATA__">{json.dumps(embed)}</script>',
+    )
+
+
+@pytest.mark.parametrize("kind,status", [("playlist", 200), ("playlist", 403), ("album", 404)])
+def test_spotify_public_fallback_previews_and_imports_complete_order_without_credentials_leaking(
+    kind, status, importer, db_session, monkeypatch
+):
+    user, request, background = importer
+    user.download_settings = database.DownloadSettings(spotify_client_id="client", spotify_client_secret="secret")
+    identifier = "c" * 22
+    entries = [
+        {"uri": "spotify:track:" + "a" * 22, "title": "First", "subtitle": "Artist", "isPlayable": True},
+        None,
+        {"uri": "spotify:track:" + "b" * 22, "title": "Third", "subtitle": "Artist"},
+        {"uri": "spotify:track:" + "a" * 22, "title": "Repeat", "subtitle": "Artist"},
+        {"uri": "spotify:track:" + "d" * 22, "title": "Unavailable", "isPlayable": False},
+    ]
+    page, embed = spotify_public_pages(kind, identifier, entries, raw_state=kind == "album")
+    calls = []
+
+    def provider(req):
+        calls.append(str(req.url))
+        if req.url.host == "api.spotify.com":
+            assert req.headers["authorization"] == "Bearer api-only-token"
+            assert req.url.params["market"] == "ES"
+            return httpx.Response(status, json={"name": "Public collection"})
+        assert req.url.host == "open.spotify.com"
+        assert "authorization" not in req.headers and not req.headers.get("cookie")
+        assert req.url.path in {f"/{kind}/{identifier}", f"/embed/{kind}/{identifier}"}
+        return httpx.Response(200, text=embed if req.url.path.startswith("/embed/") else page)
+
+    async def token(*_):
+        return "api-only-token"
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
+            client.cookies.set("session", "private-cookie", domain=".spotify.com")
+            monkeypatch.setattr(collections.spotify_service.spotify_service, "client", client)
+            monkeypatch.setattr(collections.spotify_service.spotify_service, "_get_access_token", token)
+            url = f"https://open.spotify.com/{kind}/{identifier}"
+            preview = await downloads.collection_preview.__wrapped__(request, url, db_session)
+            assert preview["track_count"] == 3 and preview["skipped"] == 2
+            assert [track["position"] for track in preview["tracks"]] == [1, 3, 4]
+            assert preview["tracks"][0]["url"] == preview["tracks"][2]["url"]
+            assert all(
+                track["album"] == ("Public collection" if kind == "album" else "") for track in preview["tracks"]
+            )
+            assert "must-not-leak" not in json.dumps(preview)
+            count = len(calls)
+            imported = await downloads.import_collection.__wrapped__(
+                downloads.CollectionDownloadRequest(url=url), background, request, db_session
+            )
+            assert imported["track_count"] == 3 and len(calls) == count  # Import reuses the validated preview.
+            playlist = db_session.get(database.Playlist, imported["playlist_id"])
+            assert playlist.owner_id == user.id and playlist.kind == kind
+            jobs = db_session.query(database.DownloadJob).order_by(database.DownloadJob.id).all()
+            assert [job.target_position for job in jobs] == [1, 3, 4]
+
+    asyncio.run(check())
+
+
+@pytest.mark.parametrize("kind,summary", [("playlist", False), ("playlist", True), ("album", True)])
+def test_spotify_legacy_and_summary_pages_use_matching_track_endpoint(kind, summary, importer, monkeypatch):
+    user, _, _ = importer
+    track = {"id": "a" * 22, "name": "Song", "artists": [{"name": "Artist"}]}
+    entry = track if kind == "album" else {"item": None, "track": track}
+    calls = []
+    pages = [
+        {
+            "name": "Legacy",
+            "items": None,
+            "tracks": {"total": 2}
+            if summary
+            else {
+                "items": [entry],
+                "total": 2,
+                "next": "https://evil.test/steal",
+            },
+        }
+    ]
+    if summary:
+        pages.append({"items": [entry], "total": 2, "next": "https://evil.test/steal"})
+    pages.append({"items": [entry], "offset": 1, "next": None})
+
+    async def get(_user, path, params=None):
+        calls.append((path, params))
+        return pages.pop(0)
+
+    monkeypatch.setattr(collections, "_spotify_get", get)
+    result = asyncio.run(collections.resolve_collection(user, f"https://open.spotify.com/{kind}/" + "c" * 22))
+    assert result["track_count"] == 2 and result["skipped"] == 0
+    assert calls[-1] == (f"{kind}s/{'c' * 22}/tracks", {"limit": 50, "offset": 1})
+    if summary:
+        assert calls[1][1] == {"limit": 50, "offset": 0}
+
+
+@pytest.mark.parametrize("reason", ["partial", "unknown-total", "wrong-collection", "too-many", "invalid-json"])
+def test_spotify_public_preview_never_silently_imports_incomplete_or_wrong_content(
+    reason, importer, db_session, monkeypatch
+):
+    user, request, background = importer
+    identifier = "c" * 22
+    entries = [{"uri": "spotify:track:" + "a" * 22, "title": "Song", "subtitle": "Artist"}]
+    page, embed = spotify_public_pages(
+        "playlist",
+        identifier,
+        entries,
+        total=2 if reason == "partial" else 501 if reason == "too-many" else 1,
+        embed_uri="spotify:playlist:" + "d" * 22 if reason == "wrong-collection" else None,
+    )
+    if reason == "unknown-total":
+        page = '<script id="initialState">{}</script>'
+    if reason == "invalid-json":
+        embed = '<script id="__NEXT_DATA__">broken</script>'
+
+    async def denied(*_):
+        raise collections.SpotifyAccessError("API hides tracks", 403)
+
+    async def public(*_):
+        return collections._spotify_public_metadata(page, embed, "playlist", identifier)
+
+    monkeypatch.setattr(collections, "_spotify_get", denied)
+    monkeypatch.setattr(collections, "_spotify_public_collection", public)
+    result = asyncio.run(
+        downloads.import_collection.__wrapped__(
+            downloads.CollectionDownloadRequest(url=f"https://open.spotify.com/playlist/{identifier}"),
+            background,
+            request,
+            db_session,
+        )
+    )
+    assert result.status_code == (422 if reason == "partial" else 400 if reason == "too-many" else 403)
+    assert "must-not-leak" not in result.body.decode()
+    assert not db_session.query(database.Playlist).count() and not db_session.query(database.DownloadJob).count()
+    assert not background.tasks
+
+
+def test_spotify_api_market_applies_to_search_details_and_every_page(importer, monkeypatch):
+    user, _, _ = importer
+    user.download_settings = database.DownloadSettings(spotify_client_id="client", spotify_client_secret="secret")
+    calls = []
+
+    async def token(*_):
+        return "api-only-token"
+
+    def provider(req):
+        calls.append(req)
+        assert req.url.params["market"] == "ES" and req.headers["authorization"] == "Bearer api-only-token"
+        return httpx.Response(200, json={"items": []})
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(provider)) as client:
+            monkeypatch.setattr(collections.spotify_service.spotify_service, "client", client)
+            monkeypatch.setattr(collections.spotify_service.spotify_service, "_get_access_token", token)
+            for path, params in [
+                ("search", {"q": "album", "limit": 10}),
+                ("albums/" + "a" * 22, None),
+                ("albums/" + "a" * 22 + "/tracks", {"offset": 50, "limit": 50}),
+            ]:
+                original = params.copy() if params else None
+                await collections._spotify_get(user, path, params)
+                assert params == original
+
+    asyncio.run(check())
+    assert len(calls) == 3
+
+
+@pytest.mark.parametrize("status", [403, 429, 502])
+def test_spotify_public_fallback_does_not_hide_bad_auth_rate_limits_or_outages(status, importer, monkeypatch):
+    user, _, _ = importer
+
+    async def failed(*_):
+        raise collections.CollectionError("Configured credentials or provider unavailable", status)
+
+    async def unexpected(*_):
+        raise AssertionError("Only collection access restrictions may use a public fallback")
+
+    monkeypatch.setattr(collections, "_spotify_get", failed)
+    monkeypatch.setattr(collections, "_spotify_public_collection", unexpected)
+    with pytest.raises(collections.CollectionError, match="Configured credentials") as error:
+        asyncio.run(collections.resolve_collection(user, "https://open.spotify.com/playlist/" + "c" * 22))
+    assert error.value.status_code == status
+
+
+@pytest.mark.parametrize("mode", ["redirect", "oversize"])
+def test_spotify_public_requests_never_follow_redirects_or_accept_unbounded_pages(mode, monkeypatch):
+    hosts = []
+
+    def provider(req):
+        hosts.append(req.url.host)
+        assert req.url.host == "open.spotify.com"
+        if mode == "redirect":
+            return httpx.Response(302, headers={"location": "http://127.0.0.1/private"})
+        return httpx.Response(200, text="x" * 65)
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.MockTransport(provider), follow_redirects=True) as client:
+            monkeypatch.setattr(collections.spotify_service.spotify_service, "client", client)
+            monkeypatch.setattr(collections, "MAX_SPOTIFY_PAGE_BYTES", 64)
+            with pytest.raises(collections.CollectionError) as error:
+                await collections._spotify_public_collection("playlist", "c" * 22)
+            assert error.value.status_code == 502
+
+    asyncio.run(check())
+    assert hosts and set(hosts) == {"open.spotify.com"}
+
+
+@pytest.mark.parametrize("reason", ["no-next", "wrong-offset", "empty-page"])
+def test_spotify_api_rejects_truncated_or_repeated_pagination(reason, importer, monkeypatch):
+    user, _, _ = importer
+    entry = {"item": {"id": "a" * 22, "name": "Song"}}
+    pages = [
+        {
+            "name": "Incomplete",
+            "items": {
+                "items": [] if reason == "empty-page" else [entry],
+                "total": 2,
+                "next": None if reason == "no-next" else "https://evil.test/steal",
+            },
+        },
+        {"items": [entry], "offset": 0, "next": None},
+    ]
+
+    async def get(*_):
+        return pages.pop(0)
+
+    monkeypatch.setattr(collections, "_spotify_get", get)
+    with pytest.raises(collections.CollectionError, match="incomplete") as error:
+        asyncio.run(collections.resolve_collection(user, "https://open.spotify.com/playlist/" + "c" * 22))
+    assert error.value.status_code == 502
