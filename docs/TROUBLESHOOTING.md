@@ -8,6 +8,24 @@ docker compose ps
 docker compose logs -f concierge
 ```
 
+## Server takes minutes to return after a VM restart
+
+Measure the local origin and tunnel separately. In the active deployment directory, use these read-only checks after the restart:
+
+```bash
+systemd-analyze time
+systemd-analyze critical-chain docker.service
+docker compose ps
+docker compose logs --timestamps --since=20m concierge nginx tunnel
+curl --max-time 5 -sS -o /dev/null -w 'Local HTTP %{http_code}, %{time_total}s\n' http://127.0.0.1/login
+```
+
+The local URL above assumes the default Cloudflare deployment's port 80. For a custom mapping use its local port and public Host header if required by `ALLOWED_HOSTS`. The `internal` and `domain` templates do not have a `tunnel` service; omit it from the logs command. An HTTP 200/302 on `/login` means the origin is responding; a 502 points to Nginx reaching an unavailable Concierge, and a 400 may indicate a Host restriction rather than slow startup. Never disable Host or certificate validation to diagnose startup.
+
+Concierge logs `Startup schema ready`, `Startup recovery complete` and `Startup ready`, with elapsed seconds. Security validation, migrations, interrupted-job recovery and pausing party rooms still finish before it serves requests. Track-identity backfill now runs in a worker thread after 30 seconds, followed by metadata scanning. Cache cleanup waits 60 seconds, automatic backup 90 seconds, Wrapped analysis 120 seconds, and optional loudness backfill 180 seconds. This removes library-size-dependent work from readiness and staggers the first maintenance passes; it does not prove that a particular VM or tunnel delay is fixed. A first permission migration may still scan the data tree once; subsequent restarts reuse its marker.
+
+If local login responds well before the public domain, inspect the tunnel's timestamped connection/retry errors and the VM's network/DNS readiness. Cloudflared normally selects QUIC automatically and can fall back to HTTP/2; change its protocol only after the logs establish a transport problem. See [Cloudflare Tunnel troubleshooting](https://developers.cloudflare.com/tunnel/troubleshooting/). Compose `depends_on` with `service_started` controls creation order, not application readiness, so service timestamps and local probes are more useful than assuming the tunnel waits for the downloader. See [Docker startup order](https://docs.docker.com/compose/how-tos/startup-order/). Logs may contain private hostnames; redact credentials and personal data before sharing them.
+
 ## Android opens slowly or shows “Open directly”
 
 Update both the APK (1.1.7 or newer) and backend. Older clients waited indefinitely for playback queue state before rendering Home, and Home waited for every feed, including federated party discovery. A restored settings/admin view could also show “Open directly” if a page request or redundant CDN script failed; Android's installed shell deliberately blocks those external vendor scripts.

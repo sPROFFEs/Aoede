@@ -1229,11 +1229,13 @@ export function playFromView(index) {
 
 // === NAVIGATION ===
 
-export async function playNext() {
+export async function playNext(finishIfEmpty = false) {
   if (_partyController?.isActive?.()) {
     _partyController.control('next');
     return;
   }
+  // A manual Next at the end must leave the current song and player intact.
+  if (!hasUpcomingTrack() && finishIfEmpty !== true) return;
   // 1. Priority: User Queue
   if (state.userQueue.length > 0) {
     const nextTrack = state.userQueue.shift();
@@ -1471,6 +1473,14 @@ function _prefetchTrack(track) {
 
 function clearFinishedPlaybackState() {
   finalizeListenSession('finished');
+  _trackTransitionInFlight = false;
+  state.audio.pause();
+  state.audio.removeAttribute('src');
+  state.audio.load();
+  if (_currentBlobUrl) {
+    URL.revokeObjectURL(_currentBlobUrl);
+    _currentBlobUrl = null;
+  }
   state.setCurrentTrack(null);
   state.setIsPlaying(false);
   releasePlaybackLock();
@@ -1478,7 +1488,9 @@ function clearFinishedPlaybackState() {
   clearPersistedPlaybackSession();
   if ('mediaSession' in navigator) {
     navigator.mediaSession.playbackState = 'none';
+    navigator.mediaSession.metadata = null;
   }
+  if (state.isFullscreenPlayerOpen) ui.toggleFullscreenPlayer();
   syncPlayerShellVisibility(null);
   ui.updatePlayButton();
   ui.updateUIProgress(0, 0);
@@ -1637,6 +1649,8 @@ export function setupPlayer() {
   });
 
   state.audio.addEventListener('pause', () => {
+    // load() can deliver the previous resource's pause after final cleanup.
+    if (!state.currentTrack) return;
     // When the browser pauses the previous resource during an automatic
     // track swap, briefly reporting MediaSession as "paused" can make
     // Android drop the active background session between songs.
@@ -1652,7 +1666,7 @@ export function setupPlayer() {
     stopPlaybackSessionPersistence();
     persistPlaybackSession();
     if ('mediaSession' in navigator) {
-      navigator.mediaSession.playbackState = 'paused';
+      navigator.mediaSession.playbackState = state.currentTrack ? 'paused' : 'none';
       updateMediaSessionPositionState();
     }
   });
@@ -1673,7 +1687,7 @@ export function setupPlayer() {
   });
 
   state.audio.addEventListener('ended', () => {
-    // The timeupdate handler already calls playNext() ~0.5s before the
+    // The timeupdate handler can call playNext() ~0.15s before the
     // track actually ends. When the browser then fires 'ended', the
     // new track may already be loading. Without this guard, the stale
     // 'ended' event calls playNext() a SECOND time and skips a track.
@@ -1718,14 +1732,7 @@ export function setupPlayer() {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.playbackState = willContinue ? 'playing' : 'none';
     }
-    if (willContinue) {
-      playNext();
-    } else {
-      state.setIsPlaying(false);
-      ui.updatePlayButton();
-      stopPlaybackSessionPersistence();
-      playNext(); // still call to reach the clearFinishedPlaybackState branch
-    }
+    playNext(true);
     syncPlayerShellVisibility();
   });
 
@@ -1787,6 +1794,14 @@ export function setupPlayer() {
     // doesn't fire on time.
     if (state.audio.duration && state.audio.currentTime >= state.audio.duration - 0.15) {
       if (!state.audio._endHandled) {
+        // Let the final note finish; only transitions need the early fallback.
+        if (
+          !_partyController?.isActive?.() &&
+          state.repeatMode !== 'one' &&
+          !hasUpcomingTrack() &&
+          state.audio.currentTime < state.audio.duration
+        )
+          return;
         state.audio._endHandled = true;
         console.log('[BG-PLAY] Fallback triggered, advancing to next');
         if (state.repeatMode === 'one' && state.currentTrack) {
@@ -1807,7 +1822,7 @@ export function setupPlayer() {
             _partyController?.isActive?.() || hasUpcomingTrack() ? 'playing' : 'none';
         }
         if (_partyController?.isActive?.()) _partyController.handleEnded?.();
-        else playNext();
+        else playNext(true);
       }
     }
   });
@@ -1976,7 +1991,7 @@ export function setupPlayer() {
           finalizeListenSession('repeat-one');
           beginListenSession(state.currentTrack);
         } else {
-          playNext();
+          playNext(true);
         }
       } else if (state.audio.ended && !reallyEnded) {
         // iOS bogus 'ended' state — log so we can spot the symptom in
@@ -1994,7 +2009,7 @@ export function setupPlayer() {
       }
       // Update MediaSession state
       if ('mediaSession' in navigator) {
-        navigator.mediaSession.playbackState = state.audio.paused ? 'paused' : 'playing';
+        navigator.mediaSession.playbackState = !state.currentTrack ? 'none' : state.audio.paused ? 'paused' : 'playing';
       }
 
       // iOS-only: re-bind MediaSession metadata and refresh play()

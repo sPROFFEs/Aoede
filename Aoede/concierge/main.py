@@ -3,6 +3,7 @@ import ipaddress
 import logging
 import os
 import socket
+import time
 from contextvars import ContextVar
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlparse
@@ -141,6 +142,7 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    started_at = time.perf_counter()
     _assert_secure_runtime_settings()
     # Force reload on startup to be sure
     i18n.load_translations()
@@ -148,11 +150,9 @@ async def startup_event():
     applied_migrations = operations_service.apply_schema_migrations()
     if applied_migrations:
         logger.info("Applied migrations: %s", ", ".join(applied_migrations))
+    logger.info("Startup schema ready in %.2fs", time.perf_counter() - started_at)
     db = database.SessionLocal()
     try:
-        refreshed_identities = track_identity.sync_track_identities(db)
-        if refreshed_identities:
-            logger.info("Synced track identities: %s tracks", refreshed_identities)
         # Mark any download job that was mid-flight when the previous
         # concierge process exited as failed. The BackgroundTasks worker
         # that was driving it died with the process; without this sweep
@@ -203,6 +203,7 @@ async def startup_event():
             logger.info("Paused %s party room(s) after restart", paused_rooms)
     finally:
         db.close()
+    logger.info("Startup recovery complete in %.2fs", time.perf_counter() - started_at)
 
     # Start Reaper Background Loop
     asyncio.create_task(reaper_scheduler())
@@ -226,6 +227,7 @@ async def startup_event():
     import federation_service
 
     federation_service.start_background_loop()
+    logger.info("Startup ready in %.2fs; library maintenance deferred", time.perf_counter() - started_at)
 
 
 async def reaper_scheduler():
@@ -245,6 +247,19 @@ async def reaper_scheduler():
 
 
 async def library_metadata_backfill():
+    # Leave cold disks available for login/playback before scanning the library.
+    await asyncio.sleep(30)
+    try:
+
+        def sync_identities():
+            with database.SessionLocal() as db:
+                return track_identity.sync_track_identities(db)
+
+        refreshed = await asyncio.to_thread(sync_identities)
+        if refreshed:
+            logger.info("Synced track identities: %s tracks", refreshed)
+    except Exception as exc:
+        logger.warning("Track identity backfill failed: %s", exc)
     try:
         indexed = await asyncio.to_thread(media_metadata.backfill_library_metadata)
         if indexed:
@@ -261,6 +276,7 @@ async def loudness_backfill():
     pre-existing library. Non-blocking — if it fails, playback falls
     back to ReplayGain tags or 0 dB default.
     """
+    await asyncio.sleep(180)
     try:
         import loudness
 
@@ -273,6 +289,7 @@ async def loudness_backfill():
 
 async def cache_cleanup_scheduler():
     logger.info("Starting cache cleanup every %s hours", cache_maintenance.CACHE_CLEAN_INTERVAL_SECONDS // 3600)
+    await asyncio.sleep(60)
     while True:
         try:
             removed = await asyncio.to_thread(cache_maintenance.purge_expired_cache_files)
@@ -289,6 +306,7 @@ async def cache_cleanup_scheduler():
 
 async def wrapped_daily_scheduler():
     logger.info("Starting wrapped daily scheduler (UTC)")
+    await asyncio.sleep(120)
     while True:
         try:
             result = await asyncio.to_thread(wrapped_service.run_daily_wrapped_pipeline)

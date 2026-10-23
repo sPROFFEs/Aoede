@@ -135,6 +135,8 @@ The compact player and full-screen player provide:
 
 Repeat cycles through off, queue repeat and repeat-current-track. The sleep timer cycles through off, 15, 30 and 60 minutes and pauses playback when it expires.
 
+With shuffle and queue repeat off and no manually queued song, **Next** on the last track leaves playback and the player unchanged. This also applies to headphone, widget and system media controls. When the track actually finishes, Aoede releases its audio source and closes the player, including an open fullscreen view.
+
 **Classic** and **Glass** use a lower selector that switches between cover, lyrics and queue while transport controls remain visible. Favorite and playlist actions sit beside the title; volume opens from the upper corner in Classic and Glass. Vitrine places the volume slider below the transport, with lyrics, volume and queue actions along the bottom and additional controls in the upper-right menu. The compact mobile player offers Next and Play/Pause. The player adapts to portrait, landscape and wide desktop screens, with Classic's opaque dark surfaces, Glass's translucent appearance, or Vitrine's complete artwork, unboxed transport and thumbnail while reading lyrics. Lyrics follow the playing recording and respect manual scrolling; use **Follow current line** to resume automatic following immediately. Use arrow keys on a focused seek/volume slider for 5% steps, Home/End for its limits, and Escape to collapse the fullscreen player without stopping audio.
 
 ### Queue and playback state

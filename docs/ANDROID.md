@@ -1,6 +1,8 @@
 # Android App
 
-Aoede Android 1.1.4 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.10 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+
+Android 1.1.10 fixes final-track Next in all themes, including system/widget controls. With no next song and shuffle/repeat off, it leaves the track and player intact. Natural completion releases the audio source and media session and closes fullscreen playback correctly.
 
 Android 1.1.4 fixes native login HTML preparation so JavaScript comments containing `<head>` cannot receive an extra script injection or appear beside the form. Fullscreen artwork now uses the same pause/play zoom in all three themes and respects reduced motion.
 

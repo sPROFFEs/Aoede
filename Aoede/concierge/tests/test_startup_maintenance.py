@@ -1,11 +1,106 @@
+import asyncio
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import database
+import pytest
 import track_identity
 import yaml
 from sqlalchemy.pool import NullPool
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+@pytest.fixture
+def main_app(monkeypatch):
+    monkeypatch.chdir(PROJECT_ROOT)
+    with patch("docker.from_env", return_value=MagicMock()):
+        import main
+
+    monkeypatch.setattr(main.settings, "SECRET_KEY", "test-startup-secret-" * 3)
+    return main
+
+
+def test_startup_recovers_jobs_before_serving_without_scanning_library(main_app, db_session, monkeypatch, caplog):
+    main = main_app
+    interrupted = database.AdminJob(job_type="backup", status="running", triggered_by="system")
+    updating = database.AdminJob(job_type="apply_update", status="running", triggered_by="system")
+    db_session.add_all([interrupted, updating])
+    db_session.commit()
+    interrupted_id, updating_id = interrupted.id, updating.id
+    monkeypatch.setattr(main.database, "SessionLocal", lambda: db_session)
+    migrations = MagicMock(return_value=[])
+    scan = MagicMock(side_effect=AssertionError("Library scan must not gate startup"))
+    monkeypatch.setattr(main.operations_service, "apply_schema_migrations", migrations)
+    monkeypatch.setattr(main.track_identity, "sync_track_identities", scan)
+    monkeypatch.setattr(main.media_metadata, "backfill_library_metadata", scan)
+    monkeypatch.setattr(main.settings, "STARTUP_LOUDNESS_BACKFILL", False)
+    tasks = []
+    monkeypatch.setattr(main.asyncio, "create_task", tasks.append)
+    with caplog.at_level("INFO"):
+        try:
+            asyncio.run(main.startup_event())
+        finally:
+            for task in tasks:
+                task.close()
+    migrations.assert_called_once()
+    scan.assert_not_called()
+    assert db_session.get(database.AdminJob, interrupted_id).status == "failed"
+    assert db_session.get(database.AdminJob, updating_id).status == "running"
+    assert "Startup ready in" in caplog.text
+
+
+def test_library_maintenance_waits_then_scans_off_loop_and_survives_identity_failure(main_app, db_session, monkeypatch):
+    main = main_app
+    calls = []
+    monkeypatch.setattr(main.database, "SessionLocal", lambda: db_session)
+
+    def identity(db):
+        calls.append("identity")
+        raise RuntimeError("test identity failure")
+
+    monkeypatch.setattr(main.track_identity, "sync_track_identities", identity)
+    monkeypatch.setattr(main.media_metadata, "backfill_library_metadata", lambda: calls.append("metadata"))
+
+    async def check():
+        waiting, proceed = asyncio.Event(), asyncio.Event()
+
+        async def sleep(seconds):
+            calls.append(seconds)
+            waiting.set()
+            await proceed.wait()
+
+        monkeypatch.setattr(main.asyncio, "sleep", sleep)
+        task = asyncio.create_task(main.library_metadata_backfill())
+        await waiting.wait()
+        assert calls == [30]
+        proceed.set()
+        await task
+        assert calls == [30, "identity", "metadata"]
+
+    asyncio.run(check())
+
+
+def test_maintenance_schedulers_wait_before_first_work(main_app, monkeypatch):
+    import backup_service
+
+    main = main_app
+    delays = []
+
+    async def stop_at_delay(seconds):
+        delays.append(seconds)
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(main.asyncio, "sleep", stop_at_delay)
+    for scheduler, delay in [
+        (main.cache_cleanup_scheduler, 60),
+        (backup_service.autobackup_scheduler, 90),
+        (main.wrapped_daily_scheduler, 120),
+        (main.loudness_backfill, 180),
+    ]:
+        with pytest.raises(asyncio.CancelledError):
+            asyncio.run(scheduler())
+        assert delays[-1] == delay
 
 
 def test_sqlite_does_not_cap_concurrent_streaming_requests():

@@ -1,6 +1,8 @@
 # Aoede Android
 
-Android 1.1.9 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+Android 1.1.10 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+
+Version 1.1.10 fixes Next on the final playlist track: the song, player and fullscreen view remain intact until the track actually finishes. Manual queue entries, shuffle, repeat and party controls retain their behavior; natural completion clears the audio source and media session, including after background playback.
 
 Version 1.1.9 checks the latest official Android binary at startup and when returning to the app (at most once every five minutes). A persistent notice offers a verified download and Android installation confirmation; it can be snoozed for a day and remains accessible in About. Checks work independently of the music server's `/api/about` support. Install this APK once to enable future in-app updates; previously installed packaged frontends cannot gain a native updater from a backend update alone.
 

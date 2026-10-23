@@ -483,6 +483,8 @@ async def autobackup_scheduler():
         ops.settings.BACKUP_SCHEDULER_POLL_SECONDS,
         ops.BACKUP_ROOT,
     )
+    # A due backup copies the database/library; don't compete with cold startup.
+    await asyncio.sleep(90)
     while True:
         try:
             db = database.SessionLocal()
