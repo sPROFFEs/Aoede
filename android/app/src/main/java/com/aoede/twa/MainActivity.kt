@@ -41,6 +41,15 @@ class MainActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT < 26 || packageManager.canRequestPackageInstalls()) app.updater.install(this)
         else Toast.makeText(this, R.string.update_permission_denied, Toast.LENGTH_LONG).show()
     }
+    private val overlayPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        val granted = app.musicIsland.permissionGranted
+        app.musicIsland.setEnabled(granted)
+        if (!granted) Toast.makeText(this, R.string.island_permission_denied, Toast.LENGTH_LONG).show()
+    }
+
+    fun openIslandSettings() = app.musicIsland.showSettings(this) {
+        overlayPermission.launch(Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+    }
 
     fun requestUpdatePermission() {
         updatePermission.launch(Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
@@ -49,6 +58,7 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val PREFS = "aoede_prefs"
         const val KEY_URL = "server_url"
+        const val OPEN_PLAYER = "com.aoede.twa.OPEN_PLAYER"
         fun savedUrl(ctx: Context): String? =
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_URL, null)?.trimEnd('/')
@@ -97,6 +107,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_settings).setOnClickListener {
             openServerSettings()
         }
+        openRequestedPlayer(intent)
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
                 view.evaluateJavascript("Boolean(window.__aoedeBack && window.__aoedeBack())") { handled ->
@@ -106,6 +117,29 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        openRequestedPlayer(intent)
+    }
+
+    private fun openRequestedPlayer(intent: Intent) {
+        if (intent.getBooleanExtra(OPEN_PLAYER, false)) {
+            intent.removeExtra(OPEN_PLAYER)
+            app.mediaController.command("openplayer")
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        app.musicIsland.refresh()
+    }
+
+    override fun onStop() {
+        app.musicIsland.closeSettings(this)
+        super.onStop()
     }
 
     fun applyAppearance(dark: Boolean) {
@@ -164,6 +198,8 @@ class MainActivity : AppCompatActivity() {
         fileCallback?.onReceiveValue(null)
         fileCallback = null
         app.detachPlayer(this)
+        if (isFinishing && !isChangingConfigurations) app.musicIsland.taskRemoved()
+        app.musicIsland.closeSettings(this)
         super.onDestroy()
     }
 }

@@ -62,6 +62,15 @@
         button.onclick = settings.onclick;
         target.append(button);
       }
+      const playback = document.querySelector('#main-view [data-settings-panel="playback"] .user-settings-panel-body');
+      if (playback && !playback.querySelector('.native-island-settings')) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'user-settings-button-secondary native-island-settings';
+        button.textContent = ({ en: 'Dynamic Island · this Android device', es: 'Dynamic Island · este dispositivo Android', de: 'Dynamic Island · dieses Android-Gerät' })[root.lang] || 'Dynamic Island · this Android device';
+        button.onclick = () => window.AoedeHost?.postMessage('island-settings');
+        playback.append(button);
+      }
     };
     new MutationObserver(insertSettings).observe(document.getElementById('main-view') || document.body, { childList: true, subtree: true });
     insertSettings();

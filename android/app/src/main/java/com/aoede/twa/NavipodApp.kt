@@ -32,6 +32,7 @@ class AoedeApp : Application() {
         private set
     var player: WebView? = null
         private set
+    val musicIsland by lazy { MusicIsland(this) }
     val clientInfo: String get() = JSONObject().put("kind", "android-native").put("version", BuildConfig.VERSION_NAME)
         .put("versionCode", BuildConfig.VERSION_CODE).put("updater", 1).toString()
     val updater by lazy { AppUpdater(this) { data ->
@@ -55,6 +56,7 @@ class AoedeApp : Application() {
     }
 
     fun updateViewport(bars: androidx.core.graphics.Insets, keyboard: Boolean) {
+        musicIsland.updateSafeTop(bars.top)
         val density = resources.displayMetrics.density
         viewport = JSONObject().put("top", bars.top / density).put("bottom", if (keyboard) 0f else bars.bottom / density)
             .put("left", bars.left / density).put("right", bars.right / density).put("keyboard", keyboard).toString()
@@ -72,9 +74,11 @@ class AoedeApp : Application() {
     fun attachPlayer(owner: MainActivity, url: String): WebView {
         if (playerUrl != url) destroyPlayer()
         activity = WeakReference(owner)
+        musicIsland.taskActive = true
         player?.let {
             (it.parent as? ViewGroup)?.removeView(it)
             (it.context as MutableContextWrapper).baseContext = owner
+            musicIsland.refresh()
             return it
         }
         val origin = ServerOrigin.from(Uri.parse(url)) ?: error("Invalid server URL")
@@ -107,6 +111,7 @@ class AoedeApp : Application() {
                 _, message, source, mainFrame, _ ->
                 if (mainFrame && ServerOrigin.from(source) == origin) {
                     if (message.data == "settings") activity.get()?.openServerSettings()
+                    else if (message.data == "island-settings") activity.get()?.openIslandSettings()
                     else if (message.data == "check-update") updater.check()
                     else if (message.data == "update") activity.get()?.let { updater.offer(it) }
                     else if (message.data.orEmpty().length < 128 && runCatching {
@@ -236,6 +241,7 @@ class AoedeApp : Application() {
             })
         }
         view.loadUrl(origin.rule + "/_aoede/start")
+        musicIsland.refresh()
         return view
     }
 
@@ -263,6 +269,12 @@ class AoedeApp : Application() {
         player = null
         playerUrl = null
         connectionFailure = null
+        musicIsland.refresh()
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        musicIsland.relayout()
     }
 
     fun ensurePlaybackService() {

@@ -42,4 +42,20 @@
     <string name="update_ready">Update heruntergeladen. Zum Installieren App aktualisieren wählen.</string>
     <string name="update_failed">Das Update konnte nicht geprüft oder installiert werden. Verbindung prüfen und erneut versuchen oder über Info &amp; Updates herunterladen.</string>
     <string name="update_permission_denied">Die Installation wurde nicht erlaubt. Über App aktualisieren erneut versuchen.</string>
+    <string name="island_title">Dynamic Island</string>
+    <string name="island_enable">Musikinsel anzeigen</string>
+    <string name="island_description">Optionale Steuerung über anderen Apps, solange Aoede geöffnet ist oder Musik abspielt. Erlaube „Über anderen Apps einblenden“, wenn Android danach fragt. Diese Einstellung gilt nur für dieses Gerät.</string>
+    <string name="island_permission_denied">Android hat Overlays nicht erlaubt. Dynamic Island bleibt ausgeschaltet.</string>
+    <string name="island_position">Vertikale Position der Insel</string>
+    <string name="island_position_value">Abstand von oben: %1$d dp</string>
+    <string name="island_position_help">Passe die Position an, falls Kamera oder Statusleiste die Insel verdecken. Android und dein Telefon bestimmen, welche Systembereiche Apps verwenden können.</string>
+    <string name="island_expand">Aoede-Musiksteuerung erweitern</string>
+    <string name="island_seek">In Titel springen</string>
+    <string name="island_shuffle">Zufallswiedergabe</string>
+    <string name="island_repeat">Wiederholung aus</string>
+    <string name="island_repeat_one">Diesen Titel wiederholen</string>
+    <string name="island_repeat_all">Alle wiederholen</string>
+    <string name="island_favorite">Favorit hinzufügen oder entfernen</string>
+    <string name="island_open_player">Player öffnen ›</string>
+    <string name="island_idle">Deine Musik ist nur einen Tipp entfernt</string>
 </resources>

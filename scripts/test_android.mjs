@@ -8,6 +8,8 @@ function page({ frame = false, early = false, native = true } = {}) {
   const messages = [];
   const nativeActions = new Map();
   const clicks = [];
+  const elements = new Map(), observers = [];
+  let inParty = false;
   class Media extends EventTarget {
     paused = true;
     ended = false;
@@ -38,17 +40,62 @@ function page({ frame = false, early = false, native = true } = {}) {
   window.AoedeMedia = { postMessage(value) { messages.push(JSON.parse(value)); } };
   const document = new EventTarget();
   document.documentElement = early ? null : {};
-  document.getElementById = (id) => id === 'audio-player' ? audio : null;
-  document.querySelector = (selector) => selector === 'audio' ? audio : { click() { clicks.push(selector); } };
+  document.getElementById = (id) => elements.get(id) || (id === 'audio-player' ? audio : null);
+  document.querySelector = (selector) => selector === '.player-footer.party-player' ? (inParty ? {} : null) : selector === 'audio' ? audio : { click() { clicks.push(selector); } };
   document.querySelectorAll = () => [audio, preview];
   const navigator = native ? { mediaSession: new Session() } : {};
   vm.runInNewContext(shim, { window, document, navigator, HTMLMediaElement: Media,
-    MutationObserver: class { observe(root) { assert.ok(root); } },
+    MutationObserver: class { constructor(callback) { observers.push(callback); } observe(root) { assert.ok(root); } },
     location: { href: 'https://example.com/portal' }, URL, Promise, Event, DOMException, console });
   const state = () => messages.filter((message) => message.type === 'state').at(-1);
-  return { window, document, navigator, audio, preview, messages, nativeActions, state, clicks };
+  return { window, document, navigator, audio, preview, messages, nativeActions, state, clicks, elements,
+    mutate() { observers.forEach(callback => callback()); }, party(value) { inParty = value; } };
 }
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
+
+// Island controls use the existing player buttons and retain its availability rules.
+{
+  const p = page();
+  const makeButton = () => ({ disabled: false, classes: new Set(),
+    classList: { contains(name) { return this.owner.classes.has(name); } },
+    querySelector() { return null; }, click() { this.clicks = (this.clicks || 0) + 1; } });
+  for (const id of ['fs-btn-favorite', 'btn-shuffle', 'btn-repeat']) {
+    const button = makeButton(); button.classList.owner = button; p.elements.set(id, button);
+  }
+  p.window.toggleFavoriteFromPlayer = () => {};
+  p.window.toggleShuffle = () => {};
+  p.window.toggleRepeat = () => {};
+  const controls = () => p.messages.filter(message => message.type === 'controls').at(-1);
+  p.mutate();
+  assert.equal(controls().canFavorite, true);
+  for (const [action, id] of [['favorite', 'fs-btn-favorite'], ['shuffle', 'btn-shuffle'], ['repeat', 'btn-repeat']]) {
+    p.window.__aoedeMediaCommand(action);
+    assert.equal(p.elements.get(id).clicks, 1);
+  }
+  p.elements.get('fs-btn-favorite').disabled = true;
+  p.elements.get('btn-repeat').querySelector = () => ({});
+  p.mutate();
+  assert.equal(controls().canFavorite, false);
+  assert.equal(controls().repeat, 'one');
+  p.window.__aoedeMediaCommand('favorite');
+  assert.equal(p.elements.get('fs-btn-favorite').clicks, 1);
+  p.party(true); p.mutate();
+  assert.equal(controls().canShuffle, false);
+  assert.equal(controls().canRepeat, false);
+  p.window.__aoedeMediaCommand('shuffle');
+  assert.equal(p.elements.get('btn-shuffle').clicks, 1);
+  // A deferred open is idempotent and cannot start/resume music.
+  p.window.__aoedeMediaCommand('openplayer');
+  const panel = { opened: false, classList: { contains() { return panel.opened; } } };
+  p.elements.set('fullscreen-player', panel);
+  let opens = 0;
+  p.window.toggleFullscreenPlayer = () => { opens++; panel.opened = !panel.opened; };
+  p.window.showFullscreenCover = () => {};
+  p.mutate(); p.window.__aoedeMediaCommand('openplayer');
+  assert.equal(opens, 1);
+  assert.equal(panel.opened, true);
+  assert.equal(p.audio.plays, 0);
+}
 
 for (const native of [true, false]) {
   const p = page({ native });

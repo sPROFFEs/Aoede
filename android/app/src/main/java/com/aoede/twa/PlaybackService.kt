@@ -164,5 +164,11 @@ class PlaybackService : Service() {
         notifications.cancel(NOTIFICATION_ID)
         super.onDestroy()
         (application as AoedeApp).ensurePlaybackService()
+        (application as AoedeApp).musicIsland.refresh()
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        (application as AoedeApp).musicIsland.taskRemoved()
+        super.onTaskRemoved(rootIntent)
     }
 }

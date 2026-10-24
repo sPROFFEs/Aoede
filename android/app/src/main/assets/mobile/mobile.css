@@ -11,6 +11,7 @@ html[data-client="android"] :is(.main-content, #main-view, .content-area, .setti
 html[data-client="android"] :is(.modal-content, .modal-box, .dropdown-menu, .user-menu-panel) { max-width: min(100%, calc(100vw - 24px)); }
 html[data-client="android"] .fullscreen-player { height: 100dvh; max-height: 100dvh; }
 html[data-client="android"] .native-server-settings { color: var(--text-main, inherit); cursor: pointer; }
+html[data-client="android"] .native-island-settings { width: 100%; min-height: 48px; margin-top: 16px; }
 html[data-client="android"] #pwa-banner { display: none !important; }
 @media (max-width: 480px) {
   html[data-client="android"] :is(.settings-grid, .form-grid, .admin-settings-grid) { grid-template-columns: minmax(0, 1fr); }

@@ -50,6 +50,18 @@ class MediaController(private val app: AoedeApp) {
     val needsForeground get() = state == "playing" || state == "buffering"
     var locallyPaused = false
         private set
+    var canFavorite = false
+        private set
+    var favorite = false
+        private set
+    var canShuffle = false
+        private set
+    var shuffle = false
+        private set
+    var canRepeat = false
+        private set
+    var repeat = "off"
+        private set
 
     val mediaSession = MediaSessionCompat(app, "aoede-media").apply {
         setCallback(object : MediaSessionCompat.Callback() {
@@ -93,6 +105,15 @@ class MediaController(private val app: AoedeApp) {
                         emitState()
                     }
                     "resume" -> locallyPaused = false
+                    "controls" -> {
+                        canFavorite = message.optBoolean("canFavorite")
+                        favorite = message.optBoolean("favorite")
+                        canShuffle = message.optBoolean("canShuffle")
+                        shuffle = message.optBoolean("shuffle")
+                        canRepeat = message.optBoolean("canRepeat")
+                        repeat = message.optString("repeat").takeIf { it in setOf("off", "all", "one") } ?: "off"
+                        notifyChanged()
+                    }
                     "ready" -> if (locallyPaused) invoker?.invoke("pause", 0)
                 }
             } catch (_: org.json.JSONException) { /* Ignore malformed messages at the bridge boundary. */ }
@@ -162,11 +183,13 @@ class MediaController(private val app: AoedeApp) {
     }
 
     private fun notifyChanged() {
-        val fingerprint = listOf(state, title, artist, album, artwork, actions.toSet())
+        val fingerprint = listOf(state, title, artist, album, artwork, actions.toSet(),
+            canFavorite, favorite, canShuffle, shuffle, canRepeat, repeat)
         if (fingerprint != lastNotified) {
             lastNotified = fingerprint
             onChanged?.invoke()
             PlaybackWidget.update(app)
+            app.musicIsland.refresh()
         }
     }
 
@@ -174,6 +197,9 @@ class MediaController(private val app: AoedeApp) {
         state = "none"
         locallyPaused = false
         actions.clear()
+        canFavorite = false; favorite = false
+        canShuffle = false; shuffle = false
+        canRepeat = false; repeat = "off"
         artworkUrl = ""
         artwork = null
         artworkGeneration++
