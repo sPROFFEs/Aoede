@@ -19,9 +19,10 @@ SECURITY_HEADERS = {
         "https://cdnjs.cloudflare.com; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
         "img-src 'self' data: blob: https:; media-src 'self' blob: https:; "
         "frame-src 'self' https://www.youtube.com; "
-        "connect-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+        "connect-src 'self' https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     ),
 }
+MAX_REQUEST_BODY_BYTES = 16 * 1024 * 1024
 
 
 class RequestContextMiddleware:
@@ -47,7 +48,18 @@ class RequestContextMiddleware:
             await self.app(scope, receive, send)
             return
 
-        request = Request(scope, receive=receive)
+        received_bytes = 0
+
+        async def bounded_receive():
+            nonlocal received_bytes
+            message = await receive()
+            if message["type"] == "http.request":
+                received_bytes += len(message.get("body", b""))
+                if received_bytes > MAX_REQUEST_BODY_BYTES:
+                    raise HTTPException(status_code=413, detail="Request body too large")
+            return message
+
+        request = Request(scope, receive=bounded_receive)
         language = request.cookies.get("lang")
         if not language:
             accept_lang = (request.headers.get("accept-language") or "").lower()
@@ -77,15 +89,22 @@ class RequestContextMiddleware:
                 for name, value in SECURITY_HEADERS.items():
                     if name not in headers:
                         headers[name] = value
+                if "cache-control" not in headers and (
+                    request.cookies.get("access_token") or scope["path"] == "/login"
+                ):
+                    headers["Cache-Control"] = "private, no-store"
             await send(message)
 
         try:
             try:
+                size = request.headers.get("content-length")
+                if size and (not size.isdecimal() or len(size) > 20 or int(size) > MAX_REQUEST_BODY_BYTES):
+                    raise HTTPException(status_code=413, detail="Request body too large")
                 self.validate_request(request)
             except HTTPException as error:
                 response = JSONResponse({"detail": error.detail}, status_code=error.status_code, headers=error.headers)
                 await response(scope, receive, send_with_security_headers)
                 return
-            await self.app(scope, receive, send_with_security_headers)
+            await self.app(scope, bounded_receive, send_with_security_headers)
         finally:
             self.language_context.reset(token)

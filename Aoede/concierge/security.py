@@ -58,24 +58,25 @@ def get_real_ip(request: Request) -> str:
     if not is_trusted_proxy(direct_ip):
         return direct_ip
 
-    # 1. Standard proxy headers (Cloudflare, Nginx, Traefik)
+    # Walk from our proxy toward the client. The leftmost entry is supplied
+    # by the requester and must never override the first untrusted hop.
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
-        # First IP is the real client, subsequent ones are intermediate proxies
-        candidate = forwarded.split(",")[0].strip()
-        try:
-            ipaddress.ip_address(candidate)
-            return candidate
-        except ValueError:
-            logger.warning("Ignored invalid X-Forwarded-For value: %s", candidate)
+        for item in reversed(forwarded.split(",")):
+            try:
+                candidate = str(ipaddress.ip_address(item.strip()))
+            except ValueError:
+                return direct_ip
+            if not is_trusted_proxy(candidate):
+                return candidate
+        return direct_ip
 
     # 2. Alternative header
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         candidate = real_ip.strip()
         try:
-            ipaddress.ip_address(candidate)
-            return candidate
+            return str(ipaddress.ip_address(candidate))
         except ValueError:
             logger.warning("Ignored invalid X-Real-IP value: %s", candidate)
 
@@ -99,13 +100,17 @@ def is_trusted_proxy(address: str) -> bool:
 
 def validate_same_origin(request: Request) -> None:
     """Reject cross-origin cookie-authenticated state changes."""
-    if request.method.upper() not in UNSAFE_METHODS or not request.cookies.get("access_token"):
+    if request.method.upper() not in UNSAFE_METHODS:
+        return
+    if not request.cookies.get("access_token") and request.url.path != "/login":
         return
     expected_host = (request.headers.get("host") or "").strip().lower()
     source = (request.headers.get("origin") or request.headers.get("referer") or "").strip()
     if not expected_host or not source:
         raise HTTPException(status_code=403, detail="Missing request origin")
-    if (urlparse(source).netloc or "").strip().lower() != expected_host:
+    parsed = urlparse(source)
+    expected_scheme = "https" if settings.COOKIE_SECURE else request.url.scheme
+    if parsed.scheme != expected_scheme or (parsed.netloc or "").strip().lower() != expected_host:
         raise HTTPException(status_code=403, detail="Cross-origin request rejected")
 
 

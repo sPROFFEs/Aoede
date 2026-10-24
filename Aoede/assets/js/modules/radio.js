@@ -202,8 +202,9 @@ export function drawRadioGrid(stations) {
     grid.innerHTML = `<div class="saved-radio-list">${stations
       .map((s) => {
         if (!s || !s.url) return '';
-        const id = s.url.split('/').pop();
-        if (id === 'channels' || id.length < 5) return '';
+        const rawId = s.url.split('/').pop();
+        if (rawId === 'channels' || rawId.length < 5) return '';
+        const id = ui.escJs(rawId);
         const safeTitle = ui.escHtml(s.title || 'Unknown');
         const jsSafeTitle = ui.escJs(s.title || 'Unknown');
         const safeSub = ui.escHtml(s.subtitle || 'Streaming');
@@ -231,8 +232,9 @@ export function drawRadioGrid(stations) {
     grid.innerHTML = `<div class="grid-shelf">${stations
       .map((s) => {
         if (!s || !s.url) return '';
-        const id = s.url.split('/').pop();
-        if (id === 'channels' || id.length < 5) return '';
+        const rawId = s.url.split('/').pop();
+        if (rawId === 'channels' || rawId.length < 5) return '';
+        const id = ui.escJs(rawId);
         const title = ui.escJs(s.title || 'Unknown');
         return `
           <div class="card glass-hover"

@@ -20,6 +20,7 @@ import track_identity
 import utils
 import yt_dlp
 from aoede_config import settings
+from network_security import PinnedTransport
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -647,6 +648,9 @@ class DownloadManager:
                 self._runtime_cookie_path = None
 
     def _download_source(self, job, temp_dir: str, job_id: int) -> bool:
+        if not source_registry.is_allowed_download_url(job.input_url):
+            self._set_last_reason("Unsupported or unsafe music-provider URL")
+            return False
         # Federation downloads stay in Concierge because they require peer
         # database records and federation credentials. All public provider
         # downloads prefer the isolated worker.
@@ -745,7 +749,11 @@ class DownloadManager:
         # thread executor — calling async code from here would require
         # an extra runloop per download.
         try:
-            with httpx.Client(timeout=httpx.Timeout(60.0, connect=8.0)) as client:
+            with httpx.Client(
+                timeout=httpx.Timeout(60.0, connect=8.0),
+                transport=PinnedTransport(allow_private=settings.FEDERATION_ALLOW_PRIVATE_HOSTS),
+                trust_env=False,
+            ) as client:
                 with client.stream("GET", upstream_url, headers=upstream_headers) as resp:
                     if resp.status_code >= 400:
                         # Read at most 256 bytes of error body so a

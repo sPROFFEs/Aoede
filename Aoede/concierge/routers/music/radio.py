@@ -64,6 +64,7 @@ async def radio_page(request: Request, db: Session = Depends(get_db)):
     u_gb, l_gb, pct = manager.get_pool_status(db)
 
     return templates.TemplateResponse(
+        request,
         "radio.html",
         {"request": request, "username": user.username, "pool": {"used": u_gb, "limit": l_gb, "percent": pct}},
     )

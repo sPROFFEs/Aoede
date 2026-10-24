@@ -1,6 +1,8 @@
 # Aoede Android
 
-Android 1.1.10 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+Android 1.1.11 installs the Aoede frontend in the APK: the login and player shells, JavaScript modules, Classic/Glass/Vitrine themes, translations, icons and icon fonts. First launch asks for a backend root URL (HTTPS by default; explicit HTTP and custom ports also work). Change it from user settings or the connection screen. The UI renders in a retained WebView; Android owns playback integration, widgets, file selection, window insets and configuration. This is a packaged hybrid client, not a Kotlin rewrite of every screen.
+
+Version 1.1.11 includes the remote-party/radio escaping fixes from the [security review](../docs/SECURITY-REVIEW-2026-10-24.md). Pair it with Aoede server 1.2.9 for the backend security fixes. The legacy 1.0.5 remote wrapper remains a backup download.
 
 Version 1.1.10 fixes Next on the final playlist track: the song, player and fullscreen view remain intact until the track actually finishes. Manual queue entries, shuffle, repeat and party controls retain their behavior; natural completion clears the audio source and media session, including after background playback.
 

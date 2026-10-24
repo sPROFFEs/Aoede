@@ -18,6 +18,10 @@ RUN deno --version
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-spotdl.txt .
+RUN python -m venv /opt/spotdl && \
+    /opt/spotdl/bin/pip install --no-cache-dir -r requirements-spotdl.txt && \
+    ln -s /opt/spotdl/bin/spotdl /usr/local/bin/spotdl
 
 # --- SECURITY: Create non-root user ---
 RUN adduser --disabled-password --gecos '' appuser
@@ -40,4 +44,4 @@ ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 # compose env) is the primary leak mitigation; if the ram_audit log
 # shows growth that mitigation can't keep up with, schedule a daily
 # `docker compose restart concierge` from cron instead.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]

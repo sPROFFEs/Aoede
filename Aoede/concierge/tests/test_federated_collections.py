@@ -100,6 +100,7 @@ def nodes(db_session, monkeypatch):
         return await transport.handle_async_request(request)
 
     def upstream(**kwargs):
+        kwargs.pop("transport", None)
         return original_client(transport=httpx.MockTransport(dispatch), **kwargs)
 
     monkeypatch.setattr(httpx, "AsyncClient", upstream)

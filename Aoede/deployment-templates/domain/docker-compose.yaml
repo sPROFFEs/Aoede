@@ -81,7 +81,7 @@ services:
     depends_on:
       - downloader
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${HOST_DATA_ROOT:-/opt/saas-data}:/saas-data
@@ -98,8 +98,10 @@ services:
       - DOMAIN=${DOMAIN}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - FEDERATION_ALLOW_PRIVATE_HOSTS=${FEDERATION_ALLOW_PRIVATE_HOSTS:-false}
+      - NAVIDROME_REVERSE_PROXY_WHITELIST=${NAVIDROME_REVERSE_PROXY_WHITELIST:-127.0.0.1/32,::1/128,172.20.0.5/32}
       - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-true}
-      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-127.0.0.1,::1,172.20.0.0/16}
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-127.0.0.1,::1,172.20.0.6}
       - CHECK_INTERVAL_MINUTES=${CHECK_INTERVAL_MINUTES:-30}
       - IDLE_THRESHOLD_MINUTES=${IDLE_THRESHOLD_MINUTES:-30}
       - HOST_DATA_ROOT=${HOST_DATA_ROOT:-/opt/saas-data}
@@ -153,8 +155,10 @@ services:
       - DOMAIN=${DOMAIN}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - CORS_ORIGINS=${CORS_ORIGINS:-}
+      - FEDERATION_ALLOW_PRIVATE_HOSTS=${FEDERATION_ALLOW_PRIVATE_HOSTS:-false}
+      - NAVIDROME_REVERSE_PROXY_WHITELIST=${NAVIDROME_REVERSE_PROXY_WHITELIST:-127.0.0.1/32,::1/128,172.20.0.5/32}
       - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-true}
-      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-127.0.0.1,::1,172.20.0.0/16}
+      - TRUSTED_PROXY_IPS=${TRUSTED_PROXY_IPS:-127.0.0.1,::1,172.20.0.6}
       - CHECK_INTERVAL_MINUTES=${CHECK_INTERVAL_MINUTES:-30}
       - IDLE_THRESHOLD_MINUTES=${IDLE_THRESHOLD_MINUTES:-30}
       - HOST_DATA_ROOT=${HOST_DATA_ROOT:-/opt/saas-data}
@@ -171,7 +175,7 @@ services:
       - UPDATE_MANAGED_SERVICES=${UPDATE_MANAGED_SERVICES:-concierge}
       - SELF_CONTAINER_NAME=aoede_updater
       - KEEP_ROOT=true
-    command: ["uvicorn", "updater_api:app", "--host", "0.0.0.0", "--port", "8090"]
+    command: ["uvicorn", "updater_api:app", "--host", "0.0.0.0", "--port", "8090", "--no-proxy-headers"]
     networks:
       navidrome-net:
         ipv4_address: 172.20.0.7

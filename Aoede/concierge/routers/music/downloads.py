@@ -35,7 +35,7 @@ TERMINAL_DOWNLOAD_STATUSES = ("completed", "finished", "failed", "error")
 
 
 class DownloadRequest(BaseModel):
-    url: str
+    url: str = Field(min_length=1, max_length=2048)
     title: str = None
     artist: str = None
     album: str = None
@@ -340,6 +340,9 @@ async def trigger_download(
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+    if not source_registry.is_allowed_download_url(req.url.strip()):
+        return JSONResponse({"error": "Choose a supported public music-provider URL"}, status_code=400)
+
     if collection_service.parse_collection_url(req.url):
         return await import_collection(CollectionDownloadRequest(url=req.url), background_tasks, request, db)
 
@@ -353,6 +356,8 @@ async def trigger_download(
         )
 
     resolved_url, resolution_mode = await _resolve_download_url(user, req)
+    if not source_registry.is_allowed_download_url(resolved_url):
+        return JSONResponse({"error": "The resolved music source is not allowed"}, status_code=400)
 
     # Create Job
     job = database.DownloadJob(

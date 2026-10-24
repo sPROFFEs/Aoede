@@ -21,6 +21,7 @@ This directory contains the detailed guides that were intentionally moved out of
 | Diagnose a problem | [Troubleshooting](TROUBLESHOOTING.md) |
 | Understand how the stack fits together | [Architecture](ARCHITECTURE.md) |
 | Review security considerations | [Security](SECURITY.md) |
+| Review the 1.2.9 security fixes and deployment steps | [October security review](SECURITY-REVIEW-2026-10-24.md) |
 | Prepare README screenshots | [Screenshot Guide](SCREENSHOTS.md) |
 
 ## Documentation principles

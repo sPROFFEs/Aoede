@@ -4,9 +4,10 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import database
+import jwt
 from aoede_config import settings
 from fastapi import HTTPException, Request
-from jose import JWTError, jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -26,7 +27,17 @@ def is_valid_username(username: str) -> bool:
 
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        if hashed_password:
+            return pwd_context.verify(plain_password, hashed_password)
+        pwd_context.dummy_verify(plain_password)
+    except (ValueError, TypeError):
+        pass
+    return False
+
+
+def user_can_login(user) -> bool:
+    return bool(user and user.is_active and not user.is_service_account and is_valid_username(user.username))
 
 
 def get_password_hash(password):
@@ -72,8 +83,8 @@ def get_username_from_token(token: str):
 
 def get_token_payload(token: str) -> dict | None:
     try:
-        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-    except JWTError:
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM], options={"require": ["exp", "sub"]})
+    except InvalidTokenError:
         return None
 
 
@@ -104,13 +115,7 @@ def get_current_user(request: Request, db: Session):
         raise HTTPException(status_code=401, detail="Invalid session")
 
     user = get_user_by_username(db, username)
-    if (
-        not user
-        or not user.is_active
-        or user.is_service_account
-        or not is_valid_username(user.username)
-        or _token_session_version(payload) != int(user.session_version or 0)
-    ):
+    if not user_can_login(user) or _token_session_version(payload) != int(user.session_version or 0):
         raise HTTPException(status_code=401, detail="User account unavailable")
 
     theme = getattr(user, "theme", "classic")
@@ -130,13 +135,7 @@ def verify_token(token: str, expected_username: str, db: Session = None) -> bool
     if db is None:
         return True
     user = get_user_by_username(db, username)
-    return bool(
-        user
-        and user.is_active
-        and not user.is_service_account
-        and is_valid_username(user.username)
-        and _token_session_version(payload) == int(user.session_version or 0)
-    )
+    return bool(user_can_login(user) and _token_session_version(payload) == int(user.session_version or 0))
 
 
 def blacklist_token(db: Session, token: str):
@@ -151,7 +150,9 @@ def blacklist_token(db: Session, token: str):
             db.add(revoked)
             db.commit()
     except Exception as e:
+        db.rollback()
         logger.warning("Failed to revoke token: %s", e)
+        raise HTTPException(status_code=503, detail="Session revocation is temporarily unavailable") from e
 
 
 def is_token_blacklisted(db: Session, token: str) -> bool:

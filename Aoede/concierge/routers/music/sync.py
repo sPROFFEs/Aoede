@@ -12,6 +12,7 @@ import track_identity
 import youtube_service
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
+from network_security import PinnedAsyncTransport
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -201,7 +202,9 @@ async def preview_playback(
         }
 
         # Use a longer timeout for the initial connection to YouTube CDN
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(
+            timeout=30.0, follow_redirects=True, transport=PinnedAsyncTransport(), trust_env=False
+        ) as client:
             try:
                 async with client.stream("GET", target_url, headers=upstream_headers) as resp:
                     if resp.status_code >= 400:

@@ -156,7 +156,7 @@ def test_mobile_quota_can_read_stale_cache_without_scanning_and_refresh_after_re
             sent.append(message["type"])
             assert not scans  # Both HTTP headers and body leave before disk measurement starts.
 
-        await JSONResponse({}, background=BackgroundTask(measure))({}, None, send)
+        await JSONResponse({}, background=BackgroundTask(measure))({"type": "http"}, None, send)
         assert sent == ["http.response.start", "http.response.body"]
 
     asyncio.run(check())

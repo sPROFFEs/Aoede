@@ -1,5 +1,4 @@
 import asyncio
-import ipaddress
 import logging
 import os
 import socket
@@ -32,8 +31,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from http_client import http_client  # Moved to top level to avoid shutdown re-import issues
+from http_client import http_client, public_http_client
 from limiter import limiter
+from network_security import is_public_address, safe_relay_content_type
 from request_middleware import RequestContextMiddleware
 from routers import admin, user
 from routers.music import router as music_router
@@ -331,19 +331,7 @@ RADIO_PROXY_MAX_REDIRECTS = 5
 
 
 def _is_public_ip_address(host: str) -> bool:
-    try:
-        ip_obj = ipaddress.ip_address(host)
-    except ValueError:
-        return False
-
-    return not (
-        ip_obj.is_private
-        or ip_obj.is_loopback
-        or ip_obj.is_link_local
-        or ip_obj.is_multicast
-        or ip_obj.is_reserved
-        or ip_obj.is_unspecified
-    )
+    return is_public_address(host)
 
 
 def _validate_radio_proxy_url(url: str) -> tuple[bool, str]:
@@ -398,8 +386,8 @@ async def _fetch_radio_proxy_response(url: str) -> httpx.Response:
         if not is_valid:
             raise ValueError(error_message)
 
-        request = proxy_client.build_request("GET", current_url)
-        response = await proxy_client.send(request, stream=True, follow_redirects=False)
+        request = public_http_client.build_request("GET", current_url)
+        response = await public_http_client.send(request, stream=True, follow_redirects=False)
 
         if response.status_code not in {301, 302, 303, 307, 308}:
             return response
@@ -429,6 +417,7 @@ async def shutdown_event():
     await asyncio.gather(
         proxy_client.aclose(),
         http_client.aclose(),
+        public_http_client.aclose(),
         lastfm_service.lastfm_service.client.aclose(),
         musicbrainz_service.musicbrainz_service.client.aclose(),
         spotify_service.spotify_service.client.aclose(),
@@ -446,10 +435,16 @@ async def general_stream_proxy(url: str, request: Request, db: Session = Depends
     try:
         rp_resp = await _fetch_radio_proxy_response(url)
 
+        content_type = safe_relay_content_type(rp_resp.headers.get("content-type"))
+        if not content_type:
+            await rp_resp.aclose()
+            return JSONResponse({"error": "The radio source returned unsupported content"}, status_code=502)
+
         # Forward essential headers for audio streaming
         headers = {
             k: v for k, v in rp_resp.headers.items() if k.lower() in {"content-type", "accept-ranges", "content-length"}
         }
+        headers["content-type"] = content_type
 
         return StreamingResponse(
             rp_resp.aiter_bytes(),
@@ -481,16 +476,18 @@ app.include_router(federation_router.router)
 @app.get("/login")
 async def login_page(request: Request):
     return templates.TemplateResponse(
+        request,
         "login.html",
         {"request": request, "error": request.query_params.get("error"), "next": request.query_params.get("next", "")},
     )
 
 
 @app.post("/login")
+@limiter.limit("20/minute")
 async def login(
     request: Request,
-    username: str = Form(...),
-    password: str = Form(...),
+    username: str = Form(..., min_length=2, max_length=32),
+    password: str = Form(..., max_length=1024),
     remember_me: bool = Form(False),
     next: str = Form(""),
     db: Session = Depends(get_db),
@@ -502,43 +499,16 @@ async def login(
     # although HTTPException works well.
     try:
         security.check_brute_force(request, username)
-    except Exception as e:
+    except HTTPException as e:
         # B-01: .detail only exists on HTTPException; use getattr as safe fallback
         detail = getattr(e, "detail", str(e))
         return RedirectResponse(f"/login?error={detail}", status_code=303)
 
     user = auth.get_user_by_username(db, username)
 
-    # 2. VERIFICATION
-    # Service accounts are federation-only — they authenticate via API
-    # token through /api/federation/* and must NEVER reach the web UI.
-    # Reject as if the account didn't exist.
-    #
-    # Run a dummy verify_password BEFORE returning so the request takes
-    # the same wall-clock time as a normal credential check. Otherwise
-    # an attacker can probe usernames: a missing user is fast (~1ms),
-    # a real password verify is slow (~100ms bcrypt) — and an early-
-    # return service-account branch would be fast too, distinguishable
-    # from real accounts.
-    if user and user.is_service_account:
-        # Burn the same ~100ms a real bcrypt verification would take.
-        # Hash is arbitrary; result is discarded.
-        try:
-            auth.verify_password(password, user.hashed_password)
-        except Exception:
-            pass
-        is_blocked = security.register_failed_attempt(request, username)
-        msg = "Invalid credentials"
-        if is_blocked:
-            msg = "Temporarily blocked for security (15 min)."
-        return RedirectResponse(f"/login?error={msg}", status_code=303)
-
-    if (
-        not user
-        or not user.is_active
-        or not auth.is_valid_username(user.username)
-        or not auth.verify_password(password, user.hashed_password)
-    ):
+    # Verify even unknown/unavailable users, away from the ASGI event loop.
+    verified = await asyncio.to_thread(auth.verify_password, password, user.hashed_password if user else None)
+    if not auth.user_can_login(user) or not verified:
         # Register the hit
         is_blocked = security.register_failed_attempt(request, username)
 
@@ -599,6 +569,7 @@ def _render_app_shell(
     username = user.username
     u_gb, l_gb, pct = manager.get_pool_status(db)
     return templates.TemplateResponse(
+        request,
         "app_shell.html",
         {
             "request": request,
@@ -670,6 +641,7 @@ async def wrapped_story_page(request: Request, year: int | None = None, db: Sess
         return RedirectResponse("/login")
 
     return templates.TemplateResponse(
+        request,
         "wrapped_story.html",
         {
             "request": request,
@@ -695,13 +667,13 @@ async def wrapped_page(request: Request, year: int | None = None, db: Session = 
 def logout(request: Request, db: Session = Depends(get_db)):
     token = request.cookies.get("access_token")
     if token:
-        # 1. Revoke Token (Blacklist)
-        auth.blacklist_token(db, token)
-
-        # 2. Stop User Container (Save Resources)
-        username = auth.get_username_from_token(token)
-        if username:
-            manager.stop_user_container(username)
+        try:
+            user = auth.get_current_user(request, db)
+        except HTTPException:
+            user = None
+        if user:
+            auth.blacklist_token(db, token)
+            manager.stop_user_container(user.username)
 
     res = RedirectResponse("/login", status_code=303)
     res.delete_cookie("access_token", path="/", httponly=True, secure=settings.COOKIE_SECURE, samesite="lax")
@@ -718,6 +690,7 @@ async def help_page(request: Request, db: Session = Depends(get_db)):
     u_gb, l_gb, pct = manager.get_pool_status(db)
 
     return templates.TemplateResponse(
+        request,
         "help.html",
         {
             "request": request,
@@ -785,10 +758,6 @@ async def gateway(username: str, path: str, request: Request, db: Session = Depe
     # 3. AUTH LENTA (Legacy / Subsonic API)
     if not authorized:
         user_db = auth.get_user_by_username(db, username)
-        if not user_db:
-            logger.warning("User not found in DB: %s", username)
-            return JSONResponse({"error": "User not found"}, status_code=404)
-
         # Check Subsonic Params (GET or POST)
         if "rest/" in path or "view.view" in path:
             params = dict(request.query_params)
@@ -804,7 +773,8 @@ async def gateway(username: str, path: str, request: Request, db: Session = Depe
             u = params.get("u")
             p = params.get("p")
 
-            if u == username and p:
+            if u == username and isinstance(p, str) and 0 < len(p) <= 2048:
+                security.check_brute_force(request, username)
                 # Handle hex-encoded passwords (enc:)
                 if p.startswith("enc:"):
                     try:
@@ -814,9 +784,12 @@ async def gateway(username: str, path: str, request: Request, db: Session = Depe
                         logger.warning("Failed to decode enc password for user %s: %s", username, ex)
                         pass
 
-                if auth.verify_password(p, user_db.hashed_password):
+                valid = await asyncio.to_thread(auth.verify_password, p, user_db.hashed_password if user_db else None)
+                if auth.user_can_login(user_db) and valid:
                     authorized = True
+                    security.clear_attempts(request)
                 else:
+                    security.register_failed_attempt(request, username)
                     logger.warning("Invalid password for user %s from client %s", username, params.get("c"))
             else:
                 if not u or not p:

@@ -13,7 +13,7 @@ import utils
 from aoede_config import settings
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
-from http_client import http_client
+from http_client import public_http_client as http_client
 from PIL import Image
 from shared_templates import templates
 from sqlalchemy.orm import Session
@@ -113,7 +113,7 @@ async def proxy_image(url: str, request: Request, db: Session = Depends(get_db))
     except Exception:
         return JSONResponse({"error": "Invalid image payload"}, status_code=400)
 
-    return Response(content=optimized, media_type="image/webp", headers={"Cache-Control": "public, max-age=604800"})
+    return Response(content=optimized, media_type="image/webp", headers={"Cache-Control": "private, max-age=604800"})
 
 
 # --- HTML VIEWS ---
@@ -148,6 +148,7 @@ def downloads_page(request: Request, db: Session = Depends(get_db)):
     u_gb, l_gb, pct = manager.get_pool_status(db)
 
     return templates.TemplateResponse(
+        request,
         "downloads.html",
         {
             "request": request,
@@ -169,6 +170,7 @@ def library_page(request: Request, db: Session = Depends(get_db)):
     u_gb, l_gb, pct = manager.get_pool_status(db)
 
     return templates.TemplateResponse(
+        request,
         "library.html",
         {"request": request, "username": user.username, "pool": {"used": u_gb, "limit": l_gb, "percent": pct}},
     )
@@ -188,6 +190,7 @@ def search_page(request: Request, db: Session = Depends(get_db)):
     u_gb, l_gb, pct = manager.get_pool_status(db)
 
     return templates.TemplateResponse(
+        request,
         "search.html",
         {
             "request": request,

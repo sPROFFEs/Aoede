@@ -92,6 +92,7 @@ def test_remote_join_queue_and_permissions(db_session, monkeypatch):
     original_client = httpx.AsyncClient
 
     def upstream_client(**kwargs):
+        kwargs.pop("transport", None)
         return original_client(transport=httpx.ASGITransport(app=host), **kwargs)
 
     monkeypatch.setattr(routes.httpx, "AsyncClient", upstream_client)

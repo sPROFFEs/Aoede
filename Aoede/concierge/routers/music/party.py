@@ -6,10 +6,13 @@ import re
 
 import database
 import federated_collections
+import federation_service
 import httpx
 import party_service
+from aoede_config import settings
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+from network_security import PinnedAsyncTransport, safe_relay_content_type
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -86,7 +89,11 @@ async def relay_party_request(
         headers.update({"X-Party-User-Id": str(user.id), "X-Party-Username": user.username.encode("utf-8").hex()})
     if request.headers.get("range"):
         headers["Range"] = request.headers["range"]
-    client = httpx.AsyncClient(timeout=httpx.Timeout(30, read=None if path == "events" else 30))
+    client = httpx.AsyncClient(
+        timeout=httpx.Timeout(30, read=None if path == "events" else 30),
+        transport=PinnedAsyncTransport(allow_private=settings.FEDERATION_ALLOW_PRIVATE_HOSTS),
+        trust_env=False,
+    )
     url = f"{instance.base_url.rstrip('/')}/api/federation/{upstream_path or f'parties/{room_id}'}"
     if path and not upstream_path:
         url += f"/{path}"
@@ -126,6 +133,21 @@ async def relay_party_request(
     response_headers = {
         k: v for k, v in upstream.headers.items() if k in {"content-type", "content-range", "accept-ranges"}
     }
+    content_type = safe_relay_content_type(upstream.headers.get("content-type"))
+    if not content_type:
+        await close()
+        return JSONResponse({"error": "Federated host returned unsupported content"}, status_code=502)
+    response_headers["content-type"] = content_type
+    if content_type == "application/json":
+        data = bytearray()
+        try:
+            async for chunk in upstream.aiter_bytes(64 * 1024):
+                data.extend(chunk)
+                if len(data) > federation_service.MAX_RESPONSE_BYTES:
+                    return JSONResponse({"error": "Federated response too large"}, status_code=502)
+            return Response(bytes(data), status_code=upstream.status_code, headers=response_headers)
+        finally:
+            await close()
     if path == "events":
         response_headers.update({"Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no"})
     return StreamingResponse(
@@ -231,10 +253,12 @@ async def list_rooms(request: Request, db: Session = Depends(get_db)):
             headers = {"User-Agent": "Aoede-Federation/1.0"}
             if p.api_token:
                 headers["Authorization"] = f"Bearer {p.api_token}"
-            async with httpx.AsyncClient(timeout=3.0) as client:
-                res = await client.get(f"{p.base_url.rstrip('/')}/api/federation/parties", headers=headers)
-            if res.status_code == 200:
-                data = res.json()
+            async with federation_service._client(p.api_token) as client:
+                client.timeout = httpx.Timeout(3.0)
+                status, data = await federation_service._fetch_json_bounded(
+                    client, f"{p.base_url.rstrip('/')}/api/federation/parties"
+                )
+            if status == 200 and isinstance(data, dict):
                 for r in data.get("rooms", []):
                     r["id"] = int(r["id"])
                     if r["id"] <= 0:

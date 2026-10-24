@@ -97,6 +97,7 @@ def test_theme_migration_preserves_users_and_rendering_starts_with_saved_theme(d
     auth.get_current_user(request, db_session)
     assert appearance_context(request)["user_theme"] == theme
     response = templates.TemplateResponse(
+        request,
         "app_shell.html",
         {
             "request": request,

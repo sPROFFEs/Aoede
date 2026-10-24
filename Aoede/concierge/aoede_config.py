@@ -52,13 +52,14 @@ class Settings(BaseSettings):
     DOWNLOADER_WORKER_POLL_SECONDS: float = 1.0
     POOL_STATUS_CACHE_TTL_SECONDS: int = 60
     COOKIE_SECURE: bool = True
-    TRUST_PROXY_HEADERS: bool = False
-    TRUSTED_PROXY_IPS: str = "127.0.0.1,::1"
+    TRUST_PROXY_HEADERS: bool = True
+    TRUSTED_PROXY_IPS: str = "127.0.0.1,::1,172.20.0.6"
+    FEDERATION_ALLOW_PRIVATE_HOSTS: bool = False
     BACKUP_SCHEDULER_POLL_SECONDS: int = 60
     UPDATE_SOURCE_REPO_URL: str = "https://github.com/sPROFFEs/Aoede"
     UPDATE_SOURCE_BRANCH: str = "main"
     UPDATE_MANAGED_SERVICES: str = "concierge"
-    NAVIDROME_REVERSE_PROXY_WHITELIST: str = "127.0.0.1/32,172.16.0.0/12"
+    NAVIDROME_REVERSE_PROXY_WHITELIST: str = "127.0.0.1/32,::1/128,172.20.0.5/32"
     PROXY_IMAGE_MAX_BYTES: int = 5 * 1024 * 1024
     PROXY_IMAGE_TIMEOUT_SECONDS: float = 8.0
     PROXY_IMAGE_ALLOWED_CONTENT_TYPES: str = "image/jpeg,image/png,image/webp,image/gif,image/avif"

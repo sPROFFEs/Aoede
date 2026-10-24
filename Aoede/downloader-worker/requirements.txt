@@ -1,7 +1,8 @@
-fastapi==0.103.2
+fastapi==0.162.0
+starlette==1.9.0
+anyio==4.15.1
 uvicorn==0.23.2
 httpx[http2]>=0.27.0,<1
 yt-dlp[default]==2026.8.19
-spotdl==4.5.2
 SpotiFLAC==3.5.0
 pydoll-python==2.23.1

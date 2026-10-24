@@ -43,7 +43,7 @@ class ApplyUpdatePayload(BaseModel):
 
 def _require_internal_auth(authorization: str | None):
     expected = f"Bearer {operations_service.get_internal_updater_token()}"
-    if authorization != expected:
+    if not authorization or not secrets.compare_digest(authorization, expected):
         raise HTTPException(status_code=403, detail="Forbidden")
 
 

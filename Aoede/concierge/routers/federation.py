@@ -40,9 +40,11 @@ import federated_collections
 import federation_service
 import httpx
 import party_service
+from aoede_config import settings
 from auth import get_current_user, get_password_hash
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
+from network_security import PinnedAsyncTransport, safe_relay_content_type
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 from starlette.background import BackgroundTask
@@ -99,11 +101,10 @@ def _spawn(coro):
 # An admin who genuinely needs to federate against a private network
 # (homelab over Tailscale, dev) can opt in via env var.
 import ipaddress
-import os
 import socket
 from urllib.parse import urlparse
 
-_FEDERATION_ALLOW_PRIVATE = os.getenv("FEDERATION_ALLOW_PRIVATE_HOSTS", "").lower() in ("1", "true", "yes")
+_FEDERATION_ALLOW_PRIVATE = settings.FEDERATION_ALLOW_PRIVATE_HOSTS
 
 
 def _validate_federation_base_url(url: str) -> str:
@@ -116,6 +117,8 @@ def _validate_federation_base_url(url: str) -> str:
         raise HTTPException(status_code=400, detail="base_url must be http(s)://")
 
     parsed = urlparse(url)
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise HTTPException(status_code=400, detail="base_url must not contain credentials, query or fragment")
     host = parsed.hostname
     if not host:
         raise HTTPException(status_code=400, detail="base_url has no host")
@@ -1071,7 +1074,11 @@ async def _proxy_federated_stream(instance_id: int, remote_id: int, request: Req
     # This avoids the previous bug where we returned a 200/206 wrapper
     # around an upstream 4xx — the browser saw an empty body and
     # raised a generic media error.
-    upstream_client = httpx.AsyncClient(timeout=30.0)
+    upstream_client = httpx.AsyncClient(
+        timeout=30.0,
+        transport=PinnedAsyncTransport(allow_private=settings.FEDERATION_ALLOW_PRIVATE_HOSTS),
+        trust_env=False,
+    )
     try:
         upstream_req = upstream_client.build_request("GET", upstream_url, headers=upstream_headers)
         upstream_resp = await upstream_client.send(upstream_req, stream=True)
@@ -1107,6 +1114,12 @@ async def _proxy_federated_stream(instance_id: int, remote_id: int, request: Req
             status_code=502,
         )
 
+    content_type = safe_relay_content_type(upstream_resp.headers.get("content-type"))
+    if not content_type:
+        await upstream_resp.aclose()
+        await upstream_client.aclose()
+        return JSONResponse({"error": "Federated source returned unsupported content"}, status_code=502)
+
     # Forward the headers the audio element actually cares about.
     forwarded_headers = {}
     for key in ("content-type", "content-length", "content-range", "accept-ranges"):
@@ -1115,7 +1128,8 @@ async def _proxy_federated_stream(instance_id: int, remote_id: int, request: Req
     if "Accept-Ranges" not in forwarded_headers:
         forwarded_headers["Accept-Ranges"] = "bytes"
 
-    media_type = upstream_resp.headers.get("content-type", "audio/mpeg")
+    forwarded_headers["Content-Type"] = content_type
+    media_type = content_type
     upstream_status = upstream_resp.status_code  # 200 or 206
 
     async def _streamer():

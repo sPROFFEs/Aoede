@@ -17,7 +17,7 @@ import mutagen
 import path_security
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
-from http_client import http_client
+from http_client import public_http_client as http_client
 from PIL import Image
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -36,6 +36,18 @@ STREAM_CHUNK_SIZE = 256 * 1024
 # re-plays of the same track without re-downloading. The ETag/filepath is
 # implicit in the URL (track_id never changes content), so this is safe.
 STREAM_CACHE_CONTROL = "private, max-age=86400"
+
+
+async def _fetch_cover_payload(url: str) -> bytes:
+    data = bytearray()
+    async with http_client.stream("GET", url, timeout=8.0, follow_redirects=True) as response:
+        if response.status_code != 200:
+            return b""
+        async for chunk in response.aiter_bytes(64 * 1024):
+            if len(data) + len(chunk) > 5 * 1024 * 1024:
+                raise ValueError("Cover image too large")
+            data.extend(chunk)
+    return bytes(data)
 
 
 def _resolve_allowed_media_path(raw_path: str | None) -> Path | None:
@@ -453,9 +465,9 @@ async def resolve_cover(request: Request, artist: str = "", title: str = "", db:
         cached_image_url = (cached_metadata.get("image_url") or "").strip()
         if cached_image_url:
             try:
-                resp = await http_client.get(cached_image_url, timeout=8.0, follow_redirects=True)
-                if resp.status_code == 200 and len(resp.content) > 500:
-                    img = Image.open(io.BytesIO(resp.content))
+                content = await _fetch_cover_payload(cached_image_url)
+                if len(content) > 500:
+                    img = Image.open(io.BytesIO(content))
                     img.thumbnail((400, 400))
                     img = img.convert("RGB")
                     img_bytes = io.BytesIO()
@@ -554,9 +566,9 @@ async def resolve_cover(request: Request, artist: str = "", title: str = "", db:
 
     if image_url:
         try:
-            resp = await http_client.get(image_url, timeout=8.0, follow_redirects=True)
-            if resp.status_code == 200 and len(resp.content) > 500:
-                img = Image.open(io.BytesIO(resp.content))
+            content = await _fetch_cover_payload(image_url)
+            if len(content) > 500:
+                img = Image.open(io.BytesIO(content))
                 img.thumbnail((400, 400))
                 img = img.convert("RGB")
                 img_bytes = io.BytesIO()

@@ -207,6 +207,7 @@ async def admin_panel(request: Request, db: Session = Depends(get_db)):
     u_gb, l_gb, pct = manager.get_pool_status(db)
 
     return templates.TemplateResponse(
+        request,
         "admin.html",
         {
             "request": request,
@@ -298,6 +299,7 @@ async def song_delete_requests_inbox(request: Request, db: Session = Depends(get
         )
 
     return templates.TemplateResponse(
+        request,
         "admin_song_delete_requests.html",
         {
             "request": request,
@@ -542,6 +544,7 @@ def system_monitor(request: Request, db: Session = Depends(get_db)):
     )
 
     return templates.TemplateResponse(
+        request,
         "system_monitor.html",
         {
             "request": request,
@@ -582,6 +585,7 @@ async def download_manager(request: Request, db: Session = Depends(get_db)):
         providers = []
         downloader["provider_error"] = str(exc)
     return templates.TemplateResponse(
+        request,
         "admin_downloads.html",
         {
             "request": request,
@@ -1027,6 +1031,7 @@ async def update_job_progress_page(
     updater_monitor_url = operations_service.get_update_monitor_path(job_id)
     updater_job_endpoint = f"/updater/api/jobs/{job_id}?access={operations_service.get_update_monitor_token(job_id)}"
     return templates.TemplateResponse(
+        request,
         "update_progress.html",
         {
             "request": request,

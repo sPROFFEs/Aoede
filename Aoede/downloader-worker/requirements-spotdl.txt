@@ -1,0 +1,2 @@
+# CLI only; the worker's HTTP server uses the patched primary environment.
+spotdl==4.5.2

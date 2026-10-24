@@ -1,3 +1,4 @@
+import re
 from urllib.parse import urlparse
 
 KNOWN_SOURCES = {
@@ -22,6 +23,26 @@ SOURCE_DOMAIN_HINTS = (
 )
 
 
+def is_allowed_download_url(value: str) -> bool:
+    if not isinstance(value, str) or not 0 < len(value) <= 2048:
+        return False
+    if re.fullmatch(r"fed:[1-9]\d{0,18}:[1-9]\d{0,18}", value):
+        return True
+    if re.fullmatch(r"ytsearch(?:[1-9]\d{0,2})?:[^\r\n]{1,1000}", value):
+        return True
+    try:
+        parsed = urlparse(value)
+        host = (parsed.hostname or "").lower().rstrip(".")
+        if parsed.scheme not in {"http", "https"} or parsed.username or parsed.password:
+            return False
+        if parsed.port not in {None, 80, 443}:
+            return False
+        domains = {domain for _, values in SOURCE_DOMAIN_HINTS for domain in values} | {"spotify.link"}
+        return any(host == domain or host.endswith("." + domain) for domain in domains)
+    except ValueError:
+        return False
+
+
 def normalize_source(raw_source: str | None, default: str = "external") -> str:
     source = (raw_source or "").strip().lower()
     return source if source in KNOWN_SOURCES else default
@@ -43,8 +64,8 @@ def infer_source(raw_source: str | None = None, raw_url: str | None = None, defa
         return "federation"
 
     parsed = urlparse(url)
-    haystack = " ".join(part for part in [parsed.netloc, parsed.path, parsed.query, url] if part)
+    host = (parsed.hostname or "").lower().rstrip(".")
     for source, domains in SOURCE_DOMAIN_HINTS:
-        if any(domain in haystack for domain in domains):
+        if any(host == domain or host.endswith("." + domain) for domain in domains):
             return source
     return default

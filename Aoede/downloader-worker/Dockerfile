@@ -20,6 +20,10 @@ RUN deno --version
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-spotdl.txt .
+RUN python -m venv /opt/spotdl && \
+    /opt/spotdl/bin/pip install --no-cache-dir -r requirements-spotdl.txt && \
+    ln -s /opt/spotdl/bin/spotdl /usr/local/bin/spotdl
 
 # Extensions are executable third-party code. Pin both the repository commit
 # and each archive digest so a mutable registry cannot change a rebuild.

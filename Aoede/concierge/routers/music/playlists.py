@@ -951,7 +951,7 @@ async def upload_playlist_cover(
     if not playlist:
         return JSONResponse({"error": "Playlist not found"}, status_code=404)
 
-    content = await cover_file.read()
+    content = await cover_file.read(MAX_PLAYLIST_COVER_SIZE + 1)
     if len(content) > MAX_PLAYLIST_COVER_SIZE:
         return JSONResponse(
             {"error": f"Image too large. Max size: {MAX_PLAYLIST_COVER_SIZE // (1024 * 1024)}MB"}, status_code=400

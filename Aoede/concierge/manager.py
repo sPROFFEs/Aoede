@@ -88,6 +88,8 @@ def get_or_spawn_container(username: str):
             name=container_name,
             detach=True,
             network="aoede-global",  # Ensure this network exists in your docker-compose
+            cap_drop=["ALL"],
+            security_opt=["no-new-privileges:true"],
             environment={
                 "ND_BASEURL": f"/{username}",
                 "ND_MUSICROOT": "/music",

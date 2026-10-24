@@ -37,6 +37,8 @@ from typing import Optional
 
 import database
 import httpx
+from aoede_config import settings
+from network_security import PinnedAsyncTransport
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,8 @@ def _client(token: Optional[str]) -> httpx.AsyncClient:
     if token:
         headers["Authorization"] = f"Bearer {token}"
     return httpx.AsyncClient(
+        transport=PinnedAsyncTransport(allow_private=settings.FEDERATION_ALLOW_PRIVATE_HOSTS),
+        trust_env=False,
         timeout=httpx.Timeout(
             connect=CONNECT_TIMEOUT_S, read=READ_TIMEOUT_S, write=READ_TIMEOUT_S, pool=READ_TIMEOUT_S
         ),

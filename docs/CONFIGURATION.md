@@ -35,6 +35,7 @@ Never commit the resulting `.env`.
 | `HOST_DATA_ROOT` | `/opt/saas-data` | Persistent host data root. |
 | `DATABASE_URL` | empty | Optional explicit SQLAlchemy database URL override. |
 | `NAVIDROME_IMAGE` | `deluan/navidrome:latest` | Navidrome image used for user instances. |
+| `NAVIDROME_REVERSE_PROXY_WHITELIST` | `127.0.0.1/32,::1/128,172.20.0.5/32` | Only Concierge may assert the Navidrome user header. Adapt to custom networking; recreate existing user containers to change their environment. |
 | `CONCURRENT_DOWNLOADS` | `3` | Maximum concurrent downloads per user. |
 | `DOWNLOADER_PIDS_LIMIT` | `1024` | Container process/thread limit shared by downloads and the verification browser. Recreate the downloader after changing it. |
 | `AUTH_BROWSER_STARTUP_TIMEOUT` | `30` | Total verification-browser startup deadline in seconds (5–120), including the first profile initialization. Pass the same value to downloader and Concierge. |
@@ -48,8 +49,9 @@ Never commit the resulting `.env`.
 | `UPDATE_SOURCE_BRANCH` | `main` | Update source branch. |
 | `UPDATE_MANAGED_SERVICES` | `concierge nginx tunnel` | Services recreated by the updater. |
 | `COOKIE_SECURE` | `true` | Use secure cookies for HTTPS deployments; `false` only for trusted local HTTP. |
-| `TRUST_PROXY_HEADERS` | `false` | Trust reverse-proxy headers only behind a trusted proxy. |
-| `TRUSTED_PROXY_IPS` | `127.0.0.1,::1` | Trusted proxy addresses/CIDRs. |
+| `TRUST_PROXY_HEADERS` | `true` | Trust forwarded headers only when the socket peer is explicitly trusted. Disable for direct deployments. |
+| `TRUSTED_PROXY_IPS` | `127.0.0.1,::1,172.20.0.6` | Loopback and the supplied Nginx address; adapt to custom networking. Never trust arbitrary clients or the entire Internet. |
+| `FEDERATION_ALLOW_PRIVATE_HOSTS` | `false` | Explicit opt-in for federation with peers on a trusted LAN/VPN. Public media relays still reject private destinations. |
 | `PROXY_IMAGE_MAX_BYTES` | `5242880` | Maximum proxied image size. |
 | `PROXY_IMAGE_TIMEOUT_SECONDS` | `8` | Proxied image fetch timeout. |
 | `PROXY_IMAGE_ALLOWED_CONTENT_TYPES` | image MIME list | Allowed image types for the proxy. |

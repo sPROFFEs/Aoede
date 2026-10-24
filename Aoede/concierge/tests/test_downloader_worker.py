@@ -42,7 +42,7 @@ def test_automatic_mode_prefers_worker_without_running_legacy(monkeypatch, tmp_p
     )
     manager._handle_ytdlp_robust = lambda *_args: (_ for _ in ()).throw(AssertionError("legacy called"))
 
-    result = manager._download_source(SimpleNamespace(input_url="https://example.com/song"), str(tmp_path), 1)
+    result = manager._download_source(SimpleNamespace(input_url="https://youtu.be/example"), str(tmp_path), 1)
 
     assert result is True
     assert manager._engine_used == "worker:yt-dlp"
@@ -57,7 +57,7 @@ def test_automatic_mode_falls_back_to_legacy_when_worker_is_unavailable(monkeypa
     monkeypatch.setattr(downloader_worker_client, "download_with_worker", unavailable)
     manager._handle_ytdlp_robust = lambda *_args: True
 
-    result = manager._download_source(SimpleNamespace(input_url="https://example.com/song"), str(tmp_path), 2)
+    result = manager._download_source(SimpleNamespace(input_url="https://youtu.be/example"), str(tmp_path), 2)
 
     assert result is True
     assert manager._fallback_reasons == ["Isolated worker: connection refused"]
@@ -72,7 +72,7 @@ def test_worker_only_mode_does_not_silently_run_legacy(monkeypatch, tmp_path):
     monkeypatch.setattr(downloader_worker_client, "download_with_worker", failed)
     manager._handle_ytdlp_robust = lambda *_args: (_ for _ in ()).throw(AssertionError("legacy called"))
 
-    result = manager._download_source(SimpleNamespace(input_url="https://example.com/song"), str(tmp_path), 3)
+    result = manager._download_source(SimpleNamespace(input_url="https://youtu.be/example"), str(tmp_path), 3)
 
     assert result is False
     assert manager._last_download_reason == "provider failed"
@@ -222,7 +222,7 @@ def test_unconfirmed_worker_cleanup_never_falls_back_to_legacy(monkeypatch, tmp_
     manager._handle_ytdlp_robust = lambda *_args: (_ for _ in ()).throw(AssertionError("legacy called"))
 
     with pytest.raises(downloader_worker_client.WorkerCleanupPending, match="still running"):
-        manager._download_source(SimpleNamespace(input_url="https://example.com/song"), str(tmp_path), 5)
+        manager._download_source(SimpleNamespace(input_url="https://youtu.be/example"), str(tmp_path), 5)
 
 
 def test_admin_downloader_endpoints_require_admin_dependency():

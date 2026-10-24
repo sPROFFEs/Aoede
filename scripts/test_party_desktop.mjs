@@ -157,6 +157,32 @@ const party = await load('Aoede/assets/js/modules/party.js', {
   './player.js': { syncPartyPlayback: async (value) => { synced = value; return !localPaused; }, syncPlayerShellVisibility() {}, resumeLocalPlayback() { localPaused = false; resumes++; } }
 });
 assert.match(party.renderHomeShelf([{ ...room, is_remote_federated: true, remote_instance_id: 7 }]), /'fed_7_2'/);
+const hostile = `'); globalThis.injected = true; //\"<svg onload=alert(1)>`;
+const hostileShelf = party.renderHomeShelf([{ ...room, is_remote_federated: true,
+  id: hostile, remote_instance_id: hostile, active_users: hostile, max_users: hostile,
+  queue_count: hostile, name: hostile, playback_status: hostile }]);
+assert.doesNotMatch(hostileShelf, /<svg|onload=alert\(1\)>|party-status '\)/);
+const radioGrid = { innerHTML: '' };
+const radioWindow = { innerWidth: 400, refreshIcons() {} };
+const radio = await load('Aoede/assets/js/modules/radio.js', {
+  window: radioWindow, document: { getElementById: () => radioGrid }, lucide: { createIcons() {} }, console
+}, { './state.js': {}, './ui.js': ui, './api.js': {}, './player.js': {} });
+for (const width of [400, 1200]) {
+  radioWindow.innerWidth = width;
+  radio.drawRadioGrid([{ url: `https://radio.test/${hostile}`, title: hostile, subtitle: hostile }]);
+  assert.doesNotMatch(radioGrid.innerHTML, /<svg/);
+  const argumentsSeen = [];
+  const globals = { event: { stopPropagation() {} }, playRadioStream: (...args) => argumentsSeen.push(args),
+    injectRadioToNavidrome: (...args) => argumentsSeen.push(args) };
+  const context = vm.createContext(globals);
+  for (const match of radioGrid.innerHTML.matchAll(/onclick="([^"]*)"/g)) {
+    const handler = match[1].replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    if (/(playRadioStream|injectRadioToNavidrome)\(/.test(handler)) new vm.Script(handler).runInContext(context);
+  }
+  assert.equal(argumentsSeen.length, 2);
+  assert.ok(argumentsSeen.every(args => args[0] === hostile.split('/').pop() && args[1] === hostile));
+  assert.equal(globals.injected, undefined);
+}
 await party.renderPartyRoom(container, 'fed_7_2');
 assert.deepEqual(paths, ['/api/party/remote/7/rooms/2/join', '/api/party/remote/7/rooms/2/events']);
 source.listeners.state({ data: JSON.stringify({ type: 'state', room }) });

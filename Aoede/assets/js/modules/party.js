@@ -15,7 +15,9 @@ let streamGeneration = 0;
 let stateApplyChain = Promise.resolve();
 
 function roomKey(room) {
-  return room.is_remote_federated ? `fed_${room.remote_instance_id}_${room.id}` : String(room.id);
+  return room.is_remote_federated
+    ? `fed_${Number(room.remote_instance_id)}_${Number(room.id)}`
+    : String(Number(room.id));
 }
 
 function apiPath(path) {
@@ -76,6 +78,9 @@ export async function fetchRooms(options = {}) {
 }
 
 function roomCard(room, compact = false) {
+  const status = ['playing', 'loading', 'paused', 'stopped'].includes(room.playback_status)
+    ? room.playback_status
+    : 'paused';
   const track = room.current_track;
   const isFederated = Boolean(room.is_federated || room.is_remote_federated);
   const remoteOrigin = room.is_remote_federated
@@ -87,10 +92,10 @@ function roomCard(room, compact = false) {
       <span class="party-card-icon"><i data-lucide="${isFederated ? 'globe' : 'radio-tower'}"></i></span>
       <span class="party-card-copy">
         <strong>${ui.escHtml(room.name)} ${remoteOrigin} ${isFederated ? '<span class="status-badge finished" style="font-size:0.65rem; padding:1px 5px; margin-left:4px;">Federated</span>' : ''}</strong>
-        <span>Hosted by ${ui.escHtml(room.owner_username)} · ${room.active_users}/${room.max_users} listening</span>
-        <span class="party-card-track">${track ? `${ui.escHtml(track.title)} — ${ui.escHtml(track.artist)}` : `${room.queue_count ?? room.queue?.length ?? 0} songs ready`}</span>
+        <span>Hosted by ${ui.escHtml(room.owner_username)} · ${Number(room.active_users) || 0}/${Number(room.max_users) || 0} listening</span>
+        <span class="party-card-track">${track ? `${ui.escHtml(track.title)} — ${ui.escHtml(track.artist)}` : `${Number(room.queue_count ?? room.queue?.length) || 0} songs ready`}</span>
       </span>
-      <span class="party-status ${room.playback_status}">${room.playback_status}</span>
+      <span class="party-status ${status}">${status}</span>
     </button>`;
 }
 
@@ -353,7 +358,7 @@ function paintRoom(container) {
     <section class="party-room-hero">
       <div class="party-now-cover">${current ? `<img src="${ui.escHtml(current.thumbnail)}" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="radio-tower"></i>`}</div>
       <div class="party-room-title"><span class="hero-kicker">Live party · <span id="party-connection-status">Connected</span></span><h1>${ui.escHtml(room.name)}</h1>
-        <p>Hosted by ${ui.escHtml(room.owner_username)} · ${room.active_users}/${room.max_users} listening</p>
+        <p>Hosted by ${ui.escHtml(room.owner_username)} · ${Number(room.active_users) || 0}/${Number(room.max_users) || 0} listening</p>
         <div class="party-participants">${participants.map((p) => `<span><i data-lucide="user-round"></i>${ui.escHtml(p.username)}</span>`).join('') || '<span>Connecting listeners…</span>'}</div>
       </div>
       <button class="party-leave-btn" onclick="leavePartyRoom()"><i data-lucide="log-out"></i> Leave</button>
@@ -382,7 +387,7 @@ function paintRoom(container) {
                     <span class="party-queue-index">${index === room.current_index ? '<i data-lucide="volume-2"></i>' : index + 1}</span>
                     <img src="${ui.escHtml(item.track.thumbnail)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">
                     <span class="party-queue-copy"><strong>${ui.escHtml(item.track.title)}</strong><small>${ui.escHtml(item.track.artist)}${item.added_by ? ` · added by ${ui.escHtml(item.added_by)}` : ''}</small></span>
-                    ${room.is_owner ? `<button class="party-row-remove" onclick="removePartyTrack(${item.item_id})" aria-label="Remove"><i data-lucide="x"></i></button>` : ''}
+                    ${room.is_owner ? `<button class="party-row-remove" onclick="removePartyTrack(${Number(item.item_id)})" aria-label="Remove"><i data-lucide="x"></i></button>` : ''}
                   </div>`
                 )
                 .join('')

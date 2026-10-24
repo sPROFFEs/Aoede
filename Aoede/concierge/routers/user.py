@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-import shutil
+import tempfile
 from typing import Literal
 
 import auth
@@ -23,6 +23,7 @@ router = APIRouter(prefix="/user")
 
 DEFAULT_METADATA_PREFERENCES = ["spotify", "lastfm", "musicbrainz"]
 ALLOWED_METADATA_PROVIDERS = set(DEFAULT_METADATA_PREFERENCES)
+MAX_COOKIE_FILE_BYTES = 1024 * 1024
 
 
 class AppearanceRequest(BaseModel):
@@ -150,6 +151,7 @@ async def user_settings(request: Request, db: Session = Depends(get_db)):
     _normalize_secret_storage(db, dl_settings)
 
     return templates.TemplateResponse(
+        request,
         "user_settings.html",
         {
             "request": request,
@@ -194,6 +196,7 @@ async def update_api_keys(
     db.commit()
 
     return templates.TemplateResponse(
+        request,
         "user_settings.html",
         {
             "request": request,
@@ -238,6 +241,7 @@ async def validate_api_keys(
         messages.append("Last.fm shared secret saved (used only for signed/user-write methods)")
 
     return templates.TemplateResponse(
+        request,
         "user_settings.html",
         {
             "request": request,
@@ -255,23 +259,34 @@ async def upload_cookies(request: Request, cookies_file: UploadFile = File(...),
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse("/login")
-    settings = ensure_download_settings(db, user)
+    download_settings = ensure_download_settings(db, user)
 
     try:
+        content = await cookies_file.read(MAX_COOKIE_FILE_BYTES + 1)
+        if len(content) > MAX_COOKIE_FILE_BYTES:
+            return JSONResponse({"error": "Cookie file too large (maximum 1 MiB)"}, status_code=413)
         # Save file securely
-        user_dir = f"/saas-data/users/{user.username}"
+        user_dir = os.path.join(settings.MUSIC_ROOT, user.username)
         os.makedirs(user_dir, exist_ok=True)
         file_path = f"{user_dir}/cookies.txt"
 
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(cookies_file.file, buffer)
+        with tempfile.NamedTemporaryFile(dir=user_dir, prefix=".cookies-", delete=False) as buffer:
+            temporary = buffer.name
+            try:
+                buffer.write(content)
+                buffer.close()
+                os.replace(temporary, file_path)
+            finally:
+                if os.path.exists(temporary):
+                    os.unlink(temporary)
 
         # Update DB
-        settings.youtube_cookies_path = file_path
-        settings.youtube_cookies = None
+        download_settings.youtube_cookies_path = file_path
+        download_settings.youtube_cookies = None
         db.commit()
 
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,
@@ -279,11 +294,12 @@ async def upload_cookies(request: Request, cookies_file: UploadFile = File(...),
                 "success": "Cookies uploaded successfully",
                 "is_admin": user.is_admin,
                 "username": user.username,
-                "dl_settings": settings,
+                "dl_settings": download_settings,
             },
         )
     except Exception as e:
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,
@@ -291,7 +307,7 @@ async def upload_cookies(request: Request, cookies_file: UploadFile = File(...),
                 "error": f"Upload failed: {str(e)}",
                 "is_admin": user.is_admin,
                 "username": user.username,
-                "dl_settings": settings,
+                "dl_settings": download_settings,
             },
         )
 
@@ -310,6 +326,7 @@ async def change_password(
 
     if new_password != confirm_password:
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,
@@ -322,6 +339,7 @@ async def change_password(
 
     if not auth.is_password_strong(new_password):
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,
@@ -334,6 +352,7 @@ async def change_password(
 
     if not auth.verify_password(current_password, user.hashed_password):
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,
@@ -504,11 +523,12 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
 
     try:
         # Read file content
-        content = await avatar_file.read()
+        content = await avatar_file.read(MAX_AVATAR_SIZE + 1)
 
         # Size check
         if len(content) > MAX_AVATAR_SIZE:
             return templates.TemplateResponse(
+                request,
                 "user_settings.html",
                 {
                     "request": request,
@@ -525,6 +545,7 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
         ext = filename.lower().split(".")[-1] if "." in filename else ""
         if ext not in ALLOWED_IMAGE_EXTENSIONS:
             return templates.TemplateResponse(
+                request,
                 "user_settings.html",
                 {
                     "request": request,
@@ -540,6 +561,7 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
         content_type = avatar_file.content_type or ""
         if not validate_image_file(content, content_type):
             return templates.TemplateResponse(
+                request,
                 "user_settings.html",
                 {
                     "request": request,
@@ -598,6 +620,7 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
         except Exception as e:
             logger.warning("Failed to process avatar image: %s", e)
             return templates.TemplateResponse(
+                request,
                 "user_settings.html",
                 {
                     "request": request,
@@ -614,6 +637,7 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
         db.commit()
 
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,
@@ -628,6 +652,7 @@ async def upload_avatar(request: Request, avatar_file: UploadFile = File(...), d
     except Exception as e:
         logger.warning("Avatar upload error: %s", e)
         return templates.TemplateResponse(
+            request,
             "user_settings.html",
             {
                 "request": request,

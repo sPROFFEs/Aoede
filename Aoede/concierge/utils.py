@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from aoede_config import settings
+from network_security import is_public_address
 
 BASE_DOWNLOADS_DIR = Path(settings.MUSIC_ROOT).resolve()
 
@@ -62,14 +63,7 @@ def is_safe_url(url: str) -> bool:
             ip_obj = ipaddress.ip_address(ip_raw)
         except ValueError:
             return False
-        return not (
-            ip_obj.is_private
-            or ip_obj.is_loopback
-            or ip_obj.is_link_local
-            or ip_obj.is_multicast
-            or ip_obj.is_reserved
-            or ip_obj.is_unspecified
-        )
+        return is_public_address(str(ip_obj))
 
     # Direct IP host: must be public and routable.
     try:
@@ -78,8 +72,8 @@ def is_safe_url(url: str) -> bool:
     except ValueError:
         pass
 
-    port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
     try:
+        port = parsed.port or (443 if parsed.scheme.lower() == "https" else 80)
         resolved_ips = {
             info[4][0]
             for info in socket.getaddrinfo(

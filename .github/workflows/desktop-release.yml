@@ -32,7 +32,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install packaging dependency
-        run: python -m pip install Pillow==12.3.0
+        run: python -m pip install Pillow==13.0.0
 
       - name: Install Neutralinojs CLI
         run: sudo npm install -g @neutralinojs/neu@11.7.2
