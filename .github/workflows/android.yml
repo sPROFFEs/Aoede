@@ -122,9 +122,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           AOEDE_REPOSITORY: ${{ github.repository }}
+          AOEDE_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
-          gh release download v1.2.7 --repo "$AOEDE_REPOSITORY" --dir wrapper-backup \
-            --pattern aoede-android-wrapper-1.0.5.apk --pattern aoede-android-wrapper-1.0.5-source.zip
+          if ! gh release download "$AOEDE_RELEASE_TAG" --repo "$AOEDE_REPOSITORY" --dir wrapper-backup --clobber \
+            --pattern aoede-android-wrapper-1.0.5.apk --pattern aoede-android-wrapper-1.0.5-source.zip; then
+            backup_tag=$(gh api "repos/$AOEDE_REPOSITORY/releases?per_page=100" --jq '[.[] | select(.draft == false and any(.assets[]; .name == "aoede-android-wrapper-1.0.5.apk") and any(.assets[]; .name == "aoede-android-wrapper-1.0.5-source.zip"))][0].tag_name // empty')
+            test -n "$backup_tag" || { echo "Original wrapper backup assets are unavailable." >&2; exit 1; }
+            gh release download "$backup_tag" --repo "$AOEDE_REPOSITORY" --dir wrapper-backup --clobber \
+              --pattern aoede-android-wrapper-1.0.5.apk --pattern aoede-android-wrapper-1.0.5-source.zip
+          fi
           sha256sum --check <<'CHECKSUMS'
           9cc715cddf454ec662f87edc2c57f3aa61e44ba6e6b991d780fb2e7cc350fdda  wrapper-backup/aoede-android-wrapper-1.0.5.apk
           6f5364f9b93a4785645e90d54d7be598c6ef3b9666308e38e5242ec0566d34df  wrapper-backup/aoede-android-wrapper-1.0.5-source.zip
