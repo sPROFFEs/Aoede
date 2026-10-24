@@ -161,6 +161,8 @@ class MusicIslandTest {
         val h = (640 * density).toInt()
         root.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY))
         root.layout(0, 0, w, h)
+        val seek = root.findViewWithTag<android.widget.SeekBar>("seek")
+        assertTrue("Progress track must stay thin inside its touch target", seek.progressDrawable.bounds.height() <= 4 * density)
         for (name in listOf("toggle", "previous", "next", "favorite", "shuffle", "repeat")) {
             val button = root.findViewWithTag<ImageButton>(name)
             assertTrue("$name touch target", button.width / density >= 48 && button.height / density >= 48)

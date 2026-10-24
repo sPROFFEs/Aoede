@@ -241,7 +241,7 @@ class MusicIsland(private val app: AoedeApp) {
         heading.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
         heading.addView(ImageView(windowContext).apply { setImageResource(R.mipmap.ic_launcher); importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }, LinearLayout.LayoutParams(dp(28), dp(28)))
         body.addView(heading)
-        val seek = SeekBar(windowContext).apply {
+        val seek = SeekBar(windowContext, null, 0, R.style.MusicIslandSeekBar).apply {
             tag = "seek"; max = 1000; contentDescription = app.getString(R.string.island_seek)
             progressDrawable = ContextCompat.getDrawable(app, R.drawable.island_progress)
             thumb = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE); setSize(dp(8), dp(8)) }
