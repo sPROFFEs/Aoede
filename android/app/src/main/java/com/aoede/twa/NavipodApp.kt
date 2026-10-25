@@ -56,7 +56,6 @@ class AoedeApp : Application() {
     }
 
     fun updateViewport(bars: androidx.core.graphics.Insets, keyboard: Boolean) {
-        musicIsland.updateSafeTop(bars.top)
         val density = resources.displayMetrics.density
         viewport = JSONObject().put("top", bars.top / density).put("bottom", if (keyboard) 0f else bars.bottom / density)
             .put("left", bars.left / density).put("right", bars.right / density).put("keyboard", keyboard).toString()

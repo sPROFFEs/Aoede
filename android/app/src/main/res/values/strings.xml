@@ -59,8 +59,8 @@
     <string name="island_description">Optional controls above other apps while Aoede is open or playing music. Enable “Display over other apps” when Android asks. This setting stays on this device.</string>
     <string name="island_permission_denied">Android has not allowed overlays. Dynamic Island remains off.</string>
     <string name="island_position">Island vertical position</string>
-    <string name="island_position_value">Distance from top: %1$d dp</string>
-    <string name="island_position_help">Adjust this if the camera or status bar covers the island. Android and your phone decide which system areas apps can use.</string>
+    <string name="island_position_value">Gap below status bar: %1$d dp</string>
+    <string name="island_position_help">The complete tap target stays below the camera and status bar. Horizontal position ranges from left (−100%) through center (0%) to right (100%). Size and position apply to the compact capsule.</string>
     <string name="island_expand">Expand Aoede music controls</string>
     <string name="island_seek">Seek in track</string>
     <string name="island_shuffle">Shuffle</string>
@@ -70,4 +70,11 @@
     <string name="island_favorite">Add or remove favorite</string>
     <string name="island_open_player">Open player ›</string>
     <string name="island_idle">Your music is one tap away</string>
+    <string name="island_width">Capsule width</string>
+    <string name="island_width_value">Capsule width: %1$d dp</string>
+    <string name="island_height">Capsule height</string>
+    <string name="island_height_value">Capsule height: %1$d dp</string>
+    <string name="island_horizontal">Horizontal position</string>
+    <string name="island_horizontal_value">Horizontal position: %1$d%%</string>
+    <string name="island_reset_layout">Reset layout</string>
 </resources>

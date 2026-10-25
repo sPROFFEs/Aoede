@@ -47,8 +47,8 @@
     <string name="island_description">Optionale Steuerung über anderen Apps, solange Aoede geöffnet ist oder Musik abspielt. Erlaube „Über anderen Apps einblenden“, wenn Android danach fragt. Diese Einstellung gilt nur für dieses Gerät.</string>
     <string name="island_permission_denied">Android hat Overlays nicht erlaubt. Dynamic Island bleibt ausgeschaltet.</string>
     <string name="island_position">Vertikale Position der Insel</string>
-    <string name="island_position_value">Abstand von oben: %1$d dp</string>
-    <string name="island_position_help">Passe die Position an, falls Kamera oder Statusleiste die Insel verdecken. Android und dein Telefon bestimmen, welche Systembereiche Apps verwenden können.</string>
+    <string name="island_position_value">Abstand unter der Statusleiste: %1$d dp</string>
+    <string name="island_position_help">Die gesamte Berührungsfläche bleibt unter Kamera und Statusleiste. Die horizontale Position reicht von links (−100%) über die Mitte (0%) bis rechts (100%). Größe und Position gelten für die kompakte Kapsel.</string>
     <string name="island_expand">Aoede-Musiksteuerung erweitern</string>
     <string name="island_seek">In Titel springen</string>
     <string name="island_shuffle">Zufallswiedergabe</string>
@@ -58,4 +58,11 @@
     <string name="island_favorite">Favorit hinzufügen oder entfernen</string>
     <string name="island_open_player">Player öffnen ›</string>
     <string name="island_idle">Deine Musik ist nur einen Tipp entfernt</string>
+    <string name="island_width">Kapselbreite</string>
+    <string name="island_width_value">Kapselbreite: %1$d dp</string>
+    <string name="island_height">Kapselhöhe</string>
+    <string name="island_height_value">Kapselhöhe: %1$d dp</string>
+    <string name="island_horizontal">Horizontale Position</string>
+    <string name="island_horizontal_value">Horizontale Position: %1$d%%</string>
+    <string name="island_reset_layout">Layout zurücksetzen</string>
 </resources>

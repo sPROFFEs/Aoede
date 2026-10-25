@@ -10,6 +10,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PixelFormat
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import android.content.res.ColorStateList
@@ -23,6 +24,7 @@ import android.support.v4.media.MediaMetadataCompat
 import android.text.TextUtils
 import android.view.Gravity
 import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
@@ -37,6 +39,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.widget.SwitchCompat
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
+import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import kotlin.math.roundToInt
@@ -55,11 +58,23 @@ class MusicIsland(private val app: AoedeApp) {
     }
     private val windows get() = windowContext.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val handler = Handler(Looper.getMainLooper())
-    private var root: View? = null
+    private var root: FrameLayout? = null
+    private var changingWindow = false
+    private var windowRevision = 0
+    private val reconcile = Runnable {
+        val wasVisible = root != null
+        refresh()
+        if (wasVisible && root != null) relayout()
+    }
     private var registered = false
     private var screenAwake = true
-    private var safeTop = dp(32)
-    private val defaultOffset get() = (safeTop / app.resources.displayMetrics.density).roundToInt().coerceIn(0, 96)
+    private var safeInsets = Insets.of(0, dp(32), 0, 0)
+    private val safeTop get() = protectedInsets().top
+    private val gap get() = prefs.getInt("island_gap", (prefs.getInt("island_offset",
+        (safeTop / app.resources.displayMetrics.density).roundToInt()) -
+        (safeTop / app.resources.displayMetrics.density).roundToInt()).coerceAtLeast(0)).coerceIn(0, 120)
+    private val capsuleWidth get() = prefs.getInt("island_width", 156).coerceIn(112, 320)
+    private val capsuleHeight get() = prefs.getInt("island_height", 48).coerceIn(28, 72)
     private var tracking = false
     private var dialog: AlertDialog? = null
     internal var taskActive = false
@@ -73,6 +88,10 @@ class MusicIsland(private val app: AoedeApp) {
         (Build.VERSION.SDK_INT >= 26 && !android.animation.ValueAnimator.areAnimatorsEnabled())
     private val screen = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_CLOSE_SYSTEM_DIALOGS) {
+                if (intent.getStringExtra("reason") in setOf("homekey", "recentapps")) collapse()
+                return
+            }
             screenAwake = intent.action != Intent.ACTION_SCREEN_OFF
             refresh()
         }
@@ -100,6 +119,7 @@ class MusicIsland(private val app: AoedeApp) {
 
     fun refresh() {
         check(Looper.myLooper() == Looper.getMainLooper())
+        if (changingWindow) { deferRefresh(); return }
         val alive = app.player != null && (taskActive || media.needsForeground)
         if (!enabled || !alive || !permissionGranted) {
             hide()
@@ -115,27 +135,58 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     fun relayout() {
-        if (root != null) { val wasExpanded = expanded; hide(); show(wasExpanded) }
+        if (root != null) show(expanded)
     }
 
     fun updateSafeTop(top: Int) {
-        if (safeTop == top || top < 0) return
-        safeTop = top
-        val view = root ?: return
-        if (expanded) view.findViewWithTag<View>("card")?.let { card ->
-            (card.layoutParams as FrameLayout.LayoutParams).apply { topMargin = safeTop + dp(8); card.layoutParams = this }
-        } else if (!prefs.contains("island_offset")) {
-            (view.layoutParams as WindowManager.LayoutParams).apply {
-                y = safeTop
-                runCatching { windows.updateViewLayout(view, this) }
-            }
-        }
+        updateSafeInsets(Insets.of(safeInsets.left, top, safeInsets.right, safeInsets.bottom))
+    }
+
+    fun updateSafeInsets(value: Insets) {
+        val next = Insets.of(value.left, if (value.top > 0) value.top else safeInsets.top, value.right, value.bottom)
+        if (next == safeInsets) return
+        safeInsets = next
+        if (root != null) { if (changingWindow) deferRefresh() else show(expanded) }
+    }
+
+    fun collapse() {
+        if (expanded) show(false)
+    }
+
+    private fun deferRefresh() {
+        handler.removeCallbacks(reconcile)
+        handler.post(reconcile)
+    }
+
+    private fun protectedInsets(): Insets {
+        if (Build.VERSION.SDK_INT < 30) return safeInsets
+        val stable = windows.currentWindowMetrics.windowInsets.getInsetsIgnoringVisibility(
+            android.view.WindowInsets.Type.systemBars() or android.view.WindowInsets.Type.displayCutout() or android.view.WindowInsets.Type.tappableElement())
+        return Insets.max(safeInsets, Insets.of(stable.left, stable.top, stable.right, stable.bottom))
+    }
+
+    @Suppress("DEPRECATION")
+    private fun displayBounds(): Rect = if (Build.VERSION.SDK_INT >= 30) windows.currentWindowMetrics.bounds
+        else android.util.DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }.let { Rect(0, 0, it.widthPixels, it.heightPixels) }
+
+    private fun capsuleBounds(): Rect {
+        val screen = displayBounds(); val insets = protectedInsets()
+        val left = insets.left + dp(8); val right = (screen.width() - insets.right - dp(8)).coerceAtLeast(left + dp(48))
+        val width = minOf(dp(capsuleWidth), right - left)
+        val height = dp(maxOf(48, capsuleHeight)) // Keep the tap target accessible even for a thin visual capsule.
+        val travel = right - left - width
+        val x = left + travel * (prefs.getInt("island_horizontal", 0).coerceIn(-100, 100) + 100) / 200
+        val minimumY = insets.top + dp(4)
+        val maximumY = (screen.height() - insets.bottom - dp(8) - height).coerceAtLeast(minimumY)
+        val y = (minimumY + dp(gap)).coerceIn(minimumY, maximumY)
+        return Rect(x, y, x + width, y + height)
     }
 
     private fun register() {
         if (registered) return
         ContextCompat.registerReceiver(app, screen, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT)
+            addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
         }, ContextCompat.RECEIVER_NOT_EXPORTED)
         if (Build.VERSION.SDK_INT >= 23) {
             (app.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager)
@@ -154,79 +205,154 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     internal fun hide() {
+        if (changingWindow) { deferRefresh(); return }
+        changingWindow = true
+        windowRevision++
         handler.removeCallbacks(tick)
-        root?.let { runCatching { windows.removeViewImmediate(it) } }
+        val previous = root
         root = null
         expanded = false
         tracking = false
+        try { previous?.let { windows.removeViewImmediate(it) } }
+        catch (_: IllegalArgumentException) { /* The system may already have removed a revoked overlay. */ }
+        finally { changingWindow = false }
     }
 
     internal fun show(open: Boolean) {
         if (!enabled || !permissionGranted) return
-        hide()
-        expanded = open
-        val view = if (open) panel() else capsule()
-        @Suppress("DEPRECATION")
-        val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-            else WindowManager.LayoutParams.TYPE_PHONE
-        val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            if (open) WindowManager.LayoutParams.FLAG_DIM_BEHIND
-            else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-        val params = WindowManager.LayoutParams(if (open) -1 else dp(156), if (open) -1 else dp(48),
-            type, flags, PixelFormat.TRANSLUCENT).apply {
-            gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-            y = if (open) 0 else dp(prefs.getInt("island_offset", defaultOffset).coerceIn(0, 96))
-            dimAmount = if (open) .16f else 0f
-            if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-        }
-        root = view
+        if (changingWindow) { deferRefresh(); return }
+        changingWindow = true
+        val modeChanged = expanded != open
+        if (modeChanged) windowRevision++
         try {
-            windows.addView(view, params)
-        } catch (_: SecurityException) { hide(); return }
-        catch (_: WindowManager.BadTokenException) { hide(); return }
-        ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
-            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.displayCutout()).top
-            if (top > 0) updateSafeTop(top)
-            insets
-        }
-        ViewCompat.requestApplyInsets(view)
-        render()
-        if (open) { view.requestFocus(); tick.run() }
-        if (!reduced) {
-            val target = view.findViewWithTag<View>("card") ?: view
-            target.alpha = 0f; target.scaleX = .94f; target.scaleY = .94f
-            target.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start()
-        }
+            handler.removeCallbacks(tick)
+            expanded = open
+            tracking = false
+            val existing = root
+            val view = existing ?: IslandWindow(windowContext)
+            (view.findViewWithTag<View>("card") ?: view.getChildAt(0))?.animate()?.cancel()
+            view.removeAllViews()
+            view.addView(if (open) panel() else capsule(), FrameLayout.LayoutParams(-1,
+                if (open) -1 else dp(capsuleHeight), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            view.isFocusableInTouchMode = open
+            view.contentDescription = if (open) null else app.getString(R.string.island_expand)
+            view.importantForAccessibility = if (open) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            view.setOnClickListener { if (expanded) collapse() else show(true) }
+            @Suppress("DEPRECATION")
+            val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                else WindowManager.LayoutParams.TYPE_PHONE
+            val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                if (open) WindowManager.LayoutParams.FLAG_DIM_BEHIND
+                else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
+            val box = capsuleBounds()
+            val params = WindowManager.LayoutParams(if (open) -1 else box.width(), if (open) -1 else box.height(),
+                type, flags, PixelFormat.TRANSLUCENT).apply {
+                gravity = Gravity.TOP or Gravity.LEFT
+                x = if (open) 0 else box.left
+                y = if (open) 0 else box.top
+                dimAmount = if (open) .16f else 0f
+                if (Build.VERSION.SDK_INT >= 30) setFitInsetsTypes(0)
+                if (Build.VERSION.SDK_INT >= 28) layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
+            ViewCompat.setOnApplyWindowInsetsListener(view) { _, insets ->
+                // Insets on a small, positioned overlay are window-relative. Use the full display's
+                // stable metrics (or the activity) rather than feeding those back into screen coordinates.
+                if (Build.VERSION.SDK_INT >= 30) {
+                    val stable = protectedInsets()
+                    if (stable != safeInsets) { safeInsets = stable; deferRefresh() }
+                }
+                insets
+            }
+            try {
+                if (existing == null) windows.addView(view, params) else windows.updateViewLayout(view, params)
+                root = view
+            } catch (_: SecurityException) {
+                if (existing == null) runCatching { windows.removeViewImmediate(view) }
+                return
+            } catch (_: WindowManager.BadTokenException) {
+                if (existing == null) runCatching { windows.removeViewImmediate(view) }
+                return
+            }
+            ViewCompat.requestApplyInsets(view)
+            render()
+            if (open) { view.requestFocus(); tick.run() }
+            if (!reduced && (existing == null || modeChanged)) {
+                val target = view.findViewWithTag<View>("card") ?: view.getChildAt(0)
+                target.alpha = 0f; target.scaleX = .94f; target.scaleY = .94f
+                target.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start()
+            }
+        } finally { changingWindow = false }
     }
 
     private fun capsule(): View = FrameLayout(windowContext).apply {
-        background = shape(Color.BLACK, 24f)
-        isClickable = true
-        contentDescription = app.getString(R.string.island_expand)
-        setOnClickListener { show(true) }
-        addView(cover("art", 28), FrameLayout.LayoutParams(dp(28), dp(28), Gravity.CENTER_VERTICAL or Gravity.START).apply { marginStart = dp(12) })
+        tag = "capsule"
+        background = shape(Color.BLACK, capsuleHeight / 2f)
+        val artSize = minOf(28, capsuleHeight - 10)
+        addView(cover("art", artSize), FrameLayout.LayoutParams(dp(artSize), dp(artSize), Gravity.CENTER_VERTICAL or Gravity.START).apply { marginStart = dp(12) })
         addView(Bars(windowContext).apply { tag = "bars"; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO },
-            FrameLayout.LayoutParams(dp(28), dp(24), Gravity.CENTER_VERTICAL or Gravity.END).apply { marginEnd = dp(14) })
+            FrameLayout.LayoutParams(dp(28), dp(minOf(24, capsuleHeight - 8)), Gravity.CENTER_VERTICAL or Gravity.END).apply { marginEnd = dp(14) })
+    }
+
+    private inner class IslandWindow(context: Context) : FrameLayout(context) {
+        private var focused = false
+        private var swallowingOutsideTouch = false
+        override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) {
+                swallowingOutsideTouch = false
+                val card = findViewWithTag<View>("card")
+                if (expanded && card != null) {
+                    val bounds = Rect()
+                    card.getDrawingRect(bounds)
+                    offsetDescendantRectToMyCoords(card, bounds)
+                    if (!bounds.contains(event.x.toInt(), event.y.toInt())) {
+                        swallowingOutsideTouch = true
+                        collapse() // Recents/Home can cancel the gesture before a click/UP is delivered.
+                    }
+                }
+            }
+            if (swallowingOutsideTouch) {
+                if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) swallowingOutsideTouch = false
+                return true
+            }
+            return super.dispatchTouchEvent(event)
+        }
+        override fun onWindowFocusChanged(hasFocus: Boolean) {
+            super.onWindowFocusChanged(hasFocus)
+            val lost = focused && !hasFocus
+            focused = hasFocus
+            val revision = windowRevision
+            if (lost && expanded) handler.post {
+                if (root === this && revision == windowRevision && !focused && expanded) collapse()
+            }
+        }
+        override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+            if (expanded && event.keyCode == KeyEvent.KEYCODE_BACK) {
+                if (event.action == KeyEvent.ACTION_UP) collapse()
+                return true
+            }
+            return super.dispatchKeyEvent(event)
+        }
     }
 
     private fun panel(): View {
         val frame = FrameLayout(windowContext).apply {
-            isFocusableInTouchMode = true
             setOnClickListener { show(false) }
-            setOnKeyListener { _, code, event ->
-                if (code == KeyEvent.KEYCODE_BACK && event.action == KeyEvent.ACTION_UP) { show(false); true } else false
-            }
         }
-        @Suppress("DEPRECATION")
-        val displayWidth = if (Build.VERSION.SDK_INT >= 30) windows.currentWindowMetrics.bounds.width()
-            else android.util.DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }.widthPixels
+        val bounds = displayBounds()
+        val displayWidth = bounds.width()
+        val insets = protectedInsets()
+        val width = minOf(dp(420), displayWidth - insets.left - insets.right - dp(24))
+        val capsule = capsuleBounds()
+        val left = (capsule.centerX() - width / 2).coerceIn(insets.left + dp(12), displayWidth - insets.right - dp(12) - width)
+        // Retain a usable scrolling viewport when the capsule is low or the phone rotates.
+        val top = maxOf(safeTop + dp(8), minOf(capsule.top, bounds.height() - insets.bottom - dp(176)))
         val scroll = ScrollView(windowContext).apply {
             tag = "card"; background = shape(Color.rgb(27, 24, 30), 30f); clipToOutline = true
             isFillViewport = false
             setOnClickListener { openPlayer() }
         }
-        frame.addView(scroll, FrameLayout.LayoutParams(minOf(dp(420), displayWidth - dp(24)), -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
-            topMargin = safeTop + dp(8); bottomMargin = dp(32)
+        frame.addView(scroll, FrameLayout.LayoutParams(width, -2, Gravity.TOP or Gravity.LEFT).apply {
+            leftMargin = left; topMargin = top; bottomMargin = insets.bottom + dp(16)
         })
         val body = LinearLayout(windowContext).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(10))
@@ -366,18 +492,31 @@ class MusicIsland(private val app: AoedeApp) {
         body.addView(TextView(activity).apply { text = app.getString(R.string.island_description) })
         val toggle = SwitchCompat(activity).apply { tag = "island-toggle"; text = app.getString(R.string.island_enable); minHeight = dp(56); isChecked = enabled && permissionGranted }
         body.addView(toggle)
-        val position = TextView(activity)
-        val slider = SeekBar(activity).apply { max = 96; progress = prefs.getInt("island_offset", defaultOffset).coerceIn(0, 96); contentDescription = app.getString(R.string.island_position) }
-        fun positionLabel() { position.text = app.getString(R.string.island_position_value, slider.progress) }
-        positionLabel(); body.addView(position); body.addView(slider, LinearLayout.LayoutParams(-1, dp(48)))
-        body.addView(TextView(activity).apply { text = app.getString(R.string.island_position_help); textSize = 12f })
-        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onStartTrackingTouch(bar: SeekBar) {}
-            override fun onStopTrackingTouch(bar: SeekBar) {}
-            override fun onProgressChanged(bar: SeekBar, value: Int, fromUser: Boolean) {
-                if (fromUser) { prefs.edit().putInt("island_offset", value).apply(); positionLabel() }
+        fun slider(key: String, title: Int, format: Int, minimum: Int, maximum: Int, value: Int) {
+            val label = TextView(activity)
+            val bar = SeekBar(activity).apply {
+                tag = key; max = maximum - minimum; progress = value - minimum
+                contentDescription = app.getString(title)
             }
-        })
+            fun updateLabel() { label.text = app.getString(format, bar.progress + minimum) }
+            updateLabel(); body.addView(label); body.addView(bar, LinearLayout.LayoutParams(-1, dp(48)))
+            bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onStartTrackingTouch(bar: SeekBar) {}
+                override fun onStopTrackingTouch(bar: SeekBar) {}
+                override fun onProgressChanged(bar: SeekBar, value: Int, fromUser: Boolean) {
+                    if (fromUser) {
+                        prefs.edit().putInt(key, value + minimum).apply()
+                        updateLabel()
+                    }
+                }
+            })
+        }
+        slider("island_width", R.string.island_width, R.string.island_width_value, 112, 320, capsuleWidth)
+        slider("island_height", R.string.island_height, R.string.island_height_value, 28, 72, capsuleHeight)
+        slider("island_gap", R.string.island_position, R.string.island_position_value, 0, 120, gap)
+        slider("island_horizontal", R.string.island_horizontal, R.string.island_horizontal_value, -100, 100,
+            prefs.getInt("island_horizontal", 0).coerceIn(-100, 100))
+        body.addView(TextView(activity).apply { text = app.getString(R.string.island_position_help); textSize = 12f })
         toggle.setOnCheckedChangeListener { _, checked ->
             if (checked && !permissionGranted) {
                 dialog?.dismiss()
@@ -388,10 +527,19 @@ class MusicIsland(private val app: AoedeApp) {
                 }
             } else { prefs.edit().putBoolean("music_island", checked).apply() }
         }
-        dialog = AlertDialog.Builder(activity).setTitle(R.string.island_title).setView(body).setPositiveButton(android.R.string.ok, null)
-            .setOnDismissListener { dialog = null; refresh() }.create()
-        dialog!!.setOwnerActivity(activity)
-        dialog!!.show()
+        val settingsDialog = AlertDialog.Builder(activity).setTitle(R.string.island_title)
+            .setView(ScrollView(activity).apply { addView(body) }).setPositiveButton(android.R.string.ok, null)
+            .setNeutralButton(R.string.island_reset_layout) { _, _ ->
+                prefs.edit().remove("island_width").remove("island_height").remove("island_gap")
+                    .remove("island_offset").remove("island_horizontal").apply()
+            }
+            .create()
+        settingsDialog.setOnDismissListener {
+            if (dialog === settingsDialog) { dialog = null; refresh() }
+        }
+        dialog = settingsDialog
+        settingsDialog.setOwnerActivity(activity)
+        settingsDialog.show()
     }
 
     fun closeSettings(activity: MainActivity) {

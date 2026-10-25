@@ -79,6 +79,8 @@ class MainActivity : AppCompatActivity() {
         if (android.os.Build.VERSION.SDK_INT >= 29) window.isNavigationBarContrastEnforced = false
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main_root)) { root, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            app.musicIsland.updateSafeInsets(insets.getInsetsIgnoringVisibility(
+                WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout() or WindowInsetsCompat.Type.tappableElement()))
             val ime = insets.getInsets(WindowInsetsCompat.Type.ime())
             val keyboard = insets.isVisible(WindowInsetsCompat.Type.ime()) && ime.bottom > bars.bottom
             // Resize for the keyboard ourselves, including older WebViews. Forward system bars
@@ -138,8 +140,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        app.musicIsland.collapse()
         app.musicIsland.closeSettings(this)
         super.onStop()
+    }
+
+    override fun onUserLeaveHint() {
+        app.musicIsland.collapse()
+        super.onUserLeaveHint()
     }
 
     fun applyAppearance(dark: Boolean) {

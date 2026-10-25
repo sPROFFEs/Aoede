@@ -8,6 +8,8 @@ import android.graphics.Canvas
 import android.os.Looper
 import android.os.PowerManager
 import android.view.View
+import android.view.WindowManager
+import androidx.core.graphics.Insets
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.TextView
@@ -64,7 +66,7 @@ class MusicIslandTest {
         island.updateSafeTop(44)
         island.setEnabled(true)
         assertTrue(island.visible)
-        assertEquals(44, (view().layoutParams as android.view.WindowManager.LayoutParams).y)
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).y >= 44)
         island.taskRemoved()
         assertFalse(island.visible) // A paused player cannot keep a dismissed app's island alive.
         app.mediaController.updateState("playing", 125000, 257000)
@@ -147,6 +149,97 @@ class MusicIslandTest {
         assertTrue(island.visible)
         island.setEnabled(false)
         assertFalse(island.visible)
+    }
+
+    @Test fun geometryKeepsEveryTapBelowSystemBarsAndSupportsSizeAndSideCameras() {
+        val prefs = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        val density = app.resources.displayMetrics.density
+        fun dp(value: Int) = (value * density).toInt()
+        prefs.edit().putInt("island_offset", 0).putInt("island_height", 28).putInt("island_width", 240)
+            .putInt("island_horizontal", -100).commit()
+        island.updateSafeInsets(Insets.of(dp(16), dp(48), dp(12), dp(24)))
+        island.setEnabled(true)
+        val host = view()
+        var params = host.layoutParams as WindowManager.LayoutParams
+        assertTrue(params.y >= dp(52)) // Includes legacy offsets that used to place it under the status bar.
+        assertTrue(params.x >= dp(24))
+        assertTrue(params.height >= dp(48))
+        assertEquals(dp(28), host.findViewWithTag<View>("capsule").layoutParams.height)
+        val left = params.x
+        prefs.edit().putInt("island_horizontal", 100).putInt("island_width", 112).putInt("island_height", 72).commit()
+        island.relayout()
+        assertSame(host, view())
+        params = view().layoutParams as WindowManager.LayoutParams
+        assertTrue(params.x > left)
+        assertEquals(dp(72), params.height)
+        assertEquals(dp(112), params.width)
+        val right = params.x + params.width
+        val screenWidth = app.resources.displayMetrics.widthPixels
+        assertTrue(right <= screenWidth - dp(20))
+        island.updateSafeTop(0) // A hidden/edge-to-edge activity must not erase the protected bar inset.
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).y >= dp(52))
+    }
+
+    @Test fun firstConfigurationAndModeChangesKeepExactlyOneManagedOverlayWindow() {
+        val manager = ReflectionHelpers.callInstanceMethod<WindowManager>(island, "getWindows")
+        val windows = org.robolectric.shadow.api.Shadow.extract<org.robolectric.shadows.ShadowWindowManagerImpl>(manager)
+        val baseline = windows.views.size
+        island.setEnabled(true)
+        val host = view()
+        repeat(6) {
+            island.show(true)
+            island.relayout()
+            app.mediaController.receive("""{"type":"metadata","title":"Song $it","artist":"Aoede"}""")
+            island.collapse()
+            assertSame(host, view())
+            assertEquals(baseline + 1, windows.views.size)
+        }
+        island.showSettings(activity!!.get()) {}
+        island.showSettings(activity!!.get()) {} // A late dismissal must not clear the replacement dialog.
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(island.visible)
+        assertTrue(ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog").isShowing)
+        island.closeSettings(activity!!.get())
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(island.visible)
+        assertEquals(baseline + 1, windows.views.size)
+        island.setEnabled(false)
+        assertEquals(baseline, windows.views.size)
+    }
+
+    @Test fun recentsHomeFocusLossAndBackCollapseWithoutStoppingMusic() {
+        island.setEnabled(true)
+        val host = view()
+        // A navigation swipe produces DOWN then CANCEL, without the click used by the old backdrop.
+        for (ending in listOf(android.view.MotionEvent.ACTION_CANCEL, android.view.MotionEvent.ACTION_UP)) {
+            island.show(true)
+            val width = app.resources.displayMetrics.widthPixels
+            val height = app.resources.displayMetrics.heightPixels
+            host.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+            host.layout(0, 0, width, height)
+            for (action in listOf(android.view.MotionEvent.ACTION_DOWN, ending)) {
+                val event = android.view.MotionEvent.obtain(0, 0, action, 1f, height - 1f, 0)
+                host.dispatchTouchEvent(event); event.recycle()
+                assertFalse(island.expanded)
+            }
+        }
+        for (reason in listOf("recentapps", "homekey")) {
+            island.show(true)
+            app.sendBroadcast(Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS).putExtra("reason", reason))
+            shadowOf(Looper.getMainLooper()).idle()
+            assertFalse(island.expanded)
+            assertSame(host, view())
+        }
+        island.show(true)
+        host.onWindowFocusChanged(true)
+        host.onWindowFocusChanged(false)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(island.expanded)
+        island.show(true)
+        host.dispatchKeyEvent(android.view.KeyEvent(android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_BACK))
+        assertFalse(island.expanded)
+        assertTrue(island.visible)
+        assertEquals("paused", app.mediaController.state)
     }
 
     @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
