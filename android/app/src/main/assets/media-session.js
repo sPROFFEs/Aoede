@@ -13,6 +13,46 @@
   var scheduled = false;
   var lastControls = '';
   var pendingPlayer = false;
+  var offlineCoverId = null;
+  var offlineCoverData = null;
+  var offlineCoverGeneration = 0;
+
+  function withOfflineArtwork(info, trackId, lookup) {
+    var id = trackId == null ? null : String(trackId);
+    if (id !== offlineCoverId) {
+      offlineCoverId = id;
+      offlineCoverData = null;
+      var generation = ++offlineCoverGeneration;
+      if (id && typeof lookup === 'function') loadOfflineCover(trackId, generation, lookup).catch(function () {});
+    }
+    if (id && offlineCoverData) info.artwork = [{ src: offlineCoverData, sizes: '256x256', type: 'image/jpeg' }];
+  }
+
+  async function loadOfflineCover(id, generation, lookup) {
+    var record = await lookup(id);
+    if (!record || !record.artwork_blob || record.artwork_blob.size > 5 * 1024 * 1024 || generation !== offlineCoverGeneration) return;
+    var url = URL.createObjectURL(record.artwork_blob);
+    try {
+      var picture = new Image();
+      await new Promise(function (resolve, reject) { picture.onload = resolve; picture.onerror = reject; picture.src = url; });
+      if (generation !== offlineCoverGeneration || !metadata) return;
+      var scale = Math.min(1, 256 / Math.max(picture.naturalWidth, picture.naturalHeight));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(picture.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(picture.naturalHeight * scale));
+      canvas.getContext('2d').drawImage(picture, 0, 0, canvas.width, canvas.height);
+      var data = canvas.toDataURL('image/jpeg', .8);
+      if (data.length > 192 * 1024) return;
+      offlineCoverData = data;
+      var fresh = { title: metadata.title, artist: metadata.artist, album: metadata.album,
+        artwork: [{ src: data, sizes: '256x256', type: 'image/jpeg' }] };
+      session.metadata = typeof MediaMetadata === 'function' ? new MediaMetadata(fresh) : fresh;
+      ['player-cover', 'fs-cover'].forEach(function (key) {
+        var cover = document.getElementById(key);
+        if (cover) cover.src = data;
+      });
+    } finally { URL.revokeObjectURL(url); }
+  }
   var spectrum = null;
   var spectrumFailed = '';
 
@@ -119,7 +159,7 @@
     audible = false;
     pushState();
   }
-  window.AoedeAndroid = { version: 2, get isPaused() { return blocked; }, resumeLocal: resumeLocal, pauseLocal: pauseLocal };
+  window.AoedeAndroid = { version: 2, get isPaused() { return blocked; }, resumeLocal: resumeLocal, pauseLocal: pauseLocal, withOfflineArtwork: withOfflineArtwork };
 
   // Also protects old server versions: party sync cannot undo a hardware/noisy pause.
   var originalPlay = HTMLMediaElement.prototype.play;

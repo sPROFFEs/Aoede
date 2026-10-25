@@ -121,7 +121,7 @@ def test_login_uses_minimal_accessible_form_without_changing_auth_contract():
     assert "border-radius: 999px;" in template
 
 
-def test_home_dashboard_uses_compact_scrollable_shelves_and_fading_overview():
+def test_home_dashboard_uses_compact_scrollable_shelves_and_stable_sections():
     assets_root = Path(__file__).resolve().parents[2] / "assets"
     css = (assets_root / "css" / "ui_home.css").read_text(encoding="utf-8")
     views = (assets_root / "js" / "modules" / "views.js").read_text(encoding="utf-8")
@@ -136,7 +136,10 @@ def test_home_dashboard_uses_compact_scrollable_shelves_and_fading_overview():
     assert 'class="grid-shelf home-rail" tabindex="0"' in views
     assert 'class="shelf-section home-shelf"' in views
     assert "${ui.homeTabsBar('all')}" in views
-    assert "html += party.renderHomeShelf(partyRooms);" in views
+    assert "paint('parties', party.renderHomeShelf(partyRooms));" in views
+    assert "data-home-root" in views
+    assert 'data-home-section="recommendations"' in views
+    assert "container.style.opacity = '0'" not in views
     assert 'class="shelf-section home-shelf party-home-shelf"' in party
 
 

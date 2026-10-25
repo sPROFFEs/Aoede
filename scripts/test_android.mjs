@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const shim = await readFile(new URL('../android/app/src/main/assets/media-session.js', import.meta.url), 'utf8');
-function page({ frame = false, early = false, native = true, audioContext = null, captureStream = null } = {}) {
+function page({ frame = false, early = false, native = true, audioContext = null, captureStream = null, imageClass = null, canvas = null, objectUrls = null } = {}) {
   const messages = [];
   const nativeActions = new Map();
   const clicks = [];
@@ -47,10 +47,11 @@ function page({ frame = false, early = false, native = true, audioContext = null
   document.getElementById = (id) => elements.get(id) || (id === 'audio-player' ? audio : null);
   document.querySelector = (selector) => selector === '.player-footer.party-player' ? (inParty ? {} : null) : selector === 'audio' ? audio : { click() { clicks.push(selector); } };
   document.querySelectorAll = () => [audio, preview];
+  document.createElement = () => canvas;
   const navigator = native ? { mediaSession: new Session() } : {};
   vm.runInNewContext(shim, { window, document, navigator, HTMLMediaElement: Media,
     MutationObserver: class { constructor(callback) { observers.push(callback); } observe(root) { assert.ok(root); } },
-    location: { href: 'https://example.com/portal' }, URL, Promise, Event, DOMException, console });
+    location: { href: 'https://example.com/portal' }, URL: objectUrls || URL, Image: imageClass, Promise, Event, DOMException, console });
   const state = () => messages.filter((message) => message.type === 'state').at(-1);
   return { window, document, navigator, audio, preview, messages, nativeActions, state, clicks, elements,
     mutate() { observers.forEach(callback => callback()); }, party(value) { inParty = value; } };
@@ -63,38 +64,38 @@ const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
   const inline = 'data:image/jpeg;base64,' + 'a'.repeat(5000);
   const covers = new Map([['player-cover', {}], ['fs-cover', {}]]);
   const revoked = [];
-  const navigator = { mediaSession: {} };
-  const context = vm.createContext({ window: { AOEDE_ANDROID: true }, navigator, console,
-    URL: { createObjectURL: () => 'blob:downloaded-cover', revokeObjectURL: value => revoked.push(value) },
-    Image: class { naturalWidth = 512; naturalHeight = 512; set src(value) { assert.equal(value, 'blob:downloaded-cover'); queueMicrotask(() => this.onload()); } },
-    document: { addEventListener() {}, getElementById: key => covers.get(key), createElement: () => ({
-      getContext: () => ({ drawImage() {} }), toDataURL: () => inline
-    }) }
+  const p = page({
+    imageClass: class { naturalWidth = 512; naturalHeight = 512; set src(value) { assert.equal(value, 'blob:downloaded-cover'); queueMicrotask(() => this.onload()); } },
+    objectUrls: Object.assign(class extends URL {}, { createObjectURL: () => 'blob:downloaded-cover', revokeObjectURL: value => revoked.push(value) }),
+    canvas: { getContext: () => ({ drawImage() {} }), toDataURL: () => inline }
   });
+  for (const [id, cover] of covers) p.elements.set(id, cover);
+  const context = vm.createContext({ window: p.window, navigator: p.navigator, document: p.document, console });
   const player = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/player.js', import.meta.url), 'utf8') + '\nexport { updateMediaSessionMetadata };', { context });
-  let stateModule;
   await player.link(name => {
     const values = name === './state.js' ? { currentTrack: track, audio: { duration: 0 } }
       : name === './offline_store.js' ? { getOfflineTrack: async id => { assert.equal(id, 8); return { artwork_blob: { size: 1000 } }; } } : {};
-    const module = new vm.SyntheticModule(Object.keys(values), function () { for (const [key, value] of Object.entries(values)) this.setExport(key, value); }, { context });
-    if (name === './state.js') stateModule = module;
-    return module;
+    return new vm.SyntheticModule(Object.keys(values), function () { for (const [key, value] of Object.entries(values)) this.setExport(key, value); }, { context });
   });
   await player.evaluate();
   player.namespace.updateMediaSessionMetadata(track);
   await new Promise(setImmediate);
-  assert.equal(navigator.mediaSession.metadata.artwork[0].src, inline);
-  assert.equal(navigator.mediaSession.metadata.artwork[0].type, 'image/jpeg');
+  assert.equal(p.navigator.mediaSession.metadata.artwork[0].src, inline);
+  assert.equal(p.navigator.mediaSession.metadata.artwork[0].type, 'image/jpeg');
   assert.equal(covers.get('player-cover').src, inline);
   assert.equal(covers.get('fs-cover').src, inline);
   assert.deepEqual(revoked, ['blob:downloaded-cover']);
-  const p = page();
-  p.navigator.mediaSession.metadata = navigator.mediaSession.metadata;
   assert.equal(p.messages.filter(message => message.type === 'metadata').at(-1).artwork, inline);
   const remote = { db_id: 8, fed_instance_id: 2, title: 'Remote song', thumbnail: 'https://remote.example/art.png' };
-  stateModule.setExport('currentTrack', remote);
   player.namespace.updateMediaSessionMetadata(remote);
-  assert.equal(navigator.mediaSession.metadata.artwork[0].src, remote.thumbnail); // A remote ID cannot reuse a local cover.
+  assert.equal(p.navigator.mediaSession.metadata.artwork[0].src, remote.thumbnail); // A remote ID cannot reuse a local cover.
+  let finishOldCover;
+  p.window.AoedeAndroid.withOfflineArtwork({ artwork: [] }, 9, () => new Promise(resolve => { finishOldCover = resolve; }));
+  p.window.AoedeAndroid.withOfflineArtwork({ artwork: [] }, null);
+  finishOldCover({ artwork_blob: { size: 1000 } });
+  await new Promise(setImmediate);
+  assert.equal(p.navigator.mediaSession.metadata.artwork[0].src, remote.thumbnail);
+  assert.deepEqual(revoked, ['blob:downloaded-cover']); // A discarded lookup cannot allocate or publish another cover.
 }
 
 // The island reads real frequency bands from a disposable copy, never the audible output.
