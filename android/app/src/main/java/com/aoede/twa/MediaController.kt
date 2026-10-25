@@ -148,6 +148,7 @@ class MediaController(private val app: AoedeApp) {
         rate = if (speed.isFinite() && speed in 0.1f..4f) speed else 1f
         emitState()
         app.ensurePlaybackService()
+        app.musicIsland.syncSpectrum() // Position updates also recover from a missed OEM wake/unlock broadcast.
     }
 
     private fun emitMetadata() {

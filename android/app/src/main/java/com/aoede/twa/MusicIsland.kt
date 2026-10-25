@@ -67,7 +67,6 @@ class MusicIsland(private val app: AoedeApp) {
         if (wasVisible && root != null) relayout()
     }
     private var registered = false
-    private var screenAwake = true
     private var safeInsets = Insets.of(0, dp(32), 0, 0)
     private val safeTop get() = protectedInsets().top
     private val capsuleTop get() = prefs.getInt("island_top", when {
@@ -94,10 +93,15 @@ class MusicIsland(private val app: AoedeApp) {
                 if (intent.getStringExtra("reason") in setOf("homekey", "recentapps")) collapse()
                 return
             }
-            screenAwake = intent.action != Intent.ACTION_SCREEN_OFF
+            if (intent.action !in setOf(Intent.ACTION_SCREEN_OFF, Intent.ACTION_SCREEN_ON, Intent.ACTION_USER_PRESENT)) return
+            if (intent.action == Intent.ACTION_SCREEN_OFF || (app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked) collapse()
             refresh()
+            handler.removeCallbacks(wakeRefresh)
+            // Some devices deliver wake/unlock before PowerManager/Keyguard finish their transition.
+            if (intent.action != Intent.ACTION_SCREEN_OFF) handler.postDelayed(wakeRefresh, 500)
         }
     }
+    private val wakeRefresh = Runnable { refresh() }
     private val permissionChange = AppOpsManager.OnOpChangedListener { _, packageName ->
         if (packageName == app.packageName) handler.post { refresh() }
     }
@@ -133,8 +137,10 @@ class MusicIsland(private val app: AoedeApp) {
         root?.findViewWithTag<Bars>("bars")?.levels = levels
     }
 
-    private fun syncSpectrum() {
-        val active = root != null && !expanded && media.isPlaying && !reduced && app.player != null
+    internal fun syncSpectrum() {
+        val active = root != null && !expanded && media.isPlaying && !reduced && app.player != null &&
+            (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive &&
+            !(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         root?.findViewWithTag<Bars>("bars")?.playing = active
         if (sampling == active) return
         sampling = active
@@ -167,9 +173,10 @@ class MusicIsland(private val app: AoedeApp) {
         }
         if (dialog != null) { hide(); return }
         register()
-        val locked = (app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
-        if (!screenAwake || !awake || locked) { hide(); return }
+        if (!awake && expanded) collapse()
+        // Keep the one compact window attached: the system hides it while sleeping/under keyguard
+        // and reveals it after unlocking, even if an OEM delays or drops its wake broadcast.
         if (root == null) show(false) else render()
     }
 
@@ -228,7 +235,7 @@ class MusicIsland(private val app: AoedeApp) {
         ContextCompat.registerReceiver(app, screen, IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF); addAction(Intent.ACTION_SCREEN_ON); addAction(Intent.ACTION_USER_PRESENT)
             addAction(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
-        }, ContextCompat.RECEIVER_NOT_EXPORTED)
+        }, ContextCompat.RECEIVER_EXPORTED) // Protected screen broadcasts may originate in an OEM's privileged UI process.
         if (Build.VERSION.SDK_INT >= 23) {
             (app.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager)
                 .startWatchingMode(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW, app.packageName, permissionChange)
@@ -237,6 +244,7 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     private fun unregister() {
+        handler.removeCallbacks(wakeRefresh)
         if (!registered) return
         app.unregisterReceiver(screen)
         if (Build.VERSION.SDK_INT >= 23) {
@@ -294,7 +302,7 @@ class MusicIsland(private val app: AoedeApp) {
             @Suppress("DEPRECATION")
             val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else WindowManager.LayoutParams.TYPE_PHONE
-            val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
                 if (open) WindowManager.LayoutParams.FLAG_DIM_BEHIND
                 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
             val params = WindowManager.LayoutParams(if (open) -1 else box.width(), if (open) -1 else box.height(),

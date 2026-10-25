@@ -134,13 +134,14 @@ class MusicIslandTest {
         assertFalse(island.visible)
     }
 
-    @Test fun screenLockPermissionRevocationAndDisablingRemoveTheWindow() {
+    @Test fun screenLockRetainsTheWindowAndRevocationOrDisablingRemovesIt() {
         island.setEnabled(true); island.show(true)
+        val host = view()
         app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF)); shadowOf(Looper.getMainLooper()).idle()
-        assertFalse(island.visible)
+        assertTrue(island.visible); assertSame(host, view()); assertFalse(island.expanded)
         shadowOf(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).setKeyguardLocked(true)
         app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON)); shadowOf(Looper.getMainLooper()).idle()
-        assertFalse(island.visible)
+        assertTrue(island.visible); assertSame(host, view())
         shadowOf(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).setKeyguardLocked(false)
         app.sendBroadcast(Intent(Intent.ACTION_USER_PRESENT)); shadowOf(Looper.getMainLooper()).idle()
         assertTrue(island.visible); assertFalse(island.expanded)
@@ -150,6 +151,37 @@ class MusicIslandTest {
         assertTrue(island.visible)
         island.setEnabled(false)
         assertFalse(island.visible)
+    }
+
+    @Test fun backgroundPlaybackSurvivesEarlyUnlockSignalsWithoutReopeningActivity() {
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", false).commit()
+        app.mediaController.updateState("playing", 125000, 257000)
+        island.setEnabled(true); island.show(true)
+        val host = view()
+        activity!!.pause().stop()
+        val power = shadowOf(app.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        val keyguard = shadowOf(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager)
+        power.setIsInteractive(false); keyguard.setKeyguardLocked(true)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF)); shadowOf(Looper.getMainLooper()).idle()
+        assertSame(host, view()); assertFalse(island.expanded)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_ON)); shadowOf(Looper.getMainLooper()).idle()
+        power.setIsInteractive(true)
+        app.sendBroadcast(Intent(Intent.ACTION_USER_PRESENT)); shadowOf(Looper.getMainLooper()).idle()
+        assertSame(host, view()) // Even an early unlock signal must not remove the window.
+        keyguard.setKeyguardLocked(false)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(600))
+        assertSame(host, view()); assertTrue(island.visible)
+        assertTrue(ReflectionHelpers.getField(island, "sampling"))
+        assertTrue((host.layoutParams as WindowManager.LayoutParams).flags and WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED != 0)
+        assertEquals("playing", app.mediaController.state)
+        // A completely missed unlock broadcast cannot leave the island detached, either.
+        power.setIsInteractive(false); keyguard.setKeyguardLocked(true)
+        app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF)); shadowOf(Looper.getMainLooper()).idle()
+        power.setIsInteractive(true); keyguard.setKeyguardLocked(false)
+        assertSame(host, view())
+        app.mediaController.updateState("playing", 126000, 257000)
+        assertTrue(ReflectionHelpers.getField(island, "sampling"))
     }
 
     @Test fun cameraPositionAndAccessibleHandleSupportSizeAndSideCameras() {
