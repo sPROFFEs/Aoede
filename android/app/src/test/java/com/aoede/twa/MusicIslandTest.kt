@@ -199,6 +199,33 @@ class MusicIslandTest {
         assertEquals("paused", app.mediaController.state)
     }
 
+    @Test fun openingTheAppDoesNotRestartTheCompactAnalyserOrPlayback() {
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", false).commit()
+        val commands = mutableListOf<String>()
+        app.mediaController.setActionInvoker { action, _ -> commands.add(action) }
+        app.mediaController.updateState("playing", 125000, 257000)
+        island.setEnabled(true); island.show(true)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        val player = app.player
+        val url = shadowOf(player!!).lastLoadedUrl
+        view().findViewWithTag<TextView>("open").performClick()
+        val intent = shadowOf(app).nextStartedActivity
+        assertTrue(intent.flags and Intent.FLAG_ACTIVITY_NEW_TASK != 0)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(500))
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        activity!!.newIntent(intent).restart().start().resume()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2500))
+        assertSame(player, app.player); assertEquals(url, shadowOf(player).lastLoadedUrl)
+        assertEquals(listOf("openplayer"), commands)
+        assertEquals("playing", app.mediaController.state)
+        assertTrue(app.mediaController.mediaSession.controller.playbackState!!.position in 128000L..128100L)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        activity!!.pause().stop()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(ReflectionHelpers.getField(island, "sampling"))
+    }
+
     @Test fun settingExplainsPermissionAndOnlyRequestsItAfterUserOptIn() {
         ShadowSettings.setCanDrawOverlays(false)
         var requests = 0

@@ -26,6 +26,11 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.annotation.Implements
+import org.robolectric.annotation.Implementation
+import org.robolectric.shadows.ShadowAppWidgetManager
+import org.robolectric.shadow.api.Shadow
+import android.widget.RemoteViews
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -97,6 +102,60 @@ class PlaybackWidgetTest {
         assertEquals("First album", shadowOf(manager).getViewFor(id).findViewById<TextView>(R.id.widget_artist).text.toString())
         app.mediaController.receive("""{"type":"metadata","title":"A song","artist":"","album":"Second album"}""")
         assertEquals("Second album", shadowOf(manager).getViewFor(id).findViewById<TextView>(R.id.widget_artist).text.toString())
+    }
+
+    @Test fun widgetLinksReuseThePlayerTaskAndOpenFullscreenWithoutPlaying() {
+        playing("playing")
+        val player = app.player
+        val calls = mutableListOf<String>()
+        app.mediaController.setActionInvoker { action, _ -> calls.add(action) }
+        val root = PlaybackWidget.views(app, R.layout.widget_playback).apply(app, FrameLayout(app))
+        root.findViewById<View>(R.id.widget_info).performClick()
+        val intent = shadowOf(app).nextStartedActivity
+        for (flag in listOf(Intent.FLAG_ACTIVITY_NEW_TASK, Intent.FLAG_ACTIVITY_CLEAR_TOP, Intent.FLAG_ACTIVITY_SINGLE_TOP)) {
+            assertTrue(intent.flags and flag != 0)
+        }
+        lifecycle!!.newIntent(intent)
+        assertSame(player, app.player); assertEquals(listOf("openplayer"), calls)
+        assertEquals("playing", app.mediaController.state)
+    }
+
+    @Test @Config(sdk = [34], shadows = [RejectingWidgetHost::class])
+    fun rejectedWidgetUpdatesFallBackWithoutStoppingThePlayerOrOtherWidgets() {
+        playing("playing")
+        val manager = AppWidgetManager.getInstance(app)
+        val host = Shadow.extract<RejectingWidgetHost>(manager)
+        val first = host.createWidget(PlaybackWidget::class.java, R.layout.widget_playback)
+        val second = host.createWidget(PlaybackWidget::class.java, R.layout.widget_playback)
+        host.rejectNext = first
+        app.mediaController.receive("""{"type":"metadata","title":"New song","artist":"Artist"}""")
+        val fallback = host.getViewFor(first)
+        assertEquals("New song", fallback.findViewById<TextView>(R.id.widget_title).text.toString())
+        assertEquals(View.GONE, fallback.findViewById<View>(R.id.widget_surface).visibility)
+        assertEquals("New song", host.getViewFor(second).findViewById<TextView>(R.id.widget_title).text.toString())
+        assertEquals("playing", app.mediaController.state)
+        host.rejectAll = true
+        app.mediaController.receive("""{"type":"metadata","title":"Still playing"}""")
+        assertEquals("Still playing", app.mediaController.metadata.getString(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_TITLE))
+        assertEquals("playing", app.mediaController.state)
+        host.rejectAll = false
+        PlaybackWidget.update(app)
+        assertEquals("Still playing", host.getViewFor(first).findViewById<TextView>(R.id.widget_title).text.toString())
+        assertEquals(View.VISIBLE, host.getViewFor(first).findViewById<View>(R.id.widget_surface).visibility)
+    }
+
+    @Implements(AppWidgetManager::class)
+    class RejectingWidgetHost : ShadowAppWidgetManager() {
+        var rejectNext = -1
+        var rejectAll = false
+        @Implementation
+        override fun updateAppWidget(id: Int, views: RemoteViews) {
+            if (rejectAll || rejectNext == id) {
+                rejectNext = -1
+                throw IllegalArgumentException("Widget host rejected update")
+            }
+            super.updateAppWidget(id, views)
+        }
     }
 
     @Test @Config(sdk = [34], qualifiers = "xhdpi") @GraphicsMode(GraphicsMode.Mode.NATIVE)

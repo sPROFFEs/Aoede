@@ -82,6 +82,8 @@ class MusicIsland(private val app: AoedeApp) {
     private var dialog: AlertDialog? = null
     private var appVisible = true
     private var hiding = false
+    private var openingPlayer = false
+    private val finishOpening = Runnable { openingPlayer = false; syncSpectrum() }
     internal var taskActive = false
     internal var expanded = false
         private set
@@ -142,7 +144,7 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     internal fun syncSpectrum() {
-        val active = root != null && !hiding && !expanded && media.isPlaying && !reduced && app.player != null &&
+        val active = root != null && !openingPlayer && !hiding && !expanded && media.isPlaying && !reduced && app.player != null &&
             (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive &&
             !(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         root?.findViewWithTag<Bars>("bars")?.playing = active
@@ -167,9 +169,12 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     internal fun setAppVisible(value: Boolean) {
+        openingPlayer = value
+        handler.removeCallbacks(finishOpening)
         if (value && expanded) collapse()
         appVisible = value
         refresh()
+        openingPlayer = false
     }
 
     fun refresh() {
@@ -547,12 +552,15 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     private fun openPlayer() {
-        val intent = Intent(app, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        if (media.state !in setOf("none", "error")) intent.putExtra(MainActivity.OPEN_PLAYER, true)
+        val intent = MainActivity.playerIntent(app, media.state !in setOf("none", "error"))
         // Keep the overlay visible until this user-requested launch; Android 15 requires it for SAW's BAL exception.
         try { app.startActivity(intent) }
         catch (_: android.content.ActivityNotFoundException) { return }
         catch (_: SecurityException) { return }
+        // Do not create an analyser for the brief compact frame before the activity arrives.
+        openingPlayer = true
+        handler.removeCallbacks(finishOpening)
+        handler.postDelayed(finishOpening, 2000)
         show(false)
     }
 

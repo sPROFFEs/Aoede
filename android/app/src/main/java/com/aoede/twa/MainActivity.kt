@@ -59,6 +59,10 @@ class MainActivity : AppCompatActivity() {
         const val PREFS = "aoede_prefs"
         const val KEY_URL = "server_url"
         const val OPEN_PLAYER = "com.aoede.twa.OPEN_PLAYER"
+        fun playerIntent(ctx: Context, openPlayer: Boolean = true) = Intent(ctx, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            if (openPlayer) putExtra(OPEN_PLAYER, true)
+        }
         fun savedUrl(ctx: Context): String? =
             ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
                 .getString(KEY_URL, null)?.trimEnd('/')
