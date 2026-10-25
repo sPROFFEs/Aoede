@@ -1365,24 +1365,8 @@ function hasUpcomingTrack() {
 }
 
 // === NEXT-TRACK PREFETCH ===
-//
-// The single biggest source of "gap between tracks" is that the browser
-// doesn't know about the next track until playNext() assigns src. By the
-// time the TCP handshake + Range request + first byte arrives, the user
-// has heard 200-800ms of silence.
-//
-// This resolves the next track the same way playNext() does — WITHOUT
-// consuming it from the queue — and issues a low-priority fetch() on
-// its stream URL. The browser populates its HTTP cache and (if the track
-// is small enough) buffers the whole file. When playTrack() fires
-// moments later, the <audio> element's Range request hits the browser
-// cache instantly and playback starts with zero perceptible gap.
-//
-// We also prefetch the cover art URL for the next track so the player
-// UI swaps instantly on transition.
-//
-// Party mode is excluded: the host controls the clock and the next track
-// may not be deterministic from the listener's side.
+// Warm the next stream and cover without consuming the queue. Cache reuse depends
+// on the browser; party playback is excluded because its host controls the queue.
 let _prefetchedTrackId = null;
 let _prefetchController = null;
 
@@ -1443,14 +1427,7 @@ function _prefetchTrack(track) {
   const streamUrl = `/api/stream/${track.db_id}`;
   const signal = _prefetchController?.signal;
 
-  // Warm the browser HTTP cache for the stream URL WITHOUT a Range
-  // header. Previously we sent `Range: bytes=0-262143`, which caused
-  // Chrome to cache a partial 206 response. When the <audio> element
-  // later requested the same URL, some browsers served the partial
-  // cache entry as if it were the complete file — the track played
-  // the first ~256 KB and then cut out. A full GET lets the browser
-  // cache the complete resource, and the audio element can satisfy
-  // Range requests from that cached entry without truncation.
+  // A full GET avoids partial 206 cache entries that truncated later audio requests.
   fetch(streamUrl, {
     method: 'GET',
     signal,
