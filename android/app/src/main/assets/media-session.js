@@ -13,6 +13,70 @@
   var scheduled = false;
   var lastControls = '';
   var pendingPlayer = false;
+  var spectrum = null;
+  var spectrumFailed = '';
+
+  function closeSpectrum() {
+    if (!spectrum) return;
+    var old = spectrum;
+    spectrum = null;
+    if (old.source) old.source.disconnect();
+    old.stream.getTracks().forEach(function (track) { track.stop(); });
+    old.context.close().catch(function () {});
+  }
+  // Sample a copy of this player's audio. Never reroute its output, request a microphone,
+  // or connect the copy to speakers (which would play the same track twice).
+  window.__aoedeIslandLevels = function (active) {
+    if (!active || blocked || !primary || primary.paused || primary.ended || !audible) {
+      closeSpectrum(); return null;
+    }
+    var url = primary.currentSrc || primary.src;
+    if (spectrum && (spectrum.element !== primary || spectrum.url !== url)) closeSpectrum();
+    try {
+      if (!spectrum) {
+        var Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx || !primary.captureStream || spectrumFailed === url) return null;
+        var stream = primary.captureStream();
+        if (!stream.getAudioTracks().length) {
+          stream.getTracks().forEach(function (track) { track.stop(); });
+          return null;
+        }
+        var context;
+        try { context = new Ctx(); }
+        catch (error) { stream.getTracks().forEach(function (track) { track.stop(); }); throw error; }
+        spectrum = { context: context, stream: stream, element: primary, url: url };
+        spectrum.analyser = context.createAnalyser();
+        spectrum.analyser.fftSize = 1024;
+        spectrum.analyser.smoothingTimeConstant = .45;
+        spectrum.analyser.minDecibels = -80;
+        spectrum.analyser.maxDecibels = -15;
+        spectrum.data = new Uint8Array(spectrum.analyser.frequencyBinCount);
+        spectrum.source = context.createMediaStreamSource(stream);
+        spectrum.source.connect(spectrum.analyser);
+      }
+      if (!spectrum.stream.getAudioTracks().some(function (track) {
+        return track.readyState === 'live' && track.enabled && !track.muted;
+      })) return null;
+      if (spectrum.context.state !== 'running') {
+        spectrum.context.resume().catch(function () {});
+        return null;
+      }
+      spectrum.analyser.getByteFrequencyData(spectrum.data);
+      var edges = [60, 250, 600, 1400, 3600, 10000];
+      var binHz = spectrum.context.sampleRate / spectrum.analyser.fftSize;
+      var volume = primary.muted ? 0 : Math.max(0, Math.min(1, primary.volume));
+      return edges.slice(0, 5).map(function (edge, band) {
+        var start = Math.min(spectrum.data.length - 1, Math.max(1, Math.floor(edge / binHz)));
+        var end = Math.min(spectrum.data.length, Math.max(start + 1, Math.ceil(edges[band + 1] / binHz)));
+        var power = 0;
+        for (var i = start; i < end; i++) power += Math.pow(spectrum.data[i] / 255, 2);
+        return Math.round(Math.sqrt(power / (end - start)) * volume * 1000) / 1000;
+      });
+    } catch (_) {
+      closeSpectrum(); spectrumFailed = url; return null;
+    }
+  };
+  window.addEventListener('pagehide', closeSpectrum);
 
   function pushControls() {
     var favorite = document.getElementById('fs-btn-favorite');
@@ -180,6 +244,8 @@
         if (primary !== element) return;
         if (event === 'playing') { audible = true; failed = false; }
         if (['pause', 'ended', 'waiting', 'emptied', 'error'].indexOf(event) >= 0) audible = false;
+        if (!audible) closeSpectrum();
+        if (event === 'emptied' || event === 'play') spectrumFailed = '';
         if (event === 'emptied' || event === 'play') failed = false;
         if (event === 'error') failed = true;
         scheduleState(); // Read app state after its transition handlers have run.

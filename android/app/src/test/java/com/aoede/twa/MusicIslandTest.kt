@@ -66,7 +66,8 @@ class MusicIslandTest {
         island.updateSafeTop(44)
         island.setEnabled(true)
         assertTrue(island.visible)
-        assertTrue((view().layoutParams as WindowManager.LayoutParams).y >= 44)
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).y < 44)
+        assertNotNull(view().findViewWithTag<View>("handle"))
         island.taskRemoved()
         assertFalse(island.visible) // A paused player cannot keep a dismissed app's island alive.
         app.mediaController.updateState("playing", 125000, 257000)
@@ -151,7 +152,7 @@ class MusicIslandTest {
         assertFalse(island.visible)
     }
 
-    @Test fun geometryKeepsEveryTapBelowSystemBarsAndSupportsSizeAndSideCameras() {
+    @Test fun cameraPositionAndAccessibleHandleSupportSizeAndSideCameras() {
         val prefs = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
         val density = app.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
@@ -161,23 +162,72 @@ class MusicIslandTest {
         island.setEnabled(true)
         val host = view()
         var params = host.layoutParams as WindowManager.LayoutParams
-        assertTrue(params.y >= dp(52)) // Includes legacy offsets that used to place it under the status bar.
+        assertEquals(0, params.y) // Preserve a legacy camera-aligned visual offset.
         assertTrue(params.x >= dp(24))
         assertTrue(params.height >= dp(48))
         assertEquals(dp(28), host.findViewWithTag<View>("capsule").layoutParams.height)
+        val handle = host.findViewWithTag<View>("handle")
+        assertTrue(params.y + (handle.layoutParams as FrameLayout.LayoutParams).topMargin >= dp(52))
+        assertTrue(params.y + params.height >= dp(100)) // 48 dp of input remains below the protected bar.
+        host.measure(View.MeasureSpec.makeMeasureSpec(params.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(params.height, View.MeasureSpec.EXACTLY))
+        host.layout(0, 0, params.width, params.height)
+        for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+            val event = android.view.MotionEvent.obtain(0, 0, action, params.width / 2f, dp(76).toFloat(), 0)
+            host.dispatchTouchEvent(event); event.recycle()
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(island.expanded) // The part below the status bar opens the same controls.
+        island.collapse()
         val left = params.x
         prefs.edit().putInt("island_horizontal", 100).putInt("island_width", 112).putInt("island_height", 72).commit()
         island.relayout()
         assertSame(host, view())
         params = view().layoutParams as WindowManager.LayoutParams
         assertTrue(params.x > left)
-        assertEquals(dp(72), params.height)
+        assertTrue(params.height >= dp(100))
         assertEquals(dp(112), params.width)
         val right = params.x + params.width
         val screenWidth = app.resources.displayMetrics.widthPixels
         assertTrue(right <= screenWidth - dp(20))
         island.updateSafeTop(0) // A hidden/edge-to-edge activity must not erase the protected bar inset.
-        assertTrue((view().layoutParams as WindowManager.LayoutParams).y >= dp(52))
+        assertEquals(0, (view().layoutParams as WindowManager.LayoutParams).y)
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).height >= dp(100))
+        // The new slider is absolute, so users can also move the entire capsule clear of the bar.
+        prefs.edit().putInt("island_top", 100).commit(); island.relayout()
+        params = view().layoutParams as WindowManager.LayoutParams
+        assertEquals(dp(100), params.y)
+        assertNull(view().findViewWithTag<View>("handle"))
+        assertEquals(dp(72), params.height)
+        // Existing nonzero gap preferences keep their intentional lower placement.
+        prefs.edit().remove("island_top").putInt("island_gap", 20).commit(); island.relayout()
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).y >= dp(72))
+    }
+
+    @Test fun spectrumUsesValidatedLevelsAndStopsWithOverlayOrPlayback() {
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", false).commit()
+        island.setEnabled(true)
+        app.mediaController.updateState("playing", 125000, 257000)
+        assertTrue(ReflectionHelpers.getField(island, "sampling"))
+        val bars = view().findViewWithTag<View>("bars")
+        fun levels() = ReflectionHelpers.getField<FloatArray>(bars, "levels")
+        island.updateSpectrum("[0.8,0.3,0.1,0.5,1]")
+        assertTrue(levels()[0] > levels()[1]); assertTrue(levels()[4] > levels()[0])
+        for (invalid in listOf("null", "[]", "[2,0,0,0,0]", "[null,0,0,0,0]", "[0,0,0,0]")) {
+            island.updateSpectrum(invalid)
+            assertNull(ReflectionHelpers.getField<FloatArray?>(bars, "levels"))
+            assertTrue(ReflectionHelpers.getField(bars, "playing")) // Restore the original animation when analysis is unavailable.
+        }
+        island.updateSpectrum("[0,0,0,0,0]")
+        assertTrue(levels().all { it == 0f }) // Real silence is distinct from unavailable data.
+        island.show(true)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        island.collapse()
+        assertTrue(ReflectionHelpers.getField(island, "sampling"))
+        app.mediaController.pauseLocal()
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        assertTrue(ReflectionHelpers.getField<FloatArray>(view().findViewWithTag<View>("bars"), "levels").all { it == 0f })
+        island.setEnabled(false)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
     }
 
     @Test fun firstConfigurationAndModeChangesKeepExactlyOneManagedOverlayWindow() {
@@ -268,6 +318,14 @@ class MusicIslandTest {
             val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
             root.draw(Canvas(bitmap))
             File(folder, "island-expanded-${android.os.Build.VERSION.SDK_INT}.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            island.collapse()
+            val compact = view()
+            val params = compact.layoutParams as WindowManager.LayoutParams
+            compact.measure(View.MeasureSpec.makeMeasureSpec(params.width, View.MeasureSpec.EXACTLY), View.MeasureSpec.makeMeasureSpec(params.height, View.MeasureSpec.EXACTLY))
+            compact.layout(0, 0, params.width, params.height)
+            val preview = Bitmap.createBitmap(params.width, params.height, Bitmap.Config.ARGB_8888)
+            compact.draw(Canvas(preview))
+            File(folder, "island-compact-${android.os.Build.VERSION.SDK_INT}.png").outputStream().use { preview.compress(Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
 

@@ -41,7 +41,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.graphics.ColorUtils
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import org.json.JSONArray
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
@@ -70,9 +70,11 @@ class MusicIsland(private val app: AoedeApp) {
     private var screenAwake = true
     private var safeInsets = Insets.of(0, dp(32), 0, 0)
     private val safeTop get() = protectedInsets().top
-    private val gap get() = prefs.getInt("island_gap", (prefs.getInt("island_offset",
-        (safeTop / app.resources.displayMetrics.density).roundToInt()) -
-        (safeTop / app.resources.displayMetrics.density).roundToInt()).coerceAtLeast(0)).coerceIn(0, 120)
+    private val capsuleTop get() = prefs.getInt("island_top", when {
+        prefs.getInt("island_gap", 0) > 0 -> (safeTop / app.resources.displayMetrics.density).roundToInt() + 4 + prefs.getInt("island_gap", 0)
+        prefs.contains("island_offset") -> prefs.getInt("island_offset", 8)
+        else -> 8
+    }).coerceIn(0, 240)
     private val capsuleWidth get() = prefs.getInt("island_width", 156).coerceIn(112, 320)
     private val capsuleHeight get() = prefs.getInt("island_height", 48).coerceIn(28, 72)
     private var tracking = false
@@ -104,6 +106,43 @@ class MusicIsland(private val app: AoedeApp) {
             if (!expanded || root == null) return
             updateProgress()
             handler.postDelayed(this, 1000)
+        }
+    }
+    private var sampling = false
+    private var sampleGeneration = 0
+    private val spectrum = object : Runnable {
+        override fun run() {
+            val player = app.player ?: return
+            if (!sampling) return
+            val generation = sampleGeneration
+            player.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(true)") { result ->
+                if (!sampling || generation != sampleGeneration) return@evaluateJavascript
+                updateSpectrum(result)
+                handler.postDelayed(this, 100)
+            }
+        }
+    }
+
+    internal fun updateSpectrum(raw: String) {
+        val levels = runCatching {
+            require(raw.length < 256)
+            val values = JSONArray(raw)
+            require(values.length() == 5)
+            FloatArray(5) { i -> values.getDouble(i).also { require(it.isFinite() && it in 0.0..1.0) }.toFloat() }
+        }.getOrNull()
+        root?.findViewWithTag<Bars>("bars")?.levels = levels
+    }
+
+    private fun syncSpectrum() {
+        val active = root != null && !expanded && media.isPlaying && !reduced && app.player != null
+        root?.findViewWithTag<Bars>("bars")?.playing = active
+        if (sampling == active) return
+        sampling = active
+        sampleGeneration++
+        handler.removeCallbacks(spectrum)
+        if (active) handler.post(spectrum) else {
+            app.player?.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(false)", null)
+            root?.findViewWithTag<Bars>("bars")?.levels = FloatArray(5)
         }
     }
 
@@ -173,13 +212,15 @@ class MusicIsland(private val app: AoedeApp) {
         val screen = displayBounds(); val insets = protectedInsets()
         val left = insets.left + dp(8); val right = (screen.width() - insets.right - dp(8)).coerceAtLeast(left + dp(48))
         val width = minOf(dp(capsuleWidth), right - left)
-        val height = dp(maxOf(48, capsuleHeight)) // Keep the tap target accessible even for a thin visual capsule.
         val travel = right - left - width
         val x = left + travel * (prefs.getInt("island_horizontal", 0).coerceIn(-100, 100) + 100) / 200
-        val minimumY = insets.top + dp(4)
-        val maximumY = (screen.height() - insets.bottom - dp(8) - height).coerceAtLeast(minimumY)
-        val y = (minimumY + dp(gap)).coerceIn(minimumY, maximumY)
-        return Rect(x, y, x + width, y + height)
+        val maximumY = (screen.height() - insets.bottom - dp(8 + maxOf(48, capsuleHeight))).coerceAtLeast(0)
+        val y = dp(capsuleTop).coerceAtMost(maximumY)
+        // Visual position can surround the camera; only the interaction area must clear system UI.
+        val touchTop = maxOf(y, insets.top + dp(4))
+        val handleBottom = if (y < insets.top + dp(4)) maxOf(y + dp(capsuleHeight), touchTop) + dp(16) else 0
+        val bottom = maxOf(y + dp(capsuleHeight), touchTop + dp(48), handleBottom)
+        return Rect(x, y, x + width, bottom)
     }
 
     private fun register() {
@@ -213,6 +254,7 @@ class MusicIsland(private val app: AoedeApp) {
         root = null
         expanded = false
         tracking = false
+        syncSpectrum()
         try { previous?.let { windows.removeViewImmediate(it) } }
         catch (_: IllegalArgumentException) { /* The system may already have removed a revoked overlay. */ }
         finally { changingWindow = false }
@@ -234,6 +276,17 @@ class MusicIsland(private val app: AoedeApp) {
             view.removeAllViews()
             view.addView(if (open) panel() else capsule(), FrameLayout.LayoutParams(-1,
                 if (open) -1 else dp(capsuleHeight), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+            val box = capsuleBounds()
+            if (!open && box.top < safeTop + dp(4)) {
+                // The status bar owns its touches. Keep an explicit handle below it in the same window.
+                val handleTop = maxOf(dp(capsuleHeight), safeTop + dp(4) - box.top)
+                view.addView(FrameLayout(windowContext).apply {
+                    tag = "handle"; background = shape(Color.BLACK, 7f)
+                    addView(View(windowContext).apply { background = shape(0xFFB9B4BF.toInt(), 1f) },
+                        FrameLayout.LayoutParams(dp(14), dp(2), Gravity.CENTER))
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }, FrameLayout.LayoutParams(dp(32), dp(12), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = handleTop + dp(4) })
+            }
             view.isFocusableInTouchMode = open
             view.contentDescription = if (open) null else app.getString(R.string.island_expand)
             view.importantForAccessibility = if (open) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
@@ -244,7 +297,6 @@ class MusicIsland(private val app: AoedeApp) {
             val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
                 if (open) WindowManager.LayoutParams.FLAG_DIM_BEHIND
                 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
-            val box = capsuleBounds()
             val params = WindowManager.LayoutParams(if (open) -1 else box.width(), if (open) -1 else box.height(),
                 type, flags, PixelFormat.TRANSLUCENT).apply {
                 gravity = Gravity.TOP or Gravity.LEFT
@@ -438,7 +490,7 @@ class MusicIsland(private val app: AoedeApp) {
         val image = view.findViewWithTag<ImageView>("art")
         if (art != null) { image.setImageBitmap(art); image.imageTintList = null }
         else { image.setImageResource(R.drawable.ic_notification); image.imageTintList = ColorStateList.valueOf(0xFFB9B4BF.toInt()) }
-        view.findViewWithTag<Bars>("bars")?.playing = media.isPlaying && !reduced
+        syncSpectrum()
         if (!expanded) return
         val style = PlaybackWidget.artworkStyle(art)
         val background = (view.findViewWithTag<View>("card").background as GradientDrawable)
@@ -513,7 +565,7 @@ class MusicIsland(private val app: AoedeApp) {
         }
         slider("island_width", R.string.island_width, R.string.island_width_value, 112, 320, capsuleWidth)
         slider("island_height", R.string.island_height, R.string.island_height_value, 28, 72, capsuleHeight)
-        slider("island_gap", R.string.island_position, R.string.island_position_value, 0, 120, gap)
+        slider("island_top", R.string.island_position, R.string.island_position_value, 0, 240, capsuleTop)
         slider("island_horizontal", R.string.island_horizontal, R.string.island_horizontal_value, -100, 100,
             prefs.getInt("island_horizontal", 0).coerceIn(-100, 100))
         body.addView(TextView(activity).apply { text = app.getString(R.string.island_position_help); textSize = 12f })
@@ -531,7 +583,7 @@ class MusicIsland(private val app: AoedeApp) {
             .setView(ScrollView(activity).apply { addView(body) }).setPositiveButton(android.R.string.ok, null)
             .setNeutralButton(R.string.island_reset_layout) { _, _ ->
                 prefs.edit().remove("island_width").remove("island_height").remove("island_gap")
-                    .remove("island_offset").remove("island_horizontal").apply()
+                    .remove("island_offset").remove("island_horizontal").remove("island_top").apply()
             }
             .create()
         settingsDialog.setOnDismissListener {
@@ -569,17 +621,28 @@ class MusicIsland(private val app: AoedeApp) {
     private class Bars(context: Context) : View(context) {
         var playing = false
             set(value) { if (field != value) { field = value; invalidate() } }
+        var levels: FloatArray? = null
+            set(value) {
+                val previous = field
+                field = if (value != null && previous != null) FloatArray(5) { i ->
+                    if (value.all { it == 0f }) 0f else previous[i] +
+                        (value[i] - previous[i]) * if (value[i] > previous[i]) .85f else .45f
+                } else value
+                invalidate()
+            }
         private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; strokeCap = Paint.Cap.ROUND }
         override fun onDraw(canvas: Canvas) {
             super.onDraw(canvas)
             val t = SystemClock.uptimeMillis() / 170.0
+            val measured = levels
             paint.strokeWidth = width / 15f
             for (i in 0..4) {
-                val bar = if (playing) (.25 + .65 * kotlin.math.abs(sin(t + i * 1.3))).toFloat() else .25f + (i % 3) * .12f
+                val bar = if (!playing) .25f + (i % 3) * .12f else if (measured != null) .12f + .83f * measured[i]
+                    else (.25 + .65 * kotlin.math.abs(sin(t + i * 1.3))).toFloat()
                 val x = width * (i + .5f) / 5
                 canvas.drawLine(x, height * (1 - bar) / 2, x, height * (1 + bar) / 2, paint)
             }
-            if (playing && isAttachedToWindow && visibility == VISIBLE) postInvalidateDelayed(120)
+            if (playing && measured == null && isAttachedToWindow && visibility == VISIBLE) postInvalidateDelayed(120)
         }
     }
 }

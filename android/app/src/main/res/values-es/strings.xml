@@ -53,8 +53,8 @@
     <string name="island_description">Controles opcionales sobre otras apps mientras Aoede esté abierta o reproduciendo música. Activa «Mostrar sobre otras apps» cuando Android lo solicite. Este ajuste se guarda en este dispositivo.</string>
     <string name="island_permission_denied">Android no ha permitido las superposiciones. Dynamic Island sigue desactivada.</string>
     <string name="island_position">Posición vertical de la isla</string>
-    <string name="island_position_value">Separación bajo la barra: %1$d dp</string>
-    <string name="island_position_help">Toda la zona táctil queda bajo la cámara y la barra de estado. La posición horizontal va de izquierda (−100%) a centro (0%) y derecha (100%). El tamaño y la posición se aplican a la cápsula compacta.</string>
+    <string name="island_position_value">Distancia al borde superior: %1$d dp</string>
+    <string name="island_position_help">Sube la cápsula para rodear la cámara. Si la barra de estado intercepta los toques, usa el pequeño tirador de debajo. El tirador mantiene una zona táctil de 48 dp fuera de la barra del sistema. La posición horizontal va de izquierda (−100%) a centro (0%) y derecha (100%). El tamaño y la posición se aplican a la cápsula compacta.</string>
     <string name="island_expand">Ampliar los controles de Aoede</string>
     <string name="island_seek">Avanzar o retroceder en la canción</string>
     <string name="island_shuffle">Reproducción aleatoria</string>

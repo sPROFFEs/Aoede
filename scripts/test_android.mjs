@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
 const shim = await readFile(new URL('../android/app/src/main/assets/media-session.js', import.meta.url), 'utf8');
-function page({ frame = false, early = false, native = true } = {}) {
+function page({ frame = false, early = false, native = true, audioContext = null, captureStream = null } = {}) {
   const messages = [];
   const nativeActions = new Map();
   const clicks = [];
@@ -19,6 +19,8 @@ function page({ frame = false, early = false, native = true } = {}) {
     duration = 100;
     playbackRate = 1;
     readyState = 4;
+    volume = 1;
+    muted = false;
     plays = 0;
     play() { this.plays++; this.paused = false; this.dispatchEvent(new Event('play')); return Promise.resolve(); }
     pause() { this.paused = true; this.dispatchEvent(new Event('pause')); }
@@ -36,6 +38,8 @@ function page({ frame = false, early = false, native = true } = {}) {
   const audio = new Media();
   const preview = new Media();
   const window = new EventTarget();
+  if (audioContext) window.AudioContext = audioContext;
+  if (captureStream) audio.captureStream = captureStream;
   window.top = frame ? {} : window;
   window.AoedeMedia = { postMessage(value) { messages.push(JSON.parse(value)); } };
   const document = new EventTarget();
@@ -52,6 +56,71 @@ function page({ frame = false, early = false, native = true } = {}) {
     mutate() { observers.forEach(callback => callback()); }, party(value) { inParty = value; } };
 }
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
+
+// The island reads real frequency bands from a disposable copy, never the audible output.
+{
+  const contexts = [], streams = [];
+  let tone = [0, 0];
+  class AudioContext {
+    state = 'running'; sampleRate = 48000;
+    constructor() { contexts.push(this); }
+    createAnalyser() {
+      return { frequencyBinCount: 512, getByteFrequencyData(data) {
+        data.fill(0);
+        if (tone[1]) data[Math.round(tone[0] / (48000 / 1024))] = tone[1];
+      } };
+    }
+    createMediaStreamSource(stream) {
+      assert.equal(stream, streams.at(-1));
+      return { connect(node) { assert.ok(node.getByteFrequencyData); }, disconnect() {} };
+    }
+    createMediaElementSource() { assert.fail('Visuals must not reroute the playing audio'); }
+    close() { this.state = 'closed'; return Promise.resolve(); }
+    resume() { this.state = 'running'; return Promise.resolve(); }
+  }
+  const p = page({ audioContext: AudioContext, captureStream() {
+    const track = { stopped: false, readyState: 'live', enabled: true, muted: false, stop() { this.stopped = true; } };
+    const stream = { getTracks: () => [track], getAudioTracks: () => [track] };
+    streams.push(stream); return stream;
+  } });
+  const levels = () => Array.from(p.window.__aoedeIslandLevels(true) || []);
+  assert.deepEqual(levels(), []);
+  assert.equal(contexts.length, 0); // Paused/off islands allocate nothing.
+  p.window.__aoedeMediaCommand('play'); p.audio.dispatchEvent(new Event('playing')); await flush();
+  assert.deepEqual(levels(), [0, 0, 0, 0, 0]); // Silence has no invented beat.
+  tone = [140, 255];
+  const bass = levels();
+  assert.ok(bass[0] > 0 && bass.slice(1).every(n => n === 0));
+  tone = [6000, 255];
+  const treble = levels();
+  assert.ok(treble[4] > 0 && treble.slice(0, 4).every(n => n === 0));
+  p.audio.volume = .5;
+  assert.ok(Math.abs(levels()[4] * 2 - treble[4]) <= .002);
+  p.audio.muted = true;
+  assert.deepEqual(levels(), [0, 0, 0, 0, 0]); p.audio.muted = false;
+  assert.equal(contexts.length, 1);
+  streams[0].getTracks()[0].muted = true;
+  assert.equal(p.window.__aoedeIslandLevels(true), null); // Protected audio gets the requested animation fallback.
+  streams[0].getTracks()[0].muted = false;
+  const plays = p.audio.plays;
+  p.audio.src = p.audio.currentSrc = 'https://example.com/second-song';
+  levels();
+  assert.equal(contexts[0].state, 'closed');
+  assert.equal(streams[0].getTracks()[0].stopped, true);
+  assert.equal(contexts.length, 2); // Source swaps cannot keep sampling a finished track.
+  p.window.__aoedeIslandLevels(false);
+  assert.equal(contexts[1].state, 'closed');
+  assert.equal(p.audio.paused, false);
+  assert.equal(p.audio.plays, plays);
+  assert.equal(p.audio.volume, .5);
+  levels(); p.window.__aoedeMediaCommand('pause');
+  assert.equal(contexts[2].state, 'closed');
+  assert.deepEqual(levels(), []);
+  const unavailable = page({ audioContext: AudioContext, captureStream() { throw new DOMException('No capture', 'SecurityError'); } });
+  unavailable.window.__aoedeMediaCommand('play'); unavailable.audio.dispatchEvent(new Event('playing')); await flush();
+  assert.equal(unavailable.window.__aoedeIslandLevels(true), null);
+  assert.equal(unavailable.audio.paused, false); // Cross-origin/unsupported sources must keep playing.
+}
 
 // Island controls use the existing player buttons and retain its availability rules.
 {
