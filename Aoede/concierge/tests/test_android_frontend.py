@@ -221,6 +221,10 @@ def test_android_packaging_uses_current_build_metadata_instead_of_stale_signed_a
     script = tmp_path / "scripts/package_android.py"
     script.parent.mkdir()
     script.write_text((root / "scripts/package_android.py").read_text())
+    for name in ("branding/aoede.png", "scripts/enlarge_brand_icons.py"):
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((root / name).read_bytes())
     release = tmp_path / "android/app/build/outputs/apk/release"
     release.mkdir(parents=True)
     (release / "app-release.apk").write_bytes(b"stale signed build")
@@ -246,3 +250,5 @@ def test_android_packaging_uses_current_build_metadata_instead_of_stale_signed_a
     with zipfile.ZipFile(output / "aoede-android-source.zip") as archive:
         assert not any(name.endswith(".p12") for name in archive.namelist())
         assert archive.read("aoede-android/frontend-source/assets/source.txt") == b"editable frontend source"
+        for name in ("branding/aoede.png", "scripts/enlarge_brand_icons.py"):
+            assert archive.read(f"aoede-android/{name}") == (root / name).read_bytes()
