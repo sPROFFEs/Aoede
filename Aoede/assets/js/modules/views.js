@@ -220,21 +220,20 @@ export async function loadView(view, param = null, options = {}) {
   }
   const container = document.getElementById('view-container');
   if (!container) return;
-  shelfResizeObserver?.disconnect();
+  container.removeAttribute('aria-busy');
   // Legacy aliases — both 'radio' and 'your_radios' now resolve to the
   // unified Discover Radios surface (which renders saved radios at the
   // bottom of the same view). Old bookmarks / sidebar entries keep
   // working without 404s.
   if (view === 'radio' || view === 'your_radios') view = 'discover_radios';
+  if (view !== 'home' || !container.querySelector('[data-home-root]')) shelfResizeObserver?.disconnect();
   const { pushHistory = true, replaceHistory = false } = options;
+  const refreshing =
+    state.currentViewName === view &&
+    String(state.currentViewParam ?? '') === String(param ?? '') &&
+    container.children.length > 0;
 
-  const hasOldContent = container.children.length > 0 && view !== 'search';
-  if (hasOldContent) {
-    container.style.transition = 'opacity 120ms ease';
-    container.style.opacity = '0';
-  }
-
-  if (view !== 'search') {
+  if (view !== 'search' && view !== 'home' && !refreshing) {
     container.innerHTML = `
       <div class="empty-state">
           <div class="music-loader">
@@ -248,12 +247,6 @@ export async function loadView(view, param = null, options = {}) {
     // Music-loader has no [data-lucide] elements — no icon refresh needed
     // here. Each view's renderer refreshes its own icons after innerHTML.
   }
-  if (hasOldContent) {
-    requestAnimationFrame(() => {
-      container.style.opacity = '1';
-    });
-  }
-
   if (typeof window.markBottomNavActive === 'function') {
     window.markBottomNavActive(view, param);
   }
@@ -296,13 +289,6 @@ export async function loadView(view, param = null, options = {}) {
     console.error(e);
     if (isCurrent())
       container.innerHTML = `<div class="empty-state" style="color:#e74c3c;">Error: ${ui.escHtml(e.message)}</div>`;
-  } finally {
-    // Two frames let layout finish before fading in.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (isCurrent()) container.style.opacity = '1';
-      });
-    });
   }
 }
 
@@ -509,7 +495,34 @@ export function scrollHomeShelf(button, direction) {
   });
 }
 
+const renderedMarkup = new WeakMap();
+
+function updateHomeSection(container, name, html) {
+  const section = container.querySelector(`[data-home-section="${name}"]`);
+  if (!section || renderedMarkup.get(section) === html) return;
+  section.querySelectorAll('.home-rail').forEach((rail) => shelfResizeObserver?.unobserve(rail));
+  section.innerHTML = html;
+  renderedMarkup.set(section, html);
+  ui.refreshIcons(section);
+  if (!shelfResizeObserver && typeof window.ResizeObserver === 'function') {
+    shelfResizeObserver = new window.ResizeObserver((entries) =>
+      entries.forEach(({ target }) => syncShelfNavigation(target))
+    );
+  }
+  section.querySelectorAll('.home-rail').forEach((rail) => {
+    shelfResizeObserver?.observe(rail);
+    rail.addEventListener('scroll', () => syncShelfNavigation(rail), { passive: true });
+  });
+}
+
+function refreshHomeQuickPicks() {
+  const container = document.getElementById('view-container');
+  if (container?.querySelector('[data-home-root]'))
+    updateHomeSection(container, 'quick-picks', _renderQuickPicksGrid());
+}
+
 export async function renderHome(container, isCurrent = () => true) {
+  if (!isCurrent()) return;
   let sections = [];
   let mixes = [];
   let wrapped = null;
@@ -517,7 +530,24 @@ export async function renderHome(container, isCurrent = () => true) {
   state.setCurrentViewList([]);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
-  paint();
+  if (!container.querySelector('[data-home-root]')) {
+    const username = ui.escHtml(window.USER_DATA?.username || 'User');
+    container.innerHTML = `<section class="home-overview" data-home-root>
+      ${ui.homeTabsBar('all')}
+      <div class="hero-section">
+          <div class="hero-kicker">${ui.t('home.hero_kicker', 'Your library, tuned for right now')}</div>
+          <h1 class="hero-greeting"><span class="vitrine-home-title">${ui.t('menu.home', 'Home')}</span><span class="home-greeting-copy">${ui.getGreeting()}, <span class="hero-username">${username}</span></span></h1>
+      </div>
+      <div data-home-section="wrapped" style="display:contents"></div>
+      <div data-home-section="quick-picks" style="display:contents"></div>
+    </section>
+    <div data-home-section="parties" style="display:contents"></div>
+    <div data-home-section="mixes" style="display:contents"></div>
+    <div data-home-section="recommendations" style="display:contents"></div>`;
+    ui.refreshIcons(container);
+  }
+  updateHomeSection(container, 'quick-picks', _renderQuickPicksGrid());
+  container.setAttribute('aria-busy', 'true');
 
   try {
     if (!window.AOEDE_NATIVE_OFFLINE && typeof navigator !== 'undefined' && navigator.onLine) {
@@ -525,88 +555,58 @@ export async function renderHome(container, isCurrent = () => true) {
       await Promise.allSettled([
         api.fetchRecommendations({ signal: controller.signal }).then((value) => {
           sections = value || [];
-          paint();
+          paint('recommendations', sections.map((s) => homeShelf(s.title, s.items.map(createCard).join(''))).join(''));
         }),
         api.fetchMixes({ signal: controller.signal }).then((value) => {
           mixes = value || [];
-          paint();
+          paint(
+            'mixes',
+            mixes.length ? homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join('')) : ''
+          );
         }),
         api.fetchWrapped(currentYear, { summary: false, signal: controller.signal }).then((value) => {
           wrapped = value && !value.error && value.visible !== false && value.enabled !== false ? value : null;
-          paint();
+          paint('wrapped', wrapped ? createWrappedHomeCard(wrapped) : '');
         }),
         party.fetchRooms({ signal: controller.signal }).then((value) => {
           partyRooms = value || [];
-          paint();
+          paint('parties', party.renderHomeShelf(partyRooms));
         })
       ]);
       if (isCurrent()) offlineStore.saveLibrarySnapshot('home_feed', { sections, mixes, wrapped, partyRooms });
     } else {
       const cached = await offlineStore.getLibrarySnapshot('home_feed');
-      if (cached) {
-        sections = cached.sections || [];
-        mixes = cached.mixes || [];
-        wrapped = cached.wrapped || null;
-      }
+      paintCached(cached);
     }
   } catch (e) {
     console.error('Recs error:', e);
     const cached = await offlineStore.getLibrarySnapshot('home_feed');
-    if (cached) {
-      sections = cached.sections || [];
-      mixes = cached.mixes || [];
-      wrapped = cached.wrapped || null;
-    }
+    paintCached(cached);
   } finally {
     clearTimeout(timer);
+    if (isCurrent()) container.removeAttribute('aria-busy');
   }
 
-  paint();
-
-  function paint() {
+  function paint(name, html) {
     if (!isCurrent()) return;
-    const username = ui.escHtml(window.USER_DATA?.username || 'User');
-    const quickPicks = _renderQuickPicksGrid();
-    let html = `<section class="home-overview">
-      ${ui.homeTabsBar('all')}
-      <div class="hero-section">
-          <div class="hero-kicker">${ui.t('home.hero_kicker', 'Your library, tuned for right now')}</div>
-          <h1 class="hero-greeting"><span class="vitrine-home-title">${ui.t('menu.home', 'Home')}</span><span class="home-greeting-copy">${ui.getGreeting()}, <span class="hero-username">${username}</span></span></h1>
-      </div>
-      ${wrapped ? createWrappedHomeCard(wrapped) : ''}
-      ${quickPicks}
-    </section>`;
+    updateHomeSection(container, name, html);
+  }
 
-    html += party.renderHomeShelf(partyRooms);
-
-    if (mixes && mixes.length > 0) {
-      html += homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join(''));
-    }
-
-    if (sections && sections.length > 0) {
-      sections.forEach((s) => {
-        html += homeShelf(s.title, s.items.map(createCard).join(''));
-      });
-    } else if (!quickPicks && !mixes?.length) {
-      html += `<div class="empty-state glass-panel">
-            <i data-lucide="music" class="empty-icon"></i>
-            <p>${ui.t('home.welcome_text', 'Welcome! Explore the Search tab to find music.')}</p>
-        </div>`;
-    }
-
-    container.innerHTML = html;
-    shelfResizeObserver?.disconnect();
-    if (typeof window.ResizeObserver === 'function') {
-      shelfResizeObserver = new window.ResizeObserver((entries) =>
-        entries.forEach(({ target }) => syncShelfNavigation(target))
-      );
-      container.querySelectorAll('.home-rail').forEach((rail) => {
-        shelfResizeObserver.observe(rail);
-        rail.addEventListener('scroll', () => syncShelfNavigation(rail), { passive: true });
-      });
-    }
-    // Scope to the home container only — see ui.refreshIcons rationale.
-    ui.refreshIcons(container);
+  function paintCached(cached) {
+    if (!cached) return;
+    paint('wrapped', cached.wrapped ? createWrappedHomeCard(cached.wrapped) : '');
+    paint(
+      'mixes',
+      cached.mixes?.length
+        ? homeShelf(ui.t('home.your_mixes', 'Your Mixes'), cached.mixes.map(createMixCard).join(''))
+        : ''
+    );
+    paint(
+      'recommendations',
+      (cached.sections || []).map((s) => homeShelf(s.title, s.items.map(createCard).join(''))).join('')
+    );
+    // Remote party membership must be revalidated online, not restored from an offline snapshot.
+    paint('parties', '');
   }
 }
 
@@ -1611,11 +1611,16 @@ export function renderSidebarRecents() {
   state.recentRadios.forEach((r) => rows.push(_sidebarRadioRow(r)));
   rows.push(_sidebarCreateButton());
 
-  container.innerHTML = rows.join('');
+  const html = rows.join('');
+  if (renderedMarkup.get(container) !== html) {
+    container.innerHTML = html;
+    renderedMarkup.set(container, html);
+    ui.refreshIcons(container);
+  }
   filterSidebarLibrary();
   window.markBottomNavActive?.(state.currentViewName, state.currentViewParam);
 
-  ui.refreshIcons(container);
+  refreshHomeQuickPicks();
 }
 
 export function renderSidebarPlaylists() {

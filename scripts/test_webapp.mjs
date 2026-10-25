@@ -105,7 +105,33 @@ let sidebarCloses = 0;
 let fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
 const homeCalls = [];
 const retryButton = {};
-const container = { children: [], style: {}, innerHTML: '', querySelector: () => retryButton };
+class Section {
+  html = ''; writes = 0;
+  set innerHTML(value) { this.html = value; this.writes++; }
+  get innerHTML() { return this.html; }
+  querySelectorAll() { return []; }
+}
+class ViewContainer extends Section {
+  style = {}; attributes = new Map(); sections = new Map(); root = null;
+  set innerHTML(value) {
+    super.innerHTML = value;
+    this.root = value.includes('data-home-root') ? {} : null;
+    this.sections = new Map([...value.matchAll(/data-home-section="([\w-]+)"/g)].map(match => [match[1], new Section()]));
+  }
+  get innerHTML() {
+    return this.html.replace(/(<div data-home-section="([\w-]+)"[^>]*>)(<\/div>)/g,
+      (_, open, name, close) => open + this.sections.get(name).innerHTML + close);
+  }
+  get children() { return this.html ? [{}] : []; }
+  querySelector(selector) {
+    if (selector === '[data-home-root]') return this.root;
+    const name = selector.match(/^\[data-home-section="([\w-]+)"\]$/)?.[1];
+    return name ? this.sections.get(name) || null : retryButton;
+  }
+  setAttribute(name, value) { this.attributes.set(name, value); }
+  removeAttribute(name) { this.attributes.delete(name); }
+}
+const container = new ViewContainer();
 const document = { body: { addEventListener(name, handler) { bodyHandlers.set(name, handler); } }, getElementById: () => container };
 const window = { location: { pathname: '/admin/system', assign(url) { navigation = url; } },
   history: { state: null, replaceState(value) { this.state = value; history.push(['replace', value]); },
@@ -149,7 +175,10 @@ assert.equal(replaygain.checked, true); // Uploaded avatar/cookies replace setti
 assert.equal(savePrefs.disabled, true);
 console.log('PASS: proxy-independent navigation history, API offline errors, safe shell caching and logout invalidation.');
 
+const initialWrites = container.writes;
 await module.namespace.renderHome(container);
+assert.equal(container.writes, initialWrites + 1); // One shell, not a full replacement for every feed response.
+const homeRoot = container.root;
 assert.equal(homeCalls[0].summary, false); // Availability must never depend on generating an annual report.
 assert.match(container.innerHTML, /href="\/wrapped\/story\/2026"/);
 assert.ok(container.innerHTML.indexOf('Watch Wrapped') < container.innerHTML.indexOf('quick-picks-grid'));
@@ -158,6 +187,8 @@ assert.doesNotMatch(container.innerHTML, /0 seconds listened/);
 for (const unavailable of [null, { enabled: false }, { visible: false }, { error: 'Unavailable' }]) {
   homeWrapped = unavailable;
   await module.namespace.renderHome(container);
+  assert.equal(container.root, homeRoot);
+  assert.equal(container.writes, initialWrites + 1);
   assert.doesNotMatch(container.innerHTML, /Watch Wrapped/); // Do not revive the stale cached enabled state online.
 }
 console.log('PASS: Wrapped availability survives unrelated feed errors, appears above quick access, and respects enable/visibility changes.');
@@ -173,6 +204,12 @@ assert.equal(sidebarCloses, 1); // Mobile navigation closes the drawer before wa
 assert.match(container.innerHTML, /hero-greeting/); // No feed/party response is needed for the first paint.
 await new Promise(setImmediate);
 assert.match(container.innerHTML, /Watch Wrapped/); // A pending party federation cannot hide other shelves.
+const wrappedSection = container.sections.get('wrapped');
+const wrappedWrites = wrappedSection.writes;
+await module.namespace.renderHome(container, () => false);
+assert.equal(container.sections.get('wrapped'), wrappedSection);
+assert.equal(wrappedSection.writes, wrappedWrites);
+assert.notEqual(container.style.opacity, '0');
 finishSettings({ ok: false, status: 503 });
 await staleSettings;
 assert.match(container.innerHTML, /hero-greeting/); // A late failure cannot replace the new Home.
@@ -180,6 +217,7 @@ fetchView = async () => ({ ok: false, status: 503 });
 await module.namespace.loadView('settings_user');
 assert.match(container.innerHTML, /\/user\/settings.*HTTP 503/);
 assert.doesNotMatch(container.innerHTML, /Open directly/);
+assert.equal(container.attributes.has('aria-busy'), false); // Navigating away must not leave the next screen marked busy.
 fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
 await retryButton.onclick();
 assert.equal(navigation, 'https://aoede.test/login');
