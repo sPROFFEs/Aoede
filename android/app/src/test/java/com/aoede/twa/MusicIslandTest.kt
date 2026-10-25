@@ -27,6 +27,7 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowSettings
 import org.robolectric.util.ReflectionHelpers
 import java.io.File
+import kotlin.math.roundToInt
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [23, 34], application = AoedeApp::class)
@@ -46,12 +47,14 @@ class MusicIslandTest {
         activity = Robolectric.buildActivity(MainActivity::class.java).setup()
         app.mediaController.receive("""{"type":"metadata","title":"The City After Dark","artist":"Aoede Sessions"}""")
         app.mediaController.updateState("paused", 125000, 257000)
+        activity!!.pause().stop()
+        shadowOf(Looper.getMainLooper()).idle()
     }
 
     @After fun cleanup() {
         island.setEnabled(false)
         app.destroyPlayer()
-        activity?.pause()?.stop()?.destroy()
+        activity?.destroy()
         RuntimeEnvironment.setFontScale(1f)
     }
 
@@ -78,6 +81,82 @@ class MusicIslandTest {
         assertTrue(island.visible)
         app.destroyPlayer()
         assertFalse(island.visible)
+    }
+
+    @Test fun foregroundActivitiesHideTheIslandButAllowLiveCalibration() {
+        island.setEnabled(true)
+        assertTrue(island.visible)
+        activity!!.restart().start().resume()
+        assertFalse(island.visible)
+        island.refresh(); assertFalse(island.visible)
+        island.showSettings(activity!!.get()) {}
+        assertTrue(island.visible)
+        assertNotNull((view() as FrameLayout).foreground)
+        island.closeSettings(activity!!.get())
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(island.visible)
+        val setup = Robolectric.buildActivity(SetupActivity::class.java).setup()
+        activity!!.pause().stop()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertFalse(island.visible) // Another Aoede screen is still visible.
+        setup.pause().stop().destroy()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(island.visible)
+        assertEquals("paused", app.mediaController.state)
+    }
+
+    @Test fun horizontalRevealAndHideSurviveRapidForegroundChanges() {
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", false).commit()
+        island.setEnabled(true)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400))
+        assertEquals(1f, view().scaleX, .01f)
+        assertEquals(1f, view().scaleY, .01f)
+        activity!!.restart().start().resume()
+        assertTrue(ReflectionHelpers.getField(island, "hiding"))
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(250))
+        assertFalse(island.visible)
+        activity!!.pause().stop()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400))
+        assertTrue(island.visible)
+        activity!!.restart().start().resume().pause().stop()
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(400))
+        assertTrue(island.visible) // A cancelled close cannot remove a newer window.
+        assertEquals(1f, view().scaleX, .01f)
+    }
+
+    @Test fun handleAndTouchExtensionHaveIndependentSizeAndPositionControls() {
+        island.setEnabled(true)
+        island.showSettings(activity!!.get()) {}
+        val content = ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog").window!!.decorView
+        val host = view()
+        val prefs = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        for (part in listOf("handle", "touch")) for (axis in listOf("width", "height", "top", "horizontal")) {
+            val key = "island_${part}_$axis"
+            val slider = content.findViewWithTag<android.widget.SeekBar>(key)
+            val initial = slider.progress
+            content.findViewWithTag<android.widget.Button>("$key-increase").performClick()
+            assertEquals(initial + 1, slider.progress)
+            assertTrue(prefs.contains(key)); assertSame(host, view())
+        }
+        content.findViewWithTag<android.widget.SeekBar>("island_handle_horizontal").progress = 0
+        content.findViewWithTag<android.widget.SeekBar>("island_touch_horizontal").progress = 200
+        content.findViewWithTag<android.widget.SeekBar>("island_touch_height").progress = 112
+        val params = host.layoutParams as WindowManager.LayoutParams
+        val density = app.resources.displayMetrics.density
+        val handle = host.findViewWithTag<View>("handle")
+        assertTrue(params.width > 200 * density) // Extension and handle can sit on opposite sides.
+        assertEquals((33 * density).roundToInt(), handle.layoutParams.width)
+        assertTrue(params.height >= 160 * density)
+        assertNotNull((host as FrameLayout).foreground)
+        content.findViewWithTag<android.widget.SeekBar>("island_handle_height").progress = 0
+        assertNull(host.findViewWithTag<View>("handle"))
+        val dialog = ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog")
+        dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        for (part in listOf("handle", "touch")) for (axis in listOf("width", "height", "top", "horizontal")) {
+            assertFalse(prefs.contains("island_${part}_$axis"))
+        }
     }
 
     @Test fun expandControlsAndOutsideTouchShareRealPlayerActions() {
@@ -158,7 +237,6 @@ class MusicIslandTest {
         app.mediaController.updateState("playing", 125000, 257000)
         island.setEnabled(true); island.show(true)
         val host = view()
-        activity!!.pause().stop()
         val power = shadowOf(app.getSystemService(Context.POWER_SERVICE) as PowerManager)
         val keyguard = shadowOf(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager)
         power.setIsInteractive(false); keyguard.setKeyguardLocked(true)

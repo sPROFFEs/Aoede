@@ -79,6 +79,7 @@
         var stream = primary.captureStream();
         if (!stream.getAudioTracks().length) {
           stream.getTracks().forEach(function (track) { track.stop(); });
+          spectrumFailed = url;
           return null;
         }
         var context;
@@ -98,7 +99,13 @@
         return track.readyState === 'live' && track.enabled && !track.muted;
       })) return null;
       if (spectrum.context.state !== 'running') {
-        spectrum.context.resume().catch(function () {});
+        if (!spectrum.resuming) {
+          var pending = spectrum;
+          pending.resuming = true;
+          pending.context.resume().then(function () { pending.resuming = false; }).catch(function () {
+            if (spectrum === pending) { closeSpectrum(); spectrumFailed = url; }
+          });
+        }
         return null;
       }
       spectrum.analyser.getByteFrequencyData(spectrum.data);
@@ -283,7 +290,9 @@
     ['play', 'playing', 'pause', 'ended', 'waiting', 'stalled', 'emptied', 'error', 'timeupdate', 'loadedmetadata', 'seeked', 'ratechange'].forEach(function (event) {
       element.addEventListener(event, function () {
         if (primary !== element) return;
-        if (event === 'playing') { audible = true; failed = false; }
+        if (event === 'playing' || (event === 'timeupdate' && !element.paused && !element.ended && element.readyState >= 3 && !element.error)) {
+          audible = true; failed = false;
+        }
         if (['pause', 'ended', 'waiting', 'emptied', 'error'].indexOf(event) >= 0) audible = false;
         if (!audible) closeSpectrum();
         if (event === 'emptied' || event === 'play') spectrumFailed = '';

@@ -27,6 +27,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.PathInterpolator
 import android.widget.FrameLayout
 import android.widget.Button
 import android.widget.ImageButton
@@ -79,6 +80,8 @@ class MusicIsland(private val app: AoedeApp) {
     private val capsuleHeight get() = prefs.getInt("island_height", 48).coerceIn(28, 72)
     private var tracking = false
     private var dialog: AlertDialog? = null
+    private var appVisible = true
+    private var hiding = false
     internal var taskActive = false
     internal var expanded = false
         private set
@@ -123,7 +126,7 @@ class MusicIsland(private val app: AoedeApp) {
             player.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(true)") { result ->
                 if (!sampling || generation != sampleGeneration) return@evaluateJavascript
                 updateSpectrum(result)
-                handler.postDelayed(this, 100)
+                handler.postDelayed(this, if (result == "null") 1000 else 100)
             }
         }
     }
@@ -139,7 +142,7 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     internal fun syncSpectrum() {
-        val active = root != null && !expanded && media.isPlaying && !reduced && app.player != null &&
+        val active = root != null && !hiding && !expanded && media.isPlaying && !reduced && app.player != null &&
             (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive &&
             !(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         root?.findViewWithTag<Bars>("bars")?.playing = active
@@ -163,6 +166,12 @@ class MusicIsland(private val app: AoedeApp) {
         refresh()
     }
 
+    internal fun setAppVisible(value: Boolean) {
+        if (value && expanded) collapse()
+        appVisible = value
+        refresh()
+    }
+
     fun refresh() {
         check(Looper.myLooper() == Looper.getMainLooper())
         if (changingWindow) { deferRefresh(); return }
@@ -172,6 +181,12 @@ class MusicIsland(private val app: AoedeApp) {
             unregister()
             return
         }
+        if (appVisible && dialog == null) {
+            hideAnimated()
+            unregister()
+            return
+        }
+        if (hiding) hide()
         if (dialog != null && expanded) collapse()
         register()
         val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
@@ -217,19 +232,24 @@ class MusicIsland(private val app: AoedeApp) {
         else android.util.DisplayMetrics().also { windows.defaultDisplay.getRealMetrics(it) }.let { Rect(0, 0, it.widthPixels, it.heightPixels) }
 
     private fun capsuleBounds(): Rect {
+        return compactRect(capsuleWidth, capsuleHeight, capsuleTop,
+            prefs.getInt("island_horizontal", 0))
+    }
+
+    private fun compactRect(widthDp: Int, heightDp: Int, topDp: Int, horizontal: Int): Rect {
         val screen = displayBounds(); val insets = protectedInsets()
         val left = insets.left + dp(8); val right = (screen.width() - insets.right - dp(8)).coerceAtLeast(left + dp(48))
-        val width = minOf(dp(capsuleWidth), right - left)
+        val width = minOf(dp(widthDp), right - left)
         val travel = right - left - width
-        val x = left + travel * (prefs.getInt("island_horizontal", 0).coerceIn(-100, 100) + 100) / 200
-        val maximumY = (screen.height() - insets.bottom - dp(8 + maxOf(48, capsuleHeight))).coerceAtLeast(0)
-        val y = dp(capsuleTop).coerceAtMost(maximumY)
-        // Visual position can surround the camera; only the interaction area must clear system UI.
-        val touchTop = maxOf(y, insets.top + dp(4))
-        val handleBottom = if (y < insets.top + dp(4)) maxOf(y + dp(capsuleHeight), touchTop) + dp(16) else 0
-        val bottom = maxOf(y + dp(capsuleHeight), touchTop + dp(48), handleBottom)
-        return Rect(x, y, x + width, bottom)
+        val x = left + travel * (horizontal.coerceIn(-100, 100) + 100) / 200
+        val maximumY = (screen.height() - insets.bottom - dp(8 + heightDp)).coerceAtLeast(0)
+        val y = dp(topDp).coerceAtMost(maximumY)
+        return Rect(x, y, x + width, y + dp(heightDp))
     }
+
+    private val minimumTouchTop get() = kotlin.math.ceil((safeTop + dp(4)) / app.resources.displayMetrics.density).toInt()
+    private val handleTop get() = prefs.getInt("island_handle_top", maxOf(capsuleTop + capsuleHeight, minimumTouchTop) + 4).coerceIn(0, 320)
+    private val horizontal get() = prefs.getInt("island_horizontal", 0).coerceIn(-100, 100)
 
     private fun register() {
         if (registered) return
@@ -261,6 +281,8 @@ class MusicIsland(private val app: AoedeApp) {
         handler.removeCallbacks(tick)
         val previous = root
         root = null
+        hiding = false
+        previous?.animate()?.cancel()
         expanded = false
         tracking = false
         syncSpectrum()
@@ -269,8 +291,25 @@ class MusicIsland(private val app: AoedeApp) {
         finally { changingWindow = false }
     }
 
+    private fun hideAnimated() {
+        val view = root ?: return
+        if (hiding) return
+        if (reduced) { hide(); return }
+        if (expanded) show(false)
+        hiding = true
+        syncSpectrum()
+        view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+        val params = view.layoutParams as WindowManager.LayoutParams
+        params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        runCatching { windows.updateViewLayout(view, params) }
+        view.animate().cancel()
+        view.animate().scaleX(.02f).alpha(0f).setDuration(180)
+            .setInterpolator(PathInterpolator(.4f, 0f, 1f, 1f))
+            .withEndAction { if (hiding && root === view) hide() }.start()
+    }
+
     internal fun show(open: Boolean) {
-        if (!enabled || !permissionGranted) return
+        if (!enabled || !permissionGranted || (appVisible && dialog == null)) return
         if (changingWindow) { deferRefresh(); return }
         changingWindow = true
         val modeChanged = expanded != open
@@ -281,21 +320,38 @@ class MusicIsland(private val app: AoedeApp) {
             tracking = false
             val existing = root
             val view = existing ?: IslandWindow(windowContext)
+            if (modeChanged) { view.animate().cancel(); view.scaleX = 1f; view.alpha = 1f }
             (view.findViewWithTag<View>("card") ?: view.getChildAt(0))?.animate()?.cancel()
             view.removeAllViews()
-            view.addView(if (open) panel() else capsule(), FrameLayout.LayoutParams(-1,
-                if (open) -1 else dp(capsuleHeight), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
-            val box = capsuleBounds()
-            if (!open && box.top < safeTop + dp(4)) {
-                // The status bar owns its touches. Keep an explicit handle below it in the same window.
-                val handleTop = maxOf(dp(capsuleHeight), safeTop + dp(4) - box.top)
-                view.addView(FrameLayout(windowContext).apply {
-                    tag = "handle"; background = shape(Color.BLACK, 7f)
-                    addView(View(windowContext).apply { background = shape(0xFFB9B4BF.toInt(), 1f) },
-                        FrameLayout.LayoutParams(dp(14), dp(2), Gravity.CENTER))
-                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                }, FrameLayout.LayoutParams(dp(32), dp(12), Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = handleTop + dp(4) })
+            val capsule = capsuleBounds()
+            val handleHeight = prefs.getInt("island_handle_height", 12).coerceIn(0, 32)
+            val handle = compactRect(prefs.getInt("island_handle_width", 32).coerceIn(16, 128), handleHeight,
+                handleTop, prefs.getInt("island_handle_horizontal", horizontal))
+            val touch = compactRect(prefs.getInt("island_touch_width", capsuleWidth).coerceIn(48, 320),
+                prefs.getInt("island_touch_height", 48).coerceIn(48, 160),
+                prefs.getInt("island_touch_top", maxOf(capsuleTop, minimumTouchTop)).coerceIn(minimumTouchTop, maxOf(320, minimumTouchTop)),
+                prefs.getInt("island_touch_horizontal", horizontal))
+            val hasHandle = handleHeight > 0 && (capsule.top < safeTop + dp(4) || prefs.contains("island_handle_top"))
+            val box = Rect(capsule).apply { union(touch); if (hasHandle) union(handle) }
+            if (!open) view.pivotX = capsule.exactCenterX() - box.left
+            fun place(child: View, rect: Rect) {
+                view.addView(child, FrameLayout.LayoutParams(rect.width(), rect.height(), Gravity.TOP or Gravity.LEFT).apply {
+                    leftMargin = rect.left - box.left; topMargin = rect.top - box.top
+                })
             }
+            if (open) view.addView(panel(), FrameLayout.LayoutParams(-1, -1)) else place(capsule(), capsule)
+            if (!open && hasHandle) {
+                place(FrameLayout(windowContext).apply {
+                    tag = "handle"; background = shape(Color.BLACK, minOf(7, handleHeight / 2).toFloat())
+                    addView(View(windowContext).apply { background = shape(0xFFB9B4BF.toInt(), 1f) },
+                        FrameLayout.LayoutParams(minOf(dp(14), handle.width() - dp(4)), minOf(dp(2), handle.height()), Gravity.CENTER))
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                }, handle)
+            }
+            view.foreground = if (dialog != null) GradientDrawable().apply {
+                setColor(Color.TRANSPARENT); cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), 0xFFB8A3FF.toInt(), dp(4).toFloat(), dp(3).toFloat())
+            } else null
             view.isFocusableInTouchMode = open
             view.contentDescription = if (open) null else app.getString(R.string.island_expand)
             view.importantForAccessibility = if (dialog != null) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
@@ -341,8 +397,14 @@ class MusicIsland(private val app: AoedeApp) {
             if (open) { view.requestFocus(); tick.run() }
             if (!reduced && (existing == null || modeChanged)) {
                 val target = view.findViewWithTag<View>("card") ?: view.getChildAt(0)
-                target.alpha = 0f; target.scaleX = .94f; target.scaleY = .94f
-                target.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start()
+                if (existing == null && !open) {
+                    view.scaleX = .02f; view.alpha = 0f
+                    view.animate().scaleX(1f).alpha(1f).setDuration(280)
+                        .setInterpolator(PathInterpolator(.16f, 1f, .3f, 1f)).start()
+                } else {
+                    target.alpha = 0f; target.scaleX = .94f; target.scaleY = .94f
+                    target.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(180).start()
+                }
             }
         } finally { changingWindow = false }
     }
@@ -564,14 +626,14 @@ class MusicIsland(private val app: AoedeApp) {
             }
             val decrease = Button(activity).apply {
                 tag = "$key-decrease"
-                text = when (key) { "island_top" -> "↑"; "island_height" -> "↓"; else -> "←" }
+                text = when { key.endsWith("_top") -> "↑"; key.endsWith("_height") -> "↓"; else -> "←" }
                 contentDescription = app.getString(R.string.island_decrease, app.getString(title))
                 setPadding(0, 0, 0, 0)
                 setOnClickListener { bar.progress = (bar.progress - 1).coerceAtLeast(0) }
             }
             val increase = Button(activity).apply {
                 tag = "$key-increase"
-                text = when (key) { "island_top" -> "↓"; "island_height" -> "↑"; else -> "→" }
+                text = when { key.endsWith("_top") -> "↓"; key.endsWith("_height") -> "↑"; else -> "→" }
                 contentDescription = app.getString(R.string.island_increase, app.getString(title))
                 setPadding(0, 0, 0, 0)
                 setOnClickListener { bar.progress = (bar.progress + 1).coerceAtMost(bar.max) }
@@ -603,6 +665,17 @@ class MusicIsland(private val app: AoedeApp) {
         slider("island_horizontal", R.string.island_horizontal, R.string.island_horizontal_value, -100, 100,
             prefs.getInt("island_horizontal", 0).coerceIn(-100, 100))
         body.addView(TextView(activity).apply { text = app.getString(R.string.island_position_help); textSize = 12f })
+        body.addView(TextView(activity).apply { text = app.getString(R.string.island_handle_title); textSize = 18f; setPadding(0, dp(16), 0, dp(8)) })
+        slider("island_handle_width", R.string.island_width, R.string.island_width_value, 16, 128, prefs.getInt("island_handle_width", 32).coerceIn(16, 128))
+        slider("island_handle_height", R.string.island_height, R.string.island_height_value, 0, 32, prefs.getInt("island_handle_height", 12).coerceIn(0, 32))
+        slider("island_handle_top", R.string.island_position, R.string.island_position_value, 0, 320, handleTop)
+        slider("island_handle_horizontal", R.string.island_horizontal, R.string.island_horizontal_value, -100, 100, prefs.getInt("island_handle_horizontal", horizontal).coerceIn(-100, 100))
+        body.addView(TextView(activity).apply { text = app.getString(R.string.island_touch_title); textSize = 18f; setPadding(0, dp(16), 0, dp(8)) })
+        slider("island_touch_width", R.string.island_width, R.string.island_width_value, 48, 320, prefs.getInt("island_touch_width", capsuleWidth).coerceIn(48, 320))
+        slider("island_touch_height", R.string.island_height, R.string.island_height_value, 48, 160, prefs.getInt("island_touch_height", 48).coerceIn(48, 160))
+        slider("island_touch_top", R.string.island_position, R.string.island_position_value, minimumTouchTop, maxOf(320, minimumTouchTop), prefs.getInt("island_touch_top", maxOf(capsuleTop, minimumTouchTop)).coerceIn(minimumTouchTop, maxOf(320, minimumTouchTop)))
+        slider("island_touch_horizontal", R.string.island_horizontal, R.string.island_horizontal_value, -100, 100, prefs.getInt("island_touch_horizontal", horizontal).coerceIn(-100, 100))
+        body.addView(TextView(activity).apply { text = app.getString(R.string.island_touch_help); textSize = 12f })
         toggle.setOnCheckedChangeListener { _, checked ->
             if (checked && !permissionGranted) {
                 dialog?.dismiss()
@@ -617,7 +690,8 @@ class MusicIsland(private val app: AoedeApp) {
             .setView(ScrollView(activity).apply { addView(body) }).setPositiveButton(android.R.string.ok, null)
             .setNeutralButton(R.string.island_reset_layout) { _, _ ->
                 prefs.edit().remove("island_width").remove("island_height").remove("island_gap")
-                    .remove("island_offset").remove("island_horizontal").remove("island_top").apply()
+                    .remove("island_offset").remove("island_horizontal").remove("island_top")
+                    .also { edit -> for (part in listOf("handle", "touch")) for (axis in listOf("width", "height", "top", "horizontal")) edit.remove("island_${part}_$axis") }.apply()
             }
             .create()
         settingsDialog.setOnDismissListener {

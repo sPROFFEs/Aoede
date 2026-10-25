@@ -2,10 +2,14 @@ package com.aoede.twa
 
 import android.annotation.SuppressLint
 import android.app.Application
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.MutableContextWrapper
 import android.net.Uri
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
@@ -53,6 +57,26 @@ class AoedeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         mediaController = MediaController(this)
+        registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
+            private val started = mutableSetOf<Activity>()
+            private val handler = Handler(Looper.getMainLooper())
+            private val stopped = Runnable { musicIsland.setAppVisible(started.isNotEmpty()) }
+            override fun onActivityStarted(activity: Activity) {
+                started.add(activity)
+                handler.removeCallbacks(stopped)
+                musicIsland.setAppVisible(true)
+            }
+            override fun onActivityStopped(activity: Activity) {
+                started.remove(activity)
+                // Resolve activity replacement/configuration changes before showing an overlay.
+                handler.post(stopped)
+            }
+            override fun onActivityCreated(activity: Activity, state: Bundle?) {}
+            override fun onActivityResumed(activity: Activity) {}
+            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) {}
+            override fun onActivityDestroyed(activity: Activity) {}
+        })
     }
 
     fun updateViewport(bars: androidx.core.graphics.Insets, keyboard: Boolean) {

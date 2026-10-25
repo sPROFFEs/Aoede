@@ -46,7 +46,10 @@
     <string name="island_decrease">%1$s um einen Schritt verringern</string>
     <string name="island_increase">%1$s um einen Schritt erhöhen</string>
     <string name="island_enable">Musikinsel anzeigen</string>
-    <string name="island_description">Optionale Steuerung über anderen Apps, solange Aoede geöffnet ist oder Musik abspielt. Erlaube „Über anderen Apps einblenden“, wenn Android danach fragt. Diese Einstellung gilt nur für dieses Gerät.</string>
+    <string name="island_description">Optionale Steuerung über anderen Apps, wenn Aoede minimiert ist. Solange Aoede sichtbar ist, bleibt sie außer in der Layout-Vorschau verborgen. Erlaube „Über anderen Apps einblenden“, wenn Android danach fragt. Diese Einstellung gilt nur für dieses Gerät.</string>
+    <string name="island_handle_title">Griff</string>
+    <string name="island_touch_title">Berührungsfläche</string>
+    <string name="island_touch_help">Der Rahmen zeigt die gesamte Berührungsfläche: Kapsel, Griff und eingestellte Erweiterung. Die Erweiterung liegt unter der Systemleiste und ist mindestens 48 dp groß. Eine Griffhöhe von 0 blendet den Griff aus. Android kontrolliert Berührungen innerhalb der Statusleiste.</string>
     <string name="island_permission_denied">Android hat Overlays nicht erlaubt. Dynamic Island bleibt ausgeschaltet.</string>
     <string name="island_position">Vertikale Position der Insel</string>
     <string name="island_position_value">Abstand vom oberen Bildschirmrand: %1$d dp</string>

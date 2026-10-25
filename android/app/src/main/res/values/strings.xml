@@ -58,7 +58,10 @@
     <string name="island_decrease">Decrease %1$s by one step</string>
     <string name="island_increase">Increase %1$s by one step</string>
     <string name="island_enable">Show music island</string>
-    <string name="island_description">Optional controls above other apps while Aoede is open or playing music. Enable “Display over other apps” when Android asks. This setting stays on this device.</string>
+    <string name="island_description">Optional controls above other apps when Aoede is minimized. Hidden while Aoede is visible, except for the live layout preview. Enable “Display over other apps” when Android asks. This setting stays on this device.</string>
+    <string name="island_handle_title">Handle</string>
+    <string name="island_touch_title">Touch area</string>
+    <string name="island_touch_help">The outline shows the complete touch area, including the capsule, handle and configured extension. Its extension stays below the system bar with a minimum 48 dp target. Set handle height to 0 to hide it. Android owns touches inside its status bar.</string>
     <string name="island_permission_denied">Android has not allowed overlays. Dynamic Island remains off.</string>
     <string name="island_position">Island vertical position</string>
     <string name="island_position_value">Distance from screen top: %1$d dp</string>

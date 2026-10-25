@@ -927,11 +927,13 @@ export async function playTrack(track, options = {}) {
     const hasOffline =
       offlineStore.isTrackAvailableOfflineSync(track.db_id) ||
       (await offlineStore.isTrackAvailableOffline(track.db_id));
+    if (state.currentTrack !== track) return;
 
     if (hasOffline || isOffline) {
       if (hasOffline) {
         try {
           const blob = await offlineStore.getOfflineAudioBlob(track.db_id);
+          if (state.currentTrack !== track) return;
           if (blob) {
             if (_currentBlobUrl) {
               URL.revokeObjectURL(_currentBlobUrl);
@@ -997,6 +999,7 @@ export async function playTrack(track, options = {}) {
     return state.audio
       .play()
       .then(() => {
+        if (state.currentTrack !== track) return;
         _trackTransitionInFlight = false;
         // Reset prefetch state for the new now-playing track so the
         // timeupdate handler can prefetch the track after THIS one.
@@ -1022,8 +1025,8 @@ export async function playTrack(track, options = {}) {
         }
       })
       .catch((e) => {
+        if (e.name === 'AbortError' || state.currentTrack !== track) return;
         _trackTransitionInFlight = false;
-        if (e.name === 'AbortError') return;
         console.error('Playback error:', e);
         ui.showToast('Playback failed', 'error');
         if ('mediaSession' in navigator) {
@@ -1844,16 +1847,10 @@ export function setupPlayer() {
     sendTrackingEvent('seek', _activeListenSession, { played_seconds: currentTime });
   });
 
-  // --- Stall / waiting recovery ---------------------------------------------
-  // When the network blips or the browser's HTTP cache misses a Range
-  // request mid-playback, the <audio> element fires 'waiting' or
-  // 'stalled' and silently stops. Without recovery the user hears
-  // silence and has to manually skip. We detect the stall, wait a
-  // short grace period (in case the browser is just rebuffering), and
-  // if playback hasn't resumed, reload the current src from the
-  // current position to force a fresh request.
+  // Recover a genuinely blocked stream, including pending play() at a track boundary.
   let _stallRecoveryTimer = null;
-  const STALL_GRACE_MS = 3000;
+  let _stallRecoveryTrack = null;
+  const STALL_GRACE_MS = 10000;
 
   function _clearStallRecovery() {
     if (_stallRecoveryTimer) {
@@ -1863,55 +1860,81 @@ export function setupPlayer() {
   }
 
   function _armStallRecovery() {
-    _clearStallRecovery();
+    if (_stallRecoveryTimer || state.audio.paused || !state.currentTrack?.db_id) return;
+    if (_partyController?.isActive?.() || state.audio.src.startsWith('blob:')) return;
+    const track = state.currentTrack;
+    if (_stallRecoveryTrack !== track) {
+      _stallRecoveryTrack = track;
+      _stallRecoveryAttempts = 0;
+    }
+    const src = state.audio.src;
+    const position = Number(state.audio.currentTime) || 0;
     _stallRecoveryTimer = setTimeout(() => {
       _stallRecoveryTimer = null;
-      // Only recover if we're actually stalled (not playing) and the
-      // user hasn't paused or switched tracks.
-      if (!state.audio.paused && state.currentTrack?.db_id && state.audio.readyState < 4) {
-        const resumeAt = Number(state.audio.currentTime) || 0;
-        console.warn('[PLAYER] Stall recovery: reloading stream after network stall');
-        _stallRecoveryAttempts = (_stallRecoveryAttempts || 0) + 1;
-        // Force a fresh fetch by reloading the src. The browser will
-        // re-request the stream from the server, bypassing any stale
-        // cache entry. We restore the position in loadedmetadata.
-        if (_stallRecoveryAttempts <= MAX_STALL_RETRIES) {
-          const src = state.audio.src;
-          state.audio.src = src;
-          state.audio.load();
-          const onMeta = () => {
-            state.audio.removeEventListener('loadedmetadata', onMeta);
-            try {
-              state.audio.currentTime = resumeAt;
-            } catch (_) {}
-            state.audio.play().catch(() => {});
-          };
-          state.audio.addEventListener('loadedmetadata', onMeta, { once: true });
-        } else {
-          console.warn('[PLAYER] Stall recovery: max retries reached, giving up');
-          ui.showToast('Stream stalled — try skipping to the next track', 'error');
-        }
+      if (state.currentTrack !== track || state.audio.src !== src || state.audio.paused || state.audio.ended) return;
+      // HAVE_FUTURE_DATA (3) can keep playing; stalled only describes the fetch.
+      if (state.audio.readyState >= 3) return;
+      if (state.audio.currentTime > position + 0.1) {
+        _armStallRecovery();
+        return;
       }
+      if (navigator.onLine === false) {
+        _armStallRecovery();
+        return;
+      }
+      if (_stallRecoveryAttempts >= MAX_STALL_RETRIES) {
+        _trackTransitionInFlight = false;
+        state.audio.pause();
+        ui.showToast('Stream stalled — try skipping to the next track', 'error');
+        return;
+      }
+      _stallRecoveryAttempts++;
+      console.warn('[PLAYER] Recovering blocked stream', _stallRecoveryAttempts);
+      // play immediately to retain the background media session. currentTime before
+      // metadata sets the native default start position; no stale metadata callback.
+      state.audio.load();
+      state.audio.currentTime = position;
+      state.audio.play().catch((error) => {
+        if (error.name === 'AbortError' || state.currentTrack !== track || state.audio.src !== src) return;
+        _trackTransitionInFlight = false;
+        state.audio.pause();
+        ui.showToast('Playback failed', 'error');
+      });
+      _armStallRecovery();
     }, STALL_GRACE_MS);
   }
 
-  state.audio.addEventListener('waiting', () => {
-    if (_trackTransitionInFlight) return;
+  state.audio.addEventListener('play', () => {
+    _clearStallRecovery();
     _armStallRecovery();
   });
-
-  state.audio.addEventListener('stalled', () => {
-    if (_trackTransitionInFlight) return;
-    _armStallRecovery();
+  state.audio.addEventListener('waiting', _armStallRecovery);
+  state.audio.addEventListener('stalled', _armStallRecovery);
+  state.audio.addEventListener('pause', () => {
+    if (state.audio.paused) {
+      _clearStallRecovery();
+      _stallRecoveryTrack = null;
+    }
+  });
+  state.audio.addEventListener('ended', () => {
+    if (state.audio.ended) _clearStallRecovery();
   });
 
   state.audio.addEventListener('playing', () => {
+    _trackTransitionInFlight = false;
     _clearStallRecovery();
     _stallRecoveryAttempts = 0;
   });
 
   state.audio.addEventListener('canplay', () => {
     _clearStallRecovery();
+  });
+
+  state.audio.addEventListener('timeupdate', () => {
+    if (!state.audio.paused && state.audio.readyState >= 3) {
+      _clearStallRecovery();
+      _stallRecoveryAttempts = 0;
+    }
   });
 
   state.audio.addEventListener('error', () => {

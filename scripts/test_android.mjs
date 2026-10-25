@@ -161,6 +161,42 @@ const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
   unavailable.window.__aoedeMediaCommand('play'); unavailable.audio.dispatchEvent(new Event('playing')); await flush();
   assert.equal(unavailable.window.__aoedeIslandLevels(true), null);
   assert.equal(unavailable.audio.paused, false); // Cross-origin/unsupported sources must keep playing.
+  let captures = 0;
+  const empty = page({ audioContext: AudioContext, captureStream() {
+    captures++; return { getAudioTracks: () => [], getTracks: () => [] };
+  } });
+  empty.window.__aoedeMediaCommand('play'); empty.audio.dispatchEvent(new Event('playing')); await flush();
+  for (let i = 0; i < 5; i++) assert.equal(empty.window.__aoedeIslandLevels(true), null);
+  assert.equal(captures, 1); // Unsupported WebViews must not capture/dispose streams on every sample.
+  let resumes = 0;
+  class SuspendedContext extends AudioContext {
+    state = 'suspended';
+    resume() { resumes++; return new Promise(() => {}); }
+  }
+  const suspended = page({ audioContext: SuspendedContext, captureStream() {
+    const track = { readyState: 'live', enabled: true, muted: false, stop() {} };
+    const stream = { getTracks: () => [track], getAudioTracks: () => [track] };
+    streams.push(stream); return stream;
+  } });
+  suspended.window.__aoedeMediaCommand('play'); suspended.audio.dispatchEvent(new Event('playing')); await flush();
+  for (let i = 0; i < 5; i++) assert.equal(suspended.window.__aoedeIslandLevels(true), null);
+  assert.equal(resumes, 1); assert.equal(suspended.audio.paused, false);
+  suspended.window.__aoedeIslandLevels(false);
+  assert.equal(contexts.at(-1).state, 'closed');
+}
+
+// Playback progress can recover a missed WebView "playing" event after buffering.
+{
+  const p = page();
+  p.window.__aoedeMediaCommand('play'); p.audio.dispatchEvent(new Event('playing')); await flush();
+  p.audio.readyState = 2; p.audio.dispatchEvent(new Event('waiting')); await flush();
+  assert.equal(p.state().state, 'buffering');
+  p.audio.readyState = 3; p.audio.currentTime++;
+  p.audio.dispatchEvent(new Event('timeupdate')); await flush();
+  assert.equal(p.state().state, 'playing');
+  p.window.__aoedeMediaCommand('pause');
+  p.audio.dispatchEvent(new Event('timeupdate')); await flush();
+  assert.equal(p.state().state, 'paused');
 }
 
 // Island controls use the existing player buttons and retain its availability rules.
