@@ -55,6 +55,8 @@
     <string name="update_failed">The update could not be verified or installed. Check your connection and try again, or download it from About &amp; updates.</string>
     <string name="update_permission_denied">Installation permission was not granted. You can try again from Update app.</string>
     <string name="island_title">Dynamic Island</string>
+    <string name="island_decrease">Decrease %1$s by one step</string>
+    <string name="island_increase">Increase %1$s by one step</string>
     <string name="island_enable">Show music island</string>
     <string name="island_description">Optional controls above other apps while Aoede is open or playing music. Enable “Display over other apps” when Android asks. This setting stays on this device.</string>
     <string name="island_permission_denied">Android has not allowed overlays. Dynamic Island remains off.</string>

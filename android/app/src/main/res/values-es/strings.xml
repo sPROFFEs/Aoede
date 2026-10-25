@@ -49,6 +49,8 @@
     <string name="update_failed">No se pudo verificar o instalar la actualización. Revisa tu conexión e inténtalo de nuevo, o descárgala desde Acerca de y actualizaciones.</string>
     <string name="update_permission_denied">No se concedió permiso de instalación. Puedes intentarlo de nuevo desde Actualizar app.</string>
     <string name="island_title">Dynamic Island</string>
+    <string name="island_decrease">Reducir %1$s un paso</string>
+    <string name="island_increase">Aumentar %1$s un paso</string>
     <string name="island_enable">Mostrar isla de música</string>
     <string name="island_description">Controles opcionales sobre otras apps mientras Aoede esté abierta o reproduciendo música. Activa «Mostrar sobre otras apps» cuando Android lo solicite. Este ajuste se guarda en este dispositivo.</string>
     <string name="island_permission_denied">Android no ha permitido las superposiciones. Dynamic Island sigue desactivada.</string>

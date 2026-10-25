@@ -141,7 +141,8 @@
     try { cover = cover ? new URL(cover, location.href).href : ''; } catch (_) { cover = ''; }
     send({ type: 'metadata', title: String(value.title || '').slice(0, 512),
       artist: String(value.artist || '').slice(0, 512), album: String(value.album || '').slice(0, 512),
-      artwork: cover.slice(0, 2048) });
+      offline: Boolean(window.AOEDE_NATIVE_OFFLINE || navigator.onLine === false),
+      artwork: cover.slice(0, cover.indexOf('data:image/') === 0 ? 192 * 1024 : 2048) });
   }
   function pushState() {
     var state = 'none';

@@ -18,6 +18,8 @@ let _sessionPersistInterval = null;
 let _remoteQueueSaveTimer = null;
 let _trackTransitionInFlight = false;
 let _currentBlobUrl = null; // Stored object URL for offline Blob playback
+let _offlineArtworkId = null;
+let _offlineArtworkData = null;
 // Stall recovery: tracks how many times we've reloaded the stream
 // for the current track. Reset to 0 on successful 'playing' event.
 let _stallRecoveryAttempts = 0;
@@ -456,6 +458,8 @@ function ensureMediaSessionHandlers() {
 
 function inferArtworkMime(url) {
   if (!url) return 'image/png';
+  const inlineType = /^data:(image\/(?:jpeg|png|webp));base64,/.exec(url);
+  if (inlineType) return inlineType[1];
   const clean = url.split('?')[0].toLowerCase();
   if (clean.endsWith('.jpg') || clean.endsWith('.jpeg')) return 'image/jpeg';
   if (clean.endsWith('.webp')) return 'image/webp';
@@ -463,9 +467,57 @@ function inferArtworkMime(url) {
   return 'image/png';
 }
 
+async function loadOfflineArtwork(track) {
+  const id = String(track.db_id);
+  const record = await offlineStore.getOfflineTrack(track.db_id);
+  if (!record?.artwork_blob || record.artwork_blob.size > 5 * 1024 * 1024 || _offlineArtworkId !== id) return;
+  const url = URL.createObjectURL(record.artwork_blob);
+  try {
+    const image = new Image();
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = reject;
+      image.src = url;
+    });
+    if (_offlineArtworkId !== id || String(state.currentTrack?.db_id) !== id) return;
+    const scale = Math.min(1, 256 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext('2d').drawImage(image, 0, 0, canvas.width, canvas.height);
+    const data = canvas.toDataURL('image/jpeg', 0.8);
+    if (data.length > 192 * 1024) return;
+    _offlineArtworkData = data;
+    for (const key of ['player-cover', 'fs-cover']) {
+      const cover = document.getElementById(key);
+      if (cover) cover.src = data;
+    }
+    updateMediaSessionMetadata(state.currentTrack);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
 function updateMediaSessionMetadata(track) {
   if (!('mediaSession' in navigator) || !track) return;
-  const artworkUrl = track.thumbnail || '/static/img/default_cover.png';
+  if (!track.db_id || track.fed_instance_id != null) {
+    _offlineArtworkId = null;
+    _offlineArtworkData = null;
+  }
+  if (
+    window.AOEDE_ANDROID &&
+    track.db_id &&
+    track.fed_instance_id == null &&
+    _offlineArtworkId !== String(track.db_id)
+  ) {
+    _offlineArtworkId = String(track.db_id);
+    _offlineArtworkData = null;
+    loadOfflineArtwork(track).catch(() => {}); // Missing artwork must never delay or interrupt playback.
+  }
+  const artworkUrl =
+    (_offlineArtworkId === String(track.db_id) && _offlineArtworkData) ||
+    track.thumbnail ||
+    '/static/img/default_cover.png';
 
   const metaObj = {
     title: track.title || 'Unknown',

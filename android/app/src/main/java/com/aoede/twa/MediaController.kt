@@ -90,7 +90,7 @@ class MediaController(private val app: AoedeApp) {
     }
 
     fun receive(raw: String) {
-        if (raw.length > 16384) return
+        if (raw.length > 256 * 1024) return
         ui {
             try {
                 val message = JSONObject(raw)
@@ -124,13 +124,14 @@ class MediaController(private val app: AoedeApp) {
         title = message.optString("title").take(512)
         artist = message.optString("artist").take(512)
         album = message.optString("album").take(512)
-        val url = message.optString("artwork").take(2048)
+        val source = message.optString("artwork")
+        val url = source.take(if (source.startsWith("data:image/")) 192 * 1024 else 2048)
         if (url != artworkUrl) {
             artworkUrl = url
             artwork = null
             artworkJob?.cancel(true)
             artworkGeneration++
-            if (url.isNotBlank()) downloadArtwork(url, artworkGeneration)
+            if (url.isNotBlank() && (!message.optBoolean("offline") || url.startsWith("data:image/"))) downloadArtwork(url, artworkGeneration)
         }
         emitMetadata()
     }
@@ -219,28 +220,35 @@ class MediaController(private val app: AoedeApp) {
         val cookieOrigin = serverOrigin
         artworkJob = artworkExecutor.submit {
             try {
-                var url = URL(initialUrl)
                 var bytes: ByteArray? = null
+                if (initialUrl.startsWith("data:")) {
+                    val prefix = initialUrl.substringBefore(',')
+                    if (prefix !in setOf("data:image/jpeg;base64", "data:image/png;base64", "data:image/webp;base64")) return@submit
+                    bytes = android.util.Base64.decode(initialUrl.substringAfter(','), android.util.Base64.DEFAULT)
+                }
+                var url = if (bytes == null) URL(initialUrl) else null
                 for (redirect in 0..5) {
+                    if (bytes != null) break
+                    val currentUrl = url ?: return@submit
                     if (Thread.currentThread().isInterrupted) return@submit
-                    val uri = Uri.parse(url.toString())
+                    val uri = Uri.parse(currentUrl.toString())
                     val origin = ServerOrigin.from(uri) ?: return@submit
                     if (origin.scheme == "http" && origin != cookieOrigin) return@submit
-                    val connection = url.openConnection() as HttpURLConnection
+                    val connection = currentUrl.openConnection() as HttpURLConnection
                     try {
                         connection.instanceFollowRedirects = false
                         connection.connectTimeout = 5000
                         connection.readTimeout = 5000
                         if (origin == cookieOrigin) {
-                            CookieManager.getInstance().getCookie(url.toString())?.let {
+                            CookieManager.getInstance().getCookie(currentUrl.toString())?.let {
                                 connection.setRequestProperty("Cookie", it)
                             }
                         }
                         val status = connection.responseCode
                         if (status in setOf(301, 302, 303, 307, 308)) {
                             val location = connection.getHeaderField("Location") ?: return@submit
-                            val next = URL(url, location)
-                            if (url.protocol == "https" && next.protocol != "https") return@submit
+                            val next = URL(currentUrl, location)
+                            if (currentUrl.protocol == "https" && next.protocol != "https") return@submit
                             url = next
                             continue
                         }

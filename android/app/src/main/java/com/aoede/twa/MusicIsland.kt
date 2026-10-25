@@ -28,6 +28,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.Button
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -171,7 +172,7 @@ class MusicIsland(private val app: AoedeApp) {
             unregister()
             return
         }
-        if (dialog != null) { hide(); return }
+        if (dialog != null && expanded) collapse()
         register()
         val awake = (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive
         if (!awake && expanded) collapse()
@@ -297,12 +298,14 @@ class MusicIsland(private val app: AoedeApp) {
             }
             view.isFocusableInTouchMode = open
             view.contentDescription = if (open) null else app.getString(R.string.island_expand)
-            view.importantForAccessibility = if (open) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
-            view.setOnClickListener { if (expanded) collapse() else show(true) }
+            view.importantForAccessibility = if (dialog != null) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+                else if (open) View.IMPORTANT_FOR_ACCESSIBILITY_NO else View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            view.setOnClickListener { if (dialog == null) { if (expanded) collapse() else show(true) } }
             @Suppress("DEPRECATION")
             val type = if (Build.VERSION.SDK_INT >= 26) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
                 else WindowManager.LayoutParams.TYPE_PHONE
             val flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+                (if (dialog != null) WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE else 0) or
                 if (open) WindowManager.LayoutParams.FLAG_DIM_BEHIND
                 else WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
             val params = WindowManager.LayoutParams(if (open) -1 else box.width(), if (open) -1 else box.height(),
@@ -557,17 +560,40 @@ class MusicIsland(private val app: AoedeApp) {
             val bar = SeekBar(activity).apply {
                 tag = key; max = maximum - minimum; progress = value - minimum
                 contentDescription = app.getString(title)
+                keyProgressIncrement = 1
             }
-            fun updateLabel() { label.text = app.getString(format, bar.progress + minimum) }
-            updateLabel(); body.addView(label); body.addView(bar, LinearLayout.LayoutParams(-1, dp(48)))
+            val decrease = Button(activity).apply {
+                tag = "$key-decrease"
+                text = when (key) { "island_top" -> "↑"; "island_height" -> "↓"; else -> "←" }
+                contentDescription = app.getString(R.string.island_decrease, app.getString(title))
+                setPadding(0, 0, 0, 0)
+                setOnClickListener { bar.progress = (bar.progress - 1).coerceAtLeast(0) }
+            }
+            val increase = Button(activity).apply {
+                tag = "$key-increase"
+                text = when (key) { "island_top" -> "↓"; "island_height" -> "↑"; else -> "→" }
+                contentDescription = app.getString(R.string.island_increase, app.getString(title))
+                setPadding(0, 0, 0, 0)
+                setOnClickListener { bar.progress = (bar.progress + 1).coerceAtMost(bar.max) }
+            }
+            fun updateLabel() {
+                label.text = app.getString(format, bar.progress + minimum)
+                decrease.isEnabled = bar.progress > 0; increase.isEnabled = bar.progress < bar.max
+            }
+            updateLabel(); body.addView(label)
+            body.addView(LinearLayout(activity).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                addView(decrease, LinearLayout.LayoutParams(dp(48), dp(48)))
+                addView(bar, LinearLayout.LayoutParams(0, dp(48), 1f))
+                addView(increase, LinearLayout.LayoutParams(dp(48), dp(48)))
+            })
             bar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onStartTrackingTouch(bar: SeekBar) {}
                 override fun onStopTrackingTouch(bar: SeekBar) {}
                 override fun onProgressChanged(bar: SeekBar, value: Int, fromUser: Boolean) {
-                    if (fromUser) {
-                        prefs.edit().putInt(key, value + minimum).apply()
-                        updateLabel()
-                    }
+                    prefs.edit().putInt(key, value + minimum).apply()
+                    updateLabel()
+                    relayout()
                 }
             })
         }
@@ -585,7 +611,7 @@ class MusicIsland(private val app: AoedeApp) {
                 } catch (_: SecurityException) {
                     Toast.makeText(activity, R.string.island_permission_denied, Toast.LENGTH_LONG).show()
                 }
-            } else { prefs.edit().putBoolean("music_island", checked).apply() }
+            } else { prefs.edit().putBoolean("music_island", checked).apply(); refresh() }
         }
         val settingsDialog = AlertDialog.Builder(activity).setTitle(R.string.island_title)
             .setView(ScrollView(activity).apply { addView(body) }).setPositiveButton(android.R.string.ok, null)
@@ -595,11 +621,12 @@ class MusicIsland(private val app: AoedeApp) {
             }
             .create()
         settingsDialog.setOnDismissListener {
-            if (dialog === settingsDialog) { dialog = null; refresh() }
+            if (dialog === settingsDialog) { dialog = null; refresh(); relayout() }
         }
         dialog = settingsDialog
         settingsDialog.setOwnerActivity(activity)
         settingsDialog.show()
+        refresh()
     }
 
     fun closeSettings(activity: MainActivity) {

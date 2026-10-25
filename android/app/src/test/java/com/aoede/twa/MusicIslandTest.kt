@@ -279,14 +279,42 @@ class MusicIslandTest {
         island.showSettings(activity!!.get()) {}
         island.showSettings(activity!!.get()) {} // A late dismissal must not clear the replacement dialog.
         shadowOf(Looper.getMainLooper()).idle()
-        assertFalse(island.visible)
+        assertTrue(island.visible)
         assertTrue(ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog").isShowing)
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE != 0)
         island.closeSettings(activity!!.get())
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue(island.visible)
+        assertEquals(0, (view().layoutParams as WindowManager.LayoutParams).flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
         assertEquals(baseline + 1, windows.views.size)
         island.setEnabled(false)
         assertEquals(baseline, windows.views.size)
+    }
+
+    @Test fun preciseSettingsStepsUpdateTheSameLivePreviewAndRespectLimits() {
+        island.setEnabled(true)
+        island.showSettings(activity!!.get()) {}
+        val dialog = ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog")
+        val content = dialog.window!!.decorView
+        val host = view()
+        val prefs = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        for ((key, value) in listOf("island_width" to 156, "island_height" to 48, "island_top" to 8, "island_horizontal" to 0)) {
+            content.findViewWithTag<android.widget.Button>("$key-increase").performClick()
+            assertEquals(value + 1, prefs.getInt(key, -999))
+            assertSame(host, view())
+            content.findViewWithTag<android.widget.Button>("$key-decrease").performClick()
+            assertEquals(value, prefs.getInt(key, -999))
+        }
+        val top = content.findViewWithTag<android.widget.SeekBar>("island_top")
+        top.progress = 0
+        assertFalse(content.findViewWithTag<android.widget.Button>("island_top-decrease").isEnabled)
+        assertEquals(0, (host.layoutParams as WindowManager.LayoutParams).y)
+        content.findViewWithTag<android.widget.Button>("island_top-increase").performClick()
+        assertTrue((host.layoutParams as WindowManager.LayoutParams).y > 0)
+        host.performClick(); assertFalse(island.expanded) // The preview cannot steal input from its controls.
+        island.closeSettings(activity!!.get()); shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(0, (view().layoutParams as WindowManager.LayoutParams).flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
+        view().performClick(); assertTrue(island.expanded)
     }
 
     @Test fun recentsHomeFocusLossAndBackCollapseWithoutStoppingMusic() {

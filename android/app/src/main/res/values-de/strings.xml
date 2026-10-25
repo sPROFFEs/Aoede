@@ -43,6 +43,8 @@
     <string name="update_failed">Das Update konnte nicht geprüft oder installiert werden. Verbindung prüfen und erneut versuchen oder über Info &amp; Updates herunterladen.</string>
     <string name="update_permission_denied">Die Installation wurde nicht erlaubt. Über App aktualisieren erneut versuchen.</string>
     <string name="island_title">Dynamic Island</string>
+    <string name="island_decrease">%1$s um einen Schritt verringern</string>
+    <string name="island_increase">%1$s um einen Schritt erhöhen</string>
     <string name="island_enable">Musikinsel anzeigen</string>
     <string name="island_description">Optionale Steuerung über anderen Apps, solange Aoede geöffnet ist oder Musik abspielt. Erlaube „Über anderen Apps einblenden“, wenn Android danach fragt. Diese Einstellung gilt nur für dieses Gerät.</string>
     <string name="island_permission_denied">Android hat Overlays nicht erlaubt. Dynamic Island bleibt ausgeschaltet.</string>

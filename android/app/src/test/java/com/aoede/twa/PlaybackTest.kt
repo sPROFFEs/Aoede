@@ -16,6 +16,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
@@ -34,6 +35,28 @@ class PlaybackTest {
         app.destroyPlayer()
         service?.destroy()
         service = null
+    }
+
+    @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun offlineArtworkCrossesTheBridgeWithoutHttpAndRejectsActiveFormats() {
+        val pixels = IntArray(128 * 128) { java.util.Random(it.toLong()).nextInt() or 0xFF000000.toInt() }
+        val bitmap = android.graphics.Bitmap.createBitmap(pixels, 128, 128, android.graphics.Bitmap.Config.ARGB_8888)
+        val bytes = java.io.ByteArrayOutputStream()
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, bytes)
+        val encoded = android.util.Base64.encodeToString(bytes.toByteArray(), android.util.Base64.NO_WRAP)
+        assertTrue(encoded.length > 2048)
+        fun receive(cover: String) {
+            app.mediaController.receive(org.json.JSONObject().put("type", "metadata").put("title", "Offline track")
+                .put("offline", true).put("artwork", cover).toString())
+            org.robolectric.util.ReflectionHelpers.getField<java.util.concurrent.Future<*>>(app.mediaController, "artworkJob")
+                .get(5, java.util.concurrent.TimeUnit.SECONDS)
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+        receive("data:image/png;base64,$encoded")
+        val art = app.mediaController.metadata.getBitmap(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART)
+        assertNotNull(art); assertEquals(128, art!!.width)
+        receive("data:image/svg+xml;base64,$encoded")
+        assertNull(app.mediaController.metadata.getBitmap(android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART))
     }
 
     @Test fun originsAndArtworkAreBounded() {
