@@ -3,19 +3,19 @@
     "short_name": "Aoede",
     "icons": [
         {
-            "src": "/assets/android-chrome-192x192.png?v=3",
+            "src": "/assets/android-chrome-192x192.png?v=4",
             "sizes": "192x192",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/assets/android-chrome-512x512.png?v=3",
+            "src": "/assets/android-chrome-512x512.png?v=4",
             "sizes": "512x512",
             "type": "image/png",
             "purpose": "any"
         },
         {
-            "src": "/assets/app-icon-maskable-1024.png?v=3",
+            "src": "/assets/app-icon-maskable-1024.png?v=4",
             "sizes": "1024x1024",
             "type": "image/png",
             "purpose": "maskable"

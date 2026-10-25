@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Splash screen: dark background + the real app icon centred.
-     The bitmap points at the adaptive-icon foreground (432px), so the
+     The bitmap points at the adaptive-icon foreground, so the
      splash always matches the launcher artwork. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>

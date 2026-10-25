@@ -1,6 +1,8 @@
 # Android App
 
-Aoede Android 1.1.17 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.18 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+
+Android 1.1.18 replaces application artwork with the supplied silver A/waveform design in every launcher density, adaptive/round icon, themed monochrome icon, splash, widget placeholder and notification. Pixel dimensions and existing visual bounds are preserved. The source archive includes `branding/aoede.png` and `scripts/enlarge_brand_icons.py`; regenerate from its root with Python and Pillow when changing the master artwork.
 
 Android 1.1.17 avoids restarting the compact audio analyser during an island-to-app handoff. Opening the player preserves the retained WebView, source, position and playback state. Island, widget and notification links use the same task-preserving activity flags. Widget updates use responsive RemoteViews only when the launcher supplies supported sizes; older hosts receive portrait/landscape layouts. If a host rejects an update, a basic single-layout widget still offers the current title and controls; even rejection of that fallback no longer propagates into playback. Regression tests cover host rejection and the analyser handoff. This is not a physical One UI 6 validation; a device crash log is needed to identify any remaining Samsung-specific failure.
 

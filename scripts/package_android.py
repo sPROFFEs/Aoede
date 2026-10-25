@@ -26,6 +26,8 @@ name = "aoede-android.apk" if apk.name == "app-release.apk" else "aoede-android-
 shutil.copy2(apk, output / name)
 (output / "android-version.txt").write_text(f"Aoede Android {version} ({code})")
 with zipfile.ZipFile(output / "aoede-android-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
+    for source in (root / "branding/aoede.png", root / "scripts/enlarge_brand_icons.py"):
+        archive.write(source, Path("aoede-android") / source.relative_to(root))
     for source in sorted(project.rglob("*")):
         relative = source.relative_to(project)
         if not source.is_file() or any(part in {"build", "dist", ".gradle", ".idea"} for part in relative.parts):

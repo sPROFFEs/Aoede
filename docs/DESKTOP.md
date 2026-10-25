@@ -2,6 +2,8 @@
 
 Aoede Desktop is a lightweight wrapper for your server's web interface. Choose a server on first launch, then sign in with your Aoede account. The server supplies the interface, themes and music; the wrapper provides the application window.
 
+Desktop 1.2.10 uses the new silver A/waveform artwork in the window icon, macOS application bundle/Dock and Windows executable/shortcuts. Canvas dimensions and existing visual bounds are preserved. All icon variants derive from `branding/aoede.png`; see the [branding generation instructions](THEMES.md).
+
 ## Choose a download
 
 Get the current packages from [GitHub Releases](https://github.com/sPROFFEs/Aoede/releases/latest).

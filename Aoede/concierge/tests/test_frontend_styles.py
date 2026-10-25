@@ -41,21 +41,37 @@ def test_branding_assets_cover_browser_pwa_and_touch_icon_sizes():
     manifest = json.loads((assets_root / "site.webmanifest").read_text(encoding="utf-8"))
     manifest_icons = {icon["src"]: icon for icon in manifest["icons"]}
     for size in (192, 512):
-        assert manifest_icons[f"/assets/android-chrome-{size}x{size}.png?v=3"]["purpose"] == "any"
-    maskable = manifest_icons["/assets/app-icon-maskable-1024.png?v=3"]
+        assert manifest_icons[f"/assets/android-chrome-{size}x{size}.png?v=4"]["purpose"] == "any"
+    maskable = manifest_icons["/assets/app-icon-maskable-1024.png?v=4"]
     assert maskable["purpose"] == "maskable" and maskable["sizes"] == "1024x1024"
     for name in ("apple-touch-icon.png", "app-icon-maskable-1024.png"):
         image = Image.open(assets_root / name).convert("RGBA")
         assert image.getchannel("A").getextrema() == (255, 255)
         size = image.width
-        colored = [
-            (x, y)
-            for y in range(size)
-            for x in range(size)
-            if (lambda rgb: max(rgb) - min(rgb) > 90 and sum(rgb) > 280)(image.getpixel((x, y))[:3])
-        ]
-        assert colored
-        assert max((x - size / 2) ** 2 + (y - size / 2) ** 2 for x, y in colored) <= (size * 0.4) ** 2
+        mark = [(x, y) for y in range(size) for x in range(size) if min(image.getpixel((x, y))[:3]) > 160]
+        assert mark
+        assert max((x - size / 2) ** 2 + (y - size / 2) ** 2 for x, y in mark) <= (size * 0.4) ** 2
+
+    root = assets_root.parents[1]
+    assert Image.open(root / "branding/aoede.png").size == (2048, 2048)
+    assert Image.open(root / "desktop/resources/icons/appIcon.png").size == (1024, 1024)
+    resources = root / "android/app/src/main/res"
+    for density, size, notification in (
+        ("mdpi", 48, 24),
+        ("hdpi", 72, 36),
+        ("xhdpi", 96, 48),
+        ("xxhdpi", 144, 72),
+        ("xxxhdpi", 192, 96),
+    ):
+        for name in ("ic_launcher", "ic_launcher_round", "ic_launcher_foreground", "ic_launcher_monochrome"):
+            image = Image.open(resources / f"mipmap-{density}/{name}.png").convert("RGBA")
+            assert image.size == (size, size)
+            assert image.getchannel("A").getbbox() is not None
+        image = Image.open(resources / f"drawable-{density}/ic_notification.png").convert("RGBA")
+        assert image.size == (notification, notification)
+        assert {pixel[:3] for pixel in image.get_flattened_data() if pixel[3]} == {(255, 255, 255)}
+    for name in ("ic_launcher", "ic_launcher_round"):
+        assert "@mipmap/ic_launcher_monochrome" in (resources / f"mipmap-anydpi-v33/{name}.xml").read_text()
 
     templates_root = Path(__file__).resolve().parents[1] / "templates"
     for template_name in ("base.html", "login.html"):
