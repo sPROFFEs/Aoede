@@ -14,6 +14,8 @@ Home, Search and Discover remain available in the desktop sidebar. The library h
 
 Home places browse destinations above recent shortcuts and artwork shelves, with previous/next controls and keyboard/touch scrolling. Search separates source selection from the album/playlist switch and offers six working browse destinations. Its desktop and mobile inputs share one query across navigation. The profile menu contains administration and Navidrome links, leaving more space for the global search field.
 
+On mobile, swipe left on the compact player to go to the next track, or right to select the previous song. The fullscreen player accepts the same gestures on its artwork. Buttons and sliders retain their normal actions, including the Previous button's restart-before-skip behavior; vertical scrolling, short drags, long presses and multi-touch do not skip songs. Gestures use the existing queue, repeat and party controls, including doing nothing at the end of a queue. All three themes share a 16px content gutter, including asynchronously loaded Home shelves, offline downloads and imported settings pages; device safe areas are applied outside this gutter.
+
 Your Library opens with **All** saved playlists and albums, with separate filters for playlists, albums, songs, artists and genres. Collection searches match title, creator and federation-node name; sorting supports recently added, name, creator and song count. List/grid selection stays in this browser and does not interrupt playback. Both collection types use the same pagination and cached filtering offline. Imported/editable albums remain separate from optional metadata groups. Songs and metadata facets retain their server-side paging and filtering.
 
 ## Vitrine

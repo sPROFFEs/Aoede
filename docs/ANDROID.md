@@ -1,6 +1,8 @@
 # Android App
 
-Aoede Android 1.1.18 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.19 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+
+Android 1.1.19 adds horizontal track gestures to the mobile compact player and fullscreen artwork: swipe left for Next, right for the previous song. Gestures reuse queue and party navigation, ignore buttons/sliders, and reject vertical, short, cancelled and multi-touch movement. All themes now reserve a shared 16px content gutter, including async Home shelves, offline downloads and settings, without stacking a second gutter on their browsing shells. The same changes are available in the deployed mobile web app and remote wrappers.
 
 Android 1.1.18 replaces application artwork with the supplied silver A/waveform design in every launcher density, adaptive/round icon, themed monochrome icon, splash, widget placeholder and notification. Pixel dimensions and existing visual bounds are preserved. The source archive includes `branding/aoede.png` and `scripts/enlarge_brand_icons.py`; regenerate from its root with Python and Pillow when changing the master artwork.
 

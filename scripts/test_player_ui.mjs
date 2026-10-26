@@ -56,6 +56,65 @@ async function load(name) {
   await module.link(key => imports[key]); await module.evaluate(); imports[`./${name}.js`] = module; return module.namespace;
 }
 const ui = await load('ui'), queueApi = await load('queue'), lyricsApi = await load('lyrics');
+// Transport gestures: one horizontal swipe, with taps, scrolling and controls isolated.
+const swipeSurface = element('swipe-surface'), swipeActions = [];
+ui.setupTrackSwipe(swipeSurface, action => swipeActions.push(action));
+const touch = (x, y = 0, identifier = 1) => ({ clientX: x, clientY: y, identifier });
+function touchEvent(type, points, changedTouches = [], target = swipeSurface) {
+  const event = { touches: points, changedTouches, target, cancelable: true, prevented: false,
+    preventDefault() { this.prevented = true; } };
+  swipeSurface.events.get(type)(event); return event;
+}
+const swipe = (start, end, target = swipeSurface) => {
+  touchEvent('touchstart', [start], [], target);
+  const move = touchEvent('touchmove', [end], [], target);
+  touchEvent('touchend', [], [end], target);
+  return move;
+};
+const normalMatchMedia = window.matchMedia;
+const gestureClock = vm.runInContext('Date', context), realNow = gestureClock.now;
+let gestureTime = 1000;
+gestureClock.now = () => gestureTime;
+window.matchMedia = () => ({ matches: true });
+assert.equal(swipe(touch(180), touch(80)).prevented, true);
+swipe(touch(80), touch(180));
+assert.deepEqual(swipeActions, ['next', 'previous']);
+const click = detail => ({ detail, prevented: false, stopped: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() { this.stopped = true; } });
+let ghost = click(1); swipeSurface.events.get('click')(ghost);
+assert.equal(ghost.prevented && ghost.stopped, true);
+const keyboardClick = click(0); swipeSurface.events.get('click')(keyboardClick);
+assert.equal(keyboardClick.prevented, false);
+swipe(touch(120), touch(120));
+ghost = click(1); swipeSurface.events.get('click')(ghost); assert.equal(ghost.prevented, false);
+assert.equal(swipe(touch(120), touch(116, 100)).prevented, false);
+swipe(touch(120), touch(98, 2)); // Short horizontal drag.
+swipe(touch(120), touch(20, 90)); // Diagonal scroll.
+swipe(touch(120), touch(20), { closest: () => ({}) }); // A button/slider/interactive child.
+touchEvent('touchstart', [touch(120)]);
+touchEvent('touchmove', [touch(20), touch(80, 0, 2)]);
+touchEvent('touchend', [], [touch(20)]);
+touchEvent('touchstart', [touch(120), touch(80, 0, 2)]);
+touchEvent('touchend', [], [touch(20)]);
+touchEvent('touchstart', [touch(120)]);
+touchEvent('touchcancel', []);
+touchEvent('touchend', [], [touch(20)]);
+touchEvent('touchstart', [touch(120)]);
+touchEvent('touchmove', [touch(20, 0, 2)]); // A different touch cannot finish an abandoned gesture.
+touchEvent('touchend', [], [touch(20, 0, 2)]);
+touchEvent('touchstart', [touch(120)]);
+touchEvent('touchmove', [touch(122, 30)]);
+touchEvent('touchend', [], [touch(20, 35)]); // Do not reclassify a vertical gesture at release.
+touchEvent('touchstart', [touch(120)]);
+gestureTime += 900;
+touchEvent('touchend', [], [touch(20)]); // A long press is not a swipe.
+stateModule.setExport('currentTrack', null);
+swipe(touch(180), touch(80));
+stateModule.setExport('currentTrack', values.currentTrack);
+window.matchMedia = normalMatchMedia;
+gestureClock.now = realNow;
+swipe(touch(180), touch(80)); // Mouse/desktop layouts keep their existing behavior.
+assert.deepEqual(swipeActions, ['next', 'previous']);
+console.log('PASS: mobile track gestures preserve taps, keyboard clicks, controls, vertical scrolling and cancelled/multi-touch input.');
 // Dismiss controls remain named and never submit a surrounding form, even without Lucide.
 const closeButton = element('close-test'), namedClose = element('named-close-test');
 namedClose.setAttribute('aria-label', 'Close collaborators');

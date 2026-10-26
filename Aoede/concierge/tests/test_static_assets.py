@@ -80,7 +80,8 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes device-specific update checks and notices without a third-party updater.
     # Includes player controls and localized collection/form copy with English fallbacks.
     # Includes the administrator's metadata similarity explanations and comparison filter.
-    assert sum(path.stat().st_size for path in javascript if path != appearance) < 633_000
+    # Includes mobile transport gestures shared by the compact and fullscreen players.
+    assert sum(path.stat().st_size for path in javascript if path != appearance) < 636_000
     # Shared navigation, collection list/grid layouts and responsive browsing controls.
     assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 313_000
     # Bound the account theme, including form states and accessibility fallbacks,

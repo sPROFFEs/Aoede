@@ -3,19 +3,11 @@ from pathlib import Path
 ASSETS_ROOT = Path(__file__).resolve().parents[2] / "assets"
 
 
-def test_mobile_shell_restores_gutters_for_party_views():
+def test_mobile_shell_owns_gutters_for_all_views_including_async_home_and_parties():
     css = (ASSETS_ROOT / "css" / "mobile_shell.css").read_text(encoding="utf-8")
-
-    for selector in (
-        "#view-container > .party-page-head",
-        "#view-container > .party-room-hero",
-        "#view-container > .party-owner-notice",
-        "#view-container > .party-autoplay-banner",
-        "#view-container > .party-room-list",
-        "#view-container > .party-layout",
-    ):
-        assert selector in css
-
+    assert "padding: 0 16px var(--mobile-bottom-clearance) !important;" in css
+    vitrine = (ASSETS_ROOT / "css" / "theme_vitrine.css").read_text(encoding="utf-8")
+    assert ".view-content { padding: 0 0 var(--mobile-bottom-clearance)" not in vitrine
     assert "#view-container > .party-autoplay-banner {\n    width: auto;" in css
 
 

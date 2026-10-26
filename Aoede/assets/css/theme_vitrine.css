@@ -271,7 +271,6 @@ html[data-theme="vitrine"] .fs-detail-stage :is(.lyrics-credit, .queue-header h3
     html[data-theme="vitrine"] .m-topbar-title { font-size: 1.6rem; font-weight: 750; letter-spacing: -.045em; }
 
     html[data-theme="vitrine"] .m-topbar .m-icon-btn { color: var(--primary) !important; }
-    html[data-theme="vitrine"] .view-content { padding: 0 0 var(--mobile-bottom-clearance) !important; }
     html[data-theme="vitrine"] :is(.home-overview, .library-shell, .search-shell, .home-shelf) { margin-inline: 0; }
     html[data-theme="vitrine"] .home-overview > .hero-section { display: none; }
     html[data-theme="vitrine"] .home-overview { padding-bottom: 12px !important; }

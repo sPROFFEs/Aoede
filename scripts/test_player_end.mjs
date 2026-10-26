@@ -58,7 +58,7 @@ await stateModule.link(() => assert.fail('state has no imports')); await stateMo
 const state = stateModule.namespace;
 const imports = {
   './state.js': stateModule,
-  './ui.js': synthetic({ updatePlayButton() {}, updateUIProgress() {}, updateVolumeUI() {}, refreshIcons() {}, setupDraggable() {},
+  './ui.js': synthetic({ updatePlayButton() {}, updateUIProgress() {}, updateVolumeUI() {}, refreshIcons() {}, setupDraggable() {}, setupTrackSwipe() {},
     toggleFullscreenPlayer: () => state.setIsFullscreenPlayerOpen(!state.isFullscreenPlayerOpen), showToast: (message, type) => { if (type === 'error') { if (!allowErrors) assert.fail(message); errors.push(message); } } }),
   './api.js': synthetic({ recordListenEvent: async () => {}, fetchRandomTrack: async () => ({ db_id: 3, title: 'Random' }) }),
   './audio_engine.js': synthetic({ setVolume() {}, resumeIfSuspended() {}, resetFade() {}, fadeIn() {}, applyReplayGain() {}, getCrossfadeSeconds: () => 0 }),
@@ -98,6 +98,10 @@ reset(); state.setUserQueue([first]); await player.playNext(); await flush();
 assert.equal(state.currentTrack, first); assert.equal(state.contextIndex, 1); assert.equal(state.userQueue.length, 0);
 reset(); state.setShuffleMode(true); await player.playNext(); await flush();
 assert.equal(state.currentTrack.db_id, 3);
+reset(); state.setLastPrevClickTime(0); player.playPrev();
+assert.equal(state.currentTrack, last); assert.equal(audio.currentTime, 0); // The button still rewinds first.
+reset(); state.setLastPrevClickTime(0); player.playPrev(true); await flush();
+assert.equal(state.currentTrack, first); assert.equal(state.contextIndex, 0); // A right swipe selects the previous song.
 reset(); state.setRepeatMode('one'); await player.playNext(); assert.equal(audio.currentTime, 42);
 audio.currentTime = 120; audio.dispatchEvent(new Event('ended')); await flush();
 assert.equal(state.currentTrack, last); assert.equal(audio.currentTime, 0); assert.equal(audio.paused, false);

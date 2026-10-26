@@ -185,7 +185,7 @@ body.has-player {
 .home-tabs {
     /* generous top margin so the pills feel separated from the topbar
      * greeting; horizontal scroll if they ever overflow. */
-    margin: 14px 16px 16px 16px;
+    margin: 14px 0 16px;
     overflow-x: auto;
     scrollbar-width: none;
     flex-wrap: nowrap;
@@ -202,41 +202,15 @@ body.has-player {
 /* ── 4. View content — scrollable, bottom-padded ─────────────────── */
 
 .view-content {
-    padding: 0 !important;
+    padding: 0 16px var(--mobile-bottom-clearance) !important;
     overflow-y: auto;
     flex: 1;
     min-height: 0;
-    padding-bottom: var(--mobile-bottom-clearance) !important;
     scroll-padding-bottom: var(--mobile-bottom-clearance);
 }
 
-/* Most views render their own outer padding via .hero-section etc. The
- * stuff we render BEFORE/INSIDE view-container that doesn't already
- * have horizontal padding gets one here. */
-#view-container > .grid-shelf,
-#view-container > .quick-picks-grid,
-#view-container > .shelf-section,
-#view-container > .empty-state,
-#view-container > .hero-section,
-#view-container > .source-chips,
-#view-container > .saved-radio-list,
-#view-container > .party-page-head,
-#view-container > .party-room-hero,
-#view-container > .party-owner-notice,
-#view-container > .party-autoplay-banner,
-#view-container > .party-room-list,
-#view-container > .party-layout,
-#view-container > .home-overview,
-.user-profile-shell,
-.user-profile-header,
-.profile-hero-section {
-    padding-left: 16px;
-    padding-right: 16px;
-}
-
-/* Party banners are full-width on desktop. Inside the zero-padding mobile
- * shell they need an intrinsic width or their 100% width plus the restored
- * gutters overflows the viewport. */
+/* One shared gutter also covers async Home shelves, offline downloads and
+ * imported pages. Panels keep their own internal spacing. */
 #view-container > .party-owner-notice,
 #view-container > .party-autoplay-banner {
     width: auto;
@@ -252,7 +226,7 @@ body.has-player {
     display: flex !important;
     align-items: center;
     gap: 12px;
-    margin: 12px 16px 20px;
+    margin: 12px 0 20px;
     padding: 0 14px;
     height: 52px;
     background: #fff;
@@ -324,6 +298,13 @@ body.has-player {
  *
  * Tap the cover to open the fullscreen player (existing handler on
  * #player-cover). */
+.player-footer, #fs-cover {
+    touch-action: pan-y pinch-zoom;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
 .player-footer {
     position: fixed !important;
     left: calc(8px + var(--safe-area-left, 0px)) !important;
@@ -581,7 +562,7 @@ body.has-player {
 
 .collection-shell {
     margin: 0;
-    padding: 0 16px;
+    padding: 0;
 }
 
 .collection-header {
@@ -761,13 +742,10 @@ body.has-player {
 }
 
 
-/* ── 8e. User settings — restore horizontal padding on mobile ───
- *  The flat redesign override stripped padding to 0 so it inherits
- *  desktop's view-content:24px. Mobile has 0 view-content padding,
- *  so the page would touch the screen edges without this. */
+/* ── 8e. User settings ────────────────────────────────────────── */
 
 .user-settings-shell {
-    padding: 16px 16px 8px 16px !important;
+    padding: 16px 0 8px !important;
 }
 
 
@@ -779,7 +757,7 @@ body.has-player {
 }
 
 .discovery-shell {
-    padding: 0 16px !important;
+    padding: 0 !important;
 }
 
 /* The cover wrap is square; on mobile that gives a nice big tile.
@@ -807,7 +785,7 @@ body, .main-view, .view-content { background: #121212 !important; }
 body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 
 .home-overview > .hero-section { display: none; }
-.home-overview { padding: 0 16px !important; background: transparent; margin-bottom: 16px; box-sizing: border-box; }
+.home-overview { padding: 0 !important; background: transparent; margin: 0 0 16px; box-sizing: border-box; }
 .home-overview::before { display: none; }
 .home-tab.active { background: var(--primary); color: #101010; }
 .home-overview .quick-picks-grid { margin: 0 0 20px; }
@@ -818,7 +796,7 @@ body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 .home-rail > .card { padding: 0; background: transparent; border: 0; }
 .home-rail .card-img-container { border-radius: 4px; }
 .home-rail .card-subtitle { white-space: normal; line-height: 1.45; }
-.library-shell { padding: 0 16px; }
+.library-shell, .search-shell { padding-inline: 0; }
 .library-shell > .home-overview { display: none; }
 .library-filters { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 8px; scrollbar-width: none; }
 .library-filter { flex-shrink: 0; min-height: 44px; border: 0; background: var(--surface-2); border-radius: 999px; padding: 10px 16px; }
@@ -841,7 +819,7 @@ body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 .library-card-cover { grid-row: 1 / 3; width: 64px; height: 64px; border-radius: 3px; }
 .library-card-name { align-self: end; font-size: 1rem; font-weight: 500; }
 .library-card-sub { align-self: start; font-size: 0.82rem; }
-.search-browse { margin: 26px 16px; }
+.search-browse { margin: 26px 0; }
 .search-browse-grid { gap: 12px; }
 .search-browse-card { min-height: 120px; padding: 16px; font-size: 1.15rem; }
 .source-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
@@ -883,7 +861,6 @@ body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 .m-more-panel :is(button, a):is(:hover, :focus-visible) { background: var(--surface-2); }
 .m-more-panel :is(svg, i) { flex: 0 0 22px; width: 22px; height: 22px; }
 .m-more-panel .m-badge { position: static; margin-inline-start: auto; flex-shrink: 0; }
-.view-content .user-settings-shell { padding-inline: 16px; }
 .modal-overlay { padding-inline: 0; padding-bottom: 0; }
 .modal-overlay > .modal:not(.create-menu) { border-radius: 20px 20px 0 0 !important; }
 html[data-keyboard="open"] body { --mobile-bottom-clearance: 16px; }

@@ -521,6 +521,84 @@ export function setupDraggable(element, callback) {
   });
 }
 
+// Mobile transport gestures share the buttons' queue/party navigation.
+export function setupTrackSwipe(element, navigate) {
+  if (!element) return;
+  let start = null;
+  let horizontal = false;
+  let suppressClickUntil = 0;
+  element.addEventListener(
+    'touchstart',
+    (event) => {
+      start = null;
+      horizontal = false;
+      suppressClickUntil = 0;
+      if (
+        !window.matchMedia('(max-width: 768px), (max-height: 500px) and (pointer: coarse)').matches ||
+        !state.currentTrack ||
+        event.touches.length !== 1 ||
+        event.target.closest('button, a, input, select, textarea, summary, [role="slider"], [contenteditable="true"]')
+      )
+        return;
+      const touch = event.touches[0];
+      start = { id: touch.identifier, x: touch.clientX, y: touch.clientY, time: Date.now() };
+    },
+    { passive: true }
+  );
+  element.addEventListener(
+    'touchmove',
+    (event) => {
+      if (!start) return;
+      const touch = event.touches[0];
+      if (event.touches.length !== 1 || touch.identifier !== start.id) {
+        start = null;
+        return;
+      }
+      const dx = Math.abs(touch.clientX - start.x);
+      const dy = Math.abs(touch.clientY - start.y);
+      if (!horizontal && Math.max(dx, dy) >= 12) {
+        if (dx < dy * 1.5) {
+          start = null;
+          return;
+        }
+        horizontal = true;
+      }
+      if (horizontal && event.cancelable) event.preventDefault();
+    },
+    { passive: false }
+  );
+  element.addEventListener(
+    'touchend',
+    (event) => {
+      const gesture = start;
+      start = null;
+      if (!gesture || event.touches.length) return;
+      const touch = Array.from(event.changedTouches).find((item) => item.identifier === gesture.id);
+      if (!touch) return;
+      const dx = touch.clientX - gesture.x;
+      const dy = Math.abs(touch.clientY - gesture.y);
+      if (Math.abs(dx) < 48 || Math.abs(dx) < dy * 1.5 || Date.now() - gesture.time > 800) return;
+      if (event.cancelable) event.preventDefault();
+      suppressClickUntil = Date.now() + 400;
+      navigate(dx < 0 ? 'next' : 'previous');
+    },
+    { passive: false }
+  );
+  element.addEventListener('touchcancel', () => {
+    start = null;
+  });
+  element.addEventListener(
+    'click',
+    (event) => {
+      if (event.detail && Date.now() < suppressClickUntil) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+    },
+    { capture: true }
+  );
+}
+
 // === FULLSCREEN PLAYER ===
 
 let fullscreenReturnFocus = null;

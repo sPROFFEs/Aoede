@@ -1298,7 +1298,7 @@ export async function playNext(finishIfEmpty = false) {
   playTrack(trackToPlay);
 }
 
-export function playPrev() {
+export function playPrev(skipToPrevious = false) {
   if (_partyController?.isActive?.()) {
     _partyController.control('previous');
     return;
@@ -1307,7 +1307,7 @@ export function playPrev() {
   const timeSinceLastClick = now - state.lastPrevClickTime;
   state.setLastPrevClickTime(now);
 
-  if (state.audio.currentTime <= 3 || timeSinceLastClick < 1500) {
+  if (skipToPrevious === true || state.audio.currentTime <= 3 || timeSinceLastClick < 1500) {
     if (state.contextQueue.length === 0) return;
 
     let prevIdx = state.contextIndex - 1;
@@ -1580,6 +1580,11 @@ export function setupPlayer() {
   // controls opens it. Keeping the desktop target explicit prevents
   // clicks in the transport-control spacing from opening the overlay.
   const footer = document.querySelector('.player-footer');
+  for (const surface of [footer, document.getElementById('fs-cover')]) {
+    ui.setupTrackSwipe(surface, (direction) => {
+      if (state.currentTrack && !_trackTransitionInFlight) direction === 'next' ? playNext() : playPrev(true);
+    });
+  }
   if (footer) {
     footer.addEventListener('click', (e) => {
       // Let buttons and their icons do their own thing.
