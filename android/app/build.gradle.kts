@@ -16,7 +16,7 @@ android {
         applicationId = "com.aoede.twa"
         minSdk = 21
         targetSdk = 35
-        versionCode = 26
+        versionCode = 27
         versionName = "1.1.20"
     }
 

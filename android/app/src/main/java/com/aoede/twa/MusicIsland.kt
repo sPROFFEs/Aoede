@@ -151,7 +151,6 @@ class MusicIsland(private val app: AoedeApp) {
         if (sampling == active) return
         sampling = active
         sampleGeneration++
-        app.audioDiagnostics.event("island_sampling", if (active) 1 else 0)
         handler.removeCallbacks(spectrum)
         if (active) handler.post(spectrum) else {
             app.player?.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(false, $sampleGeneration)", null)

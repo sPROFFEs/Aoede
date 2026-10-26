@@ -223,24 +223,15 @@ const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
   assert.equal(captures, 2);
   p.window.__aoedeIslandLevels(false, 4);
   assert.equal(closes, 1); // A stale stop cannot dispose a newer graph.
-  p.window.__aoedeAudioSnapshot(true);
-  p.audio.currentSrc = 'https://secret.invalid/song?token=DO_NOT_LOG';
-  p.audio.dispatchEvent(new Event('volumechange'));
-  const trace = p.messages.filter(message => message.type === 'diagnostic').at(-1);
-  assert.equal(trace.sample.paused, false); assert.equal(trace.sample.context, 'suspended');
-  assert.ok(!JSON.stringify(trace).includes('secret')); assert.ok(!JSON.stringify(trace).includes('DO_NOT_LOG'));
-  for (let i = 0; i < 700; i++) p.audio.dispatchEvent(new Event('volumechange'));
-  assert.equal(p.messages.filter(message => message.type === 'diagnostic').length, 600);
   assert.equal(p.audio.plays, plays); assert.equal(p.audio.paused, false); assert.equal(p.audio.volume, 1);
 
   let failedCaptures = 0;
-  class FailedClose extends DeferredContext { state = 'running'; close() { return Promise.reject(new Error('PRIVATE')); } }
+  class FailedClose extends DeferredContext { state = 'running'; close() { return Promise.reject(new Error('Close failed')); } }
   const failed = page({audioContext:FailedClose,captureStream(){
     failedCaptures++; const track={readyState:'live',enabled:true,muted:false,stop(){}};
     return {getTracks:()=>[track],getAudioTracks:()=>[track]};
   }});
   failed.window.__aoedeMediaCommand('play'); failed.audio.dispatchEvent(new Event('playing')); await flush();
-  failed.window.__aoedeAudioSnapshot(true);
   failed.window.__aoedeIslandLevels(true,1); failed.window.__aoedeIslandLevels(false,2);
   await new Promise(setImmediate);
   for(let i=3;i<20;i++)failed.window.__aoedeIslandLevels(true,i);
@@ -248,35 +239,6 @@ const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
   failed.audio.dispatchEvent(new Event('play')); failed.audio.dispatchEvent(new Event('playing')); await flush();
   failed.window.__aoedeIslandLevels(true,20);
   assert.equal(failedCaptures,1); assert.equal(failed.audio.paused,false);
-  assert.ok(failed.messages.some(message=>message.event==='spectrum_close_failed'));
-  assert.ok(!JSON.stringify(failed.messages.filter(message=>message.type==='diagnostic')).includes('PRIVATE'));
-}
-
-// Diagnostics distinguish the optional audible graph from the island copy, without resuming it.
-{
-  const p = page();
-  let outputContext, resumes = 0;
-  class OutputContext extends EventTarget {
-    state = 'running'; destination = {}; currentTime = 0;
-    constructor() { super(); outputContext = this; }
-    createMediaElementSource(audio) { assert.equal(audio, p.audio); return { connect() {} }; }
-    createGain() { return { connect() {}, gain: { value: 1 } }; }
-    resume() { resumes++; return Promise.resolve(); }
-  }
-  p.window.AudioContext = OutputContext;
-  const context = vm.createContext({window:p.window, navigator:p.navigator, document:p.document, console, Event, localStorage:{getItem:()=>null}});
-  const engine = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/audio_engine.js', import.meta.url), 'utf8'), {context});
-  await engine.link(() => new vm.SyntheticModule(['audio'], function(){this.setExport('audio',p.audio);},{context}));
-  await engine.evaluate();
-  assert.equal(p.window.__aoedeAudioSnapshot(true).playbackContext,'absent');
-  assert.equal(outputContext,undefined);
-  engine.namespace.ensureInitialized();
-  outputContext.state = 'suspended'; outputContext.dispatchEvent(new Event('statechange'));
-  const snapshot = p.window.__aoedeAudioSnapshot(true);
-  assert.equal(snapshot.playbackContext,'suspended'); assert.equal(snapshot.context,'absent');
-  assert.equal(snapshot.fadeLevel,1); assert.equal(snapshot.replayGain,false);
-  assert.equal(p.messages.filter(message=>message.type==='diagnostic').at(-1).event,'playback_context_state');
-  assert.equal(resumes,0); assert.equal(p.audio.plays,0);
 }
 
 // Playback progress can recover a missed WebView "playing" event after buffering.

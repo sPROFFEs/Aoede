@@ -39,18 +39,6 @@ let _initialized = false;
 let _initFailed = false;
 let _gainRequest = 0;
 
-// Read-only native diagnostics: the audible processing graph is separate from island analysis.
-if (window.AoedeAndroid) {
-  window.AoedeAndroid.audioState = () => ({
-    playbackContext: _ctx?.state || 'absent',
-    replayGain: isReplayGainEnabled(),
-    crossfade: getCrossfadeSeconds(),
-    replayLevel: _gainReplay?.gain.value ?? 1,
-    fadeLevel: _gainFade?.gain.value ?? 1,
-    volumeLevel: _gainVolume?.gain.value ?? 1
-  });
-}
-
 // iOS detection (covers iPhone, iPad in legacy mode, and iPadOS which
 // disguises itself as MacIntel with touch points). Browser-only check;
 // no UA spoofing concerns because we degrade gracefully either way.
@@ -166,8 +154,6 @@ export function ensureInitialized() {
       return false;
     }
     _ctx = new Ctx();
-    if (window.AoedeAndroid)
-      _ctx.addEventListener?.('statechange', () => window.dispatchEvent(new Event('aoede-audio-context-state')));
     // createMediaElementSource is one-shot per element. If the audio
     // element has been replaced (some flows do `state.setAudio(...)`)
     // this throws "HTMLMediaElement already connected". The catch
