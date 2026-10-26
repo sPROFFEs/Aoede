@@ -56,6 +56,7 @@
   var spectrum = null;
   var spectrumFailed = '';
   var spectrumClosing = null;
+  var spectrumDisabled = false;
   var spectrumGeneration = -1;
   var spectrumId = 0;
   var diagnosticEnabled = false;
@@ -110,9 +111,9 @@
     try { if (old.source) old.source.disconnect(); } catch (_) { traceAudio('spectrum_cleanup_failed', old); }
     old.stream.getTracks().forEach(function (track) { try { track.stop(); } catch (_) { traceAudio('spectrum_cleanup_failed', old); } });
     var closing;
-    try { closing = old.context.close(); } catch (_) { closing = null; spectrumFailed = old.url; traceAudio('spectrum_close_failed', old); }
+    try { closing = old.context.close(); } catch (_) { closing = null; spectrumDisabled = true; traceAudio('spectrum_close_failed', old); }
     var pending = Promise.resolve(closing).catch(function () {
-      spectrumFailed = old.url; traceAudio('spectrum_close_failed', old);
+      spectrumDisabled = true; traceAudio('spectrum_close_failed', old);
     }).then(function () {
       if (spectrumClosing === pending) spectrumClosing = null;
       traceAudio('spectrum_closed', old);
@@ -133,7 +134,7 @@
     var url = primary.currentSrc || primary.src;
     if (spectrum && (spectrum.element !== primary || spectrum.url !== url)) closeSpectrum();
     // close()/resume() run asynchronously in WebView. Do not overlap contexts on rapid toggles.
-    if (spectrumClosing) return null;
+    if (spectrumClosing || spectrumDisabled) return null;
     try {
       if (!spectrum) {
         var Ctx = window.AudioContext || window.webkitAudioContext;

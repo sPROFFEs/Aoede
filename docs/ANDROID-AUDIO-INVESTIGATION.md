@@ -23,7 +23,7 @@ A text request for the installed versions was left pending. The capture helper r
 2. Optional graph cleanup could abort at `disconnect()` or an individual track's `stop()`, skipping subsequent cleanup. Forced cleanup failures reproduce that behavior. Cleanup now attempts all owned resources independently.
 3. Native sampling callbacks already had a generation check, but the JavaScript request accepted only a boolean. A deliberately reordered old request could recreate or dispose a newer graph. Requests now carry a monotonically increasing generation, checked before side effects. **The test reorders calls intentionally; Android/WebView delivering that order on the affected phone has not been observed.**
 
-The existing identity check on a rejected `resume()` already prevented that old rejection from closing a different current graph. It is retained. Closure is now serialized as well; unavailable, pending or failed analysis uses the existing animation fallback. A failed close prevents further allocations for that resource, rather than repeatedly building more graphs.
+The existing identity check on a rejected `resume()` already prevented that old rejection from closing a different current graph. It is retained. Closure is now serialized as well; unavailable, pending or failed analysis uses the existing animation fallback. If disposal fails, analysis stays disabled for the rest of that document, including subsequent song changes, rather than allocating more graphs while the previous context's release is uncertain. The playing element is left untouched.
 
 ### Aoede lifecycle, focus and service
 
