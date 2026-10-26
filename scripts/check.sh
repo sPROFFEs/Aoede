@@ -45,4 +45,5 @@ node --experimental-vm-modules scripts/test_appearance.mjs
 node --experimental-vm-modules scripts/test_player_ui.mjs
 node --experimental-vm-modules scripts/test_player_end.mjs
 node --experimental-vm-modules scripts/test_android.mjs
+"$PYTHON_BIN" android/capture_audio.py --self-test
 node android/test_frontend.mjs

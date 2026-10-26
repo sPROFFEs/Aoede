@@ -66,7 +66,7 @@ class MediaController(private val app: AoedeApp) {
     val mediaSession = MediaSessionCompat(app, "aoede-media").apply {
         setCallback(object : MediaSessionCompat.Callback() {
             override fun onPlay() { command("play") }
-            override fun onPause() { pauseLocal() }
+            override fun onPause() { app.audioDiagnostics.event("session_pause"); pauseLocal() }
             override fun onStop() { command("stop"); reset() }
             override fun onSkipToNext() { command("nexttrack") }
             override fun onSkipToPrevious() { command("previoustrack") }
@@ -79,11 +79,13 @@ class MediaController(private val app: AoedeApp) {
     fun supports(action: String) = action in actions
 
     fun command(action: String, position: Long = 0) {
+        app.audioDiagnostics.event("command_$action")
         if (action in setOf("play", "nexttrack", "previoustrack")) locallyPaused = false
         invoker?.invoke(action, position)
     }
 
     fun pauseLocal() {
+        app.audioDiagnostics.event("local_pause")
         locallyPaused = true
         invoker?.invoke("pause", 0)
         if (state != "none") updateState("paused", positionMs, durationMs, rate)
@@ -95,6 +97,7 @@ class MediaController(private val app: AoedeApp) {
             try {
                 val message = JSONObject(raw)
                 when (message.optString("type")) {
+                    "diagnostic" -> app.audioDiagnostics.receive(message)
                     "metadata" -> updateMetadata(message)
                     "state" -> updateState(message.optString("state"), message.optLong("position"),
                         message.optLong("duration"), message.optDouble("rate", 1.0).toFloat())
@@ -139,7 +142,9 @@ class MediaController(private val app: AoedeApp) {
     fun updateState(value: String, position: Long, duration: Long, speed: Float = 1f) {
         check(Looper.myLooper() == Looper.getMainLooper())
         if (value !in setOf("none", "paused", "playing", "buffering", "error")) return
+        val previousState = state
         state = if (locallyPaused && value in setOf("playing", "buffering")) "paused" else value
+        if (state != previousState) app.audioDiagnostics.event("native_state")
         val boundedDuration = duration.coerceIn(0, 31L * 24 * 3600 * 1000)
         positionMs = position.coerceIn(0, if (boundedDuration > 0) boundedDuration else 31L * 24 * 3600 * 1000)
         if (durationMs != boundedDuration) {

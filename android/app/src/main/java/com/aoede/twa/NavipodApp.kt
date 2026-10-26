@@ -37,6 +37,7 @@ class AoedeApp : Application() {
     var player: WebView? = null
         private set
     val musicIsland by lazy { MusicIsland(this) }
+    val audioDiagnostics by lazy { AudioDiagnostics(this) }
     val clientInfo: String get() = JSONObject().put("kind", "android-native").put("version", BuildConfig.VERSION_NAME)
         .put("versionCode", BuildConfig.VERSION_CODE).put("updater", 1).toString()
     val updater by lazy { AppUpdater(this) { data ->
@@ -62,20 +63,22 @@ class AoedeApp : Application() {
             private val handler = Handler(Looper.getMainLooper())
             private val stopped = Runnable { musicIsland.setAppVisible(started.isNotEmpty()) }
             override fun onActivityStarted(activity: Activity) {
+                audioDiagnostics.event("activity_started", if (activity is MainActivity) 1 else 2)
                 started.add(activity)
                 handler.removeCallbacks(stopped)
                 musicIsland.setAppVisible(true)
             }
             override fun onActivityStopped(activity: Activity) {
+                audioDiagnostics.event("activity_stopped", if (activity is MainActivity) 1 else 2)
                 started.remove(activity)
                 // Resolve activity replacement/configuration changes before showing an overlay.
                 handler.post(stopped)
             }
             override fun onActivityCreated(activity: Activity, state: Bundle?) {}
-            override fun onActivityResumed(activity: Activity) {}
-            override fun onActivityPaused(activity: Activity) {}
+            override fun onActivityResumed(activity: Activity) { audioDiagnostics.event("activity_resumed") }
+            override fun onActivityPaused(activity: Activity) { audioDiagnostics.event("activity_paused") }
             override fun onActivitySaveInstanceState(activity: Activity, state: Bundle) {}
-            override fun onActivityDestroyed(activity: Activity) {}
+            override fun onActivityDestroyed(activity: Activity) { audioDiagnostics.event("activity_destroyed") }
         })
     }
 
@@ -99,6 +102,7 @@ class AoedeApp : Application() {
         activity = WeakReference(owner)
         musicIsland.taskActive = true
         player?.let {
+            audioDiagnostics.event("webview_reused", System.identityHashCode(it))
             (it.parent as? ViewGroup)?.removeView(it)
             (it.context as MutableContextWrapper).baseContext = owner
             musicIsland.refresh()
@@ -112,6 +116,7 @@ class AoedeApp : Application() {
         val view = WebView(MutableContextWrapper(owner))
         CookieManager.getInstance().setAcceptCookie(true)
         player = view
+        audioDiagnostics.event("webview_created", System.identityHashCode(view))
         view.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -190,6 +195,7 @@ class AoedeApp : Application() {
             )
 
             override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                audioDiagnostics.event("page_started")
                 mediaController.reset()
                 connectionFailure = null
                 activity.get()?.clearConnectionError()
@@ -224,6 +230,7 @@ class AoedeApp : Application() {
 
             override fun onPageFinished(view: WebView, url: String) {
                 if (ServerOrigin.from(Uri.parse(url)) != origin) return
+                audioDiagnostics.event("page_finished")
                 if (messages && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
                     view.evaluateJavascript(shim, null)
                 }
@@ -234,6 +241,7 @@ class AoedeApp : Application() {
             }
 
             override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+                audioDiagnostics.event("renderer_gone", if (android.os.Build.VERSION.SDK_INT >= 26 && detail.didCrash()) 1 else 0)
                 destroyPlayer()
                 activity.get()?.recreate()
                 return true
@@ -270,6 +278,7 @@ class AoedeApp : Application() {
 
     fun detachPlayer(owner: MainActivity) {
         if (activity.get() !== owner) return
+        audioDiagnostics.event("webview_detached")
         (player?.parent as? ViewGroup)?.removeView(player)
         (player?.context as? MutableContextWrapper)?.baseContext = this
         activity.clear()
@@ -282,6 +291,8 @@ class AoedeApp : Application() {
     }
 
     fun destroyPlayer() {
+        audioDiagnostics.event("webview_destroyed")
+        audioDiagnostics.stop()
         mediaController.setActionInvoker(null)
         mediaController.reset()
         player?.let {

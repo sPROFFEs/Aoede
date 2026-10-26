@@ -340,6 +340,34 @@ class MusicIslandTest {
         assertTrue((view().layoutParams as WindowManager.LayoutParams).y >= dp(72))
     }
 
+    @Test fun repeatedLocksAndExpansionsRetainPlaybackWithAndWithoutEffects() {
+        val retained = app.player
+        val commands = mutableListOf<String>()
+        app.mediaController.setActionInvoker { action, _ -> commands.add(action) }
+        val power = shadowOf(app.getSystemService(Context.POWER_SERVICE) as PowerManager)
+        val keyguard = shadowOf(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager)
+        for (reduced in listOf(false, true)) {
+            app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", reduced).commit()
+            island.setEnabled(true)
+            repeat(20) { cycle ->
+                app.mediaController.updateState("playing", 1000L + cycle * 1000, 257000)
+                island.refresh()
+                assertEquals(!reduced, ReflectionHelpers.getField<Boolean>(island, "sampling"))
+                power.setIsInteractive(false); keyguard.setKeyguardLocked(true)
+                app.sendBroadcast(Intent(Intent.ACTION_SCREEN_OFF)); shadowOf(Looper.getMainLooper()).idle()
+                assertFalse(ReflectionHelpers.getField(island, "sampling"))
+                power.setIsInteractive(true); keyguard.setKeyguardLocked(false)
+                app.sendBroadcast(Intent(Intent.ACTION_USER_PRESENT)); shadowOf(Looper.getMainLooper()).idle()
+                island.show(true); assertFalse(ReflectionHelpers.getField(island, "sampling"))
+                island.collapse()
+                assertEquals(!reduced, ReflectionHelpers.getField<Boolean>(island, "sampling"))
+                assertSame(retained, app.player); assertEquals("playing", app.mediaController.state)
+            }
+            island.setEnabled(false)
+        }
+        assertTrue(commands.isEmpty()) // No hidden play/pause/seek or player recreation.
+    }
+
     @Test fun spectrumUsesValidatedLevelsAndStopsWithOverlayOrPlayback() {
         app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", false).commit()
         island.setEnabled(true)

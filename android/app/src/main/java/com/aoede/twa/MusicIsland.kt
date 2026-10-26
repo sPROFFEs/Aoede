@@ -125,7 +125,7 @@ class MusicIsland(private val app: AoedeApp) {
             val player = app.player ?: return
             if (!sampling) return
             val generation = sampleGeneration
-            player.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(true)") { result ->
+            player.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(true, $generation)") { result ->
                 if (!sampling || generation != sampleGeneration) return@evaluateJavascript
                 updateSpectrum(result)
                 handler.postDelayed(this, if (result == "null") 1000 else 100)
@@ -151,9 +151,10 @@ class MusicIsland(private val app: AoedeApp) {
         if (sampling == active) return
         sampling = active
         sampleGeneration++
+        app.audioDiagnostics.event("island_sampling", if (active) 1 else 0)
         handler.removeCallbacks(spectrum)
         if (active) handler.post(spectrum) else {
-            app.player?.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(false)", null)
+            app.player?.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(false, $sampleGeneration)", null)
             root?.findViewWithTag<Bars>("bars")?.levels = FloatArray(5)
         }
     }

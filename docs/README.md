@@ -14,6 +14,7 @@ This directory contains the detailed guides that were intentionally moved out of
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |
 | Import an existing music collection | [Importing Music](IMPORTING-MUSIC.md) |
 | Install the Android client | [Android](ANDROID.md) |
+| Investigate silent Android playback with Vitreo/LibrePods | [Audio investigation and capture](ANDROID-AUDIO-INVESTIGATION.md) |
 | Install a Windows, macOS or Linux wrapper | [Desktop](DESKTOP.md) |
 | Connect a Subsonic app | [Subsonic](SUBSONIC.md) |
 | Operate the server as an admin | [Administration](ADMINISTRATION.md) |

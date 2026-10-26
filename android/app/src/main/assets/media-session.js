@@ -55,23 +55,85 @@
   }
   var spectrum = null;
   var spectrumFailed = '';
+  var spectrumClosing = null;
+  var spectrumGeneration = -1;
+  var spectrumId = 0;
+  var diagnosticEnabled = false;
+  var diagnosticSamples = 0;
+  var diagnosticLastProgress = 0;
+  var diagnosticResource = '';
+  var diagnosticResourceId = 0;
+
+  function audioSnapshot() {
+    var resource = primary && (primary.currentSrc || primary.src) || '';
+    if (resource !== diagnosticResource) { diagnosticResource = resource; diagnosticResourceId++; }
+    var finite = function (value) { return Number.isFinite(value) ? value : null; };
+    var sample = { jsWallMs: Date.now(), jsMonoMs: typeof performance !== 'undefined' ? performance.now() : null,
+      resource: diagnosticResourceId, paused: primary ? primary.paused : true, ended: primary ? primary.ended : false,
+      position: primary ? finite(primary.currentTime) : null, ready: primary ? primary.readyState : null,
+      network: primary ? primary.networkState : null, volume: primary ? finite(primary.volume) : null,
+      muted: primary ? primary.muted : false, rate: primary ? finite(primary.playbackRate) : null,
+      error: primary && primary.error ? primary.error.code : 0, blocked: blocked, eventPlaying: audible,
+      decodedBytes: primary ? finite(primary.webkitAudioDecodedByteCount) : null,
+      context: spectrum ? spectrum.context.state : 'absent', contextId: spectrum ? spectrum.id : null, closing: !!spectrumClosing,
+      generation: spectrumGeneration, visibility: document.visibilityState || 'unknown',
+      liveTracks: spectrum ? spectrum.stream.getAudioTracks().filter(function (track) { return track.readyState === 'live' && track.enabled && !track.muted; }).length : 0 };
+    if (window.AoedeAndroid && typeof window.AoedeAndroid.audioState === 'function') {
+      var output = window.AoedeAndroid.audioState();
+      sample.playbackContext = output.playbackContext;
+      sample.replayGain = output.replayGain; sample.crossfade = finite(output.crossfade);
+      sample.replayLevel = finite(output.replayLevel); sample.fadeLevel = finite(output.fadeLevel); sample.volumeLevel = finite(output.volumeLevel);
+    }
+    return sample;
+  }
+  window.__aoedeAudioSnapshot = function (enabled) {
+    diagnosticEnabled = enabled === true;
+    return diagnosticEnabled ? audioSnapshot() : null;
+  };
+  function traceAudio(event, observed) {
+    if (!diagnosticEnabled || diagnosticSamples >= 600) return;
+    if (event === 'timeupdate') {
+      if (Date.now() - diagnosticLastProgress < 5000) return;
+      diagnosticLastProgress = Date.now();
+    }
+    diagnosticSamples++;
+    var sample = audioSnapshot();
+    if (observed) { sample.observedContext = observed.context.state; sample.observedContextId = observed.id; }
+    send({ type: 'diagnostic', event: event, sample: sample });
+  }
 
   function closeSpectrum() {
     if (!spectrum) return;
     var old = spectrum;
     spectrum = null;
-    if (old.source) old.source.disconnect();
-    old.stream.getTracks().forEach(function (track) { track.stop(); });
-    old.context.close().catch(function () {});
+    // Optional visuals must release every owned resource even if one cleanup fails.
+    try { if (old.source) old.source.disconnect(); } catch (_) { traceAudio('spectrum_cleanup_failed', old); }
+    old.stream.getTracks().forEach(function (track) { try { track.stop(); } catch (_) { traceAudio('spectrum_cleanup_failed', old); } });
+    var closing;
+    try { closing = old.context.close(); } catch (_) { closing = null; spectrumFailed = old.url; traceAudio('spectrum_close_failed', old); }
+    var pending = Promise.resolve(closing).catch(function () {
+      spectrumFailed = old.url; traceAudio('spectrum_close_failed', old);
+    }).then(function () {
+      if (spectrumClosing === pending) spectrumClosing = null;
+      traceAudio('spectrum_closed', old);
+    });
+    spectrumClosing = pending;
+    traceAudio('spectrum_close', old);
   }
   // Sample a copy of this player's audio. Never reroute its output, request a microphone,
   // or connect the copy to speakers (which would play the same track twice).
-  window.__aoedeIslandLevels = function (active) {
+  window.__aoedeIslandLevels = function (active, generation) {
+    if (Number.isSafeInteger(generation) && generation >= 0) {
+      if (generation < spectrumGeneration) return null;
+      spectrumGeneration = generation;
+    }
     if (!active || blocked || !primary || primary.paused || primary.ended || !audible) {
       closeSpectrum(); return null;
     }
     var url = primary.currentSrc || primary.src;
     if (spectrum && (spectrum.element !== primary || spectrum.url !== url)) closeSpectrum();
+    // close()/resume() run asynchronously in WebView. Do not overlap contexts on rapid toggles.
+    if (spectrumClosing) return null;
     try {
       if (!spectrum) {
         var Ctx = window.AudioContext || window.webkitAudioContext;
@@ -85,7 +147,7 @@
         var context;
         try { context = new Ctx(); }
         catch (error) { stream.getTracks().forEach(function (track) { track.stop(); }); throw error; }
-        spectrum = { context: context, stream: stream, element: primary, url: url };
+        spectrum = { context: context, stream: stream, element: primary, url: url, id: ++spectrumId };
         spectrum.analyser = context.createAnalyser();
         spectrum.analyser.fftSize = 1024;
         spectrum.analyser.smoothingTimeConstant = .45;
@@ -94,6 +156,9 @@
         spectrum.data = new Uint8Array(spectrum.analyser.frequencyBinCount);
         spectrum.source = context.createMediaStreamSource(stream);
         spectrum.source.connect(spectrum.analyser);
+        var observed = spectrum;
+        context.onstatechange = function () { traceAudio('context_state', observed); };
+        traceAudio('spectrum_create');
       }
       if (!spectrum.stream.getAudioTracks().some(function (track) {
         return track.readyState === 'live' && track.enabled && !track.muted;
@@ -102,7 +167,9 @@
         if (!spectrum.resuming) {
           var pending = spectrum;
           pending.resuming = true;
+          traceAudio('spectrum_resume');
           pending.context.resume().then(function () { pending.resuming = false; }).catch(function () {
+            traceAudio('spectrum_resume_failed', pending);
             if (spectrum === pending) { closeSpectrum(); spectrumFailed = url; }
           });
         }
@@ -120,10 +187,14 @@
         return Math.round(Math.sqrt(power / (end - start)) * volume * 1000) / 1000;
       });
     } catch (_) {
+      traceAudio('spectrum_error');
       closeSpectrum(); spectrumFailed = url; return null;
     }
   };
   window.addEventListener('pagehide', closeSpectrum);
+  ['pagehide', 'pageshow'].forEach(function (event) { window.addEventListener(event, function () { traceAudio(event); }); });
+  document.addEventListener('visibilitychange', function () { traceAudio('visibilitychange'); });
+  window.addEventListener('aoede-audio-context-state', function () { traceAudio('playback_context_state'); });
 
   function pushControls() {
     var favorite = document.getElementById('fs-btn-favorite');
@@ -253,6 +324,7 @@
   };
 
   window.__aoedeMediaCommand = function (action, positionMs) {
+    traceAudio('command_' + action);
     if (action === 'openplayer') { pendingPlayer = true; openPlayer(); return; }
     if (action === 'favorite' || action === 'shuffle' || action === 'repeat') {
       var button = document.getElementById(action === 'favorite' ? 'fs-btn-favorite' : 'btn-' + action);
@@ -287,7 +359,7 @@
     if (!element || element === primary) return;
     primary = element;
     audible = !element.paused && element.readyState >= 3;
-    ['play', 'playing', 'pause', 'ended', 'waiting', 'stalled', 'emptied', 'error', 'timeupdate', 'loadedmetadata', 'seeked', 'ratechange'].forEach(function (event) {
+    ['play', 'playing', 'pause', 'ended', 'waiting', 'stalled', 'emptied', 'error', 'timeupdate', 'loadedmetadata', 'seeked', 'ratechange', 'volumechange', 'suspend', 'abort'].forEach(function (event) {
       element.addEventListener(event, function () {
         if (primary !== element) return;
         if (event === 'playing' || (event === 'timeupdate' && !element.paused && !element.ended && element.readyState >= 3 && !element.error)) {
@@ -298,6 +370,7 @@
         if (event === 'emptied' || event === 'play') spectrumFailed = '';
         if (event === 'emptied' || event === 'play') failed = false;
         if (event === 'error') failed = true;
+        traceAudio(event);
         scheduleState(); // Read app state after its transition handlers have run.
       });
     });

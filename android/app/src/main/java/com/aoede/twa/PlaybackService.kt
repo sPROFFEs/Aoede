@@ -46,12 +46,16 @@ class PlaybackService : Service() {
         override fun run() {
             if (!controller.needsForeground) return
             wakeLock.acquire(10 * 60 * 1000L)
+            (application as AoedeApp).audioDiagnostics.event("wake_acquired", if (wakeLock.isHeld) 1 else 0)
             handler.postDelayed(this, 9 * 60 * 1000L)
         }
     }
     private val noisy = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) controller.pauseLocal()
+            if (intent.action == AudioManager.ACTION_AUDIO_BECOMING_NOISY) {
+                (application as AoedeApp).audioDiagnostics.event("audio_becoming_noisy")
+                controller.pauseLocal()
+            }
         }
     }
 
@@ -70,6 +74,8 @@ class PlaybackService : Service() {
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Aoede:Playback").apply { setReferenceCounted(false) }
         controller.onChanged = { updatePlayback() }
+        (application as AoedeApp).audioDiagnostics.event("service_created")
+        (application as AoedeApp).audioDiagnostics.start { wakeLock.isHeld }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -79,6 +85,7 @@ class PlaybackService : Service() {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
         else startForeground(NOTIFICATION_ID, notification)
         foreground = true
+        (application as AoedeApp).audioDiagnostics.event("service_foreground")
         if (intent?.action == "com.aoede.STOP") {
             controller.command("stop")
             controller.reset()
@@ -107,7 +114,10 @@ class PlaybackService : Service() {
                 noisyRegistered = true
             }
         } else {
-            if (wakeLock.isHeld) wakeLock.release()
+            if (wakeLock.isHeld) {
+                wakeLock.release()
+                (application as AoedeApp).audioDiagnostics.event("wake_released")
+            }
             if (noisyRegistered) { unregisterReceiver(noisy); noisyRegistered = false }
             if (controller.state in setOf("none", "error")) { stopSelf(); return }
             // Keep controls briefly for a pause/resume, then relinquish the foreground service.
@@ -153,6 +163,8 @@ class PlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        (application as AoedeApp).audioDiagnostics.event("service_destroyed", if (wakeLock.isHeld) 1 else 0)
+        (application as AoedeApp).audioDiagnostics.stop()
         running = false
         controller.onChanged = null
         handler.removeCallbacksAndMessages(null)
