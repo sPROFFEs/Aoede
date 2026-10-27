@@ -3,6 +3,7 @@ Playlist management and Navidrome sync.
 """
 
 import asyncio
+import hashlib
 import io
 import json
 import logging
@@ -46,6 +47,7 @@ def _smart_rule_summary(raw_rules: str | None) -> str | None:
 
 
 class CreatePlaylistRequest(PydanticBaseModel):
+    request_id: uuid.UUID | None = None
     name: str
     kind: Literal["playlist", "album"] = "playlist"
     track_ids: list[int | str] | None = None
@@ -702,6 +704,27 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
     except ValueError as exc:
         return JSONResponse({"error": str(exc)}, status_code=400)
 
+    operation_id = f"{user.id}:{req.request_id}" if req.request_id else None
+    operation_hash = hashlib.sha256(
+        json.dumps(req.model_dump(mode="json", exclude={"request_id"}), sort_keys=True).encode()
+    ).hexdigest()
+
+    def previous_operation():
+        operation = db.get(database.NativeCollectionOperation, operation_id) if operation_id else None
+        if not operation:
+            return None
+        if operation.body_hash != operation_hash:
+            return JSONResponse(
+                {"error": "This request id was already used for a different collection"}, status_code=409
+            )
+        existing = db.get(database.Playlist, operation.playlist_id) if operation.playlist_id else None
+        if not existing or existing.owner_id != user.id:
+            return JSONResponse({"error": "The original collection is no longer available"}, status_code=409)
+        return JSONResponse(serialize_playlist_summary(db, existing, user.id))
+
+    prior = previous_operation()
+    if prior is not None:
+        return prior
     sources = []
     for reference in dict.fromkeys(req.track_ids or []):
         # A saved local collection can outlive a pool song; preserve the existing skip behavior.
@@ -716,6 +739,13 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
         db.flush()
         for position, source in enumerate(sources, 1):
             db.add(database.PlaylistItem(playlist_id=playlist.id, position=position, **source))
+        if operation_id:
+            # Commit the result and deduplication key in the same database transaction.
+            db.add(
+                database.NativeCollectionOperation(
+                    id=operation_id, user_id=user.id, body_hash=operation_hash, playlist_id=playlist.id
+                )
+            )
         db.commit()
 
         # Generate M3U
@@ -728,6 +758,10 @@ async def create_playlist(req: CreatePlaylistRequest, request: Request, db: Sess
         return JSONResponse(serialize_playlist_summary(db, playlist, user.id))
     except Exception as exc:
         db.rollback()
+        # A concurrent retry may have won the unique operation id after our initial read.
+        prior = previous_operation()
+        if prior is not None:
+            return prior
         logger.exception("Failed to create playlist '%s': %s", playlist_name, exc)
         return JSONResponse({"error": "Failed to create playlist. Please try again."}, status_code=500)
 

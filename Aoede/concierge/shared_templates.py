@@ -39,7 +39,38 @@ def appearance_context(request):
     return {"user_theme": theme if theme in ("classic", "glass", "vitrine") else "classic"}
 
 
-templates = Jinja2Templates(directory=str(TEMPLATES_DIR), context_processors=[appearance_context])
+class AccountTemplates(Jinja2Templates):
+    def TemplateResponse(self, request, name, context=None, **kwargs):
+        # Native forms use the original authenticated controllers and validation.
+        # Serialize only their result, never the ORM user or provider credentials.
+        if (
+            request.scope.get("method", "GET") == "POST"
+            and request.url.path
+            in {
+                "/user/change-password",
+                "/user/update-api-keys",
+                "/user/validate-api-keys",
+                "/user/upload-cookies",
+                "/user/upload-avatar",
+            }
+            and "application/json" in request.headers.get("accept", "")
+        ):
+            from fastapi.responses import JSONResponse
+
+            values = context or {}
+            error = values.get("error")
+            payload = (
+                {"error": str(error)[:400]}
+                if error
+                else {"ok": True, "message": str(values.get("success", "Updated"))[:400]}
+            )
+            return JSONResponse(
+                payload, status_code=400 if error else 200, headers={"Cache-Control": "private, no-store"}
+            )
+        return super().TemplateResponse(request, name, context, **kwargs)
+
+
+templates = AccountTemplates(directory=str(TEMPLATES_DIR), context_processors=[appearance_context])
 # Expose static asset version as a Jinja2 global so every template can use
 # {{ static_v }} without any Python-side boilerplate.
 templates.env.globals["static_v"] = _compute_static_version()

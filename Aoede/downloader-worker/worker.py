@@ -22,7 +22,7 @@ import httpx
 import yt_dlp
 from auth_browser import manager as auth_browser_manager
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logging.basicConfig(level=logging.INFO)
@@ -449,6 +449,39 @@ def start_auth_browser(request: BrowserStartRequest) -> dict:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+class NativeBrowserInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+    session_id: str = Field(pattern=r"^[A-Za-z0-9_-]{8,128}$")
+    action: str = Field(pattern=r"^(click|text|key|scroll)$")
+    x: float = Field(default=0, ge=0, le=2560)
+    y: float = Field(default=0, ge=0, le=1600)
+    delta: float = Field(default=0, ge=-1200, le=1200)
+    text: str = Field(default="", max_length=2048)
+    key: str = Field(default="", max_length=20)
+
+
+@app.get("/browser/native/frame", dependencies=[Depends(require_auth)])
+def native_browser_frame(session_id: str = Query(pattern=r"^[A-Za-z0-9_-]{8,128}$")):
+    try:
+        data = auth_browser_manager.native_view(session_id)
+        return Response(data, media_type="image/jpeg", headers={"Cache-Control": "no-store"})
+    except ValueError as exc:
+        raise HTTPException(400, "Browser session unavailable") from exc
+    except Exception as exc:
+        raise HTTPException(503, "Browser frame not ready") from exc
+
+
+@app.post("/browser/native/input", dependencies=[Depends(require_auth)])
+def native_browser_input(body: NativeBrowserInput):
+    try:
+        auth_browser_manager.native_view(body.session_id, body.model_dump(exclude={"session_id"}))
+        return {"ok": True}
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid browser input or session") from exc
+    except Exception as exc:
+        raise HTTPException(503, "Browser input unavailable") from exc
 
 
 @app.get("/browser/status", dependencies=[Depends(require_auth)])

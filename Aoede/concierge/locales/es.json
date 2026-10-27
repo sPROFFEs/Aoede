@@ -533,5 +533,10 @@
     "offline.remove_copy": "Eliminar copia offline",
     "offline.no_collections": "No hay colecciones descargadas. Abre una playlist o un álbum con conexión y elige Descargar.",
     "offline.summary": "{tracks} canciones · {collections} colecciones · {size} MB en el dispositivo",
-    "player.preview": "Escuchar muestra"
+    "player.preview": "Escuchar muestra",
+    "login.headline": "Tu música. Tu espacio.",
+    "login.intro": "Entra en tu biblioteca privada de música.",
+    "login.show_password": "Mostrar contraseña",
+    "login.hide_password": "Ocultar contraseña",
+    "login.signing_in": "Iniciando sesión…"
 }

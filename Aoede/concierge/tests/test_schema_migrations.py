@@ -108,7 +108,32 @@ def test_new_party_room_schema_accepts_loading_status():
         ops_core._migration_024_party_rooms(conn)
         conn.execute(text("INSERT INTO party_rooms(owner_id, name, playback_status) VALUES (1, 'New room', 'loading')"))
 
-    assert ops_core.MIGRATIONS[-1][0] == "035_vitrine_theme"
+    assert ops_core.MIGRATIONS[-1][0] == "037_native_account_identity"
+    engine.dispose()
+
+
+def test_native_identity_upgrade_is_additive_unique_and_stable():
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(
+            text("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, session_version INTEGER DEFAULT 0)")
+        )
+        conn.execute(text("INSERT INTO users(id, username) VALUES (1, 'alice'), (2, 'bob')"))
+        conn.execute(text("CREATE TABLE playlists (id INTEGER PRIMARY KEY)"))
+        ops_core._migration_036_native_collection_operations(conn)
+        ops_core._migration_037_native_account_identity(conn)
+        before = conn.execute(
+            text("SELECT id, username, session_version, native_account_id FROM users ORDER BY id")
+        ).all()
+        assert [(row[0], row[1], row[2]) for row in before] == [(1, "alice", 0), (2, "bob", 0)]
+        assert len({row[3] for row in before}) == 2 and all(len(row[3]) == 32 for row in before)
+        ops_core._migration_037_native_account_identity(conn)
+        assert (
+            conn.execute(text("SELECT id, username, session_version, native_account_id FROM users ORDER BY id")).all()
+            == before
+        )
+        with pytest.raises(IntegrityError):
+            conn.execute(text("UPDATE users SET native_account_id=:identity WHERE id=2"), {"identity": before[0][3]})
     engine.dispose()
 
 

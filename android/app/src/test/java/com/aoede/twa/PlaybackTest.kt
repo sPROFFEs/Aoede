@@ -26,6 +26,8 @@ class PlaybackTest {
     private var service: org.robolectric.android.controller.ServiceController<PlaybackService>? = null
 
     @Before fun installedSignaturePermission() {
+        // These cases protect the preserved installed-web-client compatibility path.
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("use_native_player", false).commit()
         // Android grants this merged AndroidX signature permission at install time.
         // Robolectric API 21 needs the install-time grant represented explicitly.
         shadowOf(app).grantPermissions("${app.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
@@ -35,6 +37,15 @@ class PlaybackTest {
         app.destroyPlayer()
         service?.destroy()
         service = null
+        PlaybackService.starting=false
+    }
+
+    @Test fun foregroundNotificationExistsBeforeFirstStartCommand(){
+        val lifecycle=Robolectric.buildService(PlaybackService::class.java).create()
+        service=lifecycle
+        assertNotNull(shadowOf(lifecycle.get()).lastForegroundNotification)
+        assertEquals(PlaybackService.NOTIFICATION_ID,shadowOf(lifecycle.get()).lastForegroundNotificationId)
+        assertFalse(PlaybackService.starting)
     }
 
     @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)

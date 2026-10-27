@@ -70,6 +70,9 @@ def _trim_track_payload(track: dict[str, Any] | None) -> dict[str, Any] | None:
         "source",
         "is_local",
         "mix_key",
+        "fed_instance_id",
+        "fed_remote_id",
+        "stream_url",
     }
     trimmed = {key: track.get(key) for key in allowed_keys if key in track}
     encoded = json.dumps(trimmed, ensure_ascii=False)

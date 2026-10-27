@@ -15,7 +15,7 @@ This directory contains the detailed guides that were intentionally moved out of
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |
 | Import an existing music collection | [Importing Music](IMPORTING-MUSIC.md) |
 | Install the Android client | [Android](ANDROID.md) |
-| Review a fully native Android migration | [Native migration proposal](ANDROID-NATIVE-MIGRATION.md) |
+| Review a fully native Android migration | [Native implementation and migration](ANDROID-NATIVE-MIGRATION.md) |
 | Install a Windows, macOS or Linux wrapper | [Desktop](DESKTOP.md) |
 | Connect a Subsonic app | [Subsonic](SUBSONIC.md) |
 | Operate the server as an admin | [Administration](ADMINISTRATION.md) |
@@ -24,6 +24,7 @@ This directory contains the detailed guides that were intentionally moved out of
 | Understand how the stack fits together | [Architecture](ARCHITECTURE.md) |
 | Review security considerations | [Security](SECURITY.md) |
 | Review the 1.2.9 security fixes and deployment steps | [October security review](SECURITY-REVIEW-2026-10-24.md) |
+| Review the native-client security boundary | [1.3.1 security review](SECURITY-REVIEW-1.3.1.md) |
 | Prepare README screenshots | [Screenshot Guide](SCREENSHOTS.md) |
 
 ## Documentation principles

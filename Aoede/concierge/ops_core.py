@@ -1634,6 +1634,26 @@ def _migration_035_vitrine_theme(conn):
     conn.execute(text("ALTER TABLE users RENAME COLUMN theme_next TO theme"))
 
 
+def _migration_036_native_collection_operations(conn):
+    database.NativeCollectionOperation.__table__.create(bind=conn, checkfirst=True)
+
+
+def _migration_037_native_account_identity(conn):
+    import uuid
+
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+    if "native_account_id" not in columns:
+        conn.execute(text("ALTER TABLE users ADD COLUMN native_account_id VARCHAR(32)"))
+    for row in conn.execute(
+        text("SELECT id FROM users WHERE native_account_id IS NULL OR native_account_id = ''")
+    ).fetchall():
+        conn.execute(
+            text("UPDATE users SET native_account_id = :identity WHERE id = :id"),
+            {"identity": uuid.uuid4().hex, "id": row[0]},
+        )
+    conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_native_account_id ON users(native_account_id)"))
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1671,6 +1691,8 @@ MIGRATIONS = [
     ("033_federated_collections", _migration_033_federated_collections),
     ("034_user_theme", _migration_034_user_theme),
     ("035_vitrine_theme", _migration_035_vitrine_theme),
+    ("036_native_collection_operations", _migration_036_native_collection_operations),
+    ("037_native_account_identity", _migration_037_native_account_identity),
 ]
 
 

@@ -16,8 +16,8 @@ android {
         applicationId = "com.aoede.twa"
         minSdk = 21
         targetSdk = 35
-        versionCode = 29
-        versionName = "1.1.22"
+        versionCode = 30
+        versionName = "1.2.0"
     }
 
     buildTypes {
@@ -78,6 +78,8 @@ dependencies {
     // BEFORE any page JS runs, so the web app's player picks up our overridden
     // navigator.mediaSession instead of the WebView's native (and uncaptured) one.
     implementation("androidx.webkit:webkit:1.10.0")
+    implementation("androidx.media3:media3-exoplayer:1.8.1")
+    implementation("androidx.media3:media3-exoplayer-hls:1.8.1")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.12.2")
 }

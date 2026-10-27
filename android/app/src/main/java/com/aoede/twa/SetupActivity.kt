@@ -35,6 +35,13 @@ class SetupActivity : AppCompatActivity() {
         val effects = findViewById<SwitchCompat>(R.id.reduce_effects)
         effects.isChecked = prefs.getBoolean("reduce_effects", (getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager).isLowRamDevice)
 
+        val nativeClient = SwitchCompat(this).apply {
+            text = getString(R.string.native_client_option)
+            isChecked = prefs.getBoolean("use_native_player", true)
+            minHeight = (56 * resources.displayMetrics.density).toInt()
+        }
+        (effects.parent as android.view.ViewGroup).let { it.addView(nativeClient,it.indexOfChild(effects)+1) }
+
         if (firstRun) {
             titleView.setText(R.string.setup_welcome_title)
             subtitleView.setText(R.string.setup_welcome_subtitle)
@@ -70,7 +77,7 @@ class SetupActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            prefs.edit().putString(MainActivity.KEY_URL, origin.rule).putBoolean("reduce_effects", effects.isChecked).apply()
+            prefs.edit().putString(MainActivity.KEY_URL, origin.rule).putBoolean("reduce_effects", effects.isChecked).putBoolean("use_native_player", nativeClient.isChecked).apply()
             (application as AoedeApp).destroyPlayer()
 
             Toast.makeText(this, R.string.setup_toast_saved, Toast.LENGTH_SHORT).show()

@@ -52,6 +52,22 @@ def test_release_downloads_follow_actual_uploaded_assets_and_official_urls():
             releases._release_details(data | change)
 
 
+def test_webview_backup_is_downloadable_but_never_a_native_update_candidate():
+    details = releases._release_details(
+        {
+            "tag_name": "v1.3.1",
+            "assets": [
+                {"name": "aoede-android.apk", "state": "uploaded", "label": "Aoede Android 1.2.0 (30)"},
+                {"name": "aoede-android-webview-1.1.22.apk", "state": "uploaded", "label": "Aoede Android 1.1.22 (29)"},
+                {"name": "aoede-android-webview-1.1.22-source.zip", "state": "uploaded"},
+            ],
+        }
+    )
+    assert len(details["downloads"]) == 3
+    updates = [item for item in details["downloads"] if item.get("client") == "android-native"]
+    assert len(updates) == 1 and updates[0]["version_code"] == 30
+
+
 def test_release_cache_coalesces_requests_retries_errors_and_retains_last_success(monkeypatch):
     for name, value in {
         "_release": None,

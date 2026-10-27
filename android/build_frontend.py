@@ -49,6 +49,10 @@ def build(output=None):
             html = html.replace('<head>', '<head><script src="/_aoede/media-session.js"></script>', 1)
             html = html.replace('</head>', '<link rel="stylesheet" href="/_aoede/mobile.css"><script src="/_aoede/runtime.js"></script></head>', 1)
             (output / f"{lang}-{role}.html").write_text(html, encoding="utf-8")
+    native_locales = PROJECT / "app/src/main/assets/native/locales"
+    native_locales.mkdir(parents=True, exist_ok=True)
+    for lang in ("en", "es", "de"):
+        shutil.copyfile(concierge / f"locales/{lang}.json", native_locales / f"{lang}.json")
     files = {str(p.relative_to(output)): hashlib.sha256(p.read_bytes()).hexdigest()
              for p in sorted(output.rglob("*")) if p.is_file()}
     (output / "manifest.json").write_text(json.dumps({"protocol": 1, "files": files}, sort_keys=True), encoding="utf-8")

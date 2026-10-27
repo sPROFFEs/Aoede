@@ -38,12 +38,14 @@ class MusicIslandTest {
     private fun view(): View = ReflectionHelpers.getField(island, "root")
 
     @Before fun setup() {
+        // These cases protect the preserved installed-web-client compatibility path.
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("use_native_player", false).commit()
         shadowOf(app).grantPermissions("${app.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION")
         ShadowSettings.setCanDrawOverlays(true)
         shadowOf(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).setKeyguardLocked(false)
         shadowOf(app.getSystemService(Context.POWER_SERVICE) as PowerManager).setIsInteractive(true)
         app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().clear()
-            .putString(MainActivity.KEY_URL, "https://example.test").putBoolean("reduce_effects", true).commit()
+            .putString(MainActivity.KEY_URL, "https://example.test").putBoolean("use_native_player", false).putBoolean("reduce_effects", true).commit()
         activity = Robolectric.buildActivity(MainActivity::class.java).setup()
         app.mediaController.receive("""{"type":"metadata","title":"The City After Dark","artist":"Aoede Sessions"}""")
         app.mediaController.updateState("paused", 125000, 257000)

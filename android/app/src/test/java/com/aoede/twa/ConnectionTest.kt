@@ -28,6 +28,8 @@ class ConnectionTest {
     private lateinit var lifecycle: org.robolectric.android.controller.ActivityController<MainActivity>
 
     @Before fun openServer() {
+        // These cases protect the preserved installed-web-client compatibility path.
+        app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("use_native_player", false).commit()
         app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit()
             .putString(MainActivity.KEY_URL, "https://example.com:8443").commit()
         lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()

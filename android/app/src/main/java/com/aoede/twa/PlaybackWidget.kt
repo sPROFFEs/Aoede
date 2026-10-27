@@ -43,7 +43,7 @@ class PlaybackWidget : AppWidgetProvider() {
         if (action !in setOf("toggle", "next", "previous")) return
         val app = context.applicationContext as AoedeApp
         val media = app.mediaController
-        if (app.player == null || media.state in setOf("none", "error")) {
+        if (!app.hasPlayer || media.state in setOf("none", "error")) {
             update(context)
             try { context.startActivity(MainActivity.playerIntent(context, false)) }
             catch (_: android.content.ActivityNotFoundException) { /* The refreshed widget still offers a direct activity intent. */ }
@@ -127,7 +127,7 @@ class PlaybackWidget : AppWidgetProvider() {
             val app = context.applicationContext as AoedeApp
             val media = app.mediaController
             val metadata = media.metadata
-            val active = app.player != null && media.state !in setOf("none", "error")
+            val active = app.hasPlayer && media.state !in setOf("none", "error")
             val open = PendingIntent.getActivity(context, R.id.widget_info, MainActivity.playerIntent(context, active),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val metrics = context.resources.displayMetrics

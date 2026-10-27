@@ -33,7 +33,7 @@
 
 ## Why Aoede?
 
-**Aoede 1.3** refreshes Classic and Vitrine with a cleaner music interface across web and Android. See the [theme guide](docs/THEMES.md) for layouts and controls.
+**Aoede 1.3.1** adds native Android playback and refreshes Classic and Vitrine with a cleaner music interface across web and Android. See the [theme guide](docs/THEMES.md) for layouts and controls.
 
 Bring your library, discovery and shared listening into one place. Keep the audio on your own server, build collections that feel personal, and make listening a shared experience when you want it to be.
 
@@ -92,11 +92,11 @@ Start in your browser or choose a client for your device. Every client connects 
 | Platform | Experience | Get started |
 |---|---|---|
 | **Web / PWA** | Responsive desktop and mobile interface, with browser installation where supported. | [User guide](docs/USER-GUIDE.md) |
-| **Android** | Frontend bundled inside the APK, native media controls, background playback, home-screen widgets, offline music and verified in-app update downloads. | [Download APK](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android.apk) · [Android guide](docs/ANDROID.md) |
+| **Android** | Native Kotlin interface and Media3 playback, background controls, widgets, device downloads and verified updates; installed web client retained as a compatibility option. | [Download APK](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android.apk) · [Android guide](docs/ANDROID.md) |
 | **Windows, macOS, Linux** | Desktop wrappers that open your server's web interface in an application window. | [Downloads](https://github.com/sPROFFEs/Aoede/releases/latest) · [Desktop guide](docs/DESKTOP.md) |
 | **Subsonic clients** | Connect a compatible client to your account's Navidrome endpoint. | [Connection guide](docs/SUBSONIC.md) |
 
-The releases page also includes the complete Android source and the original Android remote wrapper as a backup. Browser offline storage and background behavior depend on the device; federation streaming and collaborative edits require a connection. [Client details and limits →](docs/ANDROID.md)
+The releases page includes complete Android source, the previous installed web client and the original Android remote wrapper as backups. Browser offline storage and background behavior depend on the device; federation streaming and collaborative edits require a connection. [Client details and limits →](docs/ANDROID.md)
 
 ## Quick start
 

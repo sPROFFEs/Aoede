@@ -47,7 +47,7 @@ class PlaybackWidgetTest {
 
     private fun playing(state: String = "paused") {
         app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit()
-            .putString(MainActivity.KEY_URL, "https://example.com").commit()
+            .putString(MainActivity.KEY_URL, "https://example.com").putBoolean("use_native_player", false).commit()
         lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         app.mediaController.receive("""{"type":"metadata","title":"Midnight in Bloom","artist":"Aoede Sessions"}""")
         app.mediaController.updateState(state, 0, 90000)

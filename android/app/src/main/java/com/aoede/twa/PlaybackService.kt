@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
@@ -27,8 +28,10 @@ class PlaybackService : Service() {
     companion object {
         const val CHANNEL_ID = "aoede_playback"
         const val NOTIFICATION_ID = 1
+        const val NATIVE_PLAY = "com.aoede.NATIVE_PLAY"
         var running = false
             private set
+        var starting = false
     }
     private val controller get() = (application as AoedeApp).mediaController
     private val notifications get() = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
@@ -60,6 +63,7 @@ class PlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         running = true
+        starting = false
         if (Build.VERSION.SDK_INT >= 26) {
             notifications.createNotificationChannel(NotificationChannel(CHANNEL_ID,
                 getString(R.string.playback_channel_name), NotificationManager.IMPORTANCE_LOW).apply {
@@ -67,24 +71,30 @@ class PlaybackService : Service() {
                 setShowBadge(false)
             })
         }
+        // Meet Android's deadline before metadata, artwork or media-button resolution.
+        val initial=NotificationCompat.Builder(this,CHANNEL_ID).setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle(getString(R.string.playback_notif_title)).setOnlyAlertOnce(true)
+            .setStyle(androidx.media.app.NotificationCompat.MediaStyle().setMediaSession(controller.mediaSession.sessionToken)).build()
+        enterForeground(initial)
         wakeLock = (getSystemService(Context.POWER_SERVICE) as PowerManager)
             .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Aoede:Playback").apply { setReferenceCounted(false) }
         controller.onChanged = { updatePlayback() }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // Always fulfil startForegroundService's deadline, including an obsolete media button intent.
-        val notification = buildNotification()
-        if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, notification,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
-        else startForeground(NOTIFICATION_ID, notification)
-        foreground = true
         if (intent?.action == "com.aoede.STOP") {
             controller.command("stop")
             controller.reset()
-        } else MediaButtonReceiver.handleIntent(controller.mediaSession, intent)
+        } else if(intent?.action==NATIVE_PLAY)controller.command("play")
+        else MediaButtonReceiver.handleIntent(controller.mediaSession, intent)
         updatePlayback()
         return START_NOT_STICKY
+    }
+
+    private fun enterForeground(notification:Notification){
+        if(Build.VERSION.SDK_INT>=29)startForeground(NOTIFICATION_ID,notification,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        else startForeground(NOTIFICATION_ID,notification)
+        foreground=true
     }
 
     // MediaStyle notifications carrying a MediaSession token are exempt from POST_NOTIFICATIONS.
@@ -111,13 +121,15 @@ class PlaybackService : Service() {
             if (noisyRegistered) { unregisterReceiver(noisy); noisyRegistered = false }
             if (controller.state in setOf("none", "error")) { stopSelf(); return }
             // Keep controls briefly for a pause/resume, then relinquish the foreground service.
-            handler.postDelayed(stopIdle, 60000)
+            // An explicitly joined live room still needs its session while waiting for its host.
+            // Keep its notification, but release the audio wake lock while paused.
+            if(!(application as AoedeApp).nativePartyActive)handler.postDelayed(stopIdle, 60000)
         }
         if (foreground) notifications.notify(NOTIFICATION_ID, buildNotification())
     }
 
     private fun buildNotification(): Notification {
-        val metadata = controller.mediaSession.controller.metadata
+        val metadata = controller.metadata
         val playing = controller.needsForeground
         val open = PendingIntent.getActivity(this, 0, MainActivity.playerIntent(this),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
@@ -131,20 +143,19 @@ class PlaybackService : Service() {
             .setLargeIcon(metadata?.getBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART))
             .setSmallIcon(R.drawable.ic_notification).setContentIntent(open).setDeleteIntent(stop)
             .setOnlyAlertOnce(true).setOngoing(playing).setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-        val actions = controller.mediaSession.controller.playbackState?.actions ?: 0
         var count = 0
         fun add(icon: Int, label: Int, action: Long) {
             builder.addAction(NotificationCompat.Action(icon, getString(label),
-                MediaButtonReceiver.buildMediaButtonPendingIntent(this, action)))
+                MediaButtonReceiver.buildMediaButtonPendingIntent(this, ComponentName(this,MediaButtonReceiver::class.java), action)))
             count++
         }
-        if (actions and PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS != 0L) {
+        if (controller.supports("previoustrack")) {
             add(R.drawable.ic_skip_previous, R.string.playback_action_prev, PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS)
         }
         add(if (playing) R.drawable.ic_pause else R.drawable.ic_play,
             if (playing) R.string.playback_action_pause else R.string.playback_action_play,
             if (playing) PlaybackStateCompat.ACTION_PAUSE else PlaybackStateCompat.ACTION_PLAY)
-        if (actions and PlaybackStateCompat.ACTION_SKIP_TO_NEXT != 0L) {
+        if (controller.supports("nexttrack")) {
             add(R.drawable.ic_skip_next, R.string.playback_action_next, PlaybackStateCompat.ACTION_SKIP_TO_NEXT)
         }
         builder.setStyle(androidx.media.app.NotificationCompat.MediaStyle()
@@ -154,6 +165,7 @@ class PlaybackService : Service() {
 
     override fun onDestroy() {
         running = false
+        starting = false
         controller.onChanged = null
         handler.removeCallbacksAndMessages(null)
         if (noisyRegistered) unregisterReceiver(noisy)

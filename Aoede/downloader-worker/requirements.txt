@@ -6,3 +6,5 @@ httpx[http2]>=0.27.0,<1
 yt-dlp[default]==2026.8.19
 SpotiFLAC==3.5.0
 pydoll-python==2.23.1
+
+websockets>=14.2,<18

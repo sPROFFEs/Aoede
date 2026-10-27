@@ -23,6 +23,13 @@ import androidx.core.graphics.Insets
 
 class MainActivity : AppCompatActivity() {
     private val app get() = application as AoedeApp
+    private var nativeUi: NativeUi? = null
+    private var nativeFileCallback: ((Uri) -> Unit)? = null
+    private val nativeFile = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        val callback = nativeFileCallback; nativeFileCallback = null
+        if (uri?.scheme == "content") callback?.invoke(uri)
+    }
+    fun pickNativeFile(type: String, callback: (Uri) -> Unit) { nativeFileCallback = callback; nativeFile.launch(type) }
     private var failedUrl: String? = null
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     private val fileChooser = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -75,6 +82,15 @@ class MainActivity : AppCompatActivity() {
         if (url.isNullOrBlank()) {
             startActivity(Intent(this, SetupActivity::class.java).putExtra(SetupActivity.EXTRA_FIRST_RUN, true))
             finish()
+            return
+        }
+        if (getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("use_native_player", true)) {
+            app.attachNative(this, url)
+            nativeUi = NativeUi(this, app).also { it.create() }
+            onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() { if (nativeUi?.back() != true) moveTaskToBack(true) }
+            })
+            openRequestedPlayer(intent)
             return
         }
         setContentView(R.layout.activity_main)
@@ -140,10 +156,12 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        nativeUi?.resume()
         app.musicIsland.refresh()
     }
 
     override fun onStop() {
+        nativeUi?.pause()
         app.musicIsland.collapse()
         app.musicIsland.closeSettings(this)
         super.onStop()
@@ -207,6 +225,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        val native = nativeUi
+        native?.close(); nativeUi = null; nativeFileCallback = null
+        if (native != null) app.detachNative(this)
         fileCallback?.onReceiveValue(null)
         fileCallback = null
         app.detachPlayer(this)

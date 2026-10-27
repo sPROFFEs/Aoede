@@ -150,6 +150,27 @@ def get_auth_browser_status() -> dict:
         return _worker_json(client.get("/browser/status"))
 
 
+def native_browser_frame(session_id: str) -> bytes:
+    with (
+        _client(timeout=8.0) as client,
+        client.stream("GET", "/browser/native/frame", params={"session_id": session_id}) as response,
+    ):
+        response.raise_for_status()
+        if not response.headers.get("content-type", "").startswith("image/jpeg"):
+            raise WorkerUnavailable("Invalid browser frame")
+        data = bytearray()
+        for chunk in response.iter_bytes(64 * 1024):
+            data.extend(chunk)
+            if len(data) > 1024 * 1024:
+                raise WorkerUnavailable("Browser frame too large")
+        return bytes(data)
+
+
+def native_browser_input(session_id: str, payload: dict) -> dict:
+    with _client(timeout=8.0) as client:
+        return _worker_json(client.post("/browser/native/input", json={**payload, "session_id": session_id}))
+
+
 def stop_auth_browser() -> dict:
     with _client(timeout=10.0) as client:
         return _worker_json(client.delete("/browser/stop"))

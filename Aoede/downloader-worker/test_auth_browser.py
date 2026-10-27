@@ -282,3 +282,60 @@ def test_first_start_can_take_more_than_five_seconds_without_relaunching(tmp_pat
         assert session.serialize()["remaining_seconds"] >= manager.ttl - 1
     finally:
         manager.stop()
+
+
+def test_native_browser_only_drives_the_current_session_and_never_exposes_arbitrary_cdp(monkeypatch):
+    import base64
+    import time
+    from unittest.mock import MagicMock
+
+    import websockets.sync.client
+
+    manager = module.AuthBrowserManager()
+    manager._session = module.BrowserSession(
+        "native_session_a", "deezer", "https://example.test", time.time(), time.time() + 60
+    )
+    commands = []
+    response = {}
+    socket = MagicMock()
+
+    def send(raw):
+        request = json.loads(raw)
+        commands.append(request)
+        method = request["method"]
+        result = {}
+        if method == "Target.getTargets":
+            result = {"targetInfos": [{"type": "page", "targetId": "page-a", "url": "https://example.test"}]}
+        elif method == "Target.attachToTarget":
+            result = {"sessionId": "attached-a"}
+        elif method == "Page.captureScreenshot":
+            result = {"data": base64.b64encode(b"\xff\xd8\xffimage").decode()}
+        response.clear()
+        response.update(id=request["id"], result=result)
+
+    socket.send.side_effect = send
+    socket.recv.side_effect = lambda timeout: json.dumps(response)
+    connector = MagicMock()
+    connector.return_value.__enter__.return_value = socket
+    monkeypatch.setattr(websockets.sync.client, "connect", connector)
+    monkeypatch.setattr(module.socket, "create_connection", MagicMock())
+    monkeypatch.setattr(manager, "_debugger_websocket_url", lambda: "ws://127.0.0.1:9222/devtools/browser/native")
+    with pytest.raises(ValueError):
+        manager.native_view("native_session_b")
+    assert not commands
+    assert manager.native_view("native_session_a") == b"\xff\xd8\xffimage"
+    manager.native_view("native_session_a", {"action": "text", "text": "synthetic text"})
+    assert commands[-1]["method"] == "Input.insertText"
+    assert commands[-1]["params"] == {"text": "synthetic text"}
+    for payload in (
+        {"action": "Runtime.evaluate"},
+        {"action": "key", "key": "F12"},
+        {"action": "click", "x": 99999},
+        {"action": "text", "text": "x" * 2049},
+    ):
+        with pytest.raises(ValueError):
+            manager.native_view("native_session_a", payload)
+    assert all(command["method"] != "Runtime.evaluate" for command in commands)
+    manager._session.expires_at = time.time() - 1
+    with pytest.raises(ValueError):
+        manager.native_view("native_session_a")

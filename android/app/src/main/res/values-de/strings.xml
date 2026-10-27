@@ -53,7 +53,7 @@
     <string name="island_permission_denied">Android hat Overlays nicht erlaubt. Dynamic Island bleibt ausgeschaltet.</string>
     <string name="island_position">Vertikale Position der Insel</string>
     <string name="island_position_value">Abstand vom oberen Bildschirmrand: %1$d dp</string>
-    <string name="island_position_help">Verschiebe die Kapsel nach oben zur Kamera. Wenn die Statusleiste Berührungen abfängt, nutze den kleinen Griff darunter. Seine 48 dp große Berührungsfläche bleibt außerhalb der Systemleiste. Die horizontale Position reicht von links (−100%) über die Mitte (0%) bis rechts (100%). Größe und Position gelten für die kompakte Kapsel.</string>
+    <string name="island_position_help" formatted="false">Verschiebe die Kapsel nach oben zur Kamera. Wenn die Statusleiste Berührungen abfängt, nutze den kleinen Griff darunter. Seine 48 dp große Berührungsfläche bleibt außerhalb der Systemleiste. Die horizontale Position reicht von links (−100%) über die Mitte (0%) bis rechts (100%). Größe und Position gelten für die kompakte Kapsel.</string>
     <string name="island_expand">Aoede-Musiksteuerung erweitern</string>
     <string name="island_seek">In Titel springen</string>
     <string name="island_shuffle">Zufallswiedergabe</string>
@@ -70,4 +70,5 @@
     <string name="island_horizontal">Horizontale Position</string>
     <string name="island_horizontal_value">Horizontale Position: %1$d%%</string>
     <string name="island_reset_layout">Layout zurücksetzen</string>
+    <string name="native_client_option">Native Android-Oberfläche</string>
 </resources>

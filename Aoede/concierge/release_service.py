@@ -53,6 +53,8 @@ def _release_details(data):
             label = "Complete Android source"
         elif match := re.fullmatch(r"aoede-android-wrapper-(\d+\.\d+\.\d+)(\.apk|-source\.zip)", name):
             label = f"Wrapper {match[1]} · " + ("Backup APK" if match[2] == ".apk" else "Source")
+        elif match := re.fullmatch(r"aoede-android-webview-(\d+\.\d+\.\d+)(\.apk|-source\.zip)", name):
+            label = f"Installed web client {match[1]} · " + ("Backup APK" if match[2] == ".apk" else "Source")
         elif match := re.fullmatch(r"aoede-(mac|win|linux)-(arm64|x64|universal)\.tar\.gz", name):
             platform = match[1]
             label = {

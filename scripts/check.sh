@@ -47,3 +47,4 @@ node --experimental-vm-modules scripts/test_player_ui.mjs
 node --experimental-vm-modules scripts/test_player_end.mjs
 node --experimental-vm-modules scripts/test_android.mjs
 node android/test_frontend.mjs
+node android/test_native_migration.mjs

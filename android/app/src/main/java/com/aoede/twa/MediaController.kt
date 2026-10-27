@@ -80,6 +80,13 @@ class MediaController(private val app: AoedeApp) {
 
     fun command(action: String, position: Long = 0) {
         if (action in setOf("play", "nexttrack", "previoustrack")) locallyPaused = false
+        // Android 15 permits a background focus request only once a media FGS exists.
+        if(action=="play"&&app.player==null&&app.hasPlayer&&!PlaybackService.running){
+            try{androidx.core.content.ContextCompat.startForegroundService(app,android.content.Intent(app,PlaybackService::class.java).setAction(PlaybackService.NATIVE_PLAY))}
+            catch(_:IllegalStateException){pauseLocal()}
+            catch(_:SecurityException){pauseLocal()}
+            return
+        }
         invoker?.invoke(action, position)
     }
 
@@ -190,6 +197,7 @@ class MediaController(private val app: AoedeApp) {
         if (fingerprint != lastNotified) {
             lastNotified = fingerprint
             onChanged?.invoke()
+            app.nativeChanged?.invoke()
             PlaybackWidget.update(app)
             app.musicIsland.refresh()
         }
@@ -240,7 +248,7 @@ class MediaController(private val app: AoedeApp) {
                         connection.connectTimeout = 5000
                         connection.readTimeout = 5000
                         if (origin == cookieOrigin) {
-                            CookieManager.getInstance().getCookie(currentUrl.toString())?.let {
+                            (if (app.nativeApi.origin == origin) app.nativeApi.cookieHeader(origin) else runCatching { CookieManager.getInstance().getCookie(currentUrl.toString()) }.getOrNull())?.let {
                                 connection.setRequestProperty("Cookie", it)
                             }
                         }

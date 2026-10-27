@@ -1,6 +1,7 @@
 import sqlite3
 import sys
 import tempfile
+import uuid
 from pathlib import Path
 
 from aoede_config import settings
@@ -99,6 +100,7 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     hashed_password = Column(String)
     session_version = Column(Integer, default=0, nullable=False)
+    native_account_id = Column(String(32), default=lambda: uuid.uuid4().hex, nullable=False, unique=True, index=True)
     is_active = Column(Boolean, default=True)
     is_admin = Column(Boolean, default=False)
     theme = Column(String, default="classic", server_default="classic", nullable=False)
@@ -119,6 +121,14 @@ class User(Base):
     playback_queue_state = relationship(
         "PlaybackQueueState", uselist=False, back_populates="user", cascade="all, delete-orphan"
     )
+
+
+class NativeCollectionOperation(Base):
+    __tablename__ = "native_collection_operations"
+    id = Column(String(128), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    body_hash = Column(String(64), nullable=False)
+    playlist_id = Column(Integer, ForeignKey("playlists.id", ondelete="SET NULL"), nullable=True)
 
 
 class DownloadSettings(Base):

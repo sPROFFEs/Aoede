@@ -463,6 +463,9 @@ async def general_stream_proxy(url: str, request: Request, db: Session = Depends
 app.include_router(music_router)
 app.include_router(admin.router)
 app.include_router(user.router)
+from routers import mobile
+
+app.include_router(mobile.router)
 
 from routers import federation as federation_router
 
@@ -523,7 +526,11 @@ async def login(
 
     session_lifetime = auth.session_expiry(remember_me)
     access_token = auth.create_access_token(
-        data={"sub": user.username, "sv": int(user.session_version or 0)},
+        data={
+            "sub": user.username,
+            "sv": int(user.session_version or 0),
+            **({"aid": user.native_account_id} if getattr(user, "native_account_id", None) else {}),
+        },
         expires_delta=session_lifetime,
     )
     redirect_url = "/portal"

@@ -37,6 +37,28 @@ class AoedeApp : Application() {
     var player: WebView? = null
         private set
     val musicIsland by lazy { MusicIsland(this) }
+    val nativeApi by lazy { NativeApi(this) }
+    val nativeLibrary by lazy { NativeLibrary(this) }
+    val nativeSync by lazy { NativeSync(this) }
+    private val nativePlaybackDelegate = lazy { NativePlayback(this) }
+    val nativePlayback by nativePlaybackDelegate
+    var nativeChanged: (() -> Unit)? = null
+    val hasPlayer get() = player != null || (nativePlaybackDelegate.isInitialized() && nativePlayback.active)
+    val nativePartyActive get()=nativePlaybackDelegate.isInitialized()&&nativePlayback.party!=null
+    fun attachNative(owner: MainActivity, url: String) {
+        if (player != null) destroyPlayer()
+        val origin = ServerOrigin.from(Uri.parse(url)) ?: error("Invalid server")
+        if (mediaController.serverOrigin != null && mediaController.serverOrigin != origin && nativePlaybackDelegate.isInitialized()) nativePlayback.release()
+        nativeApi.configure(url)
+        activity = WeakReference(owner)
+        mediaController.serverOrigin = origin
+        mediaController.setActionInvoker { action, position -> nativePlayback.command(action, position) }
+        musicIsland.refresh()
+    }
+    fun detachNative(owner: MainActivity) {
+        if (activity.get() === owner) { activity.clear(); nativeChanged = null; nativePlayback.onChanged = null; nativePlayback.onOpenPlayer = null }
+    }
+
     val clientInfo: String get() = JSONObject().put("kind", "android-native").put("version", BuildConfig.VERSION_NAME)
         .put("versionCode", BuildConfig.VERSION_CODE).put("updater", 1).toString()
     val updater by lazy { AppUpdater(this) { data ->
@@ -284,6 +306,7 @@ class AoedeApp : Application() {
     }
 
     fun destroyPlayer() {
+        if (nativePlaybackDelegate.isInitialized()) nativePlayback.release()
         mediaController.setActionInvoker(null)
         mediaController.reset()
         player?.let {
@@ -303,15 +326,19 @@ class AoedeApp : Application() {
     }
 
     fun ensurePlaybackService() {
-        if (mediaController.needsForeground && !PlaybackService.running) {
+        if (mediaController.needsForeground && !PlaybackService.running && !PlaybackService.starting) {
+            PlaybackService.starting=true
             try {
                 ContextCompat.startForegroundService(this, Intent(this, PlaybackService::class.java))
             } catch (_: IllegalStateException) {
+                PlaybackService.starting=false
                 mediaController.pauseLocal()
             } catch (_: SecurityException) {
+                PlaybackService.starting=false
                 mediaController.pauseLocal()
             }
         } else if (mediaController.state == "none") {
+            PlaybackService.starting=false
             stopService(Intent(this, PlaybackService::class.java))
         }
     }

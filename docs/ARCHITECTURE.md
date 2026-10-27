@@ -6,7 +6,7 @@ Aoede is a Docker-based control layer around per-user Navidrome instances, share
 
 ```mermaid
 flowchart TB
-    Clients[Web browser / Android wrapper / Subsonic clients]
+    Clients[Web browser / Native Android / Desktop wrappers / Subsonic clients]
     Proxy[nginx reverse proxy]
     Concierge[FastAPI concierge]
     Downloader[Isolated downloader worker]
@@ -46,7 +46,7 @@ FastAPI backend and orchestration layer. It manages the Aoede application experi
 
 Private FastAPI worker that owns the current yt-dlp, spotDL and SpotiFLAC runtimes. Concierge authenticates to it with a token stored in the shared download-staging volume. Download output is staged there and copied into the library only after a job completes successfully.
 
-SpotiFLAC signed sessions live in the worker-only `downloader-state` volume; provider credentials are never collected by Aoede. A worker heartbeat checks existing sessions every 15 minutes and triggers the upstream signed-session refresh when due. Per-provider locks prevent refresh, session changes and active downloads from rotating the same session concurrently. When manual verification is required, Concierge starts a single short-lived Chromium/Xvfb/x11vnc/websockify stack inside the worker; the administrator reaches it only through the authenticated noVNC proxy. VNC ports are never published to the host, and the persistent browser profile is isolated in `auth-browser-state`. The worker uses Docker's init process to reap orphaned children and a shared process/thread budget of 1024 by default (`DOWNLOADER_PIDS_LIMIT`). Browser shutdown also terminates descendant process groups when their original parent has already exited.
+SpotiFLAC signed sessions live in the worker-only `downloader-state` volume; provider credentials are never collected by Aoede. A worker heartbeat checks existing sessions every 15 minutes and triggers the upstream signed-session refresh when due. Per-provider locks prevent refresh, session changes and active downloads from rotating the same session concurrently. When manual verification is required, Concierge starts a single short-lived Chromium/Xvfb/x11vnc/websockify stack inside the worker; the administrator reaches it through the authenticated noVNC proxy or the administrator-only native screenshot/input viewer. VNC ports are never published to the host, and the persistent browser profile is isolated in `auth-browser-state`. The worker uses Docker's init process to reap orphaned children and a shared process/thread budget of 1024 by default (`DOWNLOADER_PIDS_LIMIT`). Browser shutdown also terminates descendant process groups when their original parent has already exited.
 
 ### `nginx`
 
@@ -123,3 +123,9 @@ https://your-domain/<username>
 - [Configuration](CONFIGURATION.md)
 - [Security](SECURITY.md)
 - [Backup & Restore](BACKUP-RESTORE.md)
+
+## Native Android · 1.3.1
+
+Android 1.2.0 uses Kotlin Views and one Media3 ExoPlayer for normal UI/playback. The existing native media session, foreground playback service, widget and optional island control that same player. Theme preferences and account data come from authenticated existing APIs and `/api/mobile/v2`. The encrypted session vault and SQLite/audio files stay private to the device; libraries are scoped by origin and random account identity.
+
+The previous WebView interface is retained as an explicit compatibility option. Only that option and an explicit, network-blocked legacy IndexedDB import require WebView. Native data does not replace or erase the old database. [Implementation and limits](ANDROID-NATIVE-MIGRATION.md) · [Security review](SECURITY-REVIEW-1.3.1.md).

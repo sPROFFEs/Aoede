@@ -28,9 +28,12 @@ shutil.copy2(apk, output / name)
 with zipfile.ZipFile(output / "aoede-android-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
     for source in (root / "branding/aoede.png", root / "scripts/enlarge_brand_icons.py"):
         archive.write(source, Path("aoede-android") / source.relative_to(root))
+    for name in ("ANDROID.md", "ANDROID-NATIVE-MIGRATION.md", "SECURITY-REVIEW-1.3.1.md", "RELEASE-1.3.1.md"):
+        source = root / "docs" / name
+        archive.write(source, Path("aoede-android/docs") / name)
     for source in sorted(project.rglob("*")):
         relative = source.relative_to(project)
-        if not source.is_file() or any(part in {"build", "dist", ".gradle", ".idea"} for part in relative.parts):
+        if not source.is_file() or any(part in {"build", "dist", ".gradle", ".kotlin", ".idea"} for part in relative.parts):
             continue
         if source.suffix in {".jks", ".keystore", ".key", ".pem", ".p12", ".pyc"} or source.name == "local.properties":
             continue

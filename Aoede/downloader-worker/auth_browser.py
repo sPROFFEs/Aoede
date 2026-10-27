@@ -8,7 +8,9 @@ protected by the existing worker bearer token.
 from __future__ import annotations
 
 import asyncio
+import base64
 import errno
+import inspect
 import json
 import logging
 import os
@@ -147,6 +149,121 @@ class AuthBrowserManager:
         ):
             raise RuntimeError("Chromium returned an invalid debugging endpoint")
         return websocket_url
+
+    def native_view(self, session_id: str, action: dict | None = None) -> bytes | None:
+        """Bounded CDP screenshot/input on the active local browser, never arbitrary CDP or JavaScript."""
+        from websockets.sync.client import connect
+
+        with self._lock:
+            session = self._session
+            if not session or session.session_id != session_id or time.time() >= session.expires_at:
+                raise ValueError("Browser session is unavailable")
+            if action is not None:
+                kind = action.get("action")
+                if kind not in {"click", "text", "key", "scroll"}:
+                    raise ValueError("Unsupported browser input")
+                if kind in {"click", "scroll"}:
+                    x, y = float(action.get("x", 0)), float(action.get("y", 0))
+                    if not (0 <= x < self.width and 0 <= y < self.height):
+                        raise ValueError("Input outside browser viewport")
+                if kind == "text" and (not isinstance(action.get("text"), str) or len(action["text"]) > 2048):
+                    raise ValueError("Invalid browser text")
+                keys = {
+                    "Enter": 13,
+                    "Tab": 9,
+                    "Backspace": 8,
+                    "Escape": 27,
+                    "ArrowLeft": 37,
+                    "ArrowUp": 38,
+                    "ArrowRight": 39,
+                    "ArrowDown": 40,
+                }
+                if kind == "key" and action.get("key") not in keys:
+                    raise ValueError("Unsupported browser key")
+            target = self._debugger_websocket_url()
+            deadline = time.monotonic() + 4
+            # Pin the socket to worker loopback as well as validating Chromium's URL.
+            # websockets 14 has no proxy support; explicitly disable it on newer versions.
+            options = {"proxy": None} if "proxy" in inspect.signature(connect).parameters else {}
+            with socket.create_connection(("127.0.0.1", self.debugging_port), timeout=2) as sock:
+                with connect(
+                    target,
+                    sock=sock,
+                    open_timeout=2,
+                    close_timeout=1,
+                    max_size=2 * 1024 * 1024,
+                    compression=None,
+                    **options,
+                ) as ws:
+                    sequence = 0
+
+                    def command(method, params=None, session=None):
+                        nonlocal sequence
+                        sequence += 1
+                        message = {"id": sequence, "method": method, "params": params or {}}
+                        if session:
+                            message["sessionId"] = session
+                        ws.send(json.dumps(message))
+                        for _ in range(128):
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                raise RuntimeError("Browser command timed out")
+                            reply = json.loads(ws.recv(timeout=remaining))
+                            if reply.get("id") == sequence:
+                                if "error" in reply:
+                                    raise RuntimeError("Browser command unavailable")
+                                return reply.get("result", {})
+                        raise RuntimeError("Too many browser events")
+
+                    targets = command("Target.getTargets").get("targetInfos", [])
+                    pages = [
+                        p
+                        for p in targets
+                        if p.get("type") == "page" and str(p.get("url", "")).startswith(("https://", "http://"))
+                    ]
+                    if not pages:
+                        raise RuntimeError("Browser page is not ready")
+                    tab = command("Target.attachToTarget", {"targetId": pages[-1]["targetId"], "flatten": True})[
+                        "sessionId"
+                    ]
+                    if action is None:
+                        image = command(
+                            "Page.captureScreenshot",
+                            {"format": "jpeg", "quality": 65, "captureBeyondViewport": False},
+                            tab,
+                        ).get("data", "")
+                        if not isinstance(image, str) or len(image) > 1400000:
+                            raise RuntimeError("Browser frame too large")
+                        decoded = base64.b64decode(image, validate=True)
+                        if not decoded.startswith(b"\xff\xd8\xff"):
+                            raise RuntimeError("Invalid browser frame")
+                        return decoded
+                    if kind == "text":
+                        command("Input.insertText", {"text": action["text"]}, tab)
+                    elif kind == "key":
+                        for event in ("keyDown", "keyUp"):
+                            command(
+                                "Input.dispatchKeyEvent",
+                                {"type": event, "key": action["key"], "windowsVirtualKeyCode": keys[action["key"]]},
+                                tab,
+                            )
+                    elif kind == "click":
+                        for event in ("mousePressed", "mouseReleased"):
+                            command(
+                                "Input.dispatchMouseEvent",
+                                {"type": event, "x": x, "y": y, "button": "left", "clickCount": 1},
+                                tab,
+                            )
+                    else:
+                        delta = float(action.get("delta", 0))
+                        if not -1200 <= delta <= 1200:
+                            raise ValueError("Invalid scroll distance")
+                        command(
+                            "Input.dispatchMouseEvent",
+                            {"type": "mouseWheel", "x": x, "y": y, "deltaX": 0, "deltaY": delta},
+                            tab,
+                        )
+                    return None
 
     def _store_grant(self, session_id: str, grant: str) -> None:
         grant = str(grant or "").strip()

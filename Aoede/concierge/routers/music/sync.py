@@ -138,7 +138,12 @@ async def check_duplicate(url: str, request: Request, db: Session = Depends(get_
 
 @router.get("/api/playback/preview")
 async def preview_playback(
-    request: Request, url: str = None, title: str = None, spotify_id: str = None, db: Session = Depends(get_db)
+    request: Request,
+    url: str = None,
+    title: str = None,
+    spotify_id: str = None,
+    relay: bool = False,
+    db: Session = Depends(get_db),
 ):
     """
     Hybrid Preview Handler:
@@ -150,6 +155,8 @@ async def preview_playback(
     if not user:
         return Response(status_code=401)
 
+    target_url = None
+
     # --- STRATEGY 1: SPOTIFY (Direct Redirect) ---
     if spotify_id or (url and "spotify" in url):
         try:
@@ -160,16 +167,18 @@ async def preview_playback(
 
             preview_url = await spotify_service.spotify_service.get_embed_preview(sid)
             if preview_url:
-                # Spotify CDN allows remote playback, so redirect is fine/better
-                return RedirectResponse(preview_url)
+                if not relay:
+                    return RedirectResponse(preview_url)
+                # Native media requests remain pinned to Aoede. Relay a server-resolved
+                # preview through the existing public-address transport, never client cookies.
+                target_url = preview_url
         except Exception as e:
             logger.debug("Spotify preview lookup failed; falling back to YouTube: %s", e)
 
     # --- STRATEGY 2: YOUTUBE (Streaming Proxy) ---
-    target_url = None
 
     # A. Direct URL
-    if url and ("youtube.com" in url or "youtu.be" in url):
+    if not target_url and url and ("youtube.com" in url or "youtu.be" in url):
         try:
             video_id = url.split("v=")[-1].split("&")[0] if "v=" in url else url.split("/")[-1]
             target_url = await youtube_service.youtube_service.get_audio_stream_url(video_id)
@@ -177,7 +186,7 @@ async def preview_playback(
             logger.debug("Direct YouTube preview stream lookup failed for %s: %s", url, e)
 
     # B. Search Fallback (Title)
-    elif title:
+    elif not target_url and title:
         try:
             # Clean title
             clean_query = title

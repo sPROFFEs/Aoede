@@ -1,5 +1,6 @@
 import logging
 import re
+import secrets
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -53,7 +54,9 @@ def create_user_in_db(db: Session, username: str, password: str):
     if not is_valid_username(username):
         raise ValueError("Username must be 2-32 letters, numbers, underscores, or hyphens")
     hashed_password = get_password_hash(password)
-    db_user = database.User(username=username, hashed_password=hashed_password)
+    db_user = database.User(
+        username=username, hashed_password=hashed_password, session_version=secrets.randbits(60) + 1
+    )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
@@ -115,7 +118,11 @@ def get_current_user(request: Request, db: Session):
         raise HTTPException(status_code=401, detail="Invalid session")
 
     user = get_user_by_username(db, username)
-    if not user_can_login(user) or _token_session_version(payload) != int(user.session_version or 0):
+    if (
+        not user_can_login(user)
+        or _token_session_version(payload) != int(user.session_version or 0)
+        or (payload.get("aid") is not None and payload["aid"] != user.native_account_id)
+    ):
         raise HTTPException(status_code=401, detail="User account unavailable")
 
     theme = getattr(user, "theme", "classic")
@@ -135,7 +142,11 @@ def verify_token(token: str, expected_username: str, db: Session = None) -> bool
     if db is None:
         return True
     user = get_user_by_username(db, username)
-    return bool(user_can_login(user) and _token_session_version(payload) == int(user.session_version or 0))
+    return bool(
+        user_can_login(user)
+        and _token_session_version(payload) == int(user.session_version or 0)
+        and (payload.get("aid") is None or payload["aid"] == user.native_account_id)
+    )
 
 
 def blacklist_token(db: Session, token: str):

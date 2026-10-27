@@ -11,6 +11,7 @@ import android.widget.TextView
 import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.After
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,6 +25,8 @@ import org.robolectric.annotation.Config
 class MobileFrontendTest {
     private val app get() = RuntimeEnvironment.getApplication() as AoedeApp
     private val origin = ServerOrigin.from(Uri.parse("https://example.com:8443"))!!
+
+    @Before fun legacyMode() { app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("use_native_player", false).commit() }
 
     @After fun cleanup() { app.destroyPlayer() }
 

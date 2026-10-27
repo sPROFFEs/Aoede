@@ -122,8 +122,13 @@ class MusicIsland(private val app: AoedeApp) {
     private var sampleGeneration = 0
     private val spectrum = object : Runnable {
         override fun run() {
-            val player = app.player ?: return
             if (!sampling) return
+            if (app.player == null && app.hasPlayer) {
+                root?.findViewWithTag<Bars>("bars")?.levels = app.nativePlayback.levels
+                handler.postDelayed(this, 100)
+                return
+            }
+            val player = app.player ?: return
             val generation = sampleGeneration
             player.evaluateJavascript("window.__aoedeIslandLevels && window.__aoedeIslandLevels(true, $generation)") { result ->
                 if (!sampling || generation != sampleGeneration) return@evaluateJavascript
@@ -144,10 +149,11 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     internal fun syncSpectrum() {
-        val active = root != null && !openingPlayer && !hiding && !expanded && media.isPlaying && !reduced && app.player != null &&
+        val active = root != null && !openingPlayer && !hiding && !expanded && media.isPlaying && !reduced && app.hasPlayer &&
             (app.getSystemService(Context.POWER_SERVICE) as PowerManager).isInteractive &&
             !(app.getSystemService(Context.KEYGUARD_SERVICE) as KeyguardManager).isKeyguardLocked
         root?.findViewWithTag<Bars>("bars")?.playing = active
+        if (app.player == null && app.hasPlayer) app.nativePlayback.analyze(active)
         if (sampling == active) return
         sampling = active
         sampleGeneration++
@@ -180,7 +186,7 @@ class MusicIsland(private val app: AoedeApp) {
     fun refresh() {
         check(Looper.myLooper() == Looper.getMainLooper())
         if (changingWindow) { deferRefresh(); return }
-        val alive = app.player != null && (taskActive || media.needsForeground)
+        val alive = app.hasPlayer && (taskActive || media.needsForeground)
         if (!enabled || !alive || !permissionGranted) {
             hide()
             unregister()
@@ -353,10 +359,14 @@ class MusicIsland(private val app: AoedeApp) {
                     importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
                 }, handle)
             }
-            view.foreground = if (dialog != null) GradientDrawable().apply {
+            val outline = if (dialog != null) GradientDrawable().apply {
                 setColor(Color.TRANSPARENT); cornerRadius = dp(12).toFloat()
                 setStroke(dp(1), 0xFFB8A3FF.toInt(), dp(4).toFloat(), dp(3).toFloat())
             } else null
+            if (Build.VERSION.SDK_INT >= 23) view.foreground = outline
+            else if (outline != null) view.addView(View(windowContext).apply {
+                background = outline; importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, FrameLayout.LayoutParams(-1, -1))
             view.isFocusableInTouchMode = open
             view.contentDescription = if (open) null else app.getString(R.string.island_expand)
             view.importantForAccessibility = if (dialog != null) View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS

@@ -34,6 +34,37 @@ def test_worker_auth_uses_generated_shared_token(tmp_path, monkeypatch):
     assert exc_info.value.status_code == 401
 
 
+def test_native_browser_transport_keeps_worker_auth_and_input_limits(monkeypatch):
+    import httpx
+
+    monkeypatch.setattr(worker, "_ensure_token", lambda: "synthetic-worker-token")
+    calls = []
+    monkeypatch.setattr(
+        worker.auth_browser_manager, "native_view", lambda *args: calls.append(args) or b"\xff\xd8\xffimage"
+    )
+
+    async def check():
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=worker.app), base_url="http://worker.test"
+        ) as client:
+            assert (await client.get("/browser/native/frame", params={"session_id": "test-session"})).status_code == 401
+            assert (
+                await client.post("/browser/native/input", json={"session_id": "test-session", "action": "click"})
+            ).status_code == 401
+            assert not calls
+            headers = {"authorization": "Bearer synthetic-worker-token"}
+            for payload in (
+                {"session_id": "test-session", "action": "Runtime.evaluate"},
+                {"session_id": "test-session", "action": "text", "text": "x" * 2049},
+            ):
+                assert (await client.post("/browser/native/input", headers=headers, json=payload)).status_code == 422
+            assert not calls
+            response = await client.get("/browser/native/frame", params={"session_id": "test-session"}, headers=headers)
+            assert response.status_code == 200 and response.headers["content-type"] == "image/jpeg"
+
+    asyncio.run(check())
+
+
 def test_spotiflac_uses_pinned_extension_provider_names(tmp_path, monkeypatch):
     request = worker.DownloadRequest(
         job_id="provider-test",

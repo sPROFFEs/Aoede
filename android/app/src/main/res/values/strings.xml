@@ -65,7 +65,7 @@
     <string name="island_permission_denied">Android has not allowed overlays. Dynamic Island remains off.</string>
     <string name="island_position">Island vertical position</string>
     <string name="island_position_value">Distance from screen top: %1$d dp</string>
-    <string name="island_position_help">Move the capsule up to surround the camera. If the status bar intercepts taps, use the small handle below it. The handle keeps a 48 dp touch area outside the system bar. Horizontal position ranges from left (−100%) through center (0%) to right (100%). Size and position apply to the compact capsule.</string>
+    <string name="island_position_help" formatted="false">Move the capsule up to surround the camera. If the status bar intercepts taps, use the small handle below it. The handle keeps a 48 dp touch area outside the system bar. Horizontal position ranges from left (−100%) through center (0%) to right (100%). Size and position apply to the compact capsule.</string>
     <string name="island_expand">Expand Aoede music controls</string>
     <string name="island_seek">Seek in track</string>
     <string name="island_shuffle">Shuffle</string>
@@ -82,4 +82,5 @@
     <string name="island_horizontal">Horizontal position</string>
     <string name="island_horizontal_value">Horizontal position: %1$d%%</string>
     <string name="island_reset_layout">Reset layout</string>
+    <string name="native_client_option">Native Android interface</string>
 </resources>

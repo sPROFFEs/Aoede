@@ -533,5 +533,10 @@
     "offline.remove_copy": "Offline-Kopie entfernen",
     "offline.no_collections": "Keine Sammlungen heruntergeladen. Öffne online eine Playlist oder ein Album und wähle Herunterladen.",
     "offline.summary": "{tracks} Titel · {collections} Sammlungen · {size} MB auf dem Gerät",
-    "player.preview": "Vorhören"
+    "player.preview": "Vorhören",
+    "login.headline": "Deine Musik. Dein Raum.",
+    "login.intro": "Melde dich bei deiner privaten Musikbibliothek an.",
+    "login.show_password": "Passwort anzeigen",
+    "login.hide_password": "Passwort verbergen",
+    "login.signing_in": "Anmeldung…"
 }

@@ -369,6 +369,31 @@
     </style>
     <meta name="theme-color" content="#121212">
     {% include "appearance_head.html" %}
+    <style>
+        body { min-height: 100dvh; padding: max(32px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(32px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+        .login-wrapper { max-width: 460px; }
+        .login-card { padding: 40px 36px; border-radius: 24px; }
+        .brand-section { gap: 12px; margin-bottom: 32px; }
+        .brand-icon { width: 64px; height: 64px; margin-bottom: 4px; border-radius: 16px; }
+        .login-wordmark { font-size: .8rem; font-weight: 650; letter-spacing: .14em; color: var(--text-sub); }
+        .app-title { font-size: clamp(2rem, 7vw, 2.7rem); line-height: 1.08; text-align: center; max-width: 12ch; margin: 0; }
+        .app-subtitle { text-align: center; line-height: 1.5; max-width: 30ch; }
+        .login-input { min-height: 54px; border-radius: 10px; padding: 14px 16px; font-weight: 400; }
+        .login-input::placeholder { color: var(--text-sub); opacity: .8; }
+        .input-wrapper:has(.password-toggle) .login-input { padding-right: 62px; }
+        .password-toggle { position: absolute; right: 4px; top: 3px; min-width: 48px; height: 48px; display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--text-sub); cursor: pointer; }
+        .password-toggle:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+        .password-toggle svg { width: 20px; height: 20px; }
+        .remember-row { min-height: 44px; align-items: center; gap: 12px; }
+        .remember-row input { width: 18px; height: 18px; margin: 0; }
+        .btn-login-pro { min-height: 52px; margin-top: 16px; }
+        .btn-login-pro:disabled { opacity: .65; cursor: wait; transform: none; }
+        .login-footer-pro { margin-top: 28px; line-height: 1.5; }
+        html[data-theme="classic"] .login-card { background: #17181a; border: 1px solid #ffffff0a; }
+        html:is([data-theme="glass"], [data-theme="vitrine"]) .login-card { background: var(--square-film, var(--surface-1)); border: 1px solid var(--square-rim, var(--border-subtle)); }
+        @media (max-width: 480px) { body { align-items: center; } .login-card { padding: 28px 12px; border: 0 !important; background: transparent !important; } }
+        @media (max-height: 600px) { body { align-items: flex-start; } .brand-section { margin-bottom: 20px; } .brand-icon { width: 48px; height: 48px; } }
+    </style>
 </head>
 
 <body>
@@ -377,12 +402,13 @@
             <div class="brand-section">
                 <img src="/assets/icon.png?v={{ static_v }}" alt="Aoede" class="brand-icon"
                     onerror="this.src='/static/img/default_cover.png'">
-                <h1 class="app-title">{{ _('login.title') if _ else 'Log in to Aoede' }}</h1>
-                <p class="app-subtitle">{{ _('login.subtitle') if _ else 'Your private music library, ready when you are.' }}</p>
+                <span class="login-wordmark">AOEDE</span>
+                <h1 class="app-title">{{ _('login.headline') }}</h1>
+                <p class="app-subtitle">{{ _('login.intro') }}</p>
             </div>
 
             {% if error %}
-            <div class="error-pill-pro">
+            <div class="error-pill-pro" role="alert">
                 <i class="fa-solid fa-circle-exclamation"></i>
                 <span>{{ error }}</span>
             </div>
@@ -393,7 +419,7 @@
                     <label for="username" class="input-label">{{ _('login.username') }}</label>
                     <div class="input-wrapper">
                         <input type="text" id="username" name="username" class="login-input" placeholder="{{ _('login.username_placeholder') }}"
-                            required autocomplete="username">
+                            required autocomplete="username" autocapitalize="none" spellcheck="false" minlength="2" maxlength="32">
                     </div>
                 </div>
 
@@ -401,7 +427,8 @@
                     <label for="password" class="input-label">{{ _('login.password') }}</label>
                     <div class="input-wrapper">
                         <input type="password" id="password" name="password" class="login-input" placeholder="{{ _('login.password_placeholder') }}"
-                            required autocomplete="current-password">
+                            required autocomplete="current-password" maxlength="1024">
+                        <button type="button" class="password-toggle" id="password-toggle" aria-label="{{ _('login.show_password') }}" aria-controls="password" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
                     </div>
                 </div>
 
@@ -422,6 +449,25 @@
             </div>
         </div>
     </div>
+    <script>
+      document.getElementById('password-toggle').addEventListener('click', function () {
+        var password = document.getElementById('password');
+        var visible = password.type === 'password';
+        password.type = visible ? 'text' : 'password';
+        this.setAttribute('aria-pressed', String(visible));
+        this.setAttribute('aria-label', visible ? {{ _('login.hide_password') | tojson }} : {{ _('login.show_password') | tojson }});
+      });
+      document.querySelector('.login-form').addEventListener('submit', function () {
+        var button = this.querySelector('[type="submit"]');
+        button.disabled = true;
+        button.textContent = {{ _('login.signing_in') | tojson }};
+      });
+      window.addEventListener('pageshow', function () {
+        var button = document.querySelector('.login-form [type="submit"]');
+        button.disabled = false;
+        button.textContent = {{ _('login.button') | tojson }};
+      });
+    </script>
     <!-- PWA Install Banner -->
     <div id="pwa-banner" class="pwa-banner" role="banner" aria-label="{{ _('login.pwa_title') }}">
         <img src="/assets/icon.png?v={{ static_v }}" class="pwa-banner-icon" alt="Aoede">
