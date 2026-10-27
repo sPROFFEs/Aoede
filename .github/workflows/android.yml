@@ -83,10 +83,11 @@ jobs:
         if: steps.signing.outputs.signed == 'true' && github.event_name == 'workflow_dispatch' && inputs.release_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
-          AOEDE_RELEASE_TAG: ${{ inputs.release_tag }}
           AOEDE_REPOSITORY: ${{ github.repository }}
         run: |
-          gh release download "$AOEDE_RELEASE_TAG" --pattern aoede-android.apk --dir "$RUNNER_TEMP/current-android" --repo "$AOEDE_REPOSITORY"
+          # The target may be a draft invisible to this read-only job. Compare
+          # against the latest public APK that users can currently install.
+          gh release download --pattern aoede-android.apk --dir "$RUNNER_TEMP/current-android" --repo "$AOEDE_REPOSITORY"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$RUNNER_TEMP/current-android/aoede-android.apk" > "$RUNNER_TEMP/old-certificate.txt"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs android/dist/aoede-android.apk > "$RUNNER_TEMP/new-certificate.txt"
           sed -n 's/^Signer #1 certificate SHA-256 digest: //p' "$RUNNER_TEMP/old-certificate.txt" > "$RUNNER_TEMP/old-digest.txt"
