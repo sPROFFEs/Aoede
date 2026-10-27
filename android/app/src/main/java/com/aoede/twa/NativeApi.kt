@@ -146,6 +146,23 @@ class NativeApi(private val app: AoedeApp) {
 
     @Volatile private var session = JSONObject()
     private var sessionRevision = 0L
+    private val taskScope = ThreadLocal<Pair<Long, String>>()
+
+    @Synchronized private fun identity() = sessionRevision to scope
+
+    private fun scoped(task: () -> Any?): () -> Any? {
+        val expected = identity()
+        return {
+            taskScope.set(expected)
+            try {
+                check(expected == identity()) { "Account changed" }
+                task()
+            } finally {
+                taskScope.remove()
+            }
+        }
+    }
+
     private var importedLegacyCookie = false
     private val requests = java.util.WeakHashMap<HttpURLConnection, Long>()
     val account: JSONObject?
@@ -276,8 +293,18 @@ class NativeApi(private val app: AoedeApp) {
     }
 
     @Synchronized
-    fun connection(path: String, method: String = "GET"): HttpURLConnection {
+    fun connection(
+        path: String,
+        method: String = "GET",
+        expectedScope: String? = null,
+    ): HttpURLConnection {
         val target = origin ?: throw IOException("Configure your Aoede server first")
+        if (expectedScope != null && expectedScope != scope)
+            throw Failure(409, "Account changed; retry the request")
+        if (taskScope.get()?.let { it != identity() } == true)
+            throw Failure(409, "Account changed; retry the request")
+        if (account == null && path !in setOf("/login", "/api/mobile/v2/context"))
+            throw Failure(401, "Sign in first")
         return (resolve(target, path).openConnection() as HttpURLConnection).apply {
             requests[this] = sessionRevision
             instanceFollowRedirects = false
@@ -424,7 +451,9 @@ class NativeApi(private val app: AoedeApp) {
         synchronized(this) {
             sessionRevision++
             importedLegacyCookie = false
-            session.put("remember", remember)
+            origin?.let(vault::clear)
+            session = JSONObject().put("remember", remember)
+            if (taskScope.get() != null) taskScope.set(identity())
         }
         request(
             "/login",
@@ -470,6 +499,7 @@ class NativeApi(private val app: AoedeApp) {
                 "Server changed"
             }
             session.put("context", data)
+            if (taskScope.get() != null) taskScope.set(identity())
             if (importedLegacyCookie) {
                 session.put("legacy_scope", data.getString("storage_scope"))
                 app.nativeLibrary.put(
@@ -524,16 +554,18 @@ class NativeApi(private val app: AoedeApp) {
     }
 
     fun image(task: () -> Any?, done: (Any?, Throwable?) -> Unit) {
+        val bound = scoped(task)
         images.execute {
-            val result = runCatching(task)
+            val result = runCatching(bound)
             main.post { done(result.getOrNull(), result.exceptionOrNull()) }
         }
     }
 
     fun execute(task: () -> Any?, done: (Any?, Throwable?) -> Unit) {
+        val bound = scoped(task)
         try {
             workers.execute {
-                val result = runCatching(task)
+                val result = runCatching(bound)
                 main.post { done(result.getOrNull(), result.exceptionOrNull()) }
             }
         } catch (error: java.util.concurrent.RejectedExecutionException) {

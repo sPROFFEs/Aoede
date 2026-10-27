@@ -201,6 +201,7 @@ class NativeTools(private val ui: NativeUi) {
                         next.text.clear()
                         confirm.text.clear()
                         dialog.dismiss()
+                        player.release()
                         api.clearSession()
                         ui.login("Password changed. Sign in again.")
                     },

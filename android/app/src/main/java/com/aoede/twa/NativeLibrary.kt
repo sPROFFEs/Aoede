@@ -126,9 +126,10 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
 
     fun download(track: JSONObject, scope: String = scope()) {
         val id = NativeTrack.reference(track)
+        val account = app.nativeApi.scope
         require(NativeTrack.localId(track) > 0) { "Only local tracks support device downloads" }
         require(scope == scope()) { "Account changed" }
-        val c = app.nativeApi.connection(NativeTrack.stream(track))
+        val c = app.nativeApi.connection(NativeTrack.stream(track), expectedScope = account)
         val temporary = File(directory(scope), NativeApi.digest(id) + ".partial")
         try {
             val status = c.responseCode
@@ -174,7 +175,7 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
                     .put("offline_size", size)
                     .put("offline_sha256", checksum)
             require(scope == scope()) { "Account changed" }
-            runCatching { cacheArtwork(track) }
+            runCatching { cacheArtwork(track, account) }
                 .getOrNull()
                 ?.let { record.put("offline_artwork", it) }
             commitAudio(id, record, temporary, scope)
@@ -184,14 +185,14 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
         }
     }
 
-    private fun cacheArtwork(track: JSONObject): String? {
+    private fun cacheArtwork(track: JSONObject, account: String): String? {
         val raw = track.optString("thumbnail")
         if (raw.startsWith("data:image/") && raw.length < 128 * 1024) return raw
         val path =
             if (raw.startsWith("/") && !raw.startsWith("//")) raw
             else if (raw.startsWith("https://")) "/api/proxy-image?url=" + NativeApi.encode(raw)
             else return null
-        val c = app.nativeApi.connection(path)
+        val c = app.nativeApi.connection(path, expectedScope = account)
         try {
             if (c.responseCode != 200) return null
             val bytes = c.inputStream.use { it.readBytesBounded(2 * 1024 * 1024) }

@@ -608,6 +608,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 return@setOnClickListener
             }
             submit.isEnabled = false
+            player.release()
             val previousScope = api.scope
             api.execute({ api.authenticate(name, secret, remember.isChecked) }) { _, failure ->
                 password.text.clear()
@@ -621,7 +622,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     home()
                     app.nativeSync.flush()
                     app.updater.check()
-                } else toast(failure.message ?: "Sign in failed")
+                } else login(failure.message ?: "Sign in failed")
             }
         }
         button(text("native.configure_server", "Configure server"), body) {

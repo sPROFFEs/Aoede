@@ -43,9 +43,11 @@ class NativeDownloadService : Service() {
             running = true
             worker.execute {
                 try {
-                    val scope = app.nativeLibrary.scope()
+                    val scope =
+                        runCatching { app.nativeLibrary.scope() }.getOrNull() ?: return@execute
                     while (
-                        !Thread.currentThread().isInterrupted && scope == app.nativeLibrary.scope()
+                        !Thread.currentThread().isInterrupted &&
+                            runCatching { scope == app.nativeLibrary.scope() }.getOrDefault(false)
                     ) {
                         val job =
                             app.nativeLibrary.list("download", scope).firstOrNull {
@@ -61,6 +63,8 @@ class NativeDownloadService : Service() {
                         app.nativeLibrary.put("download", id, job, scope)
                         app.nativeApi.main.post { app.nativeChanged?.invoke() }
                     }
+                } catch (_: Exception) {
+                    // Keep the private queue for explicit retry after storage/session failure.
                 } finally {
                     app.nativeApi.main.post {
                         running = false

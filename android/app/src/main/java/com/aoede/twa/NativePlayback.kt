@@ -25,7 +25,8 @@ import org.json.JSONObject
 
 /** Streaming never follows a redirect with a session cookie, including media redirects. */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
-class NativeHttpSource(private val api: NativeApi) : BaseDataSource(true) {
+class NativeHttpSource(private val api: NativeApi, private val accountScope: String = api.scope) :
+    BaseDataSource(true) {
     private var connection: HttpURLConnection? = null
     private var input: InputStream? = null
     private var remaining = C.LENGTH_UNSET.toLong()
@@ -33,7 +34,7 @@ class NativeHttpSource(private val api: NativeApi) : BaseDataSource(true) {
 
     override fun open(spec: DataSpec): Long {
         transferInitializing(spec)
-        val c = api.connection(spec.uri.toString())
+        val c = api.connection(spec.uri.toString(), expectedScope = accountScope)
         connection = c
         c.setRequestProperty("Accept", "audio/*,video/*,application/octet-stream")
         if (spec.position > 0 || spec.length != C.LENGTH_UNSET.toLong()) {
@@ -114,6 +115,12 @@ class NativePlayback(private val app: AoedeApp) {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: ExoPlayer? = null
     private var tracks = listOf<JSONObject>()
+    private var ownerScope: String? = null
+
+    private fun ownsAccount() =
+        ownerScope != null &&
+            runCatching { app.nativeLibrary.scope() == ownerScope }.getOrDefault(false)
+
     private var savedPosition = 0L
     private var savedIndex = 0
     private var sessionId = ""
@@ -189,6 +196,10 @@ class NativePlayback(private val app: AoedeApp) {
         object : Runnable {
             override fun run() {
                 if (engine == null) return
+                if (!ownsAccount()) {
+                    release()
+                    return
+                }
                 val now = android.os.SystemClock.elapsedRealtime()
                 if (playing && lastTick > 0) listened += (now - lastTick).coerceIn(0, 1500)
                 lastTick = now
@@ -219,7 +230,8 @@ class NativePlayback(private val app: AoedeApp) {
         engine?.let {
             return it
         }
-        val factory = DataSource.Factory { NativeHttpSource(app.nativeApi) }
+        val credentialsScope = app.nativeApi.scope
+        val factory = DataSource.Factory { NativeHttpSource(app.nativeApi, credentialsScope) }
         val source = androidx.media3.datasource.DefaultDataSource.Factory(app, factory)
         val renderers =
             object : DefaultRenderersFactory(app) {
@@ -302,6 +314,9 @@ class NativePlayback(private val app: AoedeApp) {
 
     fun play(list: List<JSONObject>, start: Int = 0, autoplay: Boolean = true, at: Long = 0) {
         if (list.isEmpty()) return
+        val scope = app.nativeLibrary.scope()
+        if (ownerScope != null && ownerScope != scope) stop()
+        ownerScope = scope
         require(list.size <= 10000)
         failure = null
         tracks = list.map { JSONObject(it.toString()) }
@@ -360,6 +375,10 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     fun command(action: String, value: Long = 0) {
+        if (action != "stop" && ownerScope != null && !ownsAccount()) {
+            release()
+            return
+        }
         when (action) {
             "openplayer" -> onOpenPlayer?.invoke()
             "play" -> {
@@ -477,6 +496,10 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     fun favorite(track: JSONObject? = current, done: (Throwable?) -> Unit = {}) {
+        if (tracks.isNotEmpty() && !ownsAccount()) {
+            done(SecurityException("Account changed"))
+            return
+        }
         if (track == null) return
         val ref = NativeTrack.reference(track)
         val liked = track.optBoolean("is_favorite")
@@ -512,6 +535,7 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     private fun metadata() {
+        if (!ownsAccount()) return
         val t = current ?: return
         processor.gain = 1f
         val stamp = ++gainGeneration
@@ -579,6 +603,7 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     private fun publish() {
+        if (!ownsAccount()) return
         val p = engine ?: return
         val state =
             when {
@@ -591,6 +616,7 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     private fun listen(event: String) {
+        if (!ownsAccount()) return
         val t = listenTrack ?: return
         val id = NativeTrack.localId(t)
         if (id <= 0 || sessionId.isBlank()) return
@@ -632,6 +658,7 @@ class NativePlayback(private val app: AoedeApp) {
 
     fun persist() {
         if (tracks.isEmpty() || party != null) return
+        val scope = ownerScope ?: return
         savedShuffle = engine?.shuffleModeEnabled ?: savedShuffle
         savedRepeat = engine?.repeatMode ?: savedRepeat
         runCatching {
@@ -645,6 +672,7 @@ class NativePlayback(private val app: AoedeApp) {
                     .put("shuffle", savedShuffle)
                     .put("repeat", savedRepeat)
                     .put("volume", volume),
+                scope,
             )
         }
         handler.removeCallbacks(saveRemote)
@@ -652,7 +680,7 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     private fun syncQueue() {
-        if (tracks.isEmpty() || party != null) return
+        if (tracks.isEmpty() || party != null || !ownsAccount()) return
         val scope = app.nativeApi.scope
         val first = (index - 250).coerceAtLeast(0)
         val portable = JSONArray(tracks.drop(first).take(500).map(NativeTrack::portable))
@@ -683,8 +711,19 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     fun restore() {
-        if (engine != null) return
-        val saved = runCatching { app.nativeLibrary.get("snapshot", "queue") }.getOrNull() ?: return
+        val scope = app.nativeLibrary.scope()
+        if (engine != null) {
+            if (ownerScope == scope) return
+            stop()
+        }
+        ownerScope = scope
+        tracks = emptyList()
+        savedIndex = 0
+        savedPosition = 0
+        savedShuffle = false
+        savedRepeat = Player.REPEAT_MODE_OFF
+        val saved =
+            runCatching { app.nativeLibrary.get("snapshot", "queue", scope) }.getOrNull() ?: return
         tracks = NativeTrack.items(saved)
         savedIndex = saved.optInt("index").coerceIn(0, (tracks.size - 1).coerceAtLeast(0))
         savedPosition = saved.optLong("position")

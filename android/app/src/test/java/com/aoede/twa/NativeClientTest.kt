@@ -287,6 +287,70 @@ class NativeClientTest {
     }
 
     @Test
+    fun switchingAccountCannotMovePersonalOrPartyQueueIntoTheNewAccount() {
+        context()
+        val alice = app.nativeLibrary.scope()
+        val player = app.nativePlayback
+        player.play(
+            listOf(JSONObject().put("id", 7).put("db_id", 7).put("title", "Alice's queue")),
+            autoplay = false,
+        )
+        val room = NativeParty(app, "1")
+        player.party = room
+        context("bob", "b".repeat(64))
+        val bob = app.nativeLibrary.scope()
+        player.release()
+        player.restore()
+        assertNull(player.current)
+        assertNull(app.nativeLibrary.get("snapshot", "queue", bob))
+        assertEquals(
+            "Alice's queue",
+            NativeTrack.items(app.nativeLibrary.get("snapshot", "queue", alice))
+                .single()
+                .getString("title"),
+        )
+        assertFalse(player.active)
+    }
+
+    @Test
+    fun queuedNativeRequestCannotPickUpAnotherAccountsCredentials() {
+        context()
+        val entered = java.util.concurrent.CountDownLatch(1)
+        val proceed = java.util.concurrent.CountDownLatch(1)
+        val done = java.util.concurrent.CountDownLatch(1)
+        var failure: Throwable? = null
+        app.nativeApi.execute({
+            entered.countDown()
+            check(proceed.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            app.nativeApi.connection("/api/playlists", "POST")
+        }) { _, error ->
+            failure = error
+            done.countDown()
+        }
+        assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        context("bob", "b".repeat(64))
+        proceed.countDown()
+        repeat(100) {
+            if (done.count > 0) {
+                Thread.sleep(10)
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            }
+        }
+        assertEquals(0L, done.count)
+        assertTrue(failure is NativeApi.Failure)
+        assertEquals(409, (failure as NativeApi.Failure).code)
+        context()
+        val source = NativeHttpSource(app.nativeApi)
+        context("bob", "b".repeat(64))
+        assertTrue(
+            runCatching {
+                    source.open(DataSpec.Builder().setUri("https://music.test:8443/audio").build())
+                }
+                .isFailure
+        )
+    }
+
+    @Test
     fun mediaSourceHonorsRangesAndRefusesRedirectsAndHtmlWithoutLeakingCookies() {
         val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         val bytes = ByteArray(256) { it.toByte() }

@@ -27,6 +27,8 @@ class NativeParty(private val app: AoedeApp, val key: String) {
             Thread(r, "aoede-native-party").apply { isDaemon = true }
         }
     private val accountScope = app.nativeLibrary.scope()
+    private val credentialsScope = app.nativeApi.scope
+    private val backend = app.nativeApi.origin!!.rule
     @Volatile private var closed = false
     @Volatile private var connection: HttpURLConnection? = null
     private var revision = 0L
@@ -44,9 +46,10 @@ class NativeParty(private val app: AoedeApp, val key: String) {
     private val personalPosition = app.nativePlayback.position
 
     fun join(done: (Throwable?) -> Unit) {
-        app.nativeApi.execute({ app.nativeApi.request("$path/join", "POST", JSONObject()) }) {
-            data,
-            error ->
+        app.nativeApi.execute({
+            require(app.nativeLibrary.scope() == accountScope)
+            app.nativeApi.request("$path/join", "POST", JSONObject())
+        }) { data, error ->
             if (
                 closed ||
                     runCatching { app.nativeLibrary.scope() != accountScope }.getOrDefault(true)
@@ -79,7 +82,11 @@ class NativeParty(private val app: AoedeApp, val key: String) {
         while (!closed) {
             try {
                 if (app.nativeLibrary.scope() != accountScope) break
-                val c = app.nativeApi.connection("$path/events")
+                val c =
+                    app.nativeApi.connection(
+                        backend + "$path/events",
+                        expectedScope = credentialsScope,
+                    )
                 connection = c
                 c.readTimeout = 25000
                 c.setRequestProperty("Accept", "text/event-stream")
@@ -259,8 +266,10 @@ class NativeParty(private val app: AoedeApp, val key: String) {
 
     fun add(track: JSONObject, done: (Throwable?) -> Unit) {
         val payload = JSONObject().put("track_reference", NativeTrack.reference(track))
-        app.nativeApi.execute({ app.nativeApi.request("$path/queue", "POST", payload) }) { _, error
-            ->
+        app.nativeApi.execute({
+            require(app.nativeLibrary.scope() == accountScope)
+            app.nativeApi.request("$path/queue", "POST", payload)
+        }) { _, error ->
             done(error)
         }
     }
@@ -274,7 +283,10 @@ class NativeParty(private val app: AoedeApp, val key: String) {
         if (app.nativePlayback.party === this) {
             app.nativePlayback.party = null
             app.nativePlayback.stop()
-            if (personal.isNotEmpty())
+            if (
+                personal.isNotEmpty() &&
+                    runCatching { app.nativeLibrary.scope() == accountScope }.getOrDefault(false)
+            )
                 app.nativePlayback.play(personal, personalIndex, false, personalPosition)
         }
     }
