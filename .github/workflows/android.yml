@@ -3,7 +3,6 @@ name: Android
 on:
   push:
     branches: [main]
-    tags: ['v*']
     paths:
       - 'android/**'
       - 'Aoede/assets/**'

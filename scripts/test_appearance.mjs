@@ -28,9 +28,10 @@ const calls = [];
 let respond = async () => Response.json({ theme: 'glass', username: 'alice' });
 const context = vm.createContext({ window, document, navigator, localStorage: window.localStorage, URL, AbortController, setTimeout, clearTimeout, fetch: (url, init) => { calls.push({ url, init }); return respond(); } });
 const mod = new vm.SourceTextModule(source, { context });
-await mod.link(() => new vm.SyntheticModule(['t', 'showToast'], function () {
+await mod.link(() => new vm.SyntheticModule(['t', 'showToast', 'refreshIcons'], function () {
   this.setExport('t', (_key, fallback) => fallback);
   this.setExport('showToast', (message, type) => messages.push({ message, type }));
+  this.setExport('refreshIcons', () => {});
 }, { context }));
 await mod.evaluate();
 const appearance = mod.namespace;
@@ -135,5 +136,5 @@ appearance.syncTheme({ username: 'alice', theme: 'glass' });
 assert.equal(root.dataset.theme, 'glass');
 appearance.syncTheme({ username: 'alice', theme: 'vitrine' });
 assert.equal(root.dataset.theme, 'vitrine');
-appearance.applyTheme('classic'); assert.equal(properties.has('--square-artwork'), false);
+appearance.applyTheme('classic'); assert.match(properties.get('--square-artwork'), /vitrine.jpg/); // Only its player uses artwork tint.
 console.log('Appearance: account persistence, offline isolation, stale responses, errors and artwork checks passed.');

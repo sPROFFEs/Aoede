@@ -337,24 +337,23 @@ export async function renderPlaylist(container, playlistId) {
   const ownerControls =
     isOwner && isEditable
       ? `
-        <button class="icon-btn-sm" onclick="showEditPlaylistModal(${playlistId}, document.getElementById('playlist-title-${playlistId}').textContent)" title="Edit Name">
-            <i data-lucide="pencil" width="16"></i>
+        <button type="button" onclick="showEditPlaylistModal(${playlistId}, document.getElementById('playlist-title-${playlistId}').textContent)">
+            <i data-lucide="pencil" width="20"></i><span>${ui.t('library.edit_name', 'Edit name')}</span>
         </button>`
       : '';
   const coverControls = isOwner
     ? `
-        <div class="playlist-cover-actions">
-            <button class="icon-btn-sm" onclick="openPlaylistCoverUpload(${playlistId})" title="Upload cover">
-                <i data-lucide="image-plus" width="16"></i>
+            <button type="button" onclick="openPlaylistCoverUpload(${playlistId})">
+                <i data-lucide="image-plus" width="20"></i><span>${ui.t('library.upload_cover', 'Upload cover')}</span>
             </button>
-            <button class="icon-btn-sm" onclick="showPlaylistCoverTrackModal(${playlistId})" title="Choose track cover">
-                <i data-lucide="disc-3" width="16"></i>
+            <button type="button" onclick="showPlaylistCoverTrackModal(${playlistId})">
+                <i data-lucide="disc-3" width="20"></i><span>${ui.t('library.choose_cover', 'Choose a song cover')}</span>
             </button>
-            <button class="icon-btn-sm" onclick="resetPlaylistCover(${playlistId})" title="Use automatic cover">
-                <i data-lucide="rotate-ccw" width="16"></i>
+            <button type="button" onclick="resetPlaylistCover(${playlistId})">
+                <i data-lucide="rotate-ccw" width="20"></i><span>${ui.t('library.auto_cover', 'Use automatic cover')}</span>
             </button>
             <input type="file" id="playlist-cover-input-${playlistId}" accept="image/png,image/jpeg,image/webp,image/gif" style="display:none" onchange="handlePlaylistCoverUpload(${playlistId}, this)">
-        </div>`
+        `
     : '';
   const publishButton =
     isOwner && !isSyncedCopy
@@ -424,13 +423,11 @@ export async function renderPlaylist(container, playlistId) {
         <div class="playlist-header-section">
             <div class="playlist-cover-large">
                 ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
-                ${coverControls}
             </div>
             <div class="playlist-info">
                 <p class="playlist-type">${data.kind === 'album' ? 'Album' : isSmart ? 'Smart playlist' : data.is_collaborative ? 'Collaborative playlist' : 'Playlist'}</p>
                 <div class="playlist-title-row">
                     <h1 class="playlist-title" id="playlist-title-${playlistId}" data-revision="${Number(data.revision) || 0}" data-kind="${data.kind === 'album' ? 'album' : 'playlist'}">${ui.escHtml(data.name || 'Playlist')}</h1>
-                    ${ownerControls}
                 </div>
                 <p class="playlist-stats">
                     ${ownerLabel ? `<span>${ownerLabel}</span><span class="playlist-stats-dot">·</span>` : ''}
@@ -442,23 +439,28 @@ export async function renderPlaylist(container, playlistId) {
                     ${
                       trackCount > 0
                         ? `
-                    <button onclick="playPlaylistInOrder()" class="btn-play-circle" title="Play" aria-label="Play">
-                        <i data-lucide="play" width="22" height="22"></i>
+                    <button onclick="playPlaylistInOrder()" class="btn-play-circle" title="${ui.escHtml(ui.t('player.play', 'Play'))}" aria-label="${ui.escHtml(ui.t('player.play', 'Play'))}">
+                        <i data-lucide="play" width="22" height="22"></i><span class="collection-transport-label">${ui.t('player.play', 'Play')}</span>
                     </button>
-                    <button onclick="playPlaylistShuffle()" class="btn-icon-pill" title="Shuffle" aria-label="Shuffle">
-                        <i data-lucide="shuffle" width="18" height="18"></i>
+                    <button onclick="playPlaylistShuffle()" class="btn-icon-pill" title="${ui.escHtml(ui.t('player.shuffle', 'Shuffle'))}" aria-label="${ui.escHtml(ui.t('player.shuffle', 'Shuffle'))}">
+                        <i data-lucide="shuffle" width="20" height="20"></i><span class="collection-transport-label">${ui.t('player.shuffle', 'Shuffle')}</span>
                     </button>
                     ${offlineButton}
                     `
                         : ''
                     }
-                    ${publishButton}
-                    ${copyButton}
-                    ${syncButton}
-                    ${smartRefreshButton}
+                    ${
+                      isOwner || copyButton || syncButton || smartRefreshButton || isEditable
+                        ? `<details class="collection-more">
+                      <summary class="btn-icon-pill" aria-label="${ui.escHtml(ui.t('header.more', 'More options'))}" title="${ui.escHtml(ui.t('header.more', 'More options'))}"><i data-lucide="ellipsis"></i></summary>
+                      <div class="collection-more-panel">
+                    ${ownerControls}${coverControls}${publishButton}${copyButton}${syncButton}${smartRefreshButton}
                     ${isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="showCollaboratorsModal(${numId})"><i data-lucide="users" width="20"></i><span class="playlist-btn-label">Collaborators</span></button>` : ''}
                     ${!isOwner && isEditable ? `<button class="btn-secondary-lg playlist-action-btn" onclick="leaveCollaborativePlaylist('${ui.escJs(String(numId))}')"><i data-lucide="log-out" width="20"></i><span class="playlist-btn-label">Leave ${data.kind === 'album' ? 'album' : 'playlist'}</span></button>` : ''}
                     ${deleteButton}
+                      </div></details>`
+                        : ''
+                    }
                 </div>
             </div>
         </div>

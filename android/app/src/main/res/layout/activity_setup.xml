@@ -31,7 +31,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/setup_welcome_title"
-            android:textSize="22sp"
+            android:textSize="28sp"
             android:textColor="#FFFFFF"
             android:textStyle="bold"
             android:layout_marginBottom="8dp" />
@@ -41,8 +41,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/setup_welcome_subtitle"
-            android:textSize="14sp"
-            android:textColor="#9AA3B2"
+            android:textSize="16sp"
+            android:textColor="#B3B3B3"
             android:gravity="center"
             android:layout_marginBottom="36dp" />
 
@@ -60,8 +60,9 @@
             android:paddingTop="14dp"
             android:paddingBottom="14dp"
             android:textColor="#FFFFFF"
-            android:textColorHint="#4B5563"
-            android:textSize="15sp"
+            android:textColorHint="#A0A0A0"
+            android:textSize="16sp"
+            android:minHeight="56dp"
             android:layout_marginBottom="20dp" />
 
         <androidx.appcompat.widget.SwitchCompat
@@ -79,8 +80,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/setup_btn_connect"
-            android:backgroundTint="#149A51"
-            android:textColor="#FFFFFF"
+            android:backgroundTint="#1ED760"
+            android:textColor="#121212"
+            android:textAllCaps="false"
             android:textStyle="bold"
             android:textSize="15sp"
             android:paddingTop="14dp"
@@ -93,8 +95,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/setup_btn_cancel"
-            android:backgroundTint="#1F242A"
-            android:textColor="#9AA3B2"
+            android:backgroundTint="#242424"
+            android:textColor="#B3B3B3"
+            android:textAllCaps="false"
             android:textSize="15sp"
             android:paddingTop="14dp"
             android:paddingBottom="14dp"

@@ -278,12 +278,24 @@ export function confirmDialog({ title = 'Confirm', message, confirmLabel = 'Cont
 }
 
 export function focusModal() {
-  const modal = document.querySelector('#modal-container .modal');
-  if (!modal) return;
+  const modal = document.querySelector('#modal-container :is(.modal, .modal-box)');
+  if (!modal || modal.dataset.focusBound) return;
+  modal.dataset.focusBound = 'true';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  if (!modal.getAttribute('aria-label') && !modal.getAttribute('aria-labelledby')) {
+    const title = modal.querySelector('h1, h2, h3');
+    if (title) {
+      title.id ||= 'aoede-modal-title';
+      modal.setAttribute('aria-labelledby', title.id);
+    }
+  }
   if (!modalReturnFocus?.isConnected) modalReturnFocus = document.activeElement;
   const focusable = () =>
     Array.from(
-      modal.querySelectorAll('a[href], button:not(:disabled), input:not(:disabled), select, [tabindex="0"]')
+      modal.querySelectorAll(
+        'a[href], button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]'
+      )
     ).filter((element) => element.tabIndex >= 0 && element.getClientRects().length);
   modal.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {

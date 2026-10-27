@@ -4,5 +4,6 @@
         <item name="android:windowBackground">@color/colorBackground</item>
         <item name="android:statusBarColor">@color/colorPrimary</item>
         <item name="android:navigationBarColor">@color/colorBackground</item>
+        <item name="colorAccent">#1ED760</item>
     </style>
 </resources>

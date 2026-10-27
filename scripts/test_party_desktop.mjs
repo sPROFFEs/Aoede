@@ -66,6 +66,15 @@ const returnFocus = { isConnected: true, closest() { return null; }, focus() { m
 modalDocument.activeElement = returnFocus;
 const overlay = new EventTarget();
 const modal = new EventTarget();
+modal.dataset = {};
+const modalAttributes = new Map();
+modal.getAttribute = name => modalAttributes.get(name);
+modal.setAttribute = (name, value) => modalAttributes.set(name, value);
+const modalHeading = {};
+modal.querySelector = () => modalHeading;
+let modalBindings = 0;
+const addModalListener = modal.addEventListener.bind(modal);
+modal.addEventListener = (...args) => { modalBindings++; addModalListener(...args); };
 const cancel = new EventTarget();
 const confirm = new EventTarget();
 for (const button of [cancel, confirm]) {
@@ -77,7 +86,7 @@ modal.querySelectorAll = () => [cancel, confirm];
 const modalContainer = {
   firstElementChild: overlay,
   querySelector: (selector) => selector.includes('cancel') ? cancel : confirm,
-  set innerHTML(value) { this.html = value; }
+  set innerHTML(value) { this.html = value; modal.dataset = {}; modalAttributes.clear(); }
 };
 modalDocument.getElementById = () => modalContainer;
 modalDocument.querySelector = () => modal;
@@ -86,6 +95,12 @@ const ui = await load('Aoede/assets/js/modules/ui.js', { document: modalDocument
 });
 for (const outcome of ['confirm', 'cancel', 'escape', 'backdrop']) {
   const pending = ui.confirmDialog({ title: 'Delete <room>', message: 'Name & details' });
+  const bindings = modalBindings;
+  ui.focusModal();
+  assert.equal(modalBindings, bindings); // The observer and explicit call share one trap.
+  assert.equal(modalAttributes.get('role'), 'dialog');
+  assert.equal(modalAttributes.get('aria-modal'), 'true');
+  assert.equal(modalAttributes.get('aria-labelledby'), modalHeading.id);
   assert.equal(modalDocument.activeElement, cancel);
   assert.match(modalContainer.html, /Delete &lt;room&gt;/);
   if (outcome === 'escape') {

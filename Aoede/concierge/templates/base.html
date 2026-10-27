@@ -5,10 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>{{ _('app.title') }} - {% block title %}Home{% endblock %}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/assets/vendor/fontawesome/css/all.min.css?v={{ static_v }}">
     <link rel="stylesheet" href="/assets/css/style.css?v={{ static_v }}">
     <link rel="stylesheet" href="/assets/css/ui_tokens.css?v={{ static_v }}">
     <link rel="stylesheet" href="/assets/css/ui_sidebar.css?v={{ static_v }}">
@@ -84,6 +81,7 @@
         window.__CURRENT_LANG__ = {{ current_lang() | tojson if current_lang is defined else "'en'" }};
     </script>
     <script src="/assets/vendor/lucide.min.js?v={{ static_v }}"></script>
+    <script src="/assets/js/ui_icons.js?v={{ static_v }}"></script>
     <script src="/assets/vendor/htmx.min.js?v={{ static_v }}"></script>
     {% block head %}{% endblock %}
 </head>
@@ -278,8 +276,6 @@
                 </button>
                 <h1 class="m-topbar-title" id="m-topbar-title">{{ username }}</h1>
                 <div class="m-topbar-actions">
-                    <button class="m-icon-btn m-library-action" onclick="document.getElementById('library-facet-query')?.focus()" aria-label="{{ _('library.search_saved') }}"><i data-lucide="search"></i></button>
-                    <button class="m-icon-btn m-library-action" onclick="showCreateMenu()" aria-label="{{ _('library.create') }}"><i data-lucide="plus"></i></button>
                     <details class="m-topbar-more" id="m-topbar-more">
                         <summary class="m-icon-btn" aria-label="{{ _('header.more') }}"><i data-lucide="ellipsis"></i></summary>
                         <div class="m-more-panel">
@@ -590,6 +586,14 @@
             document.getElementById('m-topbar-more')?.removeAttribute('open');
             const title = document.getElementById('m-topbar-title');
             const titles = { home: {{ _('menu.home')|tojson }}, search: {{ _('menu.search')|tojson }}, library: {{ _('library.title')|tojson }}, playlist: {{ _('library.playlists')|tojson }}, favorites: {{ _('menu.liked')|tojson }}, discovery: {{ _('tabs.discover')|tojson }}, offline: {{ _('offline.title')|tojson }} };
+            Object.assign(titles, {
+                settings_user: {{ _('header.settings')|tojson }}, profile: {{ _('profile.profile')|tojson }},
+                community: {{ _('tabs.community')|tojson }}, users: {{ _('tabs.community')|tojson }},
+                party: {{ _('tabs.party')|tojson }}, party_room: {{ _('tabs.party')|tojson }},
+                public: {{ _('tabs.public')|tojson }}, system_monitor: {{ _('monitor.title')|tojson }},
+                downloads_offline: {{ _('offline.title')|tojson }},
+                admin_downloads: {{ _('header.downloads')|tojson }}, discover_radios: {{ _('tabs.radios')|tojson }}
+            });
             if (title) title.textContent = titles[view] || 'Aoede';
             const nav = document.getElementById('m-bottom-nav');
             if (!nav) return;

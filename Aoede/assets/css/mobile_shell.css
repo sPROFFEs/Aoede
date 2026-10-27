@@ -442,7 +442,7 @@ body.has-player {
 
 .player-footer .player-center .player-controls #player-next-btn {
     display: flex !important;
-    order: -1;
+    order: 1;
     width: 44px !important;
     height: 44px !important;
     flex: 0 0 44px;
@@ -693,8 +693,8 @@ body.has-player {
 }
 
 .playlist-info .playlist-title {
-    font-size: 1.85rem !important;
-    line-height: 1.05 !important;
+    font-size: 1.85rem;
+    line-height: 1.15;
     margin-bottom: 6px;
 }
 
@@ -781,8 +781,6 @@ body.has-player {
 body, .main-view, .view-content { background: #121212 !important; }
 .main-view { min-height: 0; }
 .view-content { min-height: 0; overscroll-behavior-y: contain; }
-.m-library-action { display: none; }
-body[data-mobile-view="library"] .m-library-action { display: inline-flex; }
 
 .home-overview > .hero-section { display: none; }
 .home-overview { padding: 0 !important; background: transparent; margin: 0 0 16px; box-sizing: border-box; }

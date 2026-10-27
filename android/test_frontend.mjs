@@ -103,7 +103,7 @@ surfaces.set('.fullscreen-player.open', { dispatchEvent: event => { escaped = ev
 assert.equal(runtimeWindow.__aoedeBack(), true);
 assert.equal(escaped, true);
 runtimeWindow.closeModal = () => { closed = true; };
-surfaces.set('#modal-container .modal', {});
+surfaces.set('#modal-container :is(.modal, .modal-box)', {});
 escaped = false;
 assert.equal(runtimeWindow.__aoedeBack(), true);
 assert.equal(closed, true);
@@ -117,7 +117,7 @@ assert.equal(runtimeWindow.__aoedeBack(), true);
 assert.equal(storyClosed, true);
 surfaces.clear();
 
-surfaces.delete('#modal-container .modal');
+surfaces.delete('#modal-container :is(.modal, .modal-box)');
 let staticDialogClosed = false;
 surfaces.set('.modal-overlay:not(.hidden) .modal-close', { click: () => staticDialogClosed = true });
 assert.equal(runtimeWindow.__aoedeBack(), true);

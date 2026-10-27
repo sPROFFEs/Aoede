@@ -56,3 +56,5 @@ That command uses the Linux installer's launcher. On macOS, run `/Applications/A
 The application checks for a matching desktop package and offers a manual download when an update is available. **About & updates** retains the release links. Desktop and server version numbers are separate: updating the wrapper does not update the server, and server UI fixes normally arrive when its interface is reloaded.
 
 Themes, playlists, lyrics and playback controls use the same frontend as the browser. See the [User Guide](USER-GUIDE.md) for those features, [Themes](THEMES.md) for appearance settings, and [Troubleshooting](TROUBLESHOOTING.md) for server or connection problems.
+
+Server releases and desktop binaries have independent versions. Server tags such as `v1.3.0` retain the existing compatible desktop assets. The Desktop Release workflow responds to `desktop-v*` tags or explicit workflow dispatch; dispatch with `release_tag` only when a desktop binary actually needs rebuilding.

@@ -399,11 +399,11 @@
     "appearance.description": "Elige el tema visual. La preferencia se guarda en tu cuenta.",
     "appearance.choose": "Elige un tema",
     "appearance.classic": "Clásico",
-    "appearance.classic_description": "La interfaz actual de Aoede.",
+    "appearance.classic_description": "Navegación compacta inspirada en Spotify, superficies oscuras y controles claros.",
     "appearance.glass": "Glass",
     "appearance.glass_description": "Superficies translúcidas, bordes luminosos y color de la carátula, inspirado en Square.",
     "appearance.vitrine": "Vitrine",
-    "appearance.vitrine_description": "Estantes y reproductor estilo Apple Music, con controles Liquid Glass luminosos inspirados en Vitreo Launcher.",
+    "appearance.vitrine_description": "Biblioteca inspirada en Apple Music, secciones editoriales y un reproductor amplio con cristal sutil.",
     "appearance.sync_description": "Se guarda entre dispositivos. Glass y Vitrine siguen el modo claro/oscuro del dispositivo; sin conexión se usa tu última elección guardada.",
     "appearance.connect": "Conéctate para guardar el tema entre dispositivos.",
     "appearance.failed": "No se pudo guardar el tema. Inténtalo de nuevo.",
@@ -513,5 +513,9 @@
     "updates.manual_install": "Descarga la nueva versión e instálala en este dispositivo.",
     "updates.later": "Recordármelo mañana",
     "updates.install": "Actualizar app",
-    "updates.download": "Descargar actualización"
+    "updates.download": "Descargar actualización",
+    "library.edit_name": "Editar nombre",
+    "library.upload_cover": "Subir carátula",
+    "library.choose_cover": "Elegir la carátula de una canción",
+    "library.auto_cover": "Usar carátula automática"
 }

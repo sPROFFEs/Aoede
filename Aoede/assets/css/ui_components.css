@@ -339,7 +339,6 @@
     text-overflow: ellipsis;
 }
 
-.m-library-action { display: none; }
 .track-drag-handle { border: 0; background: transparent; padding: 0; }
 .track-drag-handle:focus-visible { opacity: 1; outline: 2px solid var(--primary); }
 .playlist-draggable-list .track-row.header::before { content: ''; }

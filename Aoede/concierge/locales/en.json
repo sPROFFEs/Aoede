@@ -399,11 +399,11 @@
     "appearance.description": "Choose your visual theme. The preference belongs to your account.",
     "appearance.choose": "Choose a theme",
     "appearance.classic": "Classic",
-    "appearance.classic_description": "The current Aoede interface.",
+    "appearance.classic_description": "Compact Spotify inspired navigation, charcoal surfaces and clear playback controls.",
     "appearance.glass": "Glass",
     "appearance.glass_description": "Translucent surfaces, luminous edges and artwork colour, inspired by Square.",
     "appearance.vitrine": "Vitrine",
-    "appearance.vitrine_description": "Apple Music inspired shelves and player with luminous Liquid Glass controls inspired by Vitreo Launcher.",
+    "appearance.vitrine_description": "Apple Music inspired library, editorial shelves and a spacious player with restrained glass chrome.",
     "appearance.sync_description": "Saved across devices. Glass and Vitrine follow your device’s light/dark mode; offline uses your last saved choice.",
     "appearance.connect": "Connect to save your theme across devices.",
     "appearance.failed": "Could not save the theme. Please try again.",
@@ -513,5 +513,9 @@
     "updates.manual_install": "Download the new version and install it on this device.",
     "updates.later": "Remind me tomorrow",
     "updates.install": "Update app",
-    "updates.download": "Download update"
+    "updates.download": "Download update",
+    "library.edit_name": "Edit name",
+    "library.upload_cover": "Upload cover",
+    "library.choose_cover": "Choose a song cover",
+    "library.auto_cover": "Use automatic cover"
 }

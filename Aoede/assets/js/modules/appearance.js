@@ -27,7 +27,6 @@ export function syncThemeControls(scope = document) {
 
 function updateArtwork() {
   const root = document.documentElement;
-  if (!['glass', 'vitrine'].includes(root.dataset.theme)) return;
   root.style.removeProperty('--square-artwork');
   root.style.removeProperty('--square-seed');
   const cover = document.getElementById('player-cover');
@@ -69,13 +68,10 @@ export function applyTheme(theme) {
   } catch (_) {
     /* Private browsing and wrappers may restrict storage. */
   }
-  if (theme !== 'classic') updateArtwork();
-  else {
-    document.documentElement.style.removeProperty('--square-artwork');
-    document.documentElement.style.removeProperty('--square-seed');
-  }
+  updateArtwork();
   updateBrowserColor();
   syncThemeControls();
+  ui.refreshIcons();
   ui.updateFullscreenPlayButton?.();
 }
 

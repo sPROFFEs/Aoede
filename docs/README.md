@@ -11,6 +11,7 @@ This directory contains the detailed guides that were intentionally moved out of
 | Configure environment variables and providers | [Configuration](CONFIGURATION.md) |
 | Learn the interface | [User Guide](USER-GUIDE.md) |
 | Choose Classic, Glass or Vitrine | [Themes](THEMES.md) |
+| Review the interface refresh and reference scope | [UI refresh](UI-REFRESH.md) |
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |
 | Import an existing music collection | [Importing Music](IMPORTING-MUSIC.md) |
 | Install the Android client | [Android](ANDROID.md) |

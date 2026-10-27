@@ -42,6 +42,7 @@ npx prettier --check Aoede/assets/wrapped_story/story.js Aoede/assets/wrapped_st
 node --experimental-vm-modules scripts/test_webapp.mjs
 node --experimental-vm-modules scripts/test_collections.mjs
 node --experimental-vm-modules scripts/test_appearance.mjs
+node scripts/test_ui_icons.mjs
 node --experimental-vm-modules scripts/test_player_ui.mjs
 node --experimental-vm-modules scripts/test_player_end.mjs
 node --experimental-vm-modules scripts/test_android.mjs

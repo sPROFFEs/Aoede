@@ -13,7 +13,7 @@
   window.__aoedeApplyViewport(window.AOEDE_VIEWPORT);
   // Dismiss overlays before leaving the current page, using their own close paths.
   window.__aoedeBack = () => {
-    const modal = document.querySelector('#modal-container .modal');
+    const modal = document.querySelector('#modal-container :is(.modal, .modal-box)');
     if (modal && typeof window.closeModal === 'function') { window.closeModal(); return true; }
     const close = document.querySelector('.modal-overlay:not(.hidden) .modal-close');
     if (close) { close.click(); return true; }

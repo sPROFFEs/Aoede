@@ -33,6 +33,8 @@
 
 ## Why Aoede?
 
+**Aoede 1.3** refreshes Classic and Vitrine with a cleaner music interface across web and Android. See the [theme guide](docs/THEMES.md) for layouts and controls.
+
 Bring your library, discovery and shared listening into one place. Keep the audio on your own server, build collections that feel personal, and make listening a shared experience when you want it to be.
 
 | | What you can do |

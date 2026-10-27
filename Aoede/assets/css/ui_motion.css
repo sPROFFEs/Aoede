@@ -5,11 +5,8 @@
  * feedback, view swap).
  * ────────────────────────────────────────────────────────────────── */
 
-/* Universal micro-interaction for color/opacity changes.
- * Spotify uses ~0.2s for all interactive element state changes. */
-*,
-*::before,
-*::after {
+/* Animate controls, never every node or a newly fetched content subtree. */
+:is(button, summary, input, select, textarea, .card, .library-card, .sidebar-item, .home-tab) {
   transition-property: background-color, border-color, color, opacity, box-shadow;
   transition-duration: var(--dur);
   transition-timing-function: var(--ease);
@@ -74,22 +71,8 @@
     transform 0.25s var(--ease);
 }
 
-/* View transition: fade + subtle slide-up for new content.
- * Applied by loadView() via the .view-entering class. */
-.view-content > * {
-  animation: aoede-view-enter var(--dur) var(--ease) both;
-}
-
-@keyframes aoede-view-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+/* Sections load independently; fading each replacement makes the feed flicker. */
+.view-content > * { animation: none; }
 
 /* Search results loading state. The inline strip lives above the
  * results body and is the same music-bar animation used elsewhere,

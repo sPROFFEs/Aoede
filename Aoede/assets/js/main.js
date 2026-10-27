@@ -31,16 +31,22 @@ window.openAbout = async (trigger) => {
 };
 
 function initUserMenu() {
-  document.querySelectorAll('#user-menu, #m-topbar-more').forEach((userMenu) => {
-    if (userMenu.dataset.bound === 'true') return;
-    userMenu.dataset.bound = 'true';
-    document.addEventListener('click', (event) => {
-      if (userMenu.open && !event.composedPath().includes(userMenu)) userMenu.open = false;
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key !== 'Escape' || !userMenu.open) return;
-      userMenu.open = false;
-      userMenu.querySelector('summary')?.focus();
+  const openMenus = () => document.querySelectorAll('#user-menu[open], #m-topbar-more[open], .collection-more[open]');
+  document.addEventListener(
+    'click',
+    (event) => {
+      openMenus().forEach((menu) => {
+        if (!event.composedPath().includes(menu) || event.target === menu || event.target.closest('button, a'))
+          menu.open = false;
+      });
+    },
+    { capture: true }
+  );
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    openMenus().forEach((menu) => {
+      menu.open = false;
+      menu.querySelector('summary')?.focus();
     });
   });
 }
@@ -431,6 +437,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   views.initSpaHistory();
   views.initContextMenu();
   ui.initSettingsTabs(document);
+  // Older dialogs also need the shared focus trap, Escape and return-focus path.
+  const modalContainer = document.getElementById('modal-container');
+  if (modalContainer) new window.MutationObserver(() => ui.focusModal()).observe(modalContainer, { childList: true });
 
   // YouTube IFrame API is loaded lazily on first preview to avoid an
   // unconditional cross-origin script on app boot. See player.playPreview.

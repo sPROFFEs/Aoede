@@ -81,9 +81,11 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes player controls and localized collection/form copy with English fallbacks.
     # Includes the administrator's metadata similarity explanations and comparison filter.
     # Includes mobile transport gestures shared by the compact and fullscreen players.
-    assert sum(path.stat().st_size for path in javascript if path != appearance) < 636_000
-    # Shared navigation, collection list/grid layouts and responsive browsing controls.
-    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 313_000
+    # Includes accessible collection menus and one shared focus trap for legacy dialogs.
+    assert sum(path.stat().st_size for path in javascript if path != appearance) < 638_000
+    # Shared navigation and the complete compact/Apple interface refresh (no UI runtime dependency).
+    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 342_000
+    assert (assets_root / "js/ui_icons.js").stat().st_size < 32_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
