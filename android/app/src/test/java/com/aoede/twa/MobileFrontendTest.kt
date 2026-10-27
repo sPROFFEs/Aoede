@@ -65,12 +65,22 @@ class MobileFrontendTest {
         assertTrue(html.contains("admin_system.css"))
         assertFalse(html.contains("AOEDE_MOBILE_"))
         assertFalse(html.contains("https://fonts.googleapis.com"))
+        assertTrue(html.contains("maximum-scale=1, user-scalable=no"))
         val reload = frontend.intercept(Uri.parse(target), mainFrame = true)!!.data.bufferedReader().readText()
         assertTrue(reload.contains("/_aoede/boot.js"))
         assertFalse(reload.contains("username: \"alice\""))
         val home = frontend.prepare(JSONObject(payload()).put("home", true).toString())!!
         assertEquals("${origin.rule}/portal?native=1#home", home)
         assertTrue(frontend.intercept(Uri.parse(home), mainFrame = true)!!.data.bufferedReader().readText().contains("window.AOEDE_INITIAL_VIEW"))
+    }
+
+    @Test fun nativePlayerDoesNotEnableBrowserZoomControls() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).create()
+        val player = app.attachPlayer(lifecycle.get(), origin.rule)
+        assertFalse(player.settings.supportZoom())
+        assertFalse(player.settings.builtInZoomControls)
+        assertFalse(player.settings.displayZoomControls)
+        lifecycle.destroy()
     }
 
     @Test fun widgetsShowNativeMetadataAndColdActionsOpenAppWithoutStartingPlayback() {

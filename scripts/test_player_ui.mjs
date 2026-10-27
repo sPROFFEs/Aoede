@@ -115,6 +115,65 @@ gestureClock.now = realNow;
 swipe(touch(180), touch(80)); // Mouse/desktop layouts keep their existing behavior.
 assert.deepEqual(swipeActions, ['next', 'previous']);
 console.log('PASS: mobile track gestures preserve taps, keyboard clicks, controls, vertical scrolling and cancelled/multi-touch input.');
+
+// Native full-player gestures move artwork, preserve controls and dismiss without audio commands.
+const gesturePanel = element('gesture-panel'), gestureStage = element('gesture-stage'), gestureCover = element('gesture-cover');
+gestureStage.classList.add('fs-stage'); gesturePanel.appendChild(gestureStage); gestureStage.appendChild(gestureCover);
+const frames = [], nativeActions = [];
+function animateFrames(keyframes) { frames.push(keyframes); return { finished: Promise.resolve(), cancel() {} }; }
+gesturePanel.animate = gestureCover.animate = animateFrames;
+gestureCover.cloneNode = () => ({ parentElement: null, removeAttribute() {}, setAttribute() {}, animate: animateFrames,
+  remove() { if (this.parentElement) this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1); this.parentElement = null; } });
+gesturePanel.querySelectorAll = () => gestureStage.children.filter(child => child.className === 'fs-cover-ghost');
+window.AOEDE_ANDROID = true;
+window.matchMedia = query => ({ matches: query.startsWith('(max-width:') });
+stateModule.setExport('isFullscreenPlayerOpen', true);
+const originalAudio = values.audio;
+let dismisses = 0;
+ui.setupTrackSwipe(gesturePanel, direction => {
+  nativeActions.push(direction); stateModule.setExport('currentTrack', { db_id: nativeActions.length + 10 });
+}, { artwork: gestureCover, dismiss: () => { dismisses++; stateModule.setExport('isFullscreenPlayerOpen', false); } });
+function nativeTouch(type, points, changed = [], target = gestureCover) {
+  const event = { touches: points, changedTouches: changed, target, cancelable: true, preventDefault() { this.prevented = true; } };
+  gesturePanel.events.get(type)(event); return event;
+}
+nativeTouch('touchstart', [touch(200, 120)]);
+nativeTouch('touchmove', [touch(100, 125)]);
+assert.match(gestureCover.style.transform, /translateX\(-100px\)/);
+nativeTouch('touchend', [], [touch(100, 125)]);
+await new Promise(setImmediate);
+assert.deepEqual(nativeActions, ['next']); assert.ok(frames.length >= 2);
+assert.equal(gesturePanel.querySelectorAll().length, 0);
+nativeTouch('touchstart', [touch(150, 100)]);
+nativeTouch('touchmove', [touch(151, 220)]);
+assert.match(gesturePanel.style.transform, /translateY\(120px\)/);
+nativeTouch('touchend', [], [touch(151, 220)]);
+assert.equal(dismisses, 1); assert.equal(gesturePanel.style.transform, ''); assert.equal(values.audio, originalAudio);
+stateModule.setExport('isFullscreenPlayerOpen', true);
+for (const target of [
+  { closest: selector => selector.includes('button') ? {} : null },
+  { closest: selector => selector.includes('#lyrics-panel') ? {} : null }
+]) {
+  nativeTouch('touchstart', [touch(150, 100)], [], target);
+  nativeTouch('touchmove', [touch(150, 250)], [], target);
+  nativeTouch('touchend', [], [touch(150, 250)], target);
+}
+assert.equal(dismisses, 1);
+nativeTouch('touchstart', [touch(150, 100)]);
+nativeTouch('touchmove', [touch(150, 0)]); nativeTouch('touchend', [], [touch(150, 0)]);
+assert.equal(dismisses, 1); // Upward scrolling does not minimize.
+nativeTouch('touchstart', [touch(150, 100)]);
+nativeTouch('touchmove', [touch(80, 100)]); nativeTouch('touchcancel', []); nativeTouch('touchend', [], [touch(80, 100)]);
+assert.deepEqual(nativeActions, ['next']); assert.equal(gestureCover.style.transform, '');
+const beforeReduced = frames.length; document.documentElement.dataset.nativeEffects = 'reduced';
+nativeTouch('touchstart', [touch(80, 100)]); nativeTouch('touchmove', [touch(180, 100)]); nativeTouch('touchend', [], [touch(180, 100)]);
+await new Promise(setImmediate);
+assert.deepEqual(nativeActions, ['next', 'previous']); assert.equal(frames.length, beforeReduced);
+delete window.AOEDE_ANDROID; delete document.documentElement.dataset.nativeEffects;
+window.matchMedia = normalMatchMedia;
+stateModule.setExport('isFullscreenPlayerOpen', false); stateModule.setExport('currentTrack', values.currentTrack);
+console.log('PASS: native carousel, downward dismissal, gesture cancellation, reduced effects and protected controls/lyrics.');
+
 // Dismiss controls remain named and never submit a surrounding form, even without Lucide.
 const closeButton = element('close-test'), namedClose = element('named-close-test');
 namedClose.setAttribute('aria-label', 'Close collaborators');

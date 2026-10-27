@@ -1893,7 +1893,7 @@ function _discoveryCard(item) {
                  stream, so the user can audition every card. -->
             <button class="discovery-play-btn"
                     onclick="discoveryTogglePreview(this, '${data}')"
-                    title="Preview">
+                    title="${ui.escHtml(ui.t('player.preview', 'Preview'))}" aria-label="${ui.escHtml(ui.t('player.preview', 'Preview'))} ${title}">
                 <i data-lucide="play"></i>
             </button>
             <span class="discovery-source-badge" style="color: ${srcMeta.color}">
@@ -1932,7 +1932,7 @@ export async function renderDiscovery(container) {
                 <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('discover.subtitle', 'Tracks recommended for you with instant 30-second previews.')}</p>
             </div>
         </section>
-        <div class="discovery-shell" style="margin-top: 20px;">
+        <div class="discovery-shell">
             <div class="empty-state glass-panel">
                 <i data-lucide="compass" class="empty-icon"></i>
                 <p>${ui.t('discover.empty', 'No discovery items right now. Explore music in Search to build recommendations, then come back.')}</p>
@@ -1951,10 +1951,10 @@ export async function renderDiscovery(container) {
             <div class="hero-section">
                 <div class="hero-kicker">${ui.t('discover.hero_kicker', 'New Music Audition')}</div>
                 <h1 class="hero-greeting">${ui.t('discover.title', 'Discover Feed')}</h1>
-                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${visible.length} ${ui.t('common.songs', 'songs')} · tap ▶ to audition</p>
+                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('discover.count_preview', '{count} tracks · tap a cover to preview', { count: visible.length })}</p>
             </div>
         </section>
-        <div class="discovery-shell" style="margin-top: 20px;">
+        <div class="discovery-shell">
             <div class="discovery-feed">
                 ${visible.map(_discoveryCard).join('')}
             </div>
@@ -2021,21 +2021,21 @@ export function discoveryTogglePreview(btn, encodedData) {
     _discoveryResetAllPlayIcons();
   });
 
-  const icon = btn.querySelector('i');
+  const icon = btn.querySelector('[data-lucide]');
   if (icon) {
     icon.setAttribute('data-lucide', 'pause');
-    if (window.lucide) lucide.createIcons();
+    ui.refreshIcons(btn);
   }
   btn.classList.add('playing');
 }
 
 function _discoveryResetAllPlayIcons() {
   document.querySelectorAll('.discovery-play-btn.playing').forEach((b) => {
-    const i = b.querySelector('i');
+    const i = b.querySelector('[data-lucide]');
     if (i) i.setAttribute('data-lucide', 'play');
     b.classList.remove('playing');
+    ui.refreshIcons(b);
   });
-  if (window.lucide) lucide.createIcons();
 }
 
 export function discoveryDismiss(btn) {
@@ -2365,7 +2365,11 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
 
   const trackCount = allTracks.length;
   const mbUsed = (storage.bytesUsed / (1024 * 1024)).toFixed(1);
-  const subtitle = `${trackCount} ${trackCount === 1 ? 'song' : 'songs'} · ${offlinePlaylists.length} ${offlinePlaylists.length === 1 ? 'playlist' : 'playlists'} · ${mbUsed} MB stored on device`;
+  const subtitle = ui.t('offline.summary', '{tracks} tracks · {collections} collections · {size} MB on device', {
+    tracks: trackCount,
+    collections: offlinePlaylists.length,
+    size: mbUsed
+  });
 
   let quotaBarHtml = '';
   if (storage.quotaBytes) {
@@ -2381,45 +2385,26 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
   // Playlists section HTML
   let playlistsHtml = '';
   if (offlinePlaylists.length > 0 && (activeTab === 'all' || activeTab === 'playlists')) {
-    playlistsHtml = `
-      <h2 class="offline-section-title"><i data-lucide="list-music"></i> Offline Playlists</h2>
-      <div class="offline-playlists-grid">
-        ${offlinePlaylists
-          .map((pl) => {
-            const thumb = pl.thumbnail || '/static/img/default_cover.png';
-            const hasThumb = pl.thumbnail && !pl.thumbnail.includes('default');
-            const count = pl.tracks ? pl.tracks.length : pl.track_count || 0;
-            return `
-              <div class="offline-playlist-card" onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')">
-                <div class="offline-playlist-card-cover">
-                  ${hasThumb ? `<img src="${ui.escHtml(thumb)}" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music"></i>`}
-                </div>
-                <div class="offline-playlist-card-info">
-                  <div class="offline-playlist-card-name" title="${ui.escHtml(pl.name || 'Playlist')}">${ui.escHtml(pl.name || 'Playlist')}</div>
-                  <div class="offline-playlist-card-sub">${count} ${count === 1 ? 'song' : 'songs'} · Offline</div>
-                </div>
-                <div class="offline-playlist-card-actions" onclick="event.stopPropagation()">
-                  <button class="btn-primary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', '${ui.escJs(String(pl.id))}').then(() => playPlaylistInOrder())" title="Play Playlist">
-                    <i data-lucide="play" width="14" height="14"></i> Play
-                  </button>
-                  <button class="btn-secondary" style="padding: 6px 14px; font-size: 0.8rem;" onclick="event.stopPropagation(); loadView('playlist', '${ui.escJs(String(pl.id))}')" title="Open Playlist">
-                    <i data-lucide="external-link" width="14" height="14"></i> Open
-                  </button>
-                  <button class="btn-danger-outline" style="padding: 6px 10px; font-size: 0.8rem;" onclick="event.stopPropagation(); deleteOfflinePlaylistAction(${pl.id})" title="Remove Offline Copy">
-                    <i data-lucide="trash-2" width="14" height="14"></i>
-                  </button>
-                </div>
-              </div>
-            `;
-          })
-          .join('')}
-      </div>`;
+    playlistsHtml = `<h2 class="offline-section-title">${ui.t('offline.collections', 'Playlists & albums')}</h2>
+      <div class="offline-playlists-grid">${offlinePlaylists
+        .map((pl) => {
+          const name = ui.escHtml(pl.name || 'Playlist');
+          const count = pl.tracks?.length || pl.track_count || 0;
+          const target = ui.escJs(String(pl.id));
+          return `<article class="offline-playlist-card">
+          <button type="button" class="offline-playlist-open" onclick="loadView('playlist', '${target}')">
+            <div class="offline-playlist-card-cover">${pl.thumbnail ? `<img src="${ui.escHtml(pl.thumbnail)}" alt="" loading="lazy" onerror="this.src='/static/img/default_cover.png'">` : '<i data-lucide="list-music"></i>'}</div>
+            <div class="offline-playlist-card-info"><div class="offline-playlist-card-name">${name}</div><div class="offline-playlist-card-sub">${pl.kind === 'album' ? ui.t('library.album', 'Album') : ui.t('library.playlist', 'Playlist')} · ${count} ${ui.t('common.songs', 'songs')}</div></div>
+          </button>
+          <div class="offline-playlist-card-actions">
+            <button type="button" class="btn-primary" onclick="loadView('playlist', '${target}').then(() => playPlaylistInOrder())" aria-label="${ui.escHtml(ui.t('player.play', 'Play'))} ${name}" title="${ui.escHtml(ui.t('player.play', 'Play'))}"><i data-lucide="play" width="20"></i></button>
+            <button type="button" class="btn-danger-outline" onclick="deleteOfflinePlaylistAction(${Number(pl.id)})" aria-label="${ui.escHtml(ui.t('offline.remove_copy', 'Remove offline copy'))} ${name}" title="${ui.escHtml(ui.t('offline.remove_copy', 'Remove offline copy'))}"><i data-lucide="trash-2" width="18"></i></button>
+          </div>
+        </article>`;
+        })
+        .join('')}</div>`;
   } else if (activeTab === 'playlists') {
-    playlistsHtml = `
-      <div class="empty-state glass-panel">
-        <i data-lucide="list-music" class="empty-icon"></i>
-        <p>No offline playlists downloaded yet.<br>Open any playlist while online and tap "Download for Offline".</p>
-      </div>`;
+    playlistsHtml = `<div class="empty-state"><p>${ui.t('offline.no_collections', 'No collections downloaded. Open a playlist or album online and choose Download.')}</p></div>`;
   }
 
   // Tracks section HTML
@@ -2446,58 +2431,34 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
     }
   }
 
-  container.innerHTML = `
-    <div class="playlist-header-section">
-        <div class="playlist-cover-large playlist-cover-offline">
-            <i data-lucide="cloud-off"></i>
-        </div>
-        <div class="playlist-info">
-            <p class="playlist-type">${ui.t('offline.device_storage', 'Offline Storage')}</p>
-            <div class="playlist-title-row">
-                <h1 class="playlist-title">${ui.t('offline.title', 'Offline Downloads')}</h1>
-            </div>
-            <p class="playlist-stats">${subtitle}</p>
-            <div class="playlist-actions">
-                ${
-                  trackCount > 0
-                    ? `
-                <button onclick="playPlaylistInOrder()" class="btn-primary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.play_all', 'Play All'))}">
-                    <i data-lucide="play" width="20" height="20"></i>
-                    <span class="playlist-btn-label">${ui.t('player.play_all', 'Play All')}</span>
-                </button>
-                <button onclick="playPlaylistShuffle()" class="btn-secondary-lg playlist-action-btn" title="${ui.escHtml(ui.t('player.shuffle', 'Shuffle'))}">
-                    <i data-lucide="shuffle" width="20" height="20"></i>
-                    <span class="playlist-btn-label">${ui.t('player.shuffle', 'Shuffle')}</span>
-                </button>`
-                    : ''
-                }
-            </div>
-        </div>
-    </div>
-
-    <div class="offline-storage-card">
-      <div class="offline-storage-header">
-        <span class="offline-storage-title"><i data-lucide="hard-drive"></i> ${ui.t('offline.device_storage', 'Device Storage')}</span>
-        <span class="offline-storage-meta">${trackCount} ${ui.t('common.songs', 'tracks')} · ${offlinePlaylists.length} ${ui.t('library.playlists', 'playlists')}</span>
-      </div>
-      ${quotaBarHtml}
+  const storageTools = `<details class="offline-storage-tools">
+    <summary><i data-lucide="hard-drive" width="18"></i><span>${ui.t('offline.device_storage', 'Device Storage')} · ${mbUsed} MB</span><i data-lucide="chevron-down"></i></summary>
+    <div class="offline-storage-card">${quotaBarHtml}
+      <p class="offline-disclaimer">${ui.t('help.offline.desc', 'Tracks are stored in your browser/app private database for offline playback.')}</p>
       <div class="offline-storage-actions">
-        <p class="offline-disclaimer">
-          ${ui.t('help.offline.desc', 'Tracks are stored locally in your browser/app private database for offline playback.')}
-        </p>
-        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-          <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity" width="16" height="16"></i> ${ui.t('offline.check_readiness', 'Check Readiness')}</button>
-          ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2" width="16" height="16"></i> ${ui.t('offline.clear_all', 'Clear All Downloads')}</button>` : ''}
-        </div>
+        <button class="btn-secondary" onclick="checkOfflineReadinessAction()"><i data-lucide="activity" width="16"></i>${ui.t('offline.check_readiness', 'Check Readiness')}</button>
+        ${trackCount > 0 ? `<button class="btn-danger-outline" onclick="showClearOfflineConfirmModal()"><i data-lucide="trash-2" width="16"></i>${ui.t('offline.clear_all', 'Clear All Downloads')}</button>` : ''}
       </div>
     </div>
-
+  </details>`;
+  container.innerHTML = `<section class="offline-shell">
+    <header class="offline-header">
+      <div><h1>${ui.t('offline.title', 'Offline Downloads')}</h1><p>${subtitle}</p></div>
+      ${
+        trackCount > 0
+          ? `<div class="offline-header-actions">
+        <button type="button" class="btn-primary" onclick="playPlaylistInOrder()"><i data-lucide="play" width="20"></i>${ui.t('player.play_all', 'Play All')}</button>
+        <button type="button" class="btn-secondary" onclick="playPlaylistShuffle()"><i data-lucide="shuffle" width="20"></i>${ui.t('player.shuffle', 'Shuffle')}</button>
+      </div>`
+          : ''
+      }
+    </header>
     <div class="library-filters" style="margin-bottom: 16px;">
       <button class="library-filter ${activeTab === 'all' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'all')">
         ${ui.t('offline.all_tracks', 'All Tracks')} (${trackCount})
       </button>
       <button class="library-filter ${activeTab === 'playlists' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'playlists')">
-        ${ui.t('offline.playlists', 'Playlists')} (${offlinePlaylists.length})
+        ${ui.t('offline.collections', 'Playlists & albums')} (${offlinePlaylists.length})
       </button>
       <button class="library-filter ${activeTab === 'singles' ? 'active' : ''}" onclick="renderOfflineDownloads(document.getElementById('view-container'), 'singles')">
         ${ui.t('offline.singles', 'Individual Songs')} (${offlineSingles.length})
@@ -2508,7 +2469,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
       trackCount > 0 || offlinePlaylists.length > 0
         ? `<div class="offline-search-bar">
             <i data-lucide="search" width="16" height="16" style="color:var(--text-sub);"></i>
-            <input id="offline-filter-input" placeholder="${ui.escHtml(ui.t('offline.search_placeholder', 'Search downloaded tracks or playlists...'))}" oninput="
+            <input id="offline-filter-input" type="search" aria-label="${ui.escHtml(ui.t('offline.search_placeholder', 'Search downloaded tracks or playlists...'))}" placeholder="${ui.escHtml(ui.t('offline.search_placeholder', 'Search downloaded tracks or playlists...'))}" oninput="
               const q = this.value.trim().toLowerCase();
               document.querySelectorAll('#offline-tracks-container .track-row').forEach(row => {
                 const title = (row.querySelector('.track-name-sm')?.textContent || '').toLowerCase();
@@ -2530,17 +2491,17 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
     <div id="offline-tracks-container">
       ${tracksHtml}
     </div>
-
     ${
       trackCount === 0 && offlinePlaylists.length === 0
         ? `<div class="empty-state glass-panel">
-            <i data-lucide="cloud-off" class="empty-icon"></i>
             <p>${ui.t('offline.empty', "No offline downloads yet.<br>Use the 'Make Available Offline' option on any track or 'Download for Offline' on playlists while online.")}</p>
          </div>`
         : ''
     }
+    ${storageTools}
+    </section>
   `;
-  if (window.lucide) lucide.createIcons();
+  ui.refreshIcons(container);
 }
 
 export async function deleteOfflinePlaylistAction(playlistId) {

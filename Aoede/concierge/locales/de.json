@@ -517,5 +517,21 @@
     "library.edit_name": "Namen bearbeiten",
     "library.upload_cover": "Cover hochladen",
     "library.choose_cover": "Cover eines Titels wählen",
-    "library.auto_cover": "Automatisches Cover verwenden"
+    "library.auto_cover": "Automatisches Cover verwenden",
+    "common.select": "Auswählen",
+    "common.invite": "Einladen",
+    "common.remove": "Entfernen",
+    "library.delete_collection": "{kind} löschen",
+    "library.delete_collection_confirm": "„{name}“ dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "library.collaborators": "Mitwirkende",
+    "library.collaborators_description": "Lade Nutzer dieses Servers oder eines verbundenen Knotens ein. Sie können Titel hinzufügen, entfernen und sortieren. Du bestimmst über Freigabe und Löschung.",
+    "library.invite_collaborator": "Mitwirkende hinzufügen",
+    "library.current_members": "Aktuelle Mitglieder",
+    "library.no_collaborators": "Noch keine Mitwirkenden.",
+    "discover.count_preview": "{count} Titel · zum Vorhören auf ein Cover tippen",
+    "offline.collections": "Playlists & Alben",
+    "offline.remove_copy": "Offline-Kopie entfernen",
+    "offline.no_collections": "Keine Sammlungen heruntergeladen. Öffne online eine Playlist oder ein Album und wähle Herunterladen.",
+    "offline.summary": "{tracks} Titel · {collections} Sammlungen · {size} MB auf dem Gerät",
+    "player.preview": "Vorhören"
 }

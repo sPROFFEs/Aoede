@@ -534,26 +534,59 @@ export function setupDraggable(element, callback) {
 }
 
 // Mobile transport gestures share the buttons' queue/party navigation.
-export function setupTrackSwipe(element, navigate) {
+export function setupTrackSwipe(element, navigate, { artwork = null, dismiss = null } = {}) {
   if (!element) return;
   let start = null;
-  let horizontal = false;
+  let axis = null;
   let suppressClickUntil = 0;
+  let generation = 0;
+  const native = Boolean(artwork && (window.AOEDE_ANDROID || document.documentElement.dataset.client === 'android'));
+  const animations = new Set();
+  const interactive = 'button, a, input, select, textarea, summary, [role="slider"], [contenteditable="true"]';
+  const reduceMotion = () =>
+    document.documentElement.dataset.nativeEffects === 'reduced' ||
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function resetVisuals() {
+    if (!native) return;
+    element.style.transform = '';
+    element.style.transition = '';
+    artwork.style.transform = '';
+    animations.forEach((animation) => animation.cancel());
+    animations.clear();
+    element.querySelectorAll('.fs-cover-ghost').forEach((ghost) => ghost.remove());
+  }
+  function animate(target, frames, duration = 220) {
+    if (!native || reduceMotion() || !target?.animate) return;
+    const animation = target.animate(frames, { duration, easing: 'cubic-bezier(.16,1,.3,1)' });
+    animations.add(animation);
+    animation.finished.catch(() => {}).finally(() => animations.delete(animation));
+    return animation;
+  }
   element.addEventListener(
     'touchstart',
     (event) => {
       start = null;
-      horizontal = false;
+      axis = null;
       suppressClickUntil = 0;
+      generation++;
+      resetVisuals();
       if (
         !window.matchMedia('(max-width: 768px), (max-height: 500px) and (pointer: coarse)').matches ||
         !state.currentTrack ||
         event.touches.length !== 1 ||
-        event.target.closest('button, a, input, select, textarea, summary, [role="slider"], [contenteditable="true"]')
+        event.target.closest(interactive)
       )
         return;
+      if (artwork && event.target.closest('#lyrics-panel, #queue-panel, .fs-volume-panel, .fs-more-menu')) return;
       const touch = event.touches[0];
-      start = { id: touch.identifier, x: touch.clientX, y: touch.clientY, time: Date.now() };
+      start = {
+        id: touch.identifier,
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
+        horizontal: !artwork || event.target === artwork || artwork.contains(event.target),
+        vertical: native && Boolean(dismiss) && state.isFullscreenPlayerOpen
+      };
     },
     { passive: true }
   );
@@ -564,18 +597,29 @@ export function setupTrackSwipe(element, navigate) {
       const touch = event.touches[0];
       if (event.touches.length !== 1 || touch.identifier !== start.id) {
         start = null;
+        resetVisuals();
         return;
       }
-      const dx = Math.abs(touch.clientX - start.x);
-      const dy = Math.abs(touch.clientY - start.y);
-      if (!horizontal && Math.max(dx, dy) >= 12) {
-        if (dx < dy * 1.5) {
+      const dx = touch.clientX - start.x,
+        dy = touch.clientY - start.y;
+      if (!axis && Math.max(Math.abs(dx), Math.abs(dy)) >= 12) {
+        if (start.horizontal && Math.abs(dx) >= Math.abs(dy) * 1.5) axis = 'x';
+        else if (start.vertical && dy > 0 && dy >= Math.abs(dx) * 1.5) axis = 'y';
+        else {
           start = null;
+          resetVisuals();
           return;
         }
-        horizontal = true;
       }
-      if (horizontal && event.cancelable) event.preventDefault();
+      if (!axis) return;
+      if (event.cancelable) event.preventDefault();
+      if (native && !reduceMotion()) {
+        if (axis === 'x') artwork.style.transform = `translateX(${dx}px)`;
+        else {
+          element.style.transition = 'none';
+          element.style.transform = `translateY(${Math.max(0, dy)}px)`;
+        }
+      }
     },
     { passive: false }
   );
@@ -584,24 +628,95 @@ export function setupTrackSwipe(element, navigate) {
     (event) => {
       const gesture = start;
       start = null;
-      if (!gesture || event.touches.length) return;
+      if (!gesture || event.touches.length) {
+        resetVisuals();
+        return;
+      }
       const touch = Array.from(event.changedTouches).find((item) => item.identifier === gesture.id);
-      if (!touch) return;
-      const dx = touch.clientX - gesture.x;
-      const dy = Math.abs(touch.clientY - gesture.y);
-      if (Math.abs(dx) < 48 || Math.abs(dx) < dy * 1.5 || Date.now() - gesture.time > 800) return;
+      if (!touch) {
+        resetVisuals();
+        return;
+      }
+      const dx = touch.clientX - gesture.x,
+        dy = touch.clientY - gesture.y;
+      const vertical = axis === 'y' || (!axis && gesture.vertical && dy >= Math.abs(dx) * 1.5);
+      const valid =
+        Date.now() - gesture.time <= 800 &&
+        (vertical
+          ? dy >= 72 && dy >= Math.abs(dx) * 1.5
+          : gesture.horizontal && Math.abs(dx) >= 48 && Math.abs(dx) >= Math.abs(dy) * 1.5);
+      if (!valid) {
+        resetVisuals();
+        if (axis)
+          animate(vertical ? element : artwork, [
+            { transform: `translate${vertical ? 'Y' : 'X'}(${vertical ? Math.max(0, dy) : dx}px)` },
+            { transform: 'translate(0,0)' }
+          ]);
+        return;
+      }
       if (event.cancelable) event.preventDefault();
       suppressClickUntil = Date.now() + 400;
-      navigate(dx < 0 ? 'next' : 'previous');
+      if (vertical) {
+        resetVisuals();
+        if (state.isFullscreenPlayerOpen) dismiss();
+        return;
+      }
+      const direction = dx < 0 ? 'next' : 'previous';
+      const before = state.currentTrack;
+      const stamp = generation;
+      const width = artwork?.getBoundingClientRect().width || 300;
+      let ghost;
+      if (native && !reduceMotion() && artwork.animate && artwork.parentElement?.classList.contains('fs-stage')) {
+        ghost = artwork.cloneNode(false);
+        ghost.removeAttribute('id');
+        ghost.className = 'fs-cover-ghost';
+        ghost.setAttribute('aria-hidden', 'true');
+      }
+      resetVisuals();
+      if (ghost) {
+        artwork.parentElement.appendChild(ghost);
+        const leaving = animate(
+          ghost,
+          [
+            { transform: `translateX(${dx}px)`, opacity: 1 },
+            { transform: `translateX(${dx < 0 ? -width : width}px)`, opacity: 0 }
+          ],
+          180
+        );
+        leaving?.finished.catch(() => {}).finally(() => ghost.remove());
+      }
+      let result;
+      try {
+        result = navigate(direction);
+      } catch (_) {
+        ghost?.remove();
+        return;
+      }
+      Promise.resolve(result).then(
+        () => {
+          if (generation !== stamp || !native || !state.isFullscreenPlayerOpen) return;
+          const changed = state.currentTrack !== before;
+          animate(artwork, [
+            { transform: `translateX(${changed ? (dx < 0 ? width : -width) : dx}px)` },
+            { transform: 'translateX(0)' }
+          ]);
+        },
+        () => {
+          ghost?.remove();
+        }
+      );
     },
     { passive: false }
   );
   element.addEventListener('touchcancel', () => {
     start = null;
+    generation++;
+    resetVisuals();
   });
   element.addEventListener(
     'click',
     (event) => {
+      if (native && event.target?.closest(interactive)) return;
       if (event.detail && Date.now() < suppressClickUntil) {
         event.preventDefault();
         event.stopImmediatePropagation();

@@ -517,5 +517,21 @@
     "library.edit_name": "Edit name",
     "library.upload_cover": "Upload cover",
     "library.choose_cover": "Choose a song cover",
-    "library.auto_cover": "Use automatic cover"
+    "library.auto_cover": "Use automatic cover",
+    "common.select": "Select",
+    "common.invite": "Invite",
+    "common.remove": "Remove",
+    "library.delete_collection": "Delete {kind}",
+    "library.delete_collection_confirm": "Permanently delete \"{name}\"? This action cannot be undone.",
+    "library.collaborators": "Collaborators",
+    "library.collaborators_description": "Invite a listener on this server or a connected node. They can add, remove and reorder songs. You control sharing and deletion.",
+    "library.invite_collaborator": "Add collaborator",
+    "library.current_members": "Current members",
+    "library.no_collaborators": "No collaborators yet.",
+    "discover.count_preview": "{count} tracks · tap a cover to preview",
+    "offline.collections": "Playlists & albums",
+    "offline.remove_copy": "Remove offline copy",
+    "offline.no_collections": "No collections downloaded. Open a playlist or album online and choose Download.",
+    "offline.summary": "{tracks} tracks · {collections} collections · {size} MB on device",
+    "player.preview": "Preview"
 }

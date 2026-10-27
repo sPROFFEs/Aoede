@@ -12,7 +12,9 @@ button { -webkit-tap-highlight-color: transparent; }
 .aoede-glyph path { fill: currentColor; stroke: none; }
 :is(.card-title, .library-card-name, .track-title, .track-name-sm, .playlist-title, .queue-title) { overflow-wrap: anywhere; }
 :is(.track-info, .track-details, .playlist-info, .profile-details, .library-head > div) { min-width: 0; }
-:is(.view-content, .queue-list, .lyrics-body, .sidebar-list) { scrollbar-width: thin; overscroll-behavior: contain; }
+:is(.view-content, .queue-list, .lyrics-body) { scrollbar-width: thin; overscroll-behavior: contain; }
+.sidebar-list { scrollbar-width: none; overscroll-behavior: contain; }
+.sidebar-list::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .view-content { padding: 24px var(--content-gutter) 32px; scrollbar-gutter: stable; }
 .home-overview { margin: 0 0 24px; padding: 0 0 24px; }
 .home-overview::before { display: none; }
@@ -86,11 +88,11 @@ html[data-native-effects="reduced"] .fullscreen-player .fs-cover { scale: 1 !imp
 .collection-more summary::-webkit-details-marker { display: none; }
 .collection-more[open] { z-index: 100; }
 .collection-more-panel { position: absolute; top: calc(100% + 8px); right: 0; width: 264px; max-width: calc(100vw - 32px); max-height: min(65dvh, 520px); overflow-y: auto; overscroll-behavior: contain; padding: 6px; border-radius: 12px; background: var(--surface-1); border: 1px solid var(--border-strong); box-shadow: var(--shadow-lg); animation: aoede-menu-enter .18s var(--ease-out); }
-html .collection-more-panel button { display: flex; align-items: center; justify-content: start; gap: 12px !important; flex: none; width: 100%; height: auto; min-height: 44px; padding: 10px 12px !important; margin: 0; font-size: .875rem !important; line-height: 1.4 !important; text-align: start; border: 0 !important; border-radius: 7px !important; background: transparent !important; background-image: none !important; box-shadow: none !important; }
+html .collection-more .collection-more-panel button { display: flex; align-items: center; justify-content: start; gap: 12px !important; flex: none; width: 100% !important; min-width: 0 !important; max-width: 100%; height: auto !important; min-height: 44px; padding: 10px 12px !important; margin: 0; font-size: .875rem !important; line-height: 1.4 !important; text-align: start; border: 0 !important; border-radius: 7px !important; background: transparent !important; background-image: none !important; box-shadow: none !important; }
 html .collection-more-panel button:hover { background: var(--surface-2) !important; }
 html .collection-more-panel button :is(.playlist-btn-label, span) { display: inline !important; }
 html .collection-more-panel button svg { width: 20px; height: 20px; }
-.collection-more-panel .btn-danger-outline { color: var(--danger) !important; }
+html .collection-more .collection-more-panel .btn-danger-outline { color: var(--danger) !important; }
 @keyframes aoede-menu-enter { from { opacity: 0; translate: 0 -4px; } to { opacity: 1; translate: 0 0; } }
 .settings-tabbar { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 4px; padding: 4px; border-radius: 10px; }
 .settings-tabbar button { flex: 0 0 auto; min-height: 40px; padding: 8px 14px; border-radius: 7px; white-space: nowrap; }
@@ -296,3 +298,76 @@ html[data-theme="vitrine"] .playlist-actions > .btn-icon-pill { color: var(--pri
 @media (prefers-reduced-transparency: reduce) {
     html[data-theme="vitrine"] { --square-film: var(--background); --square-film-strong: var(--background); }
 }
+
+/* Discovery is an audition list: art supports a track rather than filling a screen. */
+.discovery-shell { max-width: none; padding: 0; }
+.discovery-feed { grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr)); gap: 12px; }
+html .discovery-feed .discovery-card { display: grid; grid-template-columns: 80px minmax(0, 1fr); grid-template-areas: "cover meta" "cover actions"; gap: 4px 14px; padding: 12px !important; border-radius: 14px !important; align-items: center; transition: opacity .18s ease, transform .18s var(--ease-out), background-color .15s ease; }
+.discovery-card .discovery-cover-wrap { grid-area: cover; width: 80px; height: 80px; border-radius: 8px; align-self: center; }
+.discovery-card .discovery-meta { grid-area: meta; padding: 0; }
+.discovery-card .discovery-title { font-size: .9375rem; line-height: 1.4; }
+.discovery-card .discovery-artist { font-size: .8125rem; line-height: 1.4; }
+.discovery-card .discovery-actions { grid-area: actions; justify-content: start; padding: 0; gap: 4px; }
+.discovery-card .discovery-action { width: 44px; height: 44px; }
+html .discovery-feed .discovery-card .discovery-play-btn { inset: 0; width: 100%; height: 100%; border: 0 !important; border-radius: inherit !important; background: #0004 !important; background-image: none !important; color: #fff !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; transform: none; }
+.discovery-card .discovery-play-btn svg { fill: currentColor; }
+.discovery-card .discovery-source-badge { pointer-events: none; top: 3px; left: 3px; width: 20px; height: 20px; }
+.discovery-card .discovery-source-badge svg { width: 12px; height: 12px; }
+
+/* Offline starts with playable collections and songs. Storage tools are secondary. */
+.offline-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 20px; }
+.offline-header h1 { margin: 0 0 6px; font-size: clamp(1.6rem, 3vw, 2.3rem); letter-spacing: -.04em; }
+.offline-header p { color: var(--text-sub); font-size: .875rem; line-height: 1.5; }
+.offline-header-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.offline-header-actions button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; }
+.offline-storage-tools { margin-top: 24px; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+.offline-storage-tools > summary { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; list-style: none; color: var(--text-sub); font-size: .875rem; }
+.offline-storage-tools > summary::-webkit-details-marker { display: none; }
+.offline-storage-tools > summary > span { flex: 1; }
+.offline-storage-tools > summary > svg:last-child { width: 16px; transition: rotate .18s ease; }
+.offline-storage-tools[open] > summary > svg:last-child { rotate: 180deg; }
+.offline-storage-tools .offline-storage-card { margin: 8px 0 0; }
+.offline-section-title { font-size: 1.125rem; margin: 20px 0 12px; }
+.offline-playlists-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 10px; }
+html .offline-playlist-card { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 10px; border-radius: 12px; }
+.offline-playlist-open { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; padding: 0; background: none; border: 0; color: inherit; text-align: start; cursor: pointer; }
+.offline-playlist-card-cover { width: 48px; height: 48px; border-radius: 6px; flex: 0 0 48px; }
+.offline-playlist-card-info { min-width: 0; }
+.offline-playlist-card-name { font-size: .9375rem; }
+.offline-playlist-card-sub { font-size: .8125rem; }
+html .offline-playlist-card-actions { position: static; display: flex; flex: 0 0 auto; gap: 4px; }
+html .offline-playlist-card-actions button { display: grid; place-items: center; width: 44px; height: 44px; padding: 0 !important; }
+.collaborators-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 20px; }
+.collaborator-suggestions { display: grid; gap: 4px; max-height: 160px; overflow-y: auto; margin-top: 8px; }
+.collaborator-suggestion { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 8px; border: 0; border-radius: 8px; background: var(--surface-2); color: var(--text-main); text-align: start; cursor: pointer; }
+.collaborator-suggestion img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.collaborator-suggestion span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.collaborator-suggestion small { color: var(--text-sub); }
+.collaborator-list { display: grid; gap: 8px; }
+.collaborator-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; }
+.collaborator-row span { min-width: 0; overflow-wrap: anywhere; }
+.collaborator-row button { flex-shrink: 0; min-height: 44px; }
+.fs-cover-ghost { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; border-radius: inherit; z-index: 3; pointer-events: none; }
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
+    html .discovery-feed { grid-template-columns: minmax(0, 1fr); }
+    html .discovery-feed .discovery-card { grid-template-columns: 72px minmax(0, 1fr); gap: 2px 12px; padding: 10px !important; }
+    .discovery-card .discovery-cover-wrap { width: 72px; height: 72px; }
+    .offline-playlists-grid { grid-template-columns: minmax(0, 1fr); }
+    .offline-header-actions { width: 100%; }
+    .offline-header-actions button { flex: 1; justify-content: center; }
+    html[data-theme="glass"] body { --mobile-player-height: 64px; }
+    html[data-theme="glass"] .player-footer { padding-block: 6px !important; }
+    html[data-theme="glass"] .library-card { margin: 0; padding: 10px !important; }
+    html[data-theme="glass"] .home-rail > .card { padding: 10px !important; border-radius: 18px !important; }
+    html[data-theme="glass"] .fullscreen-player .fs-info { padding: 10px 12px; }
+    html[data-theme="glass"] .fullscreen-player .fs-title { font-size: 1.125rem; }
+    html .fullscreen-player .fs-title { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; overflow: hidden; line-height: 1.25; }
+}
+@media (prefers-reduced-motion: reduce) { .discovery-card, .offline-storage-tools > summary > svg:last-child { transition: none; } }
+.modal-overlay > :is(.modal, .modal-box) { animation: aoede-dialog-enter .2s var(--ease-out) both; }
+@keyframes aoede-dialog-enter { from { opacity: 0; translate: 0 10px; scale: .98; } to { opacity: 1; translate: 0 0; scale: 1; } }
+:is(.discovery-action, .collection-more-panel button, .modal-actions button):not(:disabled):active { scale: .97; }
+.collaborators-modal { width: min(100%, 520px); max-height: min(85dvh, 720px); display: flex; flex-direction: column; gap: 16px; }
+.collaborator-form { align-items: center; }
+.collaborator-form input { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { .modal-overlay > :is(.modal, .modal-box) { animation: none; } }

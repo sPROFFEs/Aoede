@@ -4,6 +4,9 @@
 .native-boot img { border-radius: 24px; }
 .native-boot button { min-height: 48px; margin: 8px; padding: 12px 18px; border-radius: 24px; border: 1px solid #555; background: #25262b; color: inherit; font: inherit; }
 html[data-client="android"] { -webkit-text-size-adjust: 100%; }
+html[data-client="android"] body { touch-action: pan-x pan-y; }
+html[data-client="android"] :is(.fs-header, .fs-info, #fs-cover) { touch-action: none; }
+html[data-client="android"] .fullscreen-player[data-view="cover"] .fs-stage { touch-action: none; }
 html[data-client="android"] :is(body, .app-layout) { max-width: 100%; }
 html[data-client="android"] :is(input, textarea, select) { font-size: max(16px, 1em); }
 html[data-client="android"] :is(.user-menu-item, .icon-btn, .icon-btn-sm, .modal-close, .btn-close, .native-server-settings) { min-width: 44px; min-height: 44px; }

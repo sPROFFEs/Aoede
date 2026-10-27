@@ -1,10 +1,14 @@
+Android **1.1.22 (29)** refines the server **1.3.0** interface: finger-following fullscreen artwork with carousel transitions, downward swipe to minimize, compact Discovery and Offline views, and corrected collection menu/dialog controls in every theme. Buttons, sliders, lyrics/queue scrolling, cancelled gestures and final-track Next retain their existing behavior. Reduced effects/motion disables decorative carousel movement. Native WebView zoom controls and pinch zoom are disabled; browser/PWA zoom remains available.
+
+A fully native replacement is scoped in the [Android migration proposal](ANDROID-NATIVE-MIGRATION.md). This APK still uses the retained WebView; this update does not replace its audio engine.
+
 # Android App
 
 Android **1.1.21 (28)** packages the Aoede **1.3.0** interface refresh: Spotify inspired Classic, Apple Music inspired Vitrine, shared icon rendering, cleaner collection controls and accessible dialogs. The native setup screen follows the same visual language. Existing playback, offline storage, widgets and Dynamic Island lifecycle fixes are retained. Desktop **1.2.10** and the original Android wrapper **1.0.5** remain unchanged.
 
 Android **1.1.20 (27)** serializes disposal of the Dynamic Island analyser, rejects stale sampling generations and releases its resources independently. If closing the analysis context fails, the island uses its existing animation without creating further analysers for that page. This release contains no audio diagnostic instrumentation or capture tools. Software regression tests cover rapid transitions and cleanup failures; the reported Vitreo/LibrePods/AirPods silence still requires validation on the affected phone.
 
-Aoede Android 1.1.21 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
+Aoede Android 1.1.22 installs the player interface, JavaScript modules, themes, translations and icons inside the APK. A native Android host adds media controls, home-screen widgets, system file selection and device insets. The interface uses WebView; music and account data come from your chosen Aoede backend. Server-rendered settings/admin forms still need a connection.
 
 Android 1.1.19 adds horizontal track gestures to the mobile compact player and fullscreen artwork: swipe left for Next, right for the previous song. Gestures reuse queue and party navigation, ignore buttons/sliders, and reject vertical, short, cancelled and multi-touch movement. All themes now reserve a shared 16px content gutter, including async Home shelves, offline downloads and settings, without stacking a second gutter on their browsing shells. The same changes are available in the deployed mobile web app and remote wrappers.
 

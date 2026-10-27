@@ -517,5 +517,21 @@
     "library.edit_name": "Editar nombre",
     "library.upload_cover": "Subir carátula",
     "library.choose_cover": "Elegir la carátula de una canción",
-    "library.auto_cover": "Usar carátula automática"
+    "library.auto_cover": "Usar carátula automática",
+    "common.select": "Seleccionar",
+    "common.invite": "Invitar",
+    "common.remove": "Quitar",
+    "library.delete_collection": "Eliminar {kind}",
+    "library.delete_collection_confirm": "¿Eliminar \"{name}\" permanentemente? Esta acción no se puede deshacer.",
+    "library.collaborators": "Colaboradores",
+    "library.collaborators_description": "Invita a un usuario de este servidor o de un nodo conectado. Podrá añadir, quitar y reordenar canciones. Tú controlas la visibilidad y la eliminación.",
+    "library.invite_collaborator": "Añadir colaborador",
+    "library.current_members": "Miembros actuales",
+    "library.no_collaborators": "Aún no hay colaboradores.",
+    "discover.count_preview": "{count} canciones · pulsa una carátula para escuchar una muestra",
+    "offline.collections": "Playlists y álbumes",
+    "offline.remove_copy": "Eliminar copia offline",
+    "offline.no_collections": "No hay colecciones descargadas. Abre una playlist o un álbum con conexión y elige Descargar.",
+    "offline.summary": "{tracks} canciones · {collections} colecciones · {size} MB en el dispositivo",
+    "player.preview": "Escuchar muestra"
 }

@@ -12,13 +12,15 @@ Glass and Vitrine follow the device's light/dark appearance. Their browser mater
 
 ## Browsing
 
-Home, Search and Discover remain in the desktop sidebar. Library opens saved collections, with adjacent creation and collapse controls. Favorites, offline downloads, recent activity and saved collections scroll together. Search and type filters apply to the sidebar; new browsers start with it expanded while existing preferences are preserved.
+Home, Search and Discover remain in the desktop sidebar. Library opens saved collections, with adjacent creation and collapse controls. Favorites, offline downloads, recent activity and saved collections scroll together, with the visual sidebar scrollbar hidden. Search and type filters apply to the sidebar; new browsers start with it expanded while existing preferences are preserved.
 
 Home contains browse destinations, recent shortcuts and artwork shelves. Touch scrolling, keyboard scrolling and desktop shelf arrows remain available. Search keeps source selection separate from the album/playlist switch. The profile menu contains administration, updates and other account actions.
 
 Your Library includes playlists, albums, songs, artists, genres and device downloads. Search matches collection title, creator and federation-node name. Sorting, paging and the list/grid choice retain their existing behavior, including cached filtering offline. User-created albums remain separate from optional metadata album groups.
 
 Collection details keep playback and offline download visible. Open **More options** for renaming, cover selection, sharing, collaborators, copy/sync and deletion, according to your permissions. On phones it opens as a sheet; click outside, press Escape or use Android Back to dismiss it. Mobile Library search and creation controls live with the library content rather than being duplicated in its header.
+
+Discover uses compact audition rows with small artwork and reachable preview/save/dismiss actions. Device downloads start with playlists, albums and tracks; storage usage and cleanup live in a collapsed tools section.
 
 Content uses a 20 px phone gutter, reduced to 16 px on the narrowest displays; safe areas are applied separately. Desktop uses responsive gutters. Profiles have their own inner padding. Settings tabs and source filters scroll horizontally when their labels need more room.
 
@@ -27,6 +29,8 @@ Content uses a 20 px phone gutter, reduced to 16 px on the narrowest displays; s
 All themes reuse the same compact and fullscreen player, queue, lyrics, volume and transport controllers. Vitrine has an open Apple Music style transport and inline volume; Classic uses a filled primary play button. Artwork expands gently during playback and contracts when paused. Reduced motion removes that decorative movement.
 
 On mobile, swipe left on the compact player for the next track or right for the previous song. The fullscreen player accepts the same gestures on its artwork. Buttons and sliders keep their normal behavior, including the Previous button's restart-before-skip behavior. Vertical scrolling, short drags, long presses and multi-touch do not skip songs. Gestures use the existing queue, repeat and party controls.
+
+Native Android 1.1.22 adds finger-following artwork and a short carousel transition to fullscreen track swipes. Swipe down on the artwork/header to minimize through the same action as the arrow. Buttons, sliders and scrolling lyrics/queue are excluded. Reduced effects/motion skips decorative movement.
 
 Fullscreen lyrics and queue reuse the same panels as the normal player. Switching their views or changing themes does not recreate playback. Desktop supports side-by-side artwork and controls; short displays retain reachable transport controls. Seek and volume sliders support keyboard operation.
 

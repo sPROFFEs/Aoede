@@ -121,6 +121,8 @@ class AoedeApp : Application() {
             useWideViewPort = true
             loadWithOverviewMode = true
             setSupportZoom(false)
+            builtInZoomControls = false
+            displayZoomControls = false
             mediaPlaybackRequiresUserGesture = false
             userAgentString += " AoedeAndroid/${BuildConfig.VERSION_NAME}"
         }

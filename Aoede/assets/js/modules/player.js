@@ -1580,11 +1580,17 @@ export function setupPlayer() {
   // controls opens it. Keeping the desktop target explicit prevents
   // clicks in the transport-control spacing from opening the overlay.
   const footer = document.querySelector('.player-footer');
-  for (const surface of [footer, document.getElementById('fs-cover')]) {
-    ui.setupTrackSwipe(surface, (direction) => {
-      if (state.currentTrack && !_trackTransitionInFlight) direction === 'next' ? playNext() : playPrev(true);
-    });
-  }
+  const navigateSwipe = (direction) => {
+    if (!state.currentTrack || _trackTransitionInFlight) return false;
+    return direction === 'next' ? playNext() : playPrev(true);
+  };
+  ui.setupTrackSwipe(footer, navigateSwipe);
+  ui.setupTrackSwipe(document.getElementById('fullscreen-player'), navigateSwipe, {
+    artwork: document.getElementById('fs-cover'),
+    dismiss: () => {
+      if (state.isFullscreenPlayerOpen) ui.toggleFullscreenPlayer();
+    }
+  });
   if (footer) {
     footer.addEventListener('click', (e) => {
       // Let buttons and their icons do their own thing.

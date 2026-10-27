@@ -83,8 +83,8 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes mobile transport gestures shared by the compact and fullscreen players.
     # Includes accessible collection menus and one shared focus trap for legacy dialogs.
     assert sum(path.stat().st_size for path in javascript if path != appearance) < 638_000
-    # Shared navigation and the complete compact/Apple interface refresh (no UI runtime dependency).
-    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 342_000
+    # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
+    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 348_000
     assert (assets_root / "js/ui_icons.js").stat().st_size < 32_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.

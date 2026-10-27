@@ -325,6 +325,7 @@ modal.dataset = {};
 const collaboratorWindow = { USER_DATA: { username: 'owner' } };
 const suggestions = { style: {} };
 const collaboratorNotices = [];
+let deleteConfirmation, allowDeletion = false;
 const connectivity = { onLine: true };
 const collaborators = (await load('playlists.js', {
   window: collaboratorWindow, navigator: connectivity, document: { addEventListener() {}, getElementById: id => id === 'collab-user-suggestions' ? suggestions : modal },
@@ -332,7 +333,7 @@ const collaborators = (await load('playlists.js', {
     ? { ok: true, json: async () => ({ is_owner: true, members: [{ username: 'member' }] }) }
     : { ok: false, status: 403, json: async () => ({ error: 'No permission' }) }
 }, { './state.js': { API: '/api', userPlaylists: [{ id: 5, kind: 'album' }] },
-  './ui.js': { ...ui, refreshIcons() {}, focusModal() {}, closeModal() {}, showToast: message => collaboratorNotices.push(message) },
+  './ui.js': { ...ui, refreshIcons() {}, focusModal() {}, closeModal() {}, confirmDialog: async options => { deleteConfirmation = options; return allowDeletion; }, showToast: message => collaboratorNotices.push(message) },
   './api.js': { playlistPath, fetchUsersList: async () => ['owner', 'member', 'new user'].map(username => ({ username })) },
   './player.js': {}, './offline_store.js': { getLibrarySnapshot: async () => null, listOfflinePlaylists: async () => [],
     listOfflineTracks: async () => [{ title: 'Other private song', playlist_ids: [5], playlist_names: { 5: 'Other private album' } }],
@@ -344,12 +345,15 @@ assert.equal(suggestions.style.display, 'none');
 collaboratorWindow.filterCollaboratorUsers('new', 5);
 assert.match(suggestions.innerHTML, /new user/);
 assert.equal(suggestions.innerHTML.includes('>member<'), false);
-collaborators.showDeletePlaylistModal(5, 'Album');
-assert.match(modal.html, /Delete Album/);
+await collaborators.showDeletePlaylistModal(5, 'Album');
+assert.match(deleteConfirmation.title, /Delete Album/);
+assert.match(deleteConfirmation.message, /Album/);
+assert.deepEqual(collaboratorNotices, []); // Cancelling does not send a delete request.
 collaborators.showRemoveFromPlaylistModal(5, 1, 'Song');
 assert.match(modal.html, /Remove from Album/);
 await collaborators.removeFromPlaylist(5, 1);
-await collaborators.deletePlaylist(5);
+allowDeletion = true;
+await collaborators.showDeletePlaylistModal(5, 'Album');
 assert.deepEqual(collaboratorNotices, ['No permission', 'No permission']);
 connectivity.onLine = false;
 const unavailable = {};

@@ -71,6 +71,19 @@ async function collaboratorsRequest(playlistId, method = 'GET', userId = null) {
 
 let cachedServerUsers = [];
 
+function collaboratorSuggestions(users, playlistId) {
+  return users
+    .map(
+      (
+        user
+      ) => `<button type="button" class="collaborator-suggestion" onclick="selectCollabUser('${ui.escJs(user.profile_key || user.username)}', '${ui.escJs(String(playlistId))}')">
+    <img src="${ui.escHtml(user.avatar_url || '/static/img/default_cover.png')}" alt="" onerror="this.src='/static/img/default_cover.png'">
+    <span><strong>${ui.escHtml(user.username)}</strong>${user.is_federated ? ` @ ${ui.escHtml(user.fed_instance_name)}` : ''}</span>
+    <small>${ui.t('common.select', 'Select')}</small></button>`
+    )
+    .join('');
+}
+
 export async function showCollaboratorsModal(playlistId) {
   try {
     const [data, usersList] = await Promise.all([
@@ -88,54 +101,37 @@ export async function showCollaboratorsModal(playlistId) {
 
     document.getElementById('modal-container').innerHTML = `
       <div class="modal-overlay" onclick="if(event.target===this) closeModal()">
-        <div class="modal modal-create" role="dialog" aria-modal="true" aria-labelledby="collaborators-title" style="max-width:520px; max-height:85vh; display:flex; flex-direction:column;">
-          <div class="modal-header"><h2 id="collaborators-title">Collaborators</h2><button class="modal-close" onclick="closeModal()" aria-label="Close"><i data-lucide="x"></i></button></div>
-          <p class="modal-subtitle" style="margin-bottom:14px;">Invite a listener on this server or a connected node. They can add, remove, and reorder songs. You control sharing and deletion.</p>
-          
-          ${
-            data.is_owner
-              ? `
-          <div style="margin-bottom: 16px;">
-            <label class="modal-label" for="collaborator-username">Add Collaborator</label>
-            <div class="collaborator-form" style="position:relative;">
-              <input id="collaborator-username" class="modal-input" maxlength="100" autocomplete="off" placeholder="${ui.escHtml(ui.t('library.invite_search', 'Search user to invite...'))}" style="margin-bottom:0;" oninput="filterCollaboratorUsers(this.value, ${playlistId})">
-              <button class="btn-primary" type="button" onclick="submitInviteCollaborator(${playlistId})">Invite</button>
-            </div>
-            <div id="collab-user-suggestions" class="glass-panel" style="margin-top:8px; max-height:160px; overflow-y:auto; border-radius:8px; padding:6px; display:${availableUsers.length ? 'flex' : 'none'}; flex-direction:column; gap:4px;">
-              ${availableUsers
-                .map(
-                  (u) => `
-                <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.profile_key || u.username)}', ${playlistId})">
-                  <div style="display:flex; align-items:center; gap:8px;">
-                    <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
-                    <span><strong>${ui.escHtml(u.username)}</strong>${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>
-                  </div>
-                  <span class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;">Select</span>
-                </div>`
-                )
-                .join('')}
-            </div>
-          </div>`
-              : ''
-          }
-
-          <div style="flex:1; overflow-y:auto;">
-            <span class="modal-label">Current Members (${data.members.length})</span>
-            <div class="collaborator-list" style="display:flex; flex-direction:column; gap:6px;">
-              ${
+        <div class="modal modal-create collaborators-modal" role="dialog" aria-modal="true" aria-labelledby="collaborators-title">
+          <div class="modal-header"><h2 id="collaborators-title">${ui.t('library.collaborators', 'Collaborators')}</h2><button type="button" class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button></div>
+          <div class="collaborators-body">
+            <p class="modal-subtitle">${ui.t('library.collaborators_description', 'Invite a listener on this server or a connected node. They can add, remove and reorder songs. You control sharing and deletion.')}</p>
+            ${
+              data.is_owner
+                ? `<section>
+              <label class="modal-label" for="collaborator-username">${ui.t('library.invite_collaborator', 'Add collaborator')}</label>
+              <div class="collaborator-form">
+                <input id="collaborator-username" class="modal-input" maxlength="100" autocomplete="off" placeholder="${ui.escHtml(ui.t('library.invite_search', 'Search user to invite...'))}" oninput="filterCollaboratorUsers(this.value, '${ui.escJs(String(playlistId))}')">
+                <button class="btn-primary" type="button" onclick="submitInviteCollaborator('${ui.escJs(String(playlistId))}')">${ui.t('common.invite', 'Invite')}</button>
+              </div>
+              <div id="collab-user-suggestions" class="collaborator-suggestions"${availableUsers.length ? '' : ' style="display:none"'}>${collaboratorSuggestions(availableUsers, playlistId)}</div>
+            </section>`
+                : ''
+            }
+            <section>
+              <h3 class="modal-label">${ui.t('library.current_members', 'Current members')} (${data.members.length})</h3>
+              <div class="collaborator-list">${
                 data.members.length
                   ? data.members
                       .map(
-                        (member) => `
-                <div class="collaborator-row" style="display:flex; align-items:center; justify-content:space-between; padding:8px; background:rgba(255,255,255,0.03); border-radius:6px;">
-                  <span><strong>${ui.escHtml(member.username)}</strong>${member.is_federated ? ` @ ${ui.escHtml(member.fed_instance_name)}` : ''}</span>
-                  ${data.is_owner ? `<button class="btn-secondary" onclick="updateCollaborator(${playlistId}, 'DELETE', '${ui.escJs(String(member.id))}')" aria-label="Remove ${ui.escHtml(member.username)}">Remove</button>` : ''}
-                </div>`
+                        (member) => `<div class="collaborator-row">
+                <span><strong>${ui.escHtml(member.username)}</strong>${member.is_federated ? ` @ ${ui.escHtml(member.fed_instance_name)}` : ''}</span>
+                ${data.is_owner ? `<button type="button" class="btn-secondary" onclick="updateCollaborator('${ui.escJs(String(playlistId))}', 'DELETE', '${ui.escJs(String(member.id))}')">${ui.t('common.remove', 'Remove')}</button>` : ''}
+              </div>`
                       )
                       .join('')
-                  : '<p class="modal-subtitle">No collaborators yet.</p>'
-              }
-            </div>
+                  : `<p class="modal-subtitle">${ui.t('library.no_collaborators', 'No collaborators yet.')}</p>`
+              }</div>
+            </section>
           </div>
         </div>
       </div>`;
@@ -162,19 +158,8 @@ window.filterCollaboratorUsers = function (query, playlistId) {
     return;
   }
 
-  suggestions.style.display = 'flex';
-  suggestions.innerHTML = filtered
-    .map(
-      (u) => `
-    <div style="display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border-radius:6px; background:rgba(255,255,255,0.03); cursor:pointer; font-size:0.85rem;" onclick="selectCollabUser('${ui.escJs(u.profile_key || u.username)}', ${playlistId})">
-      <div style="display:flex; align-items:center; gap:8px;">
-        <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" style="width:24px; height:24px; border-radius:50%; object-fit:cover;" onerror="this.src='/static/img/default_cover.png'">
-        <span><strong>${ui.escHtml(u.username)}</strong>${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>
-      </div>
-      <span class="btn-secondary" style="padding:2px 8px; font-size:0.75rem;">Select</span>
-    </div>`
-    )
-    .join('');
+  suggestions.style.display = 'grid';
+  suggestions.innerHTML = collaboratorSuggestions(filtered, playlistId);
 };
 
 window.selectCollabUser = function (key, playlistId) {
@@ -1398,18 +1383,16 @@ window.confirmImportSelectedTracks = function (playlistName) {
   showCreatePlaylistModal(null, playlistName);
 };
 
-export function showDeletePlaylistModal(playlistId, playlistName) {
-  const html = `<div class="modal-overlay" onclick="closeModal()">
-        <div class="modal" onclick="event.stopPropagation()">
-            <h2 style="margin-bottom: 16px;">Delete ${collectionLabel(playlistId)}</h2>
-            <p style="color: var(--text-sub); margin-bottom: 24px;">Are you sure you want to permanently delete <strong style="color: white;">${ui.escHtml(playlistName)}</strong>? This action cannot be undone.</p>
-            <div class="modal-actions">
-                <button class="modal-btn-cancel" onclick="closeModal()">Cancel</button>
-                <button class="modal-btn-danger" onclick="deletePlaylist(${playlistId})">Delete Permanently</button>
-            </div>
-        </div>
-    </div>`;
-  document.getElementById('modal-container').innerHTML = html;
+export async function showDeletePlaylistModal(playlistId, playlistName) {
+  const confirmed = await ui.confirmDialog({
+    title: ui.t('library.delete_collection', 'Delete {kind}', { kind: collectionLabel(playlistId) }),
+    message: ui.t('library.delete_collection_confirm', 'Permanently delete "{name}"? This action cannot be undone.', {
+      name: playlistName
+    }),
+    confirmLabel: ui.t('common.delete', 'Delete'),
+    tone: 'danger'
+  });
+  if (confirmed) await deletePlaylist(playlistId);
 }
 
 export function showEditPlaylistModal(id, currentName) {
