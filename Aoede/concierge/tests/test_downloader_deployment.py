@@ -2,6 +2,7 @@ import json
 import subprocess
 from pathlib import Path
 
+import database
 import pytest
 import update_service
 import yaml
@@ -308,6 +309,87 @@ def test_compose_update_forces_runtime_recreation_for_bind_mounted_source():
         "concierge",
         "downloader",
     ]
+
+
+def test_failed_deployment_survives_worker_only_success_and_up_to_date_checks(db_session, monkeypatch):
+    def job(status, details):
+        record = database.AdminJob(job_type="apply_update", status=status, details_json=json.dumps(details))
+        db_session.add(record)
+        db_session.commit()
+        return record
+
+    job("completed", {"services": ["concierge", "downloader"]})
+    job("failed", {"services": ["concierge", "downloader", "updater", "tunnel"], "rebuild_required": True})
+    job("completed", {"services": ["downloader"]})
+    job("completed", {"message": "Already up to date"})
+    job("failed", ["invalid history"])
+    current = job("queued", {})
+    assert update_service._pending_update_services(db_session, current.id) == (["concierge"], True)
+
+    row = type("SettingsRow", (), {"update_state_json": '{"update_available":false}'})()
+    monkeypatch.setattr(update_service.ops, "ensure_system_settings_record", lambda _db: row)
+    monkeypatch.setattr(update_service, "get_build_info", lambda: {"commit": "latest"})
+    state = update_service.get_update_state(db_session)
+    assert state["update_available"] and state["deployment_pending"]
+    assert state["pending_services"] == ["concierge"]
+    job("completed", {"services": ["concierge"]})
+    assert update_service._pending_update_services(db_session) == ([], False)
+    assert not update_service.get_update_state(db_session)["update_available"]
+
+
+def test_retry_deploys_pending_runtime_when_git_is_current(db_session, monkeypatch, tmp_path):
+    import backup_service
+
+    failed = database.AdminJob(
+        job_type="apply_update",
+        status="failed",
+        details_json=json.dumps({"services": ["concierge"], "rebuild_required": True}),
+    )
+    current = database.AdminJob(job_type="apply_update", status="queued", details_json="{}")
+    db_session.add_all([failed, current])
+    db_session.commit()
+    job_id = current.id
+    progress = []
+    commands = []
+
+    async def check():
+        return {"status": "ok", "update_available": False}
+
+    monkeypatch.setattr(database, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(update_service, "_reclaim_zombie_admin_lock", lambda _db: None)
+    monkeypatch.setattr(update_service, "acquire_lock", lambda *_: True)
+    monkeypatch.setattr(update_service, "release_lock", lambda *_: None)
+    monkeypatch.setattr(update_service, "_clear_git_index_lock", lambda: False)
+    monkeypatch.setattr(update_service, "update_admin_job_progress", lambda _id, **kwargs: progress.append(kwargs))
+    monkeypatch.setattr(update_service, "_get_update_check_payload", check)
+    monkeypatch.setattr(update_service, "save_update_state", lambda *_: None)
+    monkeypatch.setattr(update_service, "_resolve_target_update_sha", lambda: ("a" * 40, {}))
+    monkeypatch.setattr(update_service, "_fetch_target_update_ref", lambda _: {"ok": True})
+    monkeypatch.setattr(update_service, "_run_git", lambda args, **_: {"ok": True} if args[0] == "reset" else "")
+    monkeypatch.setattr(update_service.ops, "ensure_runtime_dirs", lambda: None)
+    monkeypatch.setattr(update_service.ops, "BACKUP_ROOT", tmp_path)
+    monkeypatch.setattr(update_service.ops, "apply_schema_migrations", lambda: [])
+    monkeypatch.setattr(backup_service, "_build_backup_manifest", lambda *_: {})
+    monkeypatch.setattr(backup_service, "_write_backup_zip", lambda path, _: path.write_bytes(b"test-backup"))
+    monkeypatch.setattr(backup_service, "_rotate_current_to_previous", lambda _: None)
+    monkeypatch.setattr(backup_service, "_upsert_backup_artifact", lambda *_, **__: None)
+    monkeypatch.setattr(database.engine, "dispose", lambda: None)
+    monkeypatch.setattr(update_service.ops, "cleanup_stale_recreate_containers", lambda _: [])
+    monkeypatch.setattr(update_service, "_run_post_update_health_check", lambda **_: {"ok": True})
+
+    def compose(args, **_):
+        commands.append(args)
+        return subprocess.CompletedProcess(args, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(update_service.ops, "_run_compose_command", compose)
+    monkeypatch.setattr(
+        update_service.subprocess, "run", lambda args, **_: subprocess.CompletedProcess(args, 0, "", "")
+    )
+    update_service.run_apply_update_job_from_updater(job_id, "test-admin")
+    assert commands == [update_service._build_compose_update_args(True, ["concierge"])]
+    assert progress[-1]["status"] == "completed", progress[-1]
+    assert progress[-1]["extra"]["after"]["update_available"] is False
+    assert any(item.get("extra", {}).get("services") == ["concierge"] for item in progress)
 
 
 def test_bind_mounted_runtime_changes_do_not_trigger_image_rebuild():

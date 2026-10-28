@@ -14,6 +14,12 @@ Android **5.0/API 21+** is supported. Normal native UI and playback do not requi
 
 Future updates use the existing official updater: versionCode, SHA-256, size, package identity and installed signing certificate are verified before offering the Android installer. Installation requires your confirmation; Android 8+ may ask to allow installs from Aoede. Cancellation preserves the installed app/data. No backend-supplied APK URL or session cookie is sent to GitHub.
 
+### Server is already 1.3.1 but native sign-in asks for an update
+
+The native client needs `/api/mobile/v2/context`. Without a session this route returns **401**, not 404. A 404 means the running backend or an intermediate proxy is not serving the native API; a version label alone does not establish that the new Python process has started.
+
+A failed Compose build can leave new bind-mounted source files with the previous server process still running. Reapply the server update and confirm that it finishes recreating Concierge. The updater recovers pending services from retained failed-job history, including when Git is already current or a later downloader-only update succeeded. Administrators can reload the processes from the deployment's Compose directory with `docker compose restart concierge updater`. Image/dependency build failures still need a successful rebuild; restarting does not install missing dependencies. This does not require reinstalling the APK or deleting its device library.
+
 ## Native interface and playback
 
 Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, device downloads, settings and administration use native views and authenticated JSON APIs. Classic, Glass and Vitrine use account theme colors and native layout; their native appearance and animations are not pixel-identical copies of the web themes. The web/PWA and desktop interfaces remain available independently.

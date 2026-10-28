@@ -213,6 +213,33 @@ def save_update_state(db, payload):
     db.commit()
 
 
+def _pending_update_services(db, before_job_id: int | None = None) -> tuple[list[str], bool]:
+    """Recover unfinished deployments, even after a later worker-only update."""
+    query = db.query(database.AdminJob).filter(database.AdminJob.job_type == "apply_update")
+    if before_job_id is not None:
+        query = query.filter(database.AdminJob.id < before_job_id)
+    pending = []
+    completed = set()
+    rebuild = False
+    # ponytail: recovery uses retained job history; use a deployment journal if it must outlive retention.
+    for job in query.order_by(database.AdminJob.id.desc()).all():
+        try:
+            details = json.loads(job.details_json or "{}")
+        except (ValueError, TypeError):
+            continue
+        if not isinstance(details, dict) or not isinstance(details.get("services"), list):
+            continue
+        services = [name for name in ("concierge", "downloader", "nginx") if name in details["services"]]
+        if job.status == "completed":
+            completed.update(services)
+        elif job.status == "failed":
+            outstanding = [name for name in services if name not in completed]
+            pending.extend(name for name in outstanding if name not in pending)
+            if outstanding and details.get("rebuild_required") is True:
+                rebuild = True
+    return pending, rebuild
+
+
 def get_update_state(db):
     settings_row = ops.ensure_system_settings_record(db)
     state = {}
@@ -243,6 +270,15 @@ def get_update_state(db):
     state.setdefault("update_available", False)
     state.setdefault("pending_commits", [])
     state.setdefault("remote", {"commit": "unknown", "full_commit": "unknown"})
+    pending_services, _ = _pending_update_services(db) if db is not None else ([], False)
+    state["deployment_pending"] = bool(pending_services)
+    state["pending_services"] = pending_services
+    if pending_services:
+        state["update_available"] = True
+        state["message"] = (
+            f"A previous update did not finish deploying: {', '.join(pending_services)}. "
+            "Apply the update again to finish restarting these services."
+        )
     return state
 
 
@@ -614,11 +650,16 @@ def _build_compose_update_args(rebuild_required: bool, services: list[str]) -> l
     return [*compose_args, "--no-deps", "--remove-orphans", *services]
 
 
-def _run_compose_update(job_id: int, changed_files: list[str]):
+def _run_compose_update(
+    job_id: int, changed_files: list[str], *, pending_services: list[str] | None = None, pending_rebuild: bool = False
+):
     services, deferred_services = _select_services_for_update(changed_files)
+    for service in pending_services or []:
+        if service in {"concierge", "downloader", "nginx"} and service not in services:
+            services.append(service)
     normalized_changed_files = ops.normalize_changed_files(changed_files)
     rebuild_targets = ops.matched_rebuild_targets(changed_files)
-    rebuild_required = ops.should_rebuild_for_changed_files(changed_files)
+    rebuild_required = ops.should_rebuild_for_changed_files(changed_files) or bool(pending_services and pending_rebuild)
 
     if not services:
         update_admin_job_progress(
@@ -948,7 +989,8 @@ def run_apply_update_job_from_updater(job_id: int, triggered_by: str | None):
                 finished=True,
             )
             return
-        if not payload.get("update_available"):
+        pending_services, pending_rebuild = _pending_update_services(db, job_id)
+        if not payload.get("update_available") and not pending_services:
             update_admin_job_progress(
                 job_id,
                 message="Already up to date",
@@ -1014,8 +1056,17 @@ def run_apply_update_job_from_updater(job_id: int, triggered_by: str | None):
         changed_files_raw = _run_git(["diff", "--name-only", f"HEAD..{target_sha}"], fallback="") or ""
         changed_files = [line.strip() for line in changed_files_raw.splitlines() if line.strip()]
 
+        planned_services, _ = _select_services_for_update(changed_files)
         update_admin_job_progress(
-            job_id, message="Applying Git update to workspace", status="running", phase="workspace", progress=50
+            job_id,
+            message="Applying Git update to workspace",
+            status="running",
+            phase="workspace",
+            progress=50,
+            extra={
+                "services": list(dict.fromkeys([*planned_services, *pending_services])),
+                "rebuild_required": ops.should_rebuild_for_changed_files(changed_files) or pending_rebuild,
+            },
         )
         reset_result = _run_git(["reset", "--hard", target_sha], fallback=None, include_details=True)
         _log_command_result(job_id, "Git reset", reset_result)
@@ -1031,7 +1082,7 @@ def run_apply_update_job_from_updater(job_id: int, triggered_by: str | None):
         else:
             update_admin_job_progress(job_id, message="No schema migrations needed")
         rebuild_required, health_result, normalized_changed_files, rebuild_targets = _run_compose_update(
-            job_id, changed_files
+            job_id, changed_files, pending_services=pending_services, pending_rebuild=pending_rebuild
         )
 
         post_payload = asyncio.run(_get_update_check_payload())

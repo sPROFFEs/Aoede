@@ -148,6 +148,42 @@ def test_dummy_password_check_and_required_jwt_claims(monkeypatch):
     )
 
 
+def test_native_login_uses_the_registered_v2_context(main, db_session, monkeypatch):
+    from routers import mobile
+
+    user = database.User(username="native_login", hashed_password="synthetic-hash")
+    db_session.add(user)
+    db_session.commit()
+    monkeypatch.setattr(
+        auth, "verify_password", lambda password, hashed: password == "synthetic-pass" and hashed == "synthetic-hash"
+    )
+    overrides = dict(main.app.dependency_overrides)
+    main.app.dependency_overrides[main.get_db] = lambda: db_session
+    main.app.dependency_overrides[mobile.get_db] = lambda: db_session
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(main.app), base_url="https://localhost") as client:
+            assert (await client.get("/api/mobile/v2/context")).status_code == 401
+            response = await client.post(
+                "/login",
+                data={"username": user.username, "password": "synthetic-pass", "remember_me": "false"},
+                headers={"origin": "https://localhost", "accept": "application/json"},
+            )
+            assert response.status_code == 303
+            assert "access_token" in client.cookies
+            response = await client.get("/api/mobile/v2/context")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["protocol"] == 2 and data["account"]["username"] == user.username
+            assert len(data["storage_scope"]) == 64
+
+    try:
+        asyncio.run(check())
+    finally:
+        main.app.dependency_overrides.clear()
+        main.app.dependency_overrides.update(overrides)
+
+
 def test_revoked_logout_cannot_stop_containers_and_revocation_failure_is_reported(main, db_session, monkeypatch):
     db_session.add(database.User(username="alice", hashed_password="unused"))
     db_session.commit()
