@@ -140,6 +140,35 @@ class NativeDesignTest {
     }
 
     @Test
+    fun replacingPlatformPressAnimatorFinishesItBeforeItsTargetIsCleared() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val layout = android.widget.LinearLayout(lifecycle.get())
+        lifecycle.get().setContentView(layout)
+        val design = NativeDesign(app, "classic", false)
+        for (reduced in listOf(false, true)) {
+            val button = android.widget.Button(lifecycle.get())
+            layout.addView(button)
+            button.stateListAnimator?.jumpToCurrentState()
+            val running =
+                android.animation.ObjectAnimator.ofFloat(button, View.ALPHA, 1f, .5f).apply {
+                    duration = 1000
+                }
+            button.stateListAnimator =
+                android.animation.StateListAnimator().apply { addState(intArrayOf(), running) }
+            assertTrue(running.isStarted)
+            design.press(button, reduced)
+            assertFalse(
+                "Replacing an animator must finish its old frames before clearing its target",
+                running.isStarted,
+            )
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+                .idleFor(java.time.Duration.ofMillis(200))
+            layout.removeView(button)
+        }
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
     fun detachedControlsReleaseTheirThemeBindingsAndNavigationClosesPlatformDialogs() {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = lifecycle.get()

@@ -11,6 +11,7 @@ Android now follows the mobile web layouts for Classic, Glass and Vitrine, using
 - Wrapped reads the server's actual Top Songs playlist, artists, monthly sprint and party rankings. Its native story has progress, pause/resume, previous/next, an Aoede intro, audio previews and a working final summary/save action. Temporary story controls preserve the personal queue paused and release their players on exit.
 - Manual queue entries can be removed or reordered without replacing the playback engine. Queue synchronization uses the same manual/context fields as the web client and restores paused.
 - Activity recreation restores the current page and fullscreen player for the validated account without saving credential drafts. Delayed requests and file selections cannot act on another account or replace a newer page.
+- Replacing button press animations finishes the previous platform animator first, avoiding stale animation frames on Android 5.0/5.1, including when Reduce effects is enabled.
 - Party controls cannot change personal shuffle/repeat. Favorite controls respect the existing local-library API and stay disabled for radio and federated tracks.
 - Server monitor backup and Wrapped forms retain their existing values, use native date/time pickers, and expose regeneration, reset and job status. Operational build fields remain administrator-only and exclude private paths and raw job output.
 - Private provider verification includes Space, Enter, navigation and selection keys. These stay within the existing owner-bound, authenticated input allowlist.
@@ -45,7 +46,7 @@ The current distribution signature and package identity are retained. Prefer the
 
 ## Validation and limits
 
-The full repository check passed with **402 Python tests passed and 2 skipped**, alongside the JavaScript suites. Android passed **138 JVM tests**, release lint with zero errors, and release assembly. Browser checks cover three themes in light/dark mode, desktop sidebar alignment and private verification keys. Opt-in native captures exercise the same synthetic routes, dialogs and Wrapped completion. The complete source archive is checked for standalone frontend/icon generation. Local shell lint was unavailable; CI enforces it.
+The full repository check passed with **402 Python tests passed and 2 skipped**, alongside the JavaScript suites. Android includes **140 JVM checks**, release lint and release assembly. Browser checks cover three themes in light/dark mode, desktop sidebar alignment and private verification keys. Opt-in native captures exercise the same synthetic routes, dialogs and Wrapped completion. The complete source archive is checked for standalone frontend/icon generation. Local shell lint was unavailable; CI enforces it.
 
 The earlier Android 1.2.0 native client opened, authenticated and played a test recording on an isolated API 26 emulator with its WebView provider disabled. That run is not evidence for every current layout or uninterrupted playback.
 

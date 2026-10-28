@@ -110,9 +110,7 @@ class NativeClientTest {
     @Test
     fun fileSelectionCannotUploadIntoAnAccountSignedInAfterThePickerOpened() {
         context()
-        // This boundary needs a registered launcher, not the API 21 window animator.
-        val lifecycle =
-            Robolectric.buildActivity(MainActivity::class.java).create().start().resume()
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = lifecycle.get()
         var uploads = 0
         activity.pickNativeFile("image/*") { uploads++ }

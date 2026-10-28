@@ -198,6 +198,8 @@ class NativeDesign(
     }
 
     fun press(view: View, reduced: Boolean) {
+        // API 21 clears the previous animator's target without cancelling its frames.
+        view.stateListAnimator?.jumpToCurrentState()
         if (reduced) {
             view.stateListAnimator = null
             return
