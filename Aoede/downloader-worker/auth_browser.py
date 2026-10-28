@@ -177,6 +177,14 @@ class AuthBrowserManager:
                     "ArrowUp": 38,
                     "ArrowRight": 39,
                     "ArrowDown": 40,
+                    "Space": 32,
+                    "Delete": 46,
+                    "Home": 36,
+                    "End": 35,
+                    "PageUp": 33,
+                    "PageDown": 34,
+                    "Shift+Tab": 9,
+                    "Control+A": 65,
                 }
                 if kind == "key" and action.get("key") not in keys:
                     raise ValueError("Unsupported browser key")
@@ -241,10 +249,28 @@ class AuthBrowserManager:
                     if kind == "text":
                         command("Input.insertText", {"text": action["text"]}, tab)
                     elif kind == "key":
+                        key = action["key"]
+                        params = {"key": key, "windowsVirtualKeyCode": keys[key]}
+                        if key == "Space":
+                            params.update(key=" ", code="Space")
+                        elif key == "Enter":
+                            params.update(code="Enter")
+                        elif key == "Shift+Tab":
+                            params.update(key="Tab", code="Tab", modifiers=8)
+                        elif key == "Control+A":
+                            params.update(key="a", code="KeyA", modifiers=2)
                         for event in ("keyDown", "keyUp"):
                             command(
                                 "Input.dispatchKeyEvent",
-                                {"type": event, "key": action["key"], "windowsVirtualKeyCode": keys[action["key"]]},
+                                {
+                                    "type": event,
+                                    **params,
+                                    **(
+                                        {"text": " " if key == "Space" else "\r"}
+                                        if key in {"Space", "Enter"} and event == "keyDown"
+                                        else {}
+                                    ),
+                                },
                                 tab,
                             )
                     elif kind == "click":

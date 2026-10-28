@@ -49,6 +49,7 @@ jobs:
           node --experimental-vm-modules scripts/test_android.mjs
           node android/test_frontend.mjs
           node android/test_native_migration.mjs
+          node android/build_icons.mjs --check
       - name: Test, lint and build Android
         working-directory: android
         run: ./gradlew --no-daemon testDebugUnitTest lintRelease assembleRelease

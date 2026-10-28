@@ -64,6 +64,7 @@ def test_native_contract_keeps_existing_auth_csrf_and_account_isolation(db_sessi
                 assert len(data["storage_scope"]) == 64
                 assert user.hashed_password not in r.text
                 assert (await client.get("/api/mobile/v2/admin/users")).status_code == 403
+                assert (await client.get("/api/mobile/v2/admin/system")).status_code == 403
                 assert (await client.get("/api/mobile/v2/admin/delete-requests")).status_code == 403
             client.cookies.update(cookie(alice))
             before = (await client.get("/api/mobile/v2/context")).json()["storage_scope"]
@@ -115,6 +116,39 @@ def test_native_contract_keeps_existing_auth_csrf_and_account_isolation(db_sessi
             assert (await client.get("/api/mobile/v2/context")).json()["storage_scope"] != before
 
     asyncio.run(exercise())
+
+
+def test_native_system_build_fields_do_not_expand_private_operational_data(db_session, monkeypatch):
+    import operations_service
+    import wrapped_service
+
+    monkeypatch.setattr(
+        operations_service,
+        "get_build_info",
+        lambda: {"release_version": "1.3.1", "channel": "main", "revision": "12", "private_key": "fixture-secret"},
+    )
+    monkeypatch.setattr(
+        operations_service,
+        "get_backup_state",
+        lambda db: {"current": {"filename": "backup.zip", "exists": True, "file_path": "/private/server/backup.zip"}},
+    )
+    monkeypatch.setattr(
+        operations_service,
+        "get_update_state",
+        lambda db: {"message": "Up to date", "internal_credentials": "fixture-secret"},
+    )
+    monkeypatch.setattr(
+        operations_service,
+        "get_recent_admin_jobs",
+        lambda db, limit: [{"id": 1, "status": "completed", "stdout": "fixture-secret"}],
+    )
+    monkeypatch.setattr(wrapped_service, "get_wrapped_settings", lambda db: {"enabled": False})
+    response = mobile.system(admin=object(), db=db_session)
+    data = json.loads(response.body)
+    assert data["build"] == {"release_version": "1.3.1", "channel": "main", "revision": "12"}
+    assert data["backups"]["current"] == {"filename": "backup.zip", "exists": True}
+    assert b"fixture-secret" not in response.body and b"/private/server" not in response.body
+    assert response.headers["cache-control"] == "private, no-store"
 
 
 def test_native_account_form_negotiation_never_serializes_template_context():
@@ -248,6 +282,11 @@ def test_native_browser_requires_admin_session_owner_and_valid_input(db_session,
             assert (
                 await client.post(path + "/input", json={"action": "click", "x": 100, "y": 50}, headers=headers)
             ).status_code == 200
+            for key in ("Space", "Shift+Tab", "Delete", "Home", "End", "PageUp", "PageDown", "Control+A"):
+                assert (
+                    await client.post(path + "/input", json={"action": "key", "key": key}, headers=headers)
+                ).status_code == 200
+                assert calls[-1][1]["key"] == key
             auth_browser.remove(session_id)
             assert (await client.get(path + "/frame")).status_code == 403
 

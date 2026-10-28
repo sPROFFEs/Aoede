@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.0 (30)** connects to **Aoede 1.3.1+** with native Kotlin screens and Media3 playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.1 (31)** connects to **Aoede 1.3.1+** with native Kotlin screens and Media3 playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 ## Install and update
 
@@ -22,9 +22,11 @@ A failed Compose build can leave new bind-mounted source files with the previous
 
 ## Native interface and playback
 
-Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, device downloads, settings and administration use native views and authenticated JSON APIs. Classic, Glass and Vitrine use account theme colors and native layout; their native appearance and animations are not pixel-identical copies of the web themes. The web/PWA and desktop interfaces remain available independently.
+Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, device downloads, settings and administration use native views and authenticated JSON APIs. Classic, Glass and Vitrine follow the mobile web templates, final CSS values and original interface vectors. Native rendering still requires comparison on physical devices for fonts, clipping and animations. The web/PWA and desktop interfaces remain available independently.
 
-One ExoPlayer owns audio. The compact and fullscreen players, notification, optional island and home-screen widget control that same player. Native audio focus and becoming-noisy handling pause on interruptions/headphone disconnection. A paused party listener stays locally paused until an explicit play action. Normal activity/background transitions do not create another audio player.
+One ExoPlayer owns normal music playback. The compact and fullscreen players, notification, optional island and home-screen widget control that same player. Native audio focus and becoming-noisy handling pause on interruptions/headphone disconnection. A paused party listener stays locally paused until an explicit play action. Normal activity/background transitions do not create another audio player. Wrapped temporarily owns transport and its story soundtrack/preview players; closing it releases them and preserves the personal queue paused.
+
+Activity recreation restores the current route and fullscreen player after validating the same account. Saved navigation state excludes credential drafts. File selection and asynchronous results remain bound to the initiating account and screen.
 
 Swipe the compact player or fullscreen artwork horizontally for adjacent tracks; swipe the fullscreen artwork downward to minimize. Buttons and seeking retain separate touch handling; cancelled/multi-touch gestures do not skip songs. Reduced effects/motion disables decorative movement. The native UI has no browser zoom gesture. Final-track Next with repeat/shuffle off leaves playback intact.
 
@@ -62,8 +64,9 @@ Add the Aoede widget through your launcher's widget picker. It uses the shared n
 
 | File | Purpose |
 |---|---|
-| `aoede-android.apk` | Current signed native client, Android 1.2.0/code 30. |
+| `aoede-android.apk` | Current signed native client, Android 1.2.1/code 31. |
 | `aoede-android-source.zip` | Complete Android project, tests, editable compatibility frontend and compiler. |
+| `aoede-android-native-1.2.0.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-webview-1.1.22.apk` / `-source.zip` | Previous installed web client backup. |
 | `aoede-android-wrapper-1.0.5.apk` / `-source.zip` | Original remote-wrapper backup. |
 

@@ -155,7 +155,18 @@ def system(admin: database.User = Depends(current_admin), db: Session = Depends(
         return {key: value.get(key) for key in keys if key in value}
 
     build = public_fields(
-        operations_service.get_build_info(), ("version", "commit", "full_commit", "branch", "build_date")
+        operations_service.get_build_info(),
+        (
+            "version",
+            "commit",
+            "full_commit",
+            "branch",
+            "channel",
+            "revision",
+            "release_version",
+            "display_version",
+            "build_date",
+        ),
     )
     backups = operations_service.get_backup_state(db)
     for slot in ("current", "previous"):
@@ -218,7 +229,25 @@ class BrowserInput(BaseModel):
     y: float = Field(default=0, ge=0, le=1600)
     delta: float = Field(default=0, ge=-1200, le=1200)
     text: str = Field(default="", max_length=2048)
-    key: Literal["", "Enter", "Tab", "Backspace", "Escape", "ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"] = ""
+    key: Literal[
+        "",
+        "Enter",
+        "Tab",
+        "Shift+Tab",
+        "Space",
+        "Backspace",
+        "Delete",
+        "Escape",
+        "ArrowLeft",
+        "ArrowUp",
+        "ArrowRight",
+        "ArrowDown",
+        "Home",
+        "End",
+        "PageUp",
+        "PageDown",
+        "Control+A",
+    ] = ""
 
 
 def owned_browser(session_id: str, admin):

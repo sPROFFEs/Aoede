@@ -144,6 +144,9 @@ html[data-theme="vitrine"] :is(.primary-nav button, .sidebar-library-link) { fon
 html[data-theme="vitrine"] .primary-nav button.active { color: var(--primary) !important; background: var(--square-wash) !important; }
 html[data-theme="vitrine"] .sidebar-cover { width: 40px; height: 40px; min-width: 40px; min-height: 40px; border-radius: 6px; }
 html[data-theme="vitrine"] .sidebar-item { padding-block: 7px; gap: 12px; }
+/* Centre the actual cover width, including the sidebar's border and list padding. */
+:root[data-sidebar-mode="collapsed"] .sidebar-item { padding-inline: calc(50% - 24px); gap: 0; }
+html[data-theme="vitrine"][data-sidebar-mode="collapsed"] .sidebar-item { padding-inline: calc(50% - 20px); }
 html[data-theme="vitrine"] .home-overview { margin: 0 0 28px; padding: 0 0 24px !important; border-bottom: 1px solid var(--border-subtle); }
 html[data-theme="vitrine"] .hero-greeting { font-size: clamp(2rem, 3vw, 2.75rem); font-weight: 750; }
 html[data-theme="vitrine"] .home-overview .home-tabs { order: 0; margin: 18px 0; }

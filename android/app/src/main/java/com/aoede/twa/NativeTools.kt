@@ -6,7 +6,6 @@ import android.os.Handler
 import android.os.Looper
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -25,127 +24,320 @@ class NativeTools(private val ui: NativeUi) {
     private var partyState: TextView? = null
     private var partyNow: TextView? = null
     private var partyQueue: LinearLayout? = null
+    private var partyArtist: TextView? = null
+    private var partyParticipants: LinearLayout? = null
+    private var partyCover: android.widget.ImageView? = null
+    private var partyToggle: NativeIconButton? = null
     private var partySignature = ""
     private var remotePoll: Runnable? = null
     private var remoteBody: LinearLayout? = null
     private val main = Handler(Looper.getMainLooper())
 
-    fun settings() {
-        ui.load("Appearance & settings", "/api/mobile/v2/settings") { value ->
+    private var settingsTab = "account"
+    private var foreground = true
+    private val monitorPolls = mutableListOf<Pair<LinearLayout, Runnable>>()
+
+    fun settings(
+        tab: String = settingsTab,
+        drafts: Map<String, String> = emptyMap(),
+        cached: JSONObject? = null,
+    ) {
+        settingsTab = tab
+        val render: (Any) -> Unit = { value ->
             val data = value as JSONObject
-            ui.label("Appearance", 23)
-            ui.button("Theme · ${data.optString("theme")}") {
-                ui.choose("Choose a theme", listOf("Classic", "Glass", "Vitrine")) { i ->
-                    val theme = listOf("classic", "glass", "vitrine")[i]
-                    ui.request(
-                        "/api/mobile/v2/settings",
-                        "PATCH",
-                        JSONObject().put("theme", theme),
-                        done = {
-                            api.saveContextPreference("theme", theme)
-                            settings()
-                        },
-                    )
-                }
-            }
-            ui.button("Language") {
-                ui.choose("Language", listOf("English", "Español", "Deutsch")) { i ->
-                    val language = listOf("en", "es", "de")[i]
-                    ui.request(
-                        "/api/mobile/v2/settings",
-                        "PATCH",
-                        JSONObject().put("language", language),
-                        done = {
-                            api.saveContextPreference("language", language)
-                            settings()
-                        },
-                    )
-                }
-            }
-            ui.button("Dynamic Island · this device") { ui.activity.openIslandSettings() }
             val prefs = ui.activity.getSharedPreferences(MainActivity.PREFS, 0)
-            ui.button("Reduce effects · ${prefs.getBoolean("reduce_effects",false)}") {
-                prefs
-                    .edit()
-                    .putBoolean("reduce_effects", !prefs.getBoolean("reduce_effects", false))
-                    .apply()
-                settings()
-            }
-            ui.label("Playback", 23)
-            ui.button("Sleep timer") {
-                ui.choose(
-                    "Pause playback after",
-                    listOf("Off", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours"),
-                ) { i ->
-                    player.setSleepTimer(listOf(0, 15, 30, 45, 60, 120)[i])
-                    ui.toast("Sleep timer updated")
+            val scene = ui.content
+            val fields = mutableMapOf<String, android.widget.EditText>()
+            val allPanels = mutableMapOf<String, LinearLayout>()
+            fun settingsPanel(
+                title: String,
+                description: String = "",
+                glyph: String = "",
+                parent: LinearLayout = ui.content,
+            ) = ui.panel(title, description, glyph, parent, settings = true)
+            fun settingsField(
+                title: String,
+                parent: LinearLayout,
+                password: Boolean = false,
+                value: String = "",
+            ): android.widget.EditText {
+                val input = ui.labelledField(title.uppercase(), parent, password, value)
+                val frame = input.parent as android.widget.FrameLayout
+                val caption =
+                    parent.getChildAt(parent.indexOfChild(frame) - 1) as android.widget.TextView
+                (caption.layoutParams as LinearLayout.LayoutParams).topMargin =
+                    ui.dp(if (parent.indexOfChild(caption) == 0) 0 else 16)
+                ui.design.typography(caption, 12.48f, 500)
+                caption.letterSpacing = .04f
+                caption.setTextColor(ui.muted)
+                (frame.layoutParams as LinearLayout.LayoutParams).apply {
+                    height = ui.dp(42)
+                    bottomMargin = 0
                 }
+                input.background =
+                    ui.design.shape(
+                        if (ui.design.theme == "classic") 0x0affffff else ui.design.wash,
+                        6,
+                        true,
+                    )
+                return input
             }
-            ui.button("Loudness normalization · ${prefs.getBoolean("native_replaygain",false)}") {
-                prefs
-                    .edit()
-                    .putBoolean("native_replaygain", !prefs.getBoolean("native_replaygain", false))
-                    .apply()
-                player.refreshAudioPreferences()
-                settings()
-            }
-            ui.button("Track fade · ${prefs.getInt("native_fade_seconds",0)} seconds") {
-                ui.choose(
-                    "Fade out / fade in",
-                    listOf(
-                        "Off",
-                        "1 second",
-                        "2 seconds",
-                        "3 seconds",
-                        "5 seconds",
-                        "8 seconds",
-                        "12 seconds",
+            ui.space(16)
+            ui.identity(
+                api.username,
+                if (api.isAdmin) ui.text("common.admin", "Administrator")
+                else ui.text("common.member", "Member"),
+                "/user/avatar/${NativeApi.encode(api.username)}",
+                size = 72,
+                detail =
+                    ui.text(
+                        "settings.security_subtitle",
+                        "Account security, metadata providers, and YouTube authentication for this user profile.",
                     ),
-                ) { i ->
-                    prefs
-                        .edit()
-                        .putInt("native_fade_seconds", listOf(0, 1, 2, 3, 5, 8, 12)[i])
-                        .apply()
-                    settings()
+                edit = {
+                    ui.activity.pickNativeFile("image/*") {
+                        upload("/user/upload-avatar", "avatar_file", it) { settings() }
+                    }
+                },
+            )
+            val keys = listOf("account", "appearance", "playback", "integrations", "youtube")
+            ui.tabs(
+                listOf(
+                    "Account",
+                    ui.text("appearance.title", "Appearance"),
+                    "Playback",
+                    "Integrations",
+                    "YouTube authentication",
+                ),
+                keys.indexOf(tab).coerceAtLeast(0),
+                icons = listOf("user", "palette", "volume-2", "key-round", "cookie"),
+            ) { i ->
+                settingsTab = keys[i]
+                allPanels.forEach { (key, panel) ->
+                    panel.visibility =
+                        if (key == settingsTab) android.view.View.VISIBLE
+                        else android.view.View.GONE
                 }
             }
-            ui.button("Profile photo") {
-                ui.activity.pickNativeFile("image/*") {
-                    upload("/user/upload-avatar", "avatar_file", it) { profile(api.username) }
+            ui.space(if (ui.design.theme == "vitrine") 20 else 24)
+            fun region(key: String) =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    visibility =
+                        if (key == tab) android.view.View.VISIBLE else android.view.View.GONE
+                    ui.content.addView(this)
+                    allPanels[key] = this
                 }
+            val account = region("account")
+            val security =
+                settingsPanel(
+                    ui.text("settings.section.security", "Security"),
+                    ui.text(
+                        "settings.security_desc",
+                        "Manage your password and keep your account secure.",
+                    ),
+                    "lock",
+                    account,
+                )
+            val current =
+                settingsField(
+                        ui.text("settings.current_password", "Current password"),
+                        security,
+                        true,
+                        drafts["current"].orEmpty(),
+                    )
+                    .also { fields["current"] = it }
+            val next =
+                settingsField(
+                        ui.text("settings.new_password", "New password"),
+                        security,
+                        true,
+                        drafts["next"].orEmpty(),
+                    )
+                    .also { fields["next"] = it }
+            val confirm =
+                settingsField(
+                        ui.text("settings.confirm_password", "Confirm password"),
+                        security,
+                        true,
+                        drafts["confirm"].orEmpty(),
+                    )
+                    .also { fields["confirm"] = it }
+            for (input in listOf(current, next, confirm)) {
+                val frame = input.parent as android.widget.FrameLayout
+                if (frame.childCount > 1) frame.removeViewAt(1)
+                input.setPadding(ui.dp(14), 0, ui.dp(14), 0)
             }
-            ui.label("Account & integrations", 23)
-            ui.button("Change password") { password() }
-            ui.button("Provider credentials") {
-                integrations(data.optJSONObject("integrations") ?: JSONObject())
+            ui.button(ui.text("settings.save_button", "Save changes"), security, true) {
+                if (next.text.toString() != confirm.text.toString()) {
+                    confirm.error = "Passwords do not match"
+                } else
+                    ui.request(
+                        "/user/change-password",
+                        form =
+                            mapOf(
+                                "current_password" to current.text.toString(),
+                                "new_password" to next.text.toString(),
+                                "confirm_password" to confirm.text.toString(),
+                            ),
+                        done = {
+                            fields.values.forEach { it.text.clear() }
+                            player.release()
+                            api.clearSession()
+                            ui.login("Password changed. Sign in again.")
+                        },
+                    )
             }
-            ui.button("Metadata provider priority") {
-                ui.choose("First provider", listOf("spotify", "lastfm", "musicbrainz")) { first ->
-                    val providers = listOf("spotify", "lastfm", "musicbrainz")
+            val language =
+                settingsPanel(
+                    ui.text("settings.language_section", "Language"),
+                    "Choose the language used across your devices.",
+                    "globe",
+                    account,
+                )
+            ui.button(
+                when (api.account?.optString("language")) {
+                    "es" -> "Español"
+                    "de" -> "Deutsch"
+                    else -> "English"
+                },
+                language,
+            ) {
+                ui.choose("Language", listOf("English", "Español", "Deutsch")) { i ->
+                    val selected = listOf("en", "es", "de")[i]
                     ui.request(
                         "/api/mobile/v2/settings",
                         "PATCH",
-                        JSONObject()
-                            .put(
-                                "metadata_preferences",
-                                JSONArray(
-                                    listOf(providers[first]) +
-                                        providers.filterIndexed { i, _ -> i != first }
-                                ),
-                            ),
-                        done = { settings() },
+                        JSONObject().put("language", selected),
+                        done = {
+                            api.saveContextPreference("language", selected)
+                            settings("account", fields.mapValues { it.value.text.toString() }, data)
+                        },
                     )
                 }
             }
-            ui.button("Import YouTube cookies") {
-                ui.activity.pickNativeFile("text/*") {
-                    upload("/user/upload-cookies", "cookies_file", it) {
-                        ui.toast("Cookies updated")
+            val accountActions = settingsPanel("Account", "", "shield", account)
+            ui.button("Public profile", accountActions) { profile(api.username) }
+            ui.button("Deletion request responses", accountActions) { deletionResponses() }
+            ui.button("Configure server", accountActions) { ui.activity.openServerSettings() }
+            ui.button("Sign out", accountActions) { ui.signOut() }
+
+            val appearance = region("appearance")
+            val themes =
+                settingsPanel(
+                    ui.text("appearance.title", "Appearance"),
+                    ui.text(
+                        "appearance.description",
+                        "Choose how Aoede looks. Your theme follows you across devices.",
+                    ),
+                    "palette",
+                    appearance,
+                )
+            val choices = mutableListOf<android.view.View>()
+            var saving = false
+            for (key in listOf("classic", "glass", "vitrine")) {
+                val selected = data.optString("theme") == key
+                val card =
+                    object : LinearLayout(ui.activity) {
+                            override fun onInitializeAccessibilityNodeInfo(
+                                info: android.view.accessibility.AccessibilityNodeInfo
+                            ) {
+                                super.onInitializeAccessibilityNodeInfo(info)
+                                info.className = "android.widget.RadioButton"
+                                info.isCheckable = true
+                                info.isChecked = isSelected
+                            }
+                        }
+                        .apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPadding(ui.dp(16), ui.dp(16), ui.dp(16), ui.dp(16))
+                            isFocusable = true
+                            isSelected = selected
+                            contentDescription = ui.text("appearance.$key", key)
+                        }
+                card.background =
+                    ui.design
+                        .shape(
+                            android.graphics.Color.TRANSPARENT,
+                            if (ui.design.theme == "vitrine") 24 else 20,
+                            true,
+                        )
+                        .apply {
+                            setStroke(ui.dp(2), if (selected) ui.accent else ui.design.border)
+                        }
+                themes.addView(
+                    card,
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(20) },
+                )
+                card.addView(
+                    NativeThemePreview(ui.activity, key),
+                    LinearLayout.LayoutParams(-1, ui.dp(140)),
+                )
+                ui.label(
+                        ui.text("appearance.$key", key.replaceFirstChar(Char::uppercase)),
+                        16,
+                        card,
+                    )
+                    .apply {
+                        setTypeface(null, android.graphics.Typeface.BOLD)
+                        (layoutParams as LinearLayout.LayoutParams).topMargin = ui.dp(12)
+                    }
+                ui.label(
+                        ui.text(
+                            "appearance.${key}_description",
+                            when (key) {
+                                "classic" -> "Familiar contrast and a clean music-first layout."
+                                "glass" -> "Soft translucent surfaces and airy controls."
+                                else -> "An editorial layout with clear, expressive controls."
+                            },
+                        ),
+                        14,
+                        card,
+                        ui.muted,
+                    )
+                    .apply { (layoutParams as LinearLayout.LayoutParams).topMargin = ui.dp(6) }
+                choices.add(card)
+                card.setOnClickListener {
+                    if (!saving && !selected) {
+                        saving = true
+                        choices.forEach { it.isEnabled = false }
+                        val scope = api.scope
+                        api.execute({
+                            api.request(
+                                "/api/mobile/v2/settings",
+                                "PATCH",
+                                JSONObject().put("theme", key),
+                            )
+                        }) { _, error ->
+                            saving = false
+                            choices.forEach { it.isEnabled = true }
+                            if (api.scope != scope) return@execute
+                            if (error != null) ui.toast(error.message ?: "Could not save theme")
+                            else {
+                                api.saveContextPreference("theme", key)
+                                if (ui.content === scene)
+                                    settings(
+                                        "appearance",
+                                        fields.mapValues { it.value.text.toString() },
+                                        data.put("theme", key),
+                                    )
+                            }
+                        }
                     }
                 }
             }
-            ui.button("Storage & migration") { storage() }
-            ui.button("Installed web client · compatibility") {
+            val device = settingsPanel("This device", "", "smartphone", appearance)
+            ui.toggle("Reduce effects", prefs.getBoolean("reduce_effects", false), device) {
+                prefs.edit().putBoolean("reduce_effects", it).apply()
+                settings(
+                    "appearance",
+                    fields.mapValues { field -> field.value.text.toString() },
+                    data,
+                )
+            }
+            ui.button("Dynamic Island", device) { ui.activity.openIslandSettings() }
+            ui.button("Storage & migration", device) { storage() }
+            ui.button("Installed web client · compatibility", device) {
                 ui.confirm(
                     "Use compatibility client",
                     "This preserves the previous installed interface and its original device library. Native playback will stop before switching.",
@@ -156,136 +348,375 @@ class NativeTools(private val ui: NativeUi) {
                     ui.activity.recreate()
                 }
             }
-            ui.button("Deletion request responses") {
-                ui.load("Your requests", "/api/tracks/delete-requests/mine") { rows ->
-                    for (r in NativeTrack.items(rows)) ui.row(
-                        r.optString("track_title"),
-                        r.optString("status") + " · " + r.optString("review_note"),
-                    ) {}
+
+            val playback = region("playback")
+            val audio =
+                settingsPanel("Playback", "Adjust playback on this device.", "volume-2", playback)
+            ui.toggle(
+                "Loudness normalization",
+                prefs.getBoolean("native_replaygain", false),
+                audio,
+            ) {
+                prefs.edit().putBoolean("native_replaygain", it).apply()
+                player.refreshAudioPreferences()
+            }
+            ui.space(12, audio)
+            ui.label("Track fade", 13, audio, ui.muted)
+            val fade =
+                android.widget.SeekBar(ui.activity).apply {
+                    max = 12
+                    progress = prefs.getInt("native_fade_seconds", 0)
+                    contentDescription = "Track fade in seconds"
+                    progressTintList = android.content.res.ColorStateList.valueOf(ui.accent)
+                    thumbTintList = android.content.res.ColorStateList.valueOf(ui.accent)
+                }
+            audio.addView(fade, LinearLayout.LayoutParams(-1, ui.dp(44)))
+            val fadeLabel = ui.label("${fade.progress} seconds", 13, audio, ui.muted)
+            fade.setOnSeekBarChangeListener(
+                object : android.widget.SeekBar.OnSeekBarChangeListener {
+                    override fun onStartTrackingTouch(bar: android.widget.SeekBar) {}
+
+                    override fun onStopTrackingTouch(bar: android.widget.SeekBar) {
+                        prefs.edit().putInt("native_fade_seconds", bar.progress).apply()
+                    }
+
+                    override fun onProgressChanged(
+                        bar: android.widget.SeekBar,
+                        value: Int,
+                        user: Boolean,
+                    ) {
+                        fadeLabel.text = "$value seconds"
+                    }
+                }
+            )
+            ui.button("Sleep timer", audio) {
+                ui.choose(
+                    "Pause playback after",
+                    listOf("Off", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours"),
+                ) {
+                    player.setSleepTimer(listOf(0, 15, 30, 45, 60, 120)[it])
                 }
             }
-        }
-    }
 
-    private fun password() {
-        val body =
-            LinearLayout(ui.activity).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(ui.dp(20), 0, ui.dp(20), 0)
-            }
-        val current = ui.field("Current password", body, true)
-        val next = ui.field("New password", body, true)
-        val confirm = ui.field("Confirm new password", body, true)
-        val dialog =
-            AlertDialog.Builder(ui.activity)
-                .setTitle("Change password")
-                .setView(body)
-                .setNegativeButton("Cancel", null)
-                .setPositiveButton("Save", null)
-                .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                if (next.text.toString() != confirm.text.toString()) {
-                    confirm.error = "Passwords do not match"
-                    return@setOnClickListener
+            val integrations = region("integrations")
+            val provider =
+                settingsPanel(
+                    ui.text("settings.data_sources", "Data sources"),
+                    "Stored secrets are never returned. Leave a field blank to keep it.",
+                    "key-round",
+                    integrations,
+                )
+            val configured = data.optJSONObject("integrations") ?: JSONObject()
+            val providerFields =
+                listOf(
+                        "spotify_client_id",
+                        "spotify_client_secret",
+                        "lastfm_api_key",
+                        "lastfm_shared_secret",
+                    )
+                    .associateWith { key ->
+                        settingsField(
+                                key.replace('_', ' ').replaceFirstChar(Char::uppercase) +
+                                    (if (configured.optBoolean(key)) " · configured" else ""),
+                                provider,
+                                true,
+                                drafts[key].orEmpty(),
+                            )
+                            .also { fields[key] = it }
+                    }
+            ui.button("Save credentials", provider, true) {
+                val payload = JSONObject()
+                providerFields.forEach { (key, input) ->
+                    if (input.text.isNotBlank()) payload.put(key, input.text.toString())
                 }
                 ui.request(
-                    "/user/change-password",
-                    form =
-                        mapOf(
-                            "current_password" to current.text.toString(),
-                            "new_password" to next.text.toString(),
-                            "confirm_password" to confirm.text.toString(),
-                        ),
+                    "/api/mobile/v2/integrations",
+                    "PUT",
+                    payload,
                     done = {
-                        current.text.clear()
-                        next.text.clear()
-                        confirm.text.clear()
-                        dialog.dismiss()
-                        player.release()
-                        api.clearSession()
-                        ui.login("Password changed. Sign in again.")
+                        providerFields.values.forEach { it.text.clear() }
+                        ui.toast("Credentials saved")
                     },
                 )
             }
-        }
-        dialog.show()
-    }
-
-    private fun integrations(configured: JSONObject) {
-        ui.screen("Provider credentials", { settings() })
-        ui.label(
-            "Stored secrets are never returned. Leave a field blank to keep it.",
-            14,
-            color = ui.muted,
-        )
-        val fields =
-            listOf(
-                    "spotify_client_id",
-                    "spotify_client_secret",
-                    "lastfm_api_key",
-                    "lastfm_shared_secret",
-                )
-                .associateWith { key ->
-                    ui.field(
-                        key.replace('_', ' ') +
-                            if (configured.optBoolean(key)) " · configured" else "",
-                        password = true,
-                    )
+            ui.button("Remove a stored credential", provider) {
+                ui.choose("Remove credential", providerFields.keys.toList()) { index ->
+                    val key = providerFields.keys.elementAt(index)
+                    ui.confirm("Remove credential", key) {
+                        ui.request(
+                            "/api/mobile/v2/integrations",
+                            "PUT",
+                            JSONObject().put(key, JSONObject.NULL),
+                            done = { settings("integrations") },
+                        )
+                    }
                 }
-        ui.button("Save credentials", primary = true) {
-            val body = JSONObject()
-            for ((key, input) in fields) if (input.text.isNotBlank())
-                body.put(key, input.text.toString())
-            ui.request(
-                "/api/mobile/v2/integrations",
-                "PUT",
-                body,
-                done = {
-                    fields.values.forEach { it.text.clear() }
-                    settings()
-                },
-            )
-        }
-        ui.button("Remove a stored credential") {
-            ui.choose("Remove credential", fields.keys.toList()) { i ->
-                val key = fields.keys.elementAt(i)
-                ui.confirm("Remove credential", key) {
+            }
+            ui.button("Metadata provider priority", provider) {
+                ui.choose("First provider", listOf("spotify", "lastfm", "musicbrainz")) { first ->
+                    val providers = listOf("spotify", "lastfm", "musicbrainz")
                     ui.request(
-                        "/api/mobile/v2/integrations",
-                        "PUT",
-                        JSONObject().put(key, JSONObject.NULL),
-                        done = { settings() },
+                        "/api/mobile/v2/settings",
+                        "PATCH",
+                        JSONObject()
+                            .put(
+                                "metadata_preferences",
+                                org.json.JSONArray(
+                                    listOf(providers[first]) +
+                                        providers.filterIndexed { i, _ -> i != first }
+                                ),
+                            ),
+                        done = { ui.toast("Priority saved") },
                     )
                 }
             }
+
+            val youtube = region("youtube")
+            val cookies =
+                settingsPanel(
+                    "YouTube authentication",
+                    "Import cookies to use your account with the server downloader.",
+                    "cookie",
+                    youtube,
+                )
+            ui.button("Import YouTube cookies", cookies, true) {
+                ui.activity.pickNativeFile("text/*") {
+                    upload("/user/upload-cookies", "cookies_file", it) {
+                        ui.toast("Cookies updated")
+                    }
+                }
+            }
+        }
+        if (cached != null) {
+            ui.screen(
+                "Settings",
+                { ui.home() },
+                key = "/api/mobile/v2/settings",
+                restore = { settings() },
+            )
+            render(cached)
+        } else
+            ui.load(
+                "Settings",
+                "/api/mobile/v2/settings",
+                restore = { settings() },
+                render = render,
+            )
+    }
+
+    fun deletionResponses() {
+        ui.load("Your requests", "/api/tracks/delete-requests/mine") { rows ->
+            for (r in NativeTrack.items(rows)) ui.row(
+                r.optString("track_title"),
+                r.optString("status") + " · " + r.optString("review_note"),
+            ) {}
+            ui.request("/api/tracks/delete-requests/ack", done = {})
         }
     }
 
     fun profile(username: String) {
-        ui.load("Profile", "/user/profile/${NativeApi.encode(username)}") { value ->
+        ui.load(
+            ui.text("profile.profile", "Profile"),
+            "/user/profile/${NativeApi.encode(username)}",
+        ) { value ->
             val data = value as JSONObject
-            ui.row(
-                data.optString("username"),
-                if (data.optBoolean("is_federated")) data.optString("fed_instance_name")
-                else "Aoede",
-                data.optString("avatar_url"),
-            ) {}
-            val stats = data.optJSONObject("stats")
-            ui.label(
-                "${stats?.optInt("total_listens")?:0} listens · ${stats?.optInt("listening_minutes")?:0} minutes",
-                16,
+            val playlists = NativeTrack.items(data.optJSONArray("public_playlists"))
+            val favorites = NativeTrack.items(data.optJSONArray("favorites"))
+            val hero =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(ui.dp(20), ui.dp(20), ui.dp(20), ui.dp(20))
+                    background =
+                        ui.design.shape(
+                            ui.design.content,
+                            if (ui.design.theme == "vitrine") 22 else 24,
+                            true,
+                        )
+                }
+            if (ui.design.theme == "classic") hero.background = null
+            ui.content.addView(
+                hero,
+                LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(24) },
             )
-            ui.label("Public playlists & albums", 22)
-            for (p in NativeTrack.items(data.optJSONArray("public_playlists"))) ui.row(
-                p.optString("name"),
-                p.optString("kind"),
-                p.optString("thumbnail"),
-            ) {
-                ui.collection(p.get("id").toString())
+            ui.button(ui.text("common.back", "Back"), hero) { ui.back() }
+                .apply {
+                    layoutParams =
+                        LinearLayout.LayoutParams(-2, ui.dp(44)).apply { bottomMargin = ui.dp(14) }
+                    setTextColor(ui.muted)
+                    if (ui.design.theme == "classic")
+                        background = ui.design.touch(android.graphics.Color.TRANSPARENT, 6)
+                    setCompoundDrawablesRelative(
+                        NativeIcon("arrow-left", ui.muted, ui.design.theme).apply {
+                            setBounds(0, 0, ui.dp(16), ui.dp(16))
+                        },
+                        null,
+                        null,
+                        null,
+                    )
+                    compoundDrawablePadding = ui.dp(6)
+                }
+            val identity =
+                LinearLayout(ui.activity).apply {
+                    gravity = android.view.Gravity.CENTER_VERTICAL
+                    orientation =
+                        if (
+                            ui.activity.resources.configuration.screenWidthDp -
+                                ui.design.gutter * 2 -
+                                40 < 274
+                        )
+                            LinearLayout.VERTICAL
+                        else LinearLayout.HORIZONTAL
+                }
+            hero.addView(identity, LinearLayout.LayoutParams(-1, -2))
+            val avatar =
+                android.widget.ImageView(ui.activity).apply {
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                    background = ui.design.shape(ui.design.wash, 999, true)
+                    outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                    clipToOutline = true
+                    contentDescription = data.optString("username")
+                }
+            identity.addView(
+                avatar,
+                LinearLayout.LayoutParams(ui.dp(88), ui.dp(88)).apply {
+                    if (identity.orientation == LinearLayout.HORIZONTAL) marginEnd = ui.dp(16)
+                    else bottomMargin = ui.dp(16)
+                    gravity =
+                        if (identity.orientation == LinearLayout.HORIZONTAL)
+                            android.view.Gravity.CENTER_VERTICAL
+                        else android.view.Gravity.START
+                },
+            )
+            ui.artwork(avatar, data.optString("avatar_url"))
+            val details = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            identity.addView(
+                details,
+                if (identity.orientation == LinearLayout.HORIZONTAL)
+                    LinearLayout.LayoutParams(0, -2, 1f)
+                else LinearLayout.LayoutParams(-1, -2),
+            )
+            ui.label(
+                    if (data.optBoolean("is_admin")) ui.text("common.admin", "Admin")
+                    else ui.text("common.member", "Member"),
+                    12,
+                    details,
+                )
+                .apply {
+                    text = text.toString().uppercase()
+                    setTextColor(
+                        if (ui.design.theme == "classic") ui.accent else 0xffa6e0bd.toInt()
+                    )
+                    background =
+                        ui.design.shape(
+                            if (ui.design.theme == "classic") 0x1622c55e else ui.design.wash,
+                            999,
+                            true,
+                        )
+                    gravity = android.view.Gravity.CENTER
+                    setPadding(ui.dp(10), ui.dp(3), ui.dp(10), ui.dp(3))
+                    layoutParams =
+                        LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = ui.dp(4) }
+                }
+            ui.label(data.optString("username"), 32, details).apply {
+                ui.design.typography(this, 32f, 700)
+                ui.design.lines(this, 1.1f)
+                (layoutParams as LinearLayout.LayoutParams).apply {
+                    topMargin = ui.dp(4)
+                    bottomMargin = ui.dp(10)
+                }
             }
-            ui.label("Favorites", 22)
-            ui.tracks(NativeTrack.items(data.optJSONArray("favorites")))
+            if (data.optBoolean("is_federated"))
+                ui.label(data.optString("fed_instance_name"), 12, details, ui.muted)
+            val stats = data.optJSONObject("stats")
+            val chips = NativeFlowLayout(ui.activity, ui.dp(10))
+            details.addView(chips, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ui.dp(8) })
+            for ((glyph, number, caption) in
+                listOf(
+                    Triple("list-music", playlists.size, ui.text("library.playlists", "Playlists")),
+                    Triple("heart", favorites.size, ui.text("menu.liked", "Favorites")),
+                    Triple(
+                        "headphones",
+                        stats?.optInt("total_listens") ?: 0,
+                        ui.text("common.plays", "Listens"),
+                    ),
+                    Triple("clock", stats?.optInt("listening_minutes") ?: 0, "Mins"),
+                )) {
+                val chip =
+                    TextView(ui.activity).apply {
+                        val value = "$number $caption"
+                        text =
+                            android.text.SpannableString(value).apply {
+                                setSpan(
+                                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                                    0,
+                                    number.toString().length,
+                                    0,
+                                )
+                                if (ui.design.theme == "classic")
+                                    setSpan(
+                                        android.text.style.ForegroundColorSpan(ui.accent),
+                                        0,
+                                        number.toString().length,
+                                        0,
+                                    )
+                            }
+                        ui.design.typography(this, 13f)
+                        setTextColor(ui.ink)
+                        background =
+                            ui.design.shape(
+                                if (ui.design.theme == "classic") 0x0fffffff else ui.design.content,
+                                999,
+                                true,
+                            )
+                        setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(8))
+                        setCompoundDrawablesRelative(
+                            NativeIcon(glyph, ui.ink, ui.design.theme).apply {
+                                setBounds(0, 0, ui.dp(14), ui.dp(14))
+                            },
+                            null,
+                            null,
+                            null,
+                        )
+                        compoundDrawablePadding = ui.dp(6)
+                    }
+                chips.addView(chip)
+            }
+            if (data.optBoolean("is_self"))
+                ui.button(ui.text("profile.edit_settings", "Edit Profile & Settings"), details) {
+                    settings()
+                }
+            if (playlists.isNotEmpty()) {
+                ui.sectionHeader(
+                    "${ui.text("profile.public_playlists", "Public Playlists & Albums")} (${playlists.size})"
+                )
+                ui.collectionGrid(playlists, columns = 1) { ui.collection(it.get("id").toString()) }
+            }
+            if (favorites.isNotEmpty()) {
+                ui.sectionHeader(
+                    "Favorite Songs (${favorites.size})",
+                    more = {
+                        if (ui.player.party == null) ui.player.play(favorites)
+                        else ui.toast("Leave the party first")
+                    },
+                )
+                ui.tracks(favorites)
+            }
+            val artists = NativeTrack.items(stats?.optJSONArray("top_artists"))
+            if (artists.isNotEmpty()) {
+                ui.sectionHeader("Top Artists")
+                ui.chipBar(
+                    artists.map { it.optString("artist") to { artist(it.optString("artist")) } }
+                )
+            }
+            if (playlists.isEmpty() && favorites.isEmpty())
+                ui.label(
+                    ui.text(
+                        "profile.empty",
+                        "This user hasn't shared any public playlists or favorites yet.",
+                    ),
+                    15,
+                    color = ui.muted,
+                )
         }
     }
 
@@ -338,20 +769,209 @@ class NativeTools(private val ui: NativeUi) {
     fun artist(name: String) {
         ui.load(name, "/api/artist/" + Uri.encode(name)) { value ->
             val data = value as JSONObject
-            ui.label(name, 28)
-            for (key in listOf("library_tracks", "top_tracks", "tracks")) {
-                val tracks = NativeTrack.items(data.optJSONArray(key))
-                if (tracks.isNotEmpty()) {
-                    ui.label(key.replace('_', ' '), 20)
-                    ui.tracks(tracks)
+            val local = NativeTrack.items(data.optJSONArray("local_tracks"))
+            val spotify = data.optJSONObject("spotify")
+            val info = data.optJSONObject("info")
+            val hero = android.widget.FrameLayout(ui.activity)
+            ui.content.addView(
+                hero,
+                LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(24) },
+            )
+            val photo =
+                android.widget.ImageView(ui.activity).apply {
+                    scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                }
+            hero.addView(photo, android.widget.FrameLayout.LayoutParams(-1, -1))
+            ui.artwork(
+                photo,
+                spotify?.optString("image").orEmpty().ifBlank {
+                    local.firstOrNull()?.optString("thumbnail") ?: "/assets/img/default_cover.png"
+                },
+            ) { bitmap ->
+                fun position() {
+                    if (photo.width == 0 || photo.height == 0) return
+                    val scale =
+                        maxOf(
+                            photo.width.toFloat() / bitmap.width,
+                            photo.height.toFloat() / bitmap.height,
+                        )
+                    photo.scaleType = android.widget.ImageView.ScaleType.MATRIX
+                    photo.imageMatrix =
+                        android.graphics.Matrix().apply {
+                            setScale(scale, scale)
+                            postTranslate(
+                                (photo.width - bitmap.width * scale) / 2,
+                                (photo.height - bitmap.height * scale) * .25f,
+                            )
+                        }
+                }
+                photo.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> position() }
+                position()
+            }
+            val overlay =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(ui.dp(32), ui.dp(80), ui.dp(32), ui.dp(40))
+                    background =
+                        android.graphics.drawable.GradientDrawable(
+                            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                            intArrayOf(0x33000000, 0xd9000000.toInt()),
+                        )
+                }
+            hero.addView(overlay)
+            val tags = info?.optJSONArray("tags")
+            if (tags != null && tags.length() > 0) {
+                val row = NativeFlowLayout(ui.activity, ui.dp(6))
+                overlay.addView(
+                    row,
+                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(12) },
+                )
+                for (index in 0 until tags.length()) row.addView(
+                    TextView(ui.activity).apply {
+                        text = tags.optString(index)
+                        ui.design.typography(this, 11.5f)
+                        setTextColor(android.graphics.Color.WHITE)
+                        setPadding(ui.dp(10), ui.dp(3), ui.dp(10), ui.dp(3))
+                        background = ui.design.shape(0x1fffffff, 999)
+                    }
+                )
+            }
+            ui.label(data.optString("name", name), 32, overlay, android.graphics.Color.WHITE)
+                .apply {
+                    ui.design.typography(this, 32f, 800)
+                    ui.design.lines(this, 1.1f)
+                    (layoutParams as LinearLayout.LayoutParams).apply {
+                        topMargin = 0
+                        bottomMargin = ui.dp(8)
+                    }
+                }
+            val stats = mutableListOf<String>()
+            info
+                ?.optLong("listeners")
+                ?.takeIf { it > 0 }
+                ?.let {
+                    stats.add(
+                        "${java.text.NumberFormat.getIntegerInstance().format(it)} Last.fm listeners"
+                    )
+                }
+            spotify
+                ?.optLong("followers")
+                ?.takeIf { it > 0 }
+                ?.let {
+                    stats.add(
+                        "${java.text.NumberFormat.getIntegerInstance().format(it)} Spotify followers"
+                    )
+                }
+            stats.add("${local.size} tracks in your library")
+            ui.label(stats.joinToString(" · "), 14, overlay, 0xd9ffffff.toInt()).apply {
+                (layoutParams as LinearLayout.LayoutParams).bottomMargin = ui.dp(18)
+            }
+            val actions = LinearLayout(ui.activity)
+            overlay.addView(actions)
+            if (local.isNotEmpty())
+                ui.button(ui.text("player.play", "Play"), actions, true) {
+                        if (player.party == null) player.play(local)
+                        else ui.toast("Leave the party first")
+                    }
+                    .layoutParams =
+                    LinearLayout.LayoutParams(-2, ui.dp(44)).apply { marginEnd = ui.dp(10) }
+            ui.button("Radio", actions) { smartRadio(name) }.layoutParams =
+                LinearLayout.LayoutParams(-2, ui.dp(44))
+            if (local.isNotEmpty()) {
+                ui.sectionHeader("In your library", moreLabel = ui.text("player.play", "Play")) {
+                    if (player.party == null) player.play(local)
+                    else ui.toast("Leave the party first")
+                }
+                ui.tracks(local)
+            } else
+                ui.empty("You don't have any tracks by this artist in your library yet.", "music-2")
+            val owned =
+                local
+                    .map {
+                        it.optString("title").lowercase() + "|" + it.optString("artist").lowercase()
+                    }
+                    .toSet()
+            val top =
+                NativeTrack.items(data.optJSONArray("top_tracks"))
+                    .filter {
+                        it.optString("title").lowercase() +
+                            "|" +
+                            it.optString("artist").lowercase() !in owned
+                    }
+                    .take(8)
+            if (top.isNotEmpty()) {
+                ui.sectionHeader("Popular tracks you don't have")
+                for (track in top) {
+                    val artist = track.optString("artist", name)
+                    val row =
+                        ui.row(
+                            track.optString("title"),
+                            artist,
+                            "/api/cover/resolve?artist=${NativeApi.encode(artist)}&title=${NativeApi.encode(track.optString("title"))}",
+                        ) {
+                            ui.search("$artist ${track.optString("title")}")
+                        }
+                    ui.iconButton(row, "download", "Download to library") {
+                        ui.search("$artist ${track.optString("title")}")
+                    }
+                    ui.iconButton(row, "radio", "Start radio") {
+                        smartRadio(artist, track.optString("title"))
+                    }
                 }
             }
-            for (album in NativeTrack.items(data.optJSONArray("albums"))) ui.row(
-                album.optString("name"),
-                album.optString("artist"),
-                album.optString("thumbnail"),
-            ) {
-                resolveCollection(album.optString("url"))
+            val albums =
+                NativeTrack.items(data.optJSONArray("albums")).map {
+                    JSONObject(it.toString())
+                        .put("thumbnail", it.optString("image"))
+                        .put(
+                            "grid_subtitle",
+                            it.optString("release_date").take(4) +
+                                " · " +
+                                if (it.optString("type") == "single") "Single" else "Album",
+                        )
+                }
+            if (albums.isNotEmpty()) {
+                ui.sectionHeader("Discography")
+                ui.collectionGrid(albums) {
+                    if (it.optString("url").isNotBlank()) resolveCollection(it.optString("url"))
+                }
+            }
+            val similar = NativeTrack.items(data.optJSONArray("similar"))
+            if (similar.isNotEmpty()) {
+                ui.sectionHeader("Fans also like")
+                for (item in similar) ui.row(
+                    item.optString("name"),
+                    image = item.optString("image"),
+                ) {
+                    artist(item.optString("name"))
+                }
+            }
+            val bio = info?.optString("bio").orEmpty()
+            if (bio.isNotBlank()) {
+                ui.sectionHeader("About")
+                ui.label(bio, 14, color = ui.muted)
+            }
+        }
+    }
+
+    fun smartRadio(artist: String, title: String = "") {
+        if (player.party != null) {
+            ui.toast("Leave the party first")
+            return
+        }
+        api.execute({
+            api.request(
+                "/api/radio/track?artist=${NativeApi.encode(artist)}&title=${NativeApi.encode(title)}&limit=30"
+            )
+        }) { value, error ->
+            if (error != null) ui.toast(error.message ?: "Radio unavailable")
+            else {
+                val tracks = NativeTrack.items((value as? JSONObject)?.optJSONArray("tracks"))
+                if (tracks.isEmpty()) ui.toast("Need more tracks in your library to build a radio")
+                else if (player.party == null) {
+                    player.play(tracks)
+                    ui.toast("Radio: ${tracks.size} tracks queued")
+                }
             }
         }
     }
@@ -383,258 +1003,1110 @@ class NativeTools(private val ui: NativeUi) {
             ui.toast("No collection URL available")
             return
         }
-        ui.load("Import collection", "/api/collections/resolve?url=" + NativeApi.encode(url)) {
-            value ->
-            val data = (value as JSONObject).optJSONObject("collection") ?: value
-            ui.label(data.optString("name", "Collection"), 26)
-            ui.label("${data.optInt("track_count",NativeTrack.items(data).size)} tracks", 14)
-            ui.button("Import to server library", primary = true) {
-                ui.request(
-                    "/api/download/collection",
-                    body =
-                        JSONObject()
-                            .put("url", url)
-                            .put("kind", data.optString("kind", "playlist"))
-                            .put("name", data.optString("name")),
-                    done = { downloads() },
+        ui.sheet("Import collection") { body, dialog ->
+            ui.label("Loading collection…", 14, body, ui.muted)
+            api.execute({ api.request("/api/collections/resolve?url=" + NativeApi.encode(url)) }) {
+                value,
+                error ->
+                if (!dialog.isShowing) return@execute
+                body.removeAllViews()
+                if (error != null) {
+                    ui.label(error.message ?: "Could not load this collection", 14, body, ui.muted)
+                    ui.button(ui.text("common.cancel", "Cancel"), body) { dialog.dismiss() }
+                    return@execute
+                }
+                val data = (value as JSONObject).optJSONObject("collection") ?: value
+                val tracks = NativeTrack.items(data)
+                val count = data.optInt("track_count", tracks.size)
+                ui.label(
+                    "$count songs from ${data.optString("source")}. Saved under ${api.username} in source order.",
+                    14,
+                    body,
+                    ui.muted,
                 )
+                ui.label(
+                    "Matching songs already in the pool are reused. Only missing songs are downloaded; repeated entries in the source keep their positions.",
+                    14,
+                    body,
+                    ui.muted,
+                )
+                if (data.optInt("skipped") > 0)
+                    ui.label(
+                        "${data.optInt("skipped")} unavailable entries will be skipped.",
+                        14,
+                        body,
+                        ui.muted,
+                    )
+                val name =
+                    ui.labelledField(
+                            "Name",
+                            body,
+                            value = data.optString("name", "Imported collection"),
+                        )
+                        .apply { filters = arrayOf(android.text.InputFilter.LengthFilter(120)) }
+                ui.label("Save as", 13, body, ui.muted)
+                var kind = if (data.optString("kind") == "album") "album" else "playlist"
+                val kindButton = ui.button(if (kind == "album") "Album" else "Playlist", body) {}
+                kindButton.setOnClickListener {
+                    ui.choose("Save as", listOf("Playlist", "Album")) {
+                        kind = if (it == 1) "album" else "playlist"
+                        kindButton.text = if (it == 1) "Album" else "Playlist"
+                    }
+                }
+                val list =
+                    android.widget.ListView(ui.activity).apply {
+                        divider = null
+                        isNestedScrollingEnabled = true
+                        adapter =
+                            object : android.widget.BaseAdapter() {
+                                override fun getCount() = tracks.size
+
+                                override fun getItem(position: Int) = tracks[position]
+
+                                override fun getItemId(position: Int) = position.toLong()
+
+                                override fun areAllItemsEnabled() = false
+
+                                override fun isEnabled(position: Int) = false
+
+                                override fun getView(
+                                    position: Int,
+                                    convert: android.view.View?,
+                                    parent: android.view.ViewGroup,
+                                ): android.view.View =
+                                    (convert as? TextView ?: TextView(ui.activity)).apply {
+                                        val track = tracks[position]
+                                        text =
+                                            "${track.optInt("position", position+1)}. ${track.optString("title")} — ${track.optString("artist")}"
+                                        ui.design.typography(this, 14f)
+                                        ui.design.lines(this, 1.5f)
+                                        setTextColor(ui.ink)
+                                        setPadding(ui.dp(8), ui.dp(6), ui.dp(8), ui.dp(6))
+                                    }
+                            }
+                    }
+                body.addView(
+                    list,
+                    LinearLayout.LayoutParams(
+                            -1,
+                            ui.dp(minOf(320, tracks.size * 42).coerceAtLeast(44)),
+                        )
+                        .apply {
+                            topMargin = ui.dp(12)
+                            bottomMargin = ui.dp(16)
+                        },
+                )
+                val footer = LinearLayout(ui.activity)
+                body.addView(footer)
+                ui.button(ui.text("common.cancel", "Cancel"), footer) { dialog.dismiss() }
+                    .layoutParams =
+                    LinearLayout.LayoutParams(0, ui.dp(48), 1f).apply { marginEnd = ui.dp(10) }
+                val submit = ui.button("Import $count songs", footer, true) {}
+                submit.layoutParams = LinearLayout.LayoutParams(0, ui.dp(48), 1f)
+                submit.setOnClickListener {
+                    val collectionName = name.text.toString().trim()
+                    if (collectionName.isBlank()) {
+                        name.error = "Enter a collection name."
+                        return@setOnClickListener
+                    }
+                    submit.isEnabled = false
+                    submit.text = "Queuing songs…"
+                    val payload =
+                        JSONObject()
+                            .put("url", data.optString("url", url))
+                            .put("kind", kind)
+                            .put("name", collectionName)
+                    api.execute({
+                        api.request("/api/download/collection", "POST", payload)
+                    }) importResult@{ result, failure ->
+                        if (!dialog.isShowing) return@importResult
+                        if (failure != null) {
+                            submit.isEnabled = true
+                            submit.text = "Import $count songs"
+                            ui.toast(failure.message ?: "Could not import this collection")
+                        } else {
+                            dialog.dismiss()
+                            val queued = result as? JSONObject
+                            ui.toast(
+                                queued?.optString("message", "Import queued") ?: "Import queued"
+                            )
+                            val id = queued?.opt("playlist_id")?.toString()
+                            if (!id.isNullOrBlank() && id != "null") ui.collection(id)
+                        }
+                    }
+                }
             }
-            ui.tracks(NativeTrack.items(data))
         }
     }
+
+    private var downloadDialog: android.app.Dialog? = null
+    private var downloadPoll: Runnable? = null
 
     fun downloads() {
-        ui.load("Downloads", "/api/jobs") { value ->
-            val url = ui.field("Spotify / YouTube track, playlist or album URL")
-            val collection =
-                android.widget.Switch(ui.activity).apply {
-                    text = "Album or playlist URL"
-                    setTextColor(ui.ink)
-                    minHeight = ui.dp(48)
+        if (downloadDialog?.isShowing == true) return
+        downloadDialog =
+            ui.sheet(ui.text("downloads.modal_title", "Downloads Manager")) { body, dialog ->
+                var collection = false
+                val form = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+                val submitLabel = ui.text("downloads.modal_download_btn", "Download")
+                lateinit var submit: android.widget.Button
+                ui.toggle("Album / playlist URL (Spotify / YouTube)", false, body, leading = true) {
+                    collection = it
+                    submit.text = if (it) "Preview collection" else submitLabel
                 }
-            ui.content.addView(collection)
-            ui.button("Download", primary = true) {
-                val target = url.text.toString().trim()
-                if (collection.isChecked) resolveCollection(target)
-                else
-                    ui.request(
-                        "/api/download",
-                        body = JSONObject().put("url", target),
-                        done = { downloads() },
+                body.addView(
+                    form,
+                    LinearLayout.LayoutParams(-1, -2).apply {
+                        topMargin = ui.dp(12)
+                        bottomMargin = ui.dp(24)
+                    },
+                )
+                val url =
+                    ui.field(
+                        ui.text("downloads.modal_placeholder", "Paste YouTube/Spotify URL..."),
+                        form,
                     )
-            }
-            ui.button("Device downloads") { ui.offlineDownloads() }
-            for (job in NativeTrack.items(value)) {
-                ui.row(
-                    job.optString("title", job.optString("url", "Download")),
-                    job.optString("status"),
-                ) {
-                    if (job.optString("status") in listOf("error", "failed"))
-                        ui.request("/api/downloads/${job.get("id")}/retry", done = { downloads() })
+                url.inputType =
+                    android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_VARIATION_URI
+                url.filters = arrayOf(android.text.InputFilter.LengthFilter(4096))
+                submit = ui.button(submitLabel, form, true) {}
+                url.layoutParams =
+                    LinearLayout.LayoutParams(-1, ui.dp(43)).apply { bottomMargin = ui.dp(12) }
+                submit.layoutParams = LinearLayout.LayoutParams(-2, ui.dp(44))
+                url.background =
+                    ui.design.shape(
+                        ui.design.wash,
+                        if (ui.design.theme == "vitrine") 16 else 14,
+                        true,
+                    )
+                val jobs = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+                body.addView(jobs)
+                var serial = 0
+                var signature = ""
+                val active = mutableMapOf<String, String>()
+                val poll =
+                    object : Runnable {
+                        override fun run() {
+                            main.removeCallbacks(this)
+                            if (!foreground || !dialog.isShowing) return
+                            val ticket = ++serial
+                            api.execute({ api.request("/api/jobs") }) { result, error ->
+                                if (!foreground || !dialog.isShowing || ticket != serial)
+                                    return@execute
+                                if (error != null) {
+                                    if (signature != "error") {
+                                        jobs.removeAllViews()
+                                        ui.label(
+                                            error.message
+                                                ?: "Could not connect to downloads. Retrying…",
+                                            14,
+                                            jobs,
+                                            ui.muted,
+                                        )
+                                        signature = "error"
+                                    }
+                                } else {
+                                    val list = NativeTrack.items(result)
+                                    for (job in list) {
+                                        val id = job.optString("id")
+                                        val status = job.optString("status").lowercase()
+                                        val title = downloadTitle(job)
+                                        if (
+                                            status !in
+                                                listOf("completed", "finished", "error", "failed")
+                                        )
+                                            active[id] = title
+                                        else if (active.remove(id) != null)
+                                            ui.toast(
+                                                if (status in listOf("error", "failed"))
+                                                    "Download failed: $title"
+                                                else "Downloaded: $title"
+                                            )
+                                    }
+                                    active.keys.retainAll(list.map { it.optString("id") }.toSet())
+                                    val snapshot = result.toString()
+                                    if (snapshot != signature) {
+                                        signature = snapshot
+                                        jobs.removeAllViews()
+                                        if (list.isEmpty())
+                                            ui.label("No downloads yet.", 14, jobs, ui.muted)
+                                                .gravity = android.view.Gravity.CENTER
+                                        for (job in list) downloadJob(job, jobs) {
+                                            val id = job.optLong("id", -1)
+                                            if (id < 0) return@downloadJob
+                                            ui.request(
+                                                "/api/downloads/$id/retry",
+                                                done = {
+                                                    if (dialog.isShowing) {
+                                                        ++serial
+                                                        signature = ""
+                                                        main.post(this)
+                                                    }
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                if (error !is NativeApi.Failure || error.code !in listOf(401, 403))
+                                    main.postDelayed(this, 3000)
+                            }
+                        }
+                    }
+                downloadPoll = poll
+                main.post(poll)
+                body.addOnAttachStateChangeListener(
+                    object : android.view.View.OnAttachStateChangeListener {
+                        override fun onViewAttachedToWindow(view: android.view.View) {}
+
+                        override fun onViewDetachedFromWindow(view: android.view.View) {
+                            ++serial
+                            main.removeCallbacks(poll)
+                            if (downloadPoll === poll) {
+                                downloadPoll = null
+                                downloadDialog = null
+                            }
+                        }
+                    }
+                )
+                submit.setOnClickListener {
+                    val target = url.text.toString().trim()
+                    if (target.isEmpty()) {
+                        url.error = "Enter a music URL"
+                        return@setOnClickListener
+                    }
+                    val parsed = Uri.parse(target)
+                    val collectionUrl =
+                        parsed.scheme in listOf("http", "https") &&
+                            parsed.userInfo == null &&
+                            (parsed.host == "open.spotify.com" &&
+                                Regex("/(album|playlist)/")
+                                    .containsMatchIn(parsed.path.orEmpty()) ||
+                                parsed.host in
+                                    listOf(
+                                        "youtube.com",
+                                        "www.youtube.com",
+                                        "music.youtube.com",
+                                        "m.youtube.com",
+                                        "youtu.be",
+                                    ) &&
+                                    (parsed.getQueryParameter("list") != null ||
+                                        parsed.path.orEmpty().startsWith("/browse/MPRE")))
+                    if (collection || collectionUrl) {
+                        dialog.dismiss()
+                        resolveCollection(target)
+                        return@setOnClickListener
+                    }
+                    submit.isEnabled = false
+                    ++serial
+                    main.removeCallbacks(poll)
+                    api.execute({
+                        val duplicate =
+                            runCatching {
+                                    api.request(
+                                        "/api/check-duplicate?url=" + NativeApi.encode(target)
+                                    ) as JSONObject
+                                }
+                                .getOrNull()
+                        if (duplicate?.optBoolean("exists") == true)
+                            JSONObject().put("duplicate", duplicate.optJSONObject("track"))
+                        else
+                            api.request(
+                                "/api/download",
+                                "POST",
+                                JSONObject()
+                                    .put("url", target)
+                                    .put("title", "")
+                                    .put("artist", "")
+                                    .put("album", "")
+                                    .put("source", ""),
+                            )
+                    }) { result, error ->
+                        if (!dialog.isShowing) return@execute
+                        submit.isEnabled = true
+                        if (error != null) ui.toast(error.message ?: "Failed to queue download")
+                        else {
+                            val response = result as? JSONObject
+                            val existing = response?.optJSONObject("duplicate")
+                            ui.toast(
+                                if (existing != null)
+                                    "Already in library: ${existing.optString("title")} — ${existing.optString("artist")}"
+                                else
+                                    response?.optString("message", "Download queued")
+                                        ?: "Download queued"
+                            )
+                            url.text.clear()
+                            signature = ""
+                        }
+                        main.post(poll)
+                    }
                 }
             }
-        }
     }
 
-    fun radios() {
-        ui.load("Radio & mixes", "/api/mixes") { value ->
-            ui.button("Saved radio stations") {
-                ui.load("Radio", "/api/radio/list") { stations ->
-                    for (s in NativeTrack.items(stations)) ui.row(s.optString("name")) {
-                        val t =
-                            JSONObject()
-                                .put("id", "radio-" + s.optString("id"))
-                                .put("title", s.optString("name"))
-                                .put("artist", "Radio")
-                                .put(
-                                    "stream_url",
-                                    "/api/proxy/radio?url=" +
-                                        NativeApi.encode(
-                                            s.optString("streamUrl", s.optString("url"))
-                                        ),
-                                )
-                        player.play(listOf(t))
-                    }
-                }
+    private fun downloadTitle(job: JSONObject) =
+        listOf("resolved_track_title", "resolved_title", "track_title", "filename", "url")
+            .map { job.optString(it).takeUnless { value -> value == "null" }.orEmpty() }
+            .firstOrNull { it.isNotBlank() } ?: "Untitled download"
+
+    private fun downloadJob(job: JSONObject, parent: LinearLayout, retry: () -> Unit) {
+        val status = job.optString("status").lowercase()
+        val failed = status in listOf("error", "failed")
+        val completed = status in listOf("completed", "finished")
+        val processing = status in listOf("processing", "downloading")
+        val color =
+            if (failed) 0xfffca5a5.toInt()
+            else if (completed) 0xff6ee7a7.toInt()
+            else if (processing) 0xff93c5fd.toInt() else 0xfffbbf24.toInt()
+        val block =
+            LinearLayout(ui.activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(
+                    ui.dp(if (ui.design.theme == "classic") 0 else 2),
+                    ui.dp(14),
+                    0,
+                    ui.dp(14),
+                )
             }
-            ui.button("Search radio") {
-                ui.prompt("Find a radio station") { q ->
-                    ui.load("Radio search", "/api/radio/search?q=" + NativeApi.encode(q)) { stations
-                        ->
-                        for (s in NativeTrack.items(stations)) ui.row(
-                            s.optString("name"),
-                            s.optString("country"),
-                        ) {
+        parent.addView(block)
+        val header = LinearLayout(ui.activity).apply { gravity = android.view.Gravity.TOP }
+        block.addView(header)
+        val copy = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        header.addView(copy, LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = ui.dp(12) })
+        ui.label(downloadTitle(job), 15, copy).apply {
+            ui.design.typography(this, 14.72f, 600)
+            ui.design.lines(this, 1.4f)
+        }
+        ui.label(
+                "Source: ${job.optString("source", "Unknown source").replaceFirstChar(Char::uppercase)}",
+                13,
+                copy,
+                ui.muted,
+            )
+            .apply { (layoutParams as LinearLayout.LayoutParams).topMargin = ui.dp(4) }
+        TextView(ui.activity).apply {
+            text =
+                if (failed) "Failed"
+                else if (completed) "Completed" else if (processing) "Processing" else "Queued"
+            ui.design.typography(this, 11.2f, 600)
+            setTextColor(color)
+            setPadding(ui.dp(10), ui.dp(3), ui.dp(10), ui.dp(3))
+            background = ui.design.shape(ui.design.wash, 999, true)
+            header.addView(this)
+        }
+        val progress =
+            android.widget
+                .ProgressBar(ui.activity, null, android.R.attr.progressBarStyleHorizontal)
+                .apply {
+                    max = 100
+                    progress = job.optInt("progress").coerceIn(0, 100)
+                    progressTintList =
+                        android.content.res.ColorStateList.valueOf(if (failed) color else ui.accent)
+                    progressBackgroundTintList =
+                        android.content.res.ColorStateList.valueOf(ui.design.border)
+                }
+        block.addView(
+            progress,
+            LinearLayout.LayoutParams(-1, ui.dp(if (ui.design.theme == "classic") 6 else 4)).apply {
+                topMargin = ui.dp(10)
+            },
+        )
+        val detail =
+            listOf("error", "detail", "filename", "url")
+                .map { job.optString(it).takeUnless { value -> value == "null" }.orEmpty() }
+                .firstOrNull { it.isNotBlank() }
+                .orEmpty()
+        ui.label(detail, 13, block, if (failed) color else ui.muted).apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = ui.dp(8)
+        }
+        fun value(key: String) = job.optString(key).takeUnless { it == "null" }.orEmpty()
+        fun joined(artist: String, title: String) =
+            listOf(value(artist), value(title)).filter { it.isNotBlank() }.joinToString(" - ")
+        val details =
+            mutableListOf(
+                "Requested source" to
+                    value("requested_source")
+                        .ifBlank { value("source") }
+                        .replaceFirstChar(Char::uppercase)
+            )
+        if (value("original_input_url").isNotBlank() && value("original_input_url") != value("url"))
+            details.add("Original input" to value("original_input_url"))
+        details.add("Requested track" to joined("requested_artist", "requested_title"))
+        details.add(
+            "Resolved track" to
+                joined("resolved_artist", "resolved_title").ifBlank {
+                    value("resolved_track_title")
+                }
+        )
+        for ((key, title) in
+            listOf(
+                "resolved_track_id" to "Track ID",
+                "engine_used" to "Engine",
+                "resolution_mode" to "Resolution",
+                "fallback_reason" to "Fallback",
+                "error_type" to "Error type",
+            )) details.add(title to value(key))
+        val resolution =
+            LinearLayout(ui.activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10))
+                background =
+                    ui.design.shape(
+                        if (ui.design.theme == "classic") 0x29000000
+                        else android.graphics.Color.TRANSPARENT,
+                        12,
+                        true,
+                    )
+            }
+        block.addView(resolution, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ui.dp(10) })
+        for ((caption, text) in details.filter { it.second.isNotBlank() }) {
+            val line = LinearLayout(ui.activity).apply { gravity = android.view.Gravity.TOP }
+            resolution.addView(
+                line,
+                LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(6) },
+            )
+            ui.label(caption.uppercase(), 12, line, ui.muted).apply {
+                ui.design.typography(this, 11.52f)
+                ui.design.lines(this, 1.35f)
+                layoutParams =
+                    LinearLayout.LayoutParams(ui.dp(110), -2).apply { marginEnd = ui.dp(8) }
+            }
+            ui.label(text, 13, line).apply {
+                ui.design.typography(this, 12.48f, 600)
+                ui.design.lines(this, 1.35f)
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            }
+        }
+        val footer =
+            LinearLayout(ui.activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        block.addView(footer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ui.dp(10) })
+        ui.label("${job.optInt("progress").coerceIn(0, 100)}% completion", 12, footer, ui.muted)
+            .layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        if (failed)
+            ui.button("Retry", footer) { retry() }.layoutParams =
+                LinearLayout.LayoutParams(-2, ui.dp(44))
+        val time =
+            runCatching {
+                    java.text
+                        .SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.ROOT)
+                        .apply { timeZone = java.util.TimeZone.getTimeZone("UTC") }
+                        .parse(value("created_at"))
+                }
+                .getOrNull()
+        if (time != null)
+            ui.label(
+                    android.text.format.DateFormat.getTimeFormat(ui.activity).format(time),
+                    12,
+                    footer,
+                    ui.muted,
+                )
+                .layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = ui.dp(12) }
+        parent.addView(
+            android.view.View(ui.activity).apply { setBackgroundColor(ui.design.border) },
+            LinearLayout.LayoutParams(-1, ui.dp(1)),
+        )
+    }
+
+    private var radioHub =
+        listOf("London", "Tokyo", "Berlin", "Huelva", "New York", "Paris", "Madrid", "Ibiza")
+            .random()
+
+    fun playSavedRadio(station: JSONObject) {
+        playRadio(
+            station.optString("radio_id", station.optString("id")),
+            station.optString("name", station.optString("title")),
+            station.optString(
+                "stream_url",
+                station.optString("streamUrl", station.optString("url")),
+            ),
+            saved = true,
+        )
+    }
+
+    private fun playRadio(id: String, name: String, stream: String = "", saved: Boolean = false) {
+        if (player.party != null) {
+            ui.toast("Leave the party first")
+            return
+        }
+        val target =
+            stream.ifBlank { "https://radio.garden/api/ara/content/listen/$id/channel.mp3" }
+        player.play(
+            listOf(
+                JSONObject()
+                    .put("id", "radio-$id")
+                    .put("title", name)
+                    .put("artist", if (saved) "Saved Radio" else "Live Radio")
+                    .put("is_radio", true)
+                    .put("thumbnail", "/assets/img/default_cover.png")
+                    .put("stream_url", "/api/proxy/radio?url=" + NativeApi.encode(target))
+            )
+        )
+        if (saved && id.isNotBlank())
+            api.execute({
+                api.request(
+                    "/api/recent-activity/radio",
+                    "POST",
+                    JSONObject().put("radio_id", id).put("name", name).put("stream_url", target),
+                )
+            }) { _, _ ->
+            }
+    }
+
+    fun radios(query: String = radioHub) {
+        radioHub = query
+        ui.screen(
+            ui.text("radios.title", "Discover Radios"),
+            { ui.home() },
+            nav = "home",
+            key = "radios",
+            restore = { radios() },
+        )
+        val owner = ui.content
+        ui.overviewTabs("radios")
+        ui.sectionHeader(ui.text("radios.editorial", "Editorial Playlists"))
+        val editorial = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        owner.addView(editorial)
+        ui.sectionHeader(ui.text("radios.search_stations", "Search Stations"))
+        val searchRow =
+            LinearLayout(ui.activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        owner.addView(searchRow)
+        val search =
+            ui.field(
+                ui.text("radios.search_placeholder", "Search city or station..."),
+                searchRow,
+                value = query,
+            )
+        search.layoutParams =
+            LinearLayout.LayoutParams(0, ui.dp(48), 1f).apply { marginEnd = ui.dp(12) }
+        search.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+        val submit = ui.button(ui.text("radio.search.button", "Search"), searchRow, true) {}
+        submit.layoutParams = LinearLayout.LayoutParams(-2, ui.dp(48))
+        val results = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        owner.addView(results, LinearLayout.LayoutParams(-1, -2).apply { topMargin = ui.dp(20) })
+        ui.space(32)
+        ui.sectionHeader(ui.text("radios.saved_stations", "Your Saved Radios"))
+        val saved = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        owner.addView(saved)
+        fun stationRow(
+            station: JSONObject,
+            parent: LinearLayout,
+            stored: Boolean,
+            refresh: () -> Unit,
+        ) {
+            val name = station.optString("title", station.optString("name", "Unknown"))
+            val id =
+                if (stored) station.optString("id")
+                else Uri.parse(station.optString("url")).lastPathSegment.orEmpty()
+            if (!stored && !Regex("[A-Za-z0-9_-]{5,64}").matches(id)) return
+            val row =
+                ui.row(
+                    name,
+                    station.optString("subtitle", if (stored) "Saved Radio" else "Streaming"),
+                    parent = parent,
+                    coverSize = 40,
+                ) {
+                    playRadio(
+                        id,
+                        name,
+                        if (stored) station.optString("streamUrl", station.optString("url"))
+                        else "",
+                        saved = stored,
+                    )
+                }
+            row.setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14))
+            row.background =
+                ui.design.touch(
+                    if (ui.design.theme == "classic") ui.surface else ui.design.content,
+                    if (ui.design.theme == "classic") 8 else 20,
+                    ui.design.theme != "classic",
+                )
+            (row.layoutParams as LinearLayout.LayoutParams).bottomMargin = ui.dp(12)
+            (row.getChildAt(0) as android.widget.ImageView).apply {
+                setImageDrawable(NativeIcon("radio", ui.muted, ui.design.theme))
+                setPadding(ui.dp(9), ui.dp(9), ui.dp(9), ui.dp(9))
+            }
+            if (stored)
+                ui.iconButton(row, "trash-2", "Remove saved radio") {
+                        ui.confirm("Remove saved radio", name) {
                             ui.request(
-                                "/api/radio/inject",
-                                form =
-                                    mapOf(
-                                        "channel_id" to s.optString("id"),
-                                        "name" to s.optString("name"),
-                                    ),
-                                done = { radios() },
+                                "/api/radio/${NativeApi.encode(id)}",
+                                "DELETE",
+                                done = {
+                                    api.execute({
+                                        api.request(
+                                            "/api/recent-activity/radio/${NativeApi.encode(id)}",
+                                            "DELETE",
+                                        )
+                                    }) { _, _ ->
+                                        refresh()
+                                    }
+                                },
                             )
                         }
                     }
+                    .color(0xffff6479.toInt())
+            else
+                ui.iconButton(row, "plus", "Save to library") {
+                    ui.request(
+                        "/api/radio/inject",
+                        form = mapOf("channel_id" to id, "name" to name),
+                        done = { refresh() },
+                    )
                 }
-            }
-            for (mix in NativeTrack.items(value)) {
-                val key = mix.optString("key", mix.optString("mix_key"))
-                ui.row(mix.optString("name", mix.optString("title", "Mix"))) {
-                    ui.load("Mix", "/api/mixes/" + NativeApi.encode(key)) { detail ->
-                        val data = detail as JSONObject
-                        ui.button("Save as playlist") {
-                            ui.request(
-                                "/api/mixes/${NativeApi.encode(key)}/save",
-                                body = JSONObject().put("name", data.optString("name", "My mix")),
-                                done = { ui.collections() },
-                            )
-                        }
-                        ui.tracks(NativeTrack.items(data))
-                    }
+        }
+        fun loadSaved() {
+            api.execute({ api.request("/api/radio/list") }) { value, error ->
+                if (ui.content !== owner) return@execute
+                saved.removeAllViews()
+                if (error != null) ui.label("Failed to load your radios.", 14, saved, ui.muted)
+                else {
+                    val list = NativeTrack.items(value)
+                    if (list.isEmpty()) ui.empty("No saved radio stations yet.", "radio", saved)
+                    for (station in list) stationRow(station, saved, true) { loadSaved() }
                 }
             }
         }
+        var serial = 0
+        fun drawStations(stations: List<JSONObject>) {
+            results.removeAllViews()
+            if (stations.isEmpty()) ui.label("No signal found.", 14, results, ui.muted)
+            for (station in stations) stationRow(station, results, false) { loadSaved() }
+        }
+        fun lookup() {
+            val q = search.text.toString().trim().take(200)
+            if (q.isEmpty()) return
+            radioHub = q
+            val ticket = ++serial
+            results.removeAllViews()
+            ui.label(ui.text("common.searching", "Searching…"), 14, results, ui.muted)
+            api.execute({
+                val hits =
+                    NativeTrack.items(api.request("/api/radio/search?q=" + NativeApi.encode(q)))
+                val first = hits.firstOrNull()?.optJSONObject("_source")
+                if (first?.optString("type") == "place") {
+                    val map = first.optJSONObject("page")?.optString("map").orEmpty()
+                    require(map.isNotBlank() && map.split('/').none { it == "." || it == ".." })
+                    NativeTrack.items(api.request("/api/radio/place/" + Uri.encode(map, "/")))
+                        .mapNotNull { it.optJSONObject("page") }
+                        .filter { !it.optString("url").endsWith("/channels") }
+                } else
+                    hits.mapNotNull {
+                        it.optJSONObject("_source")
+                            ?.takeIf { it.optString("type") == "channel" }
+                            ?.optJSONObject("page")
+                    }
+            }) { value, error ->
+                if (ui.content !== owner || ticket != serial) return@execute
+                if (error != null) {
+                    results.removeAllViews()
+                    ui.label(error.message ?: "Connection error", 14, results, ui.muted)
+                } else {
+                    @Suppress("UNCHECKED_CAST") drawStations(value as List<JSONObject>)
+                }
+            }
+        }
+        submit.setOnClickListener { lookup() }
+        search.setOnEditorActionListener { _, action, _ ->
+            if (action == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                lookup()
+                true
+            } else false
+        }
+        api.execute({ api.request("/api/radio/browse") }) { value, error ->
+            if (ui.content !== owner) return@execute
+            if (error != null)
+                ui.label("Could not load editorial playlists.", 14, editorial, ui.muted)
+            else
+                ui.cards(
+                    NativeTrack.items(value).map {
+                        JSONObject(it.toString())
+                            .put("thumbnail", it.optString("image"))
+                            .put("grid_subtitle", "${it.optInt("count")} radios")
+                    },
+                    editorial,
+                ) { entry, _ ->
+                    val path =
+                        entry.optJSONObject("page")?.optString("url").orEmpty().trimStart('/')
+                    if (path.isBlank() || path.split('/').any { it == "." || it == ".." })
+                        return@cards
+                    val ticket = ++serial
+                    api.execute({ api.request("/api/radio/playlist/" + Uri.encode(path, "/")) }) {
+                        stations,
+                        failure ->
+                        if (ui.content !== owner || ticket != serial) return@execute
+                        if (failure != null)
+                            ui.toast(failure.message ?: "Could not load this radio playlist")
+                        else
+                            drawStations(
+                                NativeTrack.items(stations)
+                                    .map { it.optJSONObject("page") ?: it }
+                                    .filter { it.optString("url").isNotBlank() }
+                            )
+                    }
+                }
+        }
+        loadSaved()
+        lookup()
     }
 
     fun lyrics() {
-        ui.hidePlayer()
-        val t = player.current ?: return
-        val ref = NativeTrack.reference(t)
-        ui.load(
-            "Lyrics",
-            "/api/lyrics?title=${NativeApi.encode(t.optString("title"))}&artist=${NativeApi.encode(t.optString("artist"))}&album=${NativeApi.encode(t.optString("album"))}&duration=${t.optDouble("duration").coerceIn(0.0,86400.0)}",
-        ) { value ->
-            val data = value as JSONObject
-            val synced = data.optString("synced_lyrics", data.optString("synced"))
-            val plain = data.optString("plain_lyrics", data.optString("plain"))
-            val parsed =
-                Regex("\\[(\\d+):(\\d+(?:\\.\\d+)?)\\](.*)")
-                    .findAll(synced)
-                    .map {
-                        Triple(
-                            (it.groupValues[1].toLong() * 60000 +
-                                    it.groupValues[2].toDouble() * 1000)
-                                .toLong(),
-                            it.groupValues[3],
-                            ui.label(it.groupValues[3], 24).apply {
-                                setTypeface(null, android.graphics.Typeface.BOLD)
-                                minHeight = ui.dp(60)
-                            },
-                        )
-                    }
-                    .toList()
-            if (parsed.isEmpty())
-                ui.label(plain.ifBlank { "No lyrics available for this recording" }, 22)
-            if (parsed.isNotEmpty()) {
-                val body = ui.content
-                main.post(
-                    object : Runnable {
-                        override fun run() {
-                            if (
-                                ui.content !== body ||
-                                    player.current?.let(NativeTrack::reference) != ref
-                            )
-                                return
-                            val active = parsed.indexOfLast { it.first <= player.position }
-                            parsed.forEachIndexed { i, line ->
-                                line.third.setTextColor(if (i == active) ui.ink else ui.muted)
-                            }
-                            main.postDelayed(this, 200)
+        ui.showPlayer("lyrics")
+    }
+
+    fun wrapped() = NativeWrapped(ui).open()
+
+    fun createParty() {
+        ui.sheet(ui.text("party.create_room", "Create party room")) { body, dialog ->
+            var federated = false
+            var limit = 5
+            var playlist: Any = JSONObject.NULL
+            val selected = mutableSetOf<Int>()
+            ui.label("Room Type", 13, body, ui.muted)
+            val type = ui.button("Local room", body) {}
+            val peers =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    visibility = android.view.View.GONE
+                }
+            body.addView(peers)
+            type.setOnClickListener {
+                ui.choose("Room Type", listOf("Local room", "Federated room")) {
+                    federated = it == 1
+                    type.text = if (federated) "Federated room" else "Local room"
+                    peers.visibility =
+                        if (federated) android.view.View.VISIBLE else android.view.View.GONE
+                }
+            }
+            val name = ui.labelledField(ui.text("party.room_name", "Room name"), body)
+            ui.label("User limit", 13, body, ui.muted)
+            val count = ui.button(limit.toString(), body) {}
+            count.setOnClickListener {
+                ui.choose("User limit", (2..15).map { "$it people" }) {
+                    limit = it + 2
+                    count.text = "$limit people"
+                }
+            }
+            ui.label("Start with a playlist", 13, body, ui.muted)
+            val collection = ui.button("Start with an empty queue", body) {}
+            collection.isEnabled = false
+            val guests = ui.toggle("Allow guests to add songs", true, body) {}
+            val status = ui.label("Loading playlists and federation peers…", 13, body, ui.muted)
+            api.execute({
+                JSONObject()
+                    .put("playlists", api.request("/api/playlists"))
+                    .put("peers", api.request("/api/party/peers"))
+            }) { result, error ->
+                if (!dialog.isShowing) return@execute
+                if (error != null) status.text = error.message ?: "Could not load room options"
+                else {
+                    status.visibility = android.view.View.GONE
+                    val data = result as JSONObject
+                    val playlists =
+                        NativeTrack.items(data.opt("playlists")).filter {
+                            it.optBoolean("is_owner") && it.optString("id").toLongOrNull() != null
+                        }
+                    collection.isEnabled = true
+                    collection.setOnClickListener {
+                        ui.choose(
+                            "Start with a playlist",
+                            listOf("Start with an empty queue") +
+                                playlists.map { it.optString("name") },
+                        ) { index ->
+                            playlist =
+                                if (index == 0) JSONObject.NULL else playlists[index - 1].get("id")
+                            collection.text =
+                                if (index == 0) "Start with an empty queue"
+                                else playlists[index - 1].optString("name")
                         }
                     }
-                )
+                    val available =
+                        NativeTrack.items(data.optJSONObject("peers")?.optJSONArray("peers"))
+                    if (available.isEmpty())
+                        ui.label("No federation peers available", 14, peers, ui.muted)
+                    for (peer in available) {
+                        val id = peer.optInt("id")
+                        ui.toggle(
+                            peer.optString("name", peer.optString("instance_name")),
+                            false,
+                            peers,
+                        ) {
+                            if (it) selected.add(id) else selected.remove(id)
+                        }
+                    }
+                }
             }
-            ui.button("Return to player") { ui.showPlayer() }
-        }
-    }
-
-    fun wrapped() {
-        val year = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
-        ui.load("Aoede Wrapped", "/api/wrapped/$year") { value ->
-            val data = value as JSONObject
-            if (
-                data.optBoolean("visible", true) == false ||
-                    data.optBoolean("enabled", true) == false
-            ) {
-                ui.label("Wrapped is not available yet")
-                return@load
-            }
-            ui.label("Your year in music", 30)
-            for (key in
-                listOf(
-                    "minutes_listened",
-                    "event_count",
-                    "total_minutes",
-                    "listening_minutes",
-                    "total_streams",
-                    "total_listens",
-                    "unique_artists",
-                )) if (data.has(key)) ui.label(key.replace('_', ' ') + " · " + data.opt(key), 21)
-            ui.label("Top songs", 23)
-            ui.tracks(NativeTrack.items(data.optJSONArray("top_songs")))
-            ui.button("Add Top 100 playlist", primary = true) {
+            ui.button(ui.text("party.create_room", "Create Room"), body, true) {
                 ui.request(
-                    "/api/wrapped/${data.optInt("year",year)}/top-songs/playlist",
-                    done = { ui.collections() },
+                    "/api/party/rooms",
+                    body =
+                        JSONObject()
+                            .put(
+                                "name",
+                                name.text.toString().trim().take(80).ifBlank {
+                                    "Party with ${api.username}"
+                                },
+                            )
+                            .put("max_users", limit)
+                            .put("allow_guests_queue", guests.isChecked)
+                            .put("playlist_id", playlist)
+                            .put("is_federated", federated)
+                            .put(
+                                "federated_peer_ids",
+                                JSONArray(if (federated) selected.toList() else emptyList<Int>()),
+                            ),
+                    done = { result ->
+                        dialog.dismiss()
+                        val room = (result as JSONObject).optJSONObject("room") ?: result
+                        ui.joinParty((room as JSONObject).get("id").toString())
+                    },
                 )
             }
-            ui.button("Show recap") { wrappedStory(data) }
         }
-    }
-
-    private fun wrappedStory(data: JSONObject) {
-        val pages = mutableListOf("Aoede Wrapped ${data.optInt("year")}" to "Your year in music")
-        for (artist in NativeTrack.items(data.optJSONArray("top_artists"))) pages.add(
-            "Your top artist" to artist.optString("artist", artist.optString("name"))
-        )
-        for (track in NativeTrack.items(data.optJSONArray("top_songs"))) pages.add(
-            track.optString("title") to track.optString("artist")
-        )
-        var index = 0
-        fun render() {
-            ui.screen("Aoede Wrapped", { wrapped() })
-            val page = pages[index]
-            ui.label("${index+1} / ${pages.size}", 14, color = ui.muted)
-            ui.label(page.first, 36).setTypeface(null, android.graphics.Typeface.BOLD)
-            ui.label(page.second, 24)
-            if (!ui.reduced()) {
-                ui.content.alpha = 0f
-                ui.content.translationY = ui.dp(20).toFloat()
-                ui.content.animate().alpha(1f).translationY(0f).setDuration(280).start()
-            }
-            if (index > 0)
-                ui.button("Previous") {
-                    index--
-                    render()
-                }
-            if (index < pages.lastIndex)
-                ui.button("Next", primary = true) {
-                    index++
-                    render()
-                }
-            else ui.button("Back to summary", primary = true) { wrapped() }
-        }
-        render()
     }
 
     fun partyDetails(party: NativeParty, open: Boolean) {
         if (open) {
-            ui.screen("Party · ${party.room.optString("name")}", { ui.parties() })
+            ui.screen(
+                "Party · ${party.room.optString("name")}",
+                { ui.parties() },
+                nav = "home",
+                key = party.path,
+                restore = {
+                    if (player.party === party) partyDetails(party, true) else ui.parties()
+                },
+            )
             partyBody = ui.content
+            val body = ui.content
+            val owner = party.room.optBoolean("is_owner")
+            ui.browseTabs("party")
+            partyCover =
+                android.widget
+                    .ImageView(ui.activity)
+                    .apply {
+                        scaleType = android.widget.ImageView.ScaleType.CENTER_CROP
+                        background = ui.design.shape(ui.design.wash, 12)
+                        outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                        clipToOutline = true
+                    }
+                    .also {
+                        body.addView(
+                            it,
+                            LinearLayout.LayoutParams(ui.dp(96), ui.dp(96)).apply {
+                                bottomMargin = ui.dp(16)
+                            },
+                        )
+                    }
+            ui.label(party.room.optString("name"), 44).apply {
+                ui.design.lines(this, 1f)
+                (layoutParams as LinearLayout.LayoutParams).apply {
+                    topMargin = ui.dp(4)
+                    bottomMargin = ui.dp(6)
+                }
+            }
             partyState = ui.label("", 14, color = ui.muted)
-            partyNow = ui.label("", 23)
-            ui.button("Play", primary = true) { app.mediaController.command("play") }
-            if (party.room.optBoolean("is_owner"))
-                ui.button("Pause room") { party.control("pause") }
-            ui.button("Add songs") { ui.search() }
-            ui.button("Open player") { ui.showPlayer() }
-            ui.button("Leave party") {
+            partyParticipants =
+                LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            body.addView(
+                partyParticipants,
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = ui.dp(12) },
+            )
+            ui.button("Leave") {
                 party.close()
                 partyBody = null
                 ui.parties()
             }
-            if (party.room.optBoolean("is_owner"))
+            ui.space(20)
+            fun block(): LinearLayout =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(ui.dp(18), ui.dp(18), ui.dp(18), ui.dp(18))
+                    background =
+                        ui.design.shape(
+                            if (ui.design.theme == "classic") ui.background else ui.design.content,
+                            if (ui.design.theme == "classic") 12 else 24,
+                            true,
+                        )
+                    body.addView(
+                        this,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(16) },
+                    )
+                }
+            val now = block()
+            ui.label("NOW PLAYING", 12, now, ui.accent)
+            partyNow =
+                ui.label("", 25, now).apply {
+                    (layoutParams as LinearLayout.LayoutParams).apply {
+                        topMargin = ui.dp(8)
+                        bottomMargin = ui.dp(4)
+                    }
+                }
+            partyArtist = ui.label("", 14, now, ui.muted)
+            partyToggle = null
+            if (owner) {
+                val controls =
+                    LinearLayout(ui.activity).apply {
+                        gravity = android.view.Gravity.CENTER_VERTICAL
+                    }
+                now.addView(
+                    controls,
+                    LinearLayout.LayoutParams(-1, ui.dp(52)).apply { topMargin = ui.dp(20) },
+                )
+                for ((glyph, action) in
+                    listOf(
+                        "skip-back" to "previous",
+                        "play" to "toggle",
+                        "skip-forward" to "next",
+                    )) {
+                    val key =
+                        ui.iconButton(
+                            controls,
+                            glyph,
+                            if (action == "toggle") "Play or pause party" else action,
+                        ) {
+                            val command =
+                                if (action == "toggle") {
+                                    if (
+                                        party.room.optString("playback_status") in
+                                            listOf("playing", "loading")
+                                    )
+                                        "pause"
+                                    else "play"
+                                } else action
+                            if (command == "pause") party.control("pause")
+                            else
+                                app.mediaController.command(
+                                    when (command) {
+                                        "previous" -> "previoustrack"
+                                        "next" -> "nexttrack"
+                                        else -> command
+                                    }
+                                )
+                        }
+                    (key.layoutParams as LinearLayout.LayoutParams).marginEnd = ui.dp(12)
+                    key.background =
+                        ui.design.touch(if (action == "toggle") ui.accent else ui.design.wash, 999)
+                    if (action == "toggle") {
+                        key.layoutParams =
+                            LinearLayout.LayoutParams(ui.dp(52), ui.dp(52)).apply {
+                                marginEnd = ui.dp(12)
+                            }
+                        key.color(ui.design.onAccent)
+                        partyToggle = key
+                    }
+                }
+            } else ui.label("Playback follows the host", 14, now, ui.muted)
+            ui.sectionHeader("Shared queue")
+            partyQueue = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            ui.content.addView(partyQueue)
+            if (
+                party.room.optBoolean(
+                    "can_add_songs",
+                    owner || party.room.optBoolean("allow_guests_queue"),
+                )
+            ) {
+                val add = block()
+                ui.label(ui.text("party.add_songs", "Add songs"), 22, add)
+                ui.label(
+                    ui.text("party.add_songs_desc", "Search tracks already in this Aoede library."),
+                    14,
+                    add,
+                    ui.muted,
+                )
+                val search = ui.field(ui.text("party.search_placeholder", "Song or artist"), add)
+                val results =
+                    LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+                add.addView(results)
+                var serial = 0
+                search.addTextChangedListener(
+                    object : android.text.TextWatcher {
+                        override fun beforeTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            count: Int,
+                            after: Int,
+                        ) {}
+
+                        override fun afterTextChanged(s: android.text.Editable?) {}
+
+                        override fun onTextChanged(
+                            s: CharSequence?,
+                            start: Int,
+                            before: Int,
+                            count: Int,
+                        ) {
+                            val current = ++serial
+                            val query = s.toString().trim().take(200)
+                            if (query.isEmpty()) {
+                                results.removeAllViews()
+                                return
+                            }
+                            main.postDelayed(
+                                {
+                                    if (serial != current || ui.content !== body) return@postDelayed
+                                    api.execute({
+                                        api.request(
+                                            party.path + "/tracks?q=" + NativeApi.encode(query)
+                                        )
+                                    }) { response, error ->
+                                        if (serial != current || ui.content !== body) return@execute
+                                        results.removeAllViews()
+                                        if (error != null)
+                                            ui.label(
+                                                error.message ?: "Search failed",
+                                                14,
+                                                results,
+                                                ui.muted,
+                                            )
+                                        else
+                                            for (track in
+                                                NativeTrack.items(
+                                                    (response as? JSONObject)?.optJSONArray(
+                                                        "tracks"
+                                                    )
+                                                )) {
+                                                val row =
+                                                    ui.row(
+                                                        track.optString("title"),
+                                                        track.optString("artist"),
+                                                        ui.artworkPath(track),
+                                                        results,
+                                                        40,
+                                                    ) {}
+                                                row.setOnClickListener {
+                                                    if (!row.isEnabled) return@setOnClickListener
+                                                    row.isEnabled = false
+                                                    party.add(track) { failure ->
+                                                        if (ui.content === body) {
+                                                            row.isEnabled = true
+                                                            ui.toast(
+                                                                failure?.message
+                                                                    ?: "Added to the party queue"
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                ui.iconButton(row, "plus", "Add to party") {
+                                                    row.performClick()
+                                                }
+                                            }
+                                    }
+                                },
+                                250,
+                            )
+                        }
+                    }
+                )
+            } else {
+                val locked = block()
+                ui.label("Host-managed queue", 18, locked)
+                ui.label(
+                    "${party.room.optString("owner_username")} has disabled guest additions.",
+                    14,
+                    locked,
+                    ui.muted,
+                )
+            }
+            if (owner)
                 ui.button("Delete room") {
                     ui.confirm("Delete room", "End this party for everyone?") {
                         ui.request(
@@ -648,31 +2120,88 @@ class NativeTools(private val ui: NativeUi) {
                         )
                     }
                 }
-            partyQueue = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
-            ui.content.addView(partyQueue)
             partySignature = ""
         }
         if (ui.content !== partyBody) return
         val room = party.room
-        partyState?.text = room.optString("playback_status")
-        partyNow?.text = room.optJSONObject("current_track")?.optString("title").orEmpty()
+        partyState?.text =
+            "Hosted by ${room.optString("owner_username")} · ${room.optInt("active_users")}/${room.optInt("max_users")} listening"
+        val current = room.optJSONObject("current_track")
+        partyNow?.text = current?.optString("title") ?: "Queue is waiting"
+        partyArtist?.text = current?.optString("artist") ?: "Add a song to get started."
+        partyCover?.let { image ->
+            if (current == null) {
+                image.tag = null
+                image.setPadding(ui.dp(24), ui.dp(24), ui.dp(24), ui.dp(24))
+                image.setImageDrawable(NativeIcon("radio", ui.ink, ui.design.theme))
+            } else if (image.tag != ui.artworkPath(current)) {
+                image.setPadding(0, 0, 0, 0)
+                ui.artwork(image, ui.artworkPath(current))
+            }
+        }
+        partyToggle?.apply {
+            text =
+                if (room.optString("playback_status") in listOf("playing", "loading")) "pause"
+                else "play"
+            color(ui.design.onAccent)
+        }
         val items = NativeTrack.items(room.optJSONArray("queue"))
-        val signature = items.joinToString { it.optString("item_id") }
+        val signature =
+            room.optJSONArray("participants")?.toString().orEmpty() +
+                room.optInt("current_index") +
+                room.optJSONArray("queue")?.toString().orEmpty()
         if (signature != partySignature) {
             partySignature = signature
+            partyParticipants?.let { parent ->
+                parent.removeAllViews()
+                ui.chipBar(
+                    NativeTrack.items(room.optJSONArray("participants")).map {
+                        it.optString("username") to {}
+                    },
+                    parent = parent,
+                )
+            }
             val list = partyQueue ?: return
             list.removeAllViews()
-            for (item in items) {
+            ui.label("${items.size} songs", 13, list, ui.muted)
+            if (items.isEmpty()) ui.label("The shared queue is empty.", 14, list, ui.muted)
+            for ((index, item) in items.withIndex()) {
                 val track = item.optJSONObject("track") ?: item
-                ui.row(track.optString("title"), track.optString("artist"), parent = list) {
-                    ui.choose("Party queue", listOf("Remove track")) {
+                val row =
+                    ui.row(
+                        track.optString("title"),
+                        track.optString("artist") +
+                            if (item.optString("added_by").isNotBlank())
+                                " · added by ${item.optString("added_by")}"
+                            else "",
+                        ui.artworkPath(track),
+                        list,
+                        42,
+                    ) {}
+                row.isClickable = false
+                row.isFocusable = false
+                val number =
+                    TextView(ui.activity).apply {
+                        text = (index + 1).toString()
+                        ui.design.typography(this, 13f)
+                        setTextColor(
+                            if (index == room.optInt("current_index")) ui.accent else ui.muted
+                        )
+                        gravity = android.view.Gravity.CENTER
+                    }
+                row.addView(
+                    number,
+                    0,
+                    LinearLayout.LayoutParams(ui.dp(22), -1).apply { marginEnd = ui.dp(8) },
+                )
+                if (room.optBoolean("is_owner"))
+                    ui.iconButton(row, "x", "Remove from party") {
                         ui.request(
                             party.path + "/queue/" + item.get("item_id"),
                             "DELETE",
                             done = {},
                         )
                     }
-                }
             }
         }
     }
@@ -726,64 +2255,201 @@ class NativeTools(private val ui: NativeUi) {
     }
 
     fun upload(path: String, field: String, uri: Uri, done: () -> Unit) {
+        val owner = ui.content
         api.execute({ api.upload(path, field, uri) }) { _, error ->
+            if (ui.content !== owner) return@execute
             if (error != null) ui.toast(error.message ?: "Upload failed") else done()
         }
     }
 
     fun about() {
-        ui.load("About & updates", "/api/about") { value ->
-            val data = value as JSONObject
-            ui.label(
-                "Aoede ${data.optJSONObject("current")?.optString("display_version","Unknown")}",
-                28,
+        ui.sheet("About & updates") { body, dialog ->
+            val brand =
+                LinearLayout(ui.activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+            body.addView(
+                brand,
+                LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(20) },
             )
-            ui.label("Android ${BuildConfig.VERSION_NAME} · Native Android interface", 15)
-            ui.button("Check Android update", primary = true) {
+            brand.addView(
+                android.widget.ImageView(ui.activity).apply {
+                    setImageBitmap(
+                        app.assets
+                            .open("web/assets/apple-touch-icon.png")
+                            .use(android.graphics.BitmapFactory::decodeStream)
+                    )
+                    contentDescription = "Aoede"
+                },
+                LinearLayout.LayoutParams(ui.dp(64), ui.dp(64)).apply { marginEnd = ui.dp(16) },
+            )
+            val copy = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            brand.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
+            ui.label("Aoede", 28, copy)
+            val version = ui.label("Your music. Your server.", 13, copy, ui.muted)
+            ui.button("Check Android update", body, true) {
                 app.updater.check { app.updater.offer(ui.activity) }
             }
-            val release = data.optJSONObject("release") ?: JSONObject()
-            ui.label(release.optString("summary"), 15)
-            ui.button("All official downloads") {
-                ui.activity.startActivity(
-                    Intent(
-                        Intent.ACTION_VIEW,
-                        Uri.parse("https://github.com/sPROFFEs/Aoede/releases/latest"),
+            val content = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            body.addView(content)
+            ui.label("Checking the latest release…", 14, content, ui.muted)
+            api.execute({ api.request("/api/about") }) { value, error ->
+                if (!dialog.isShowing) return@execute
+                content.removeAllViews()
+                val data = value as? JSONObject
+                version.text =
+                    "Server ${data?.optJSONObject("current")?.optString("display_version", "Unknown") ?: "Unknown"} · Android ${BuildConfig.VERSION_NAME}"
+                val release = data?.optJSONObject("release")
+                fun link(label: String, target: String, parent: LinearLayout) {
+                    // Match the web About sheet: backend data cannot supply arbitrary install
+                    // links.
+                    if (
+                        !Regex(
+                                "https://github\\.com/sPROFFEs/Aoede/releases/(?:download/[A-Za-z0-9][A-Za-z0-9._%+\\-]*/[A-Za-z0-9][A-Za-z0-9.\\-]*|tag/[A-Za-z0-9][A-Za-z0-9._%+\\-]*)"
+                            )
+                            .matches(target)
                     )
-                )
+                        return
+                    ui.button(label, parent) {
+                        ui.activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(target)))
+                    }
+                }
+                if (error != null || release == null)
+                    ui.label(
+                        "Release information is unavailable. Check your connection or visit All releases for downloads.",
+                        14,
+                        content,
+                        ui.muted,
+                    )
+                else {
+                    if (data.optBoolean("stale"))
+                        ui.label(
+                            "GitHub is unavailable. Showing the last successful check.",
+                            14,
+                            content,
+                            ui.muted,
+                        )
+                    ui.sectionHeader("What’s new", content)
+                    ui.label(release.optString("title"), 18, content)
+                    ui.label(
+                        release.optString(
+                            "summary",
+                            "See the release notes for the latest changes.",
+                        ),
+                        14,
+                        content,
+                        ui.muted,
+                    )
+                    link(
+                        "Read release notes · ${release.optString("tag")}",
+                        release.optString("url"),
+                        content,
+                    )
+                    ui.space(16, content)
+                    ui.sectionHeader("Get Aoede", content)
+                    ui.label(
+                        "Choose your platform. Downloads follow the latest published release.",
+                        14,
+                        content,
+                        ui.muted,
+                    )
+                    val files =
+                        LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+                    val keys = listOf("android", "mac", "win", "linux")
+                    fun select(index: Int) {
+                        files.removeAllViews()
+                        val downloads =
+                            NativeTrack.items(release.optJSONArray("downloads")).filter {
+                                it.optString("platform") == keys[index]
+                            }
+                        for (item in downloads) link(
+                            "${item.optString("label")}\n${item.optString("name")}",
+                            item.optString("url"),
+                            files,
+                        )
+                        if (downloads.isEmpty())
+                            ui.label(
+                                "No package is published for this platform yet. Check All releases for earlier builds.",
+                                14,
+                                files,
+                                ui.muted,
+                            )
+                        if (index == 0)
+                            ui.label(
+                                "The wrapper is a backup client. Android clients share a package ID and cannot be installed side by side.",
+                                12,
+                                files,
+                                ui.muted,
+                            )
+                    }
+                    ui.tabs(listOf("Android", "macOS", "Windows", "Linux"), 0, content) {
+                        select(it)
+                    }
+                    content.addView(files)
+                    select(0)
+                }
+                ui.button("All releases", content) {
+                    ui.activity.startActivity(
+                        Intent(
+                            Intent.ACTION_VIEW,
+                            Uri.parse("https://github.com/sPROFFEs/Aoede/releases"),
+                        )
+                    )
+                }
             }
         }
     }
 
-    fun admin() {
-        ui.screen("Administration", { ui.home() })
+    fun admin(tab: String = "users") {
         if (!api.isAdmin) {
+            ui.screen("Administration")
             ui.label("Administrator access required")
             return
         }
-        ui.button("Users") { adminUsers() }
-        ui.button("System monitor & updates") { system() }
-        ui.button("Server download manager") { adminDownloads() }
-        ui.button("Library & duplicates") { adminLibrary() }
-        ui.button("Federation") { federation() }
-        ui.button("Track deletion requests") {
-            ui.load("Track deletion requests", "/api/mobile/v2/admin/delete-requests") { value ->
-                for (r in NativeTrack.items(value)) ui.row(
-                    r.optString("track_title"),
-                    r.optString("requester") + " · " + r.optString("reason"),
-                ) {
-                    ui.choose("Review request", listOf("Approve and delete track", "Reject")) { i ->
-                        ui.prompt("Review note") { note ->
-                            ui.request(
-                                "/admin/song-delete-requests/${r.get("id")}/decision",
-                                form =
-                                    mapOf(
-                                        "decision" to if (i == 0) "approve" else "reject",
-                                        "review_note" to note,
-                                    ),
-                                done = { admin() },
-                            )
-                        }
+        when (tab) {
+            "users" -> adminUsers()
+            "federation" -> federation()
+            else -> adminLibrary(tab)
+        }
+    }
+
+    private fun adminHeader(tab: String) {
+        ui.label(ui.text("admin.title", "Administration"), 28)
+        ui.label("Accounts, library tools and federation, organized by task.", 14, color = ui.muted)
+        ui.chipBar(
+            listOf(
+                "Download Manager" to { adminDownloads() },
+                "System Monitor" to { system() },
+                "Delete Inbox" to { adminDeletions() },
+                "Home" to { ui.home() },
+            ),
+            top = 16,
+            bottom = 20,
+        )
+        val keys = listOf("users", "library", "duplicates", "maintenance", "federation")
+        ui.tabs(
+            listOf("Users", "Library", "Duplicates", "Maintenance", "Federation"),
+            keys.indexOf(tab),
+        ) {
+            admin(keys[it])
+        }
+    }
+
+    private fun adminDeletions() {
+        ui.load("Track deletion requests", "/api/mobile/v2/admin/delete-requests") { value ->
+            for (r in NativeTrack.items(value)) ui.row(
+                r.optString("track_title"),
+                r.optString("requester") + " · " + r.optString("reason"),
+            ) {
+                ui.choose("Review request", listOf("Approve and delete track", "Reject")) { i ->
+                    ui.prompt("Review note") { note ->
+                        ui.request(
+                            "/admin/song-delete-requests/${r.get("id")}/decision",
+                            form =
+                                mapOf(
+                                    "decision" to if (i == 0) "approve" else "reject",
+                                    "review_note" to note,
+                                ),
+                            done = { adminDeletions() },
+                        )
                     }
                 }
             }
@@ -792,14 +2458,47 @@ class NativeTools(private val ui: NativeUi) {
 
     private fun adminUsers() {
         ui.load("Users", "/api/mobile/v2/admin/users") { value ->
-            ui.button("Create user", primary = true) {
-                form("New user", "/admin/users/create", listOf("username", "password")) {
-                    adminUsers()
-                }
+            adminHeader("users")
+            val create =
+                ui.panel(
+                    ui.text("admin.register_new", "Register new user"),
+                    "Create a user account and optionally grant admin privileges.",
+                    "user",
+                )
+            val username = ui.labelledField(ui.text("admin.username_label", "Username"), create)
+            val password =
+                ui.labelledField(ui.text("admin.password_label", "Password"), create, true)
+            val role =
+                ui.toggle(
+                    ui.text("admin.admin_checkbox", "Administrator privileges"),
+                    false,
+                    create,
+                ) {}
+            ui.button(ui.text("admin.create_button", "Create user"), create, true) {
+                ui.request(
+                    "/admin/users/create",
+                    form =
+                        mapOf(
+                            "username" to username.text.toString().trim(),
+                            "password" to password.text.toString(),
+                            "is_admin" to role.isChecked.toString(),
+                        ),
+                    done = {
+                        password.text.clear()
+                        adminUsers()
+                    },
+                )
             }
+            val accounts =
+                ui.panel(
+                    ui.text("admin.active_accounts", "Active accounts"),
+                    "Manage roles, login restrictions and account access.",
+                    "users",
+                )
             for (user in NativeTrack.items((value as JSONObject).optJSONArray("users"))) ui.row(
                 user.optString("username"),
                 if (user.optBoolean("is_admin")) "Administrator" else "Listener",
+                parent = accounts,
             ) {
                 ui.choose(
                     user.optString("username"),
@@ -852,123 +2551,787 @@ class NativeTools(private val ui: NativeUi) {
         }
     }
 
+    private var systemTab = 0
+
     private fun system() {
-        ui.load("System monitor", "/api/mobile/v2/admin/system") { value ->
+        ui.load(ui.text("monitor.title", "System monitor"), "/api/mobile/v2/admin/system") { value
+            ->
             val data = value as JSONObject
-            summary(data.optJSONObject("build") ?: JSONObject())
-            ui.button("Live resource usage") {
-                ui.load("Resource usage", "/admin/api/system-stats") { summary(it as JSONObject) }
+            val owner = ui.content
+            monitorPolls.forEach { main.removeCallbacks(it.second) }
+            monitorPolls.clear()
+            ui.label(ui.text("monitor.header", "System Monitor"), 28)
+            ui.label(
+                "Server health, updates, backups and scheduled operations.",
+                14,
+                color = ui.muted,
+            )
+            ui.chipBar(
+                listOf("User Admin" to { admin() }, "Download Manager" to { adminDownloads() }),
+                top = 16,
+                bottom = 20,
+            )
+            val groups = mutableListOf<LinearLayout>()
+            ui.tabs(
+                listOf("Overview", "Statistics", "Updates", "Backups", "Wrapped", "Jobs"),
+                systemTab,
+                icons =
+                    listOf(
+                        "activity",
+                        "chart-column",
+                        "refresh-cw",
+                        "archive",
+                        "sparkles",
+                        "list-checks",
+                    ),
+            ) { selected ->
+                systemTab = selected
+                groups.forEachIndexed { i, v ->
+                    v.visibility =
+                        if (i == selected) android.view.View.VISIBLE else android.view.View.GONE
+                }
+                monitorPolls.forEach {
+                    main.removeCallbacks(it.second)
+                    main.post(it.second)
+                }
             }
-            ui.button("Check server update", primary = true) {
+            fun group() =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.VERTICAL
+                    visibility =
+                        if (groups.size == systemTab) android.view.View.VISIBLE
+                        else android.view.View.GONE
+                    groups.add(this)
+                    owner.addView(this)
+                }
+            val overview = group()
+            val metrics = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            overview.addView(metrics)
+            monitorPolling(overview, owner, 10000, { "/admin/api/system-stats" }) { result ->
+                metrics.removeAllViews()
+                val ram = result.optJSONObject("ram") ?: JSONObject()
+                val pool = result.optJSONObject("pool") ?: JSONObject()
+                monitorMetric(
+                    metrics,
+                    "CPU load",
+                    result.optDouble("cpu_usage", 0.0),
+                    "Current host usage",
+                    "cpu",
+                    0xff2fbf71.toInt(),
+                )
+                monitorMetric(
+                    metrics,
+                    "RAM usage",
+                    ram.optDouble("percent", 0.0),
+                    "${ram.optDouble("used_gb", 0.0)}GB / ${ram.optDouble("total_gb", 0.0)}GB",
+                    "layers",
+                    0xff8b5cf6.toInt(),
+                )
+                monitorMetric(
+                    metrics,
+                    "Storage pool",
+                    pool.optDouble("percent", 0.0),
+                    "${pool.optDouble("used", 0.0)}GB used of ${pool.optDouble("limit", 0.0)}GB",
+                    "hard-drive",
+                    if (pool.optDouble("percent") > 90) 0xffdc2626.toInt() else 0xff3b82f6.toInt(),
+                )
+            }
+            summary(
+                data.optJSONObject("build") ?: JSONObject(),
+                ui.panel("Build", "Installed Aoede server build.", "info", overview),
+            )
+            val operations =
+                ui.panel("Operations", "Server storage and scheduled work.", "settings", overview)
+            val limit =
+                ui.labelledField("Pool limit (GB)", operations).apply {
+                    inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                }
+            api.execute({ api.request("/admin/api/system-stats") }) { value, error ->
+                if (ui.content === owner && error == null && limit.text.isEmpty())
+                    limit.setText(
+                        (value as? JSONObject)
+                            ?.optJSONObject("pool")
+                            ?.opt("limit")
+                            ?.toString()
+                            .orEmpty()
+                    )
+            }
+            ui.button("Apply pool limit", operations, true) {
+                val value = limit.text.toString().toIntOrNull()
+                if (value == null || value < 1) limit.error = "Enter a positive storage limit"
+                else
+                    ui.request(
+                        "/admin/system/pool-limit",
+                        form = mapOf("limit_gb" to value.toString()),
+                        done = { system() },
+                    )
+            }
+            ui.button("Purge storage residue", operations) {
+                ui.confirm(
+                    "Purge storage residue",
+                    "Remove unreferenced storage residue? Active library tracks are retained.",
+                ) {
+                    ui.request("/admin/system/purge-storage", done = { system() })
+                }
+            }
+            val stats = group()
+            userStatistics(stats, owner)
+            val updates = group()
+            val updater =
+                ui.panel(
+                    "Updates",
+                    "Check and apply the latest Aoede server update.",
+                    "refresh-cw",
+                    updates,
+                )
+            val updateStatus =
+                LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            updater.addView(updateStatus)
+            summary(data.optJSONObject("updates") ?: JSONObject(), updateStatus)
+            monitorPolling(updates, owner, 10000, { "/api/mobile/v2/admin/system" }) { state ->
+                updateStatus.removeAllViews()
+                summary(state.optJSONObject("updates") ?: JSONObject(), updateStatus)
+            }
+            ui.button("Check server update", updater, true) {
                 ui.request("/admin/system/updates/check", done = { system() })
             }
-            ui.button("Apply server update") {
+            ui.button("Apply server update", updater) {
                 ui.confirm("Update server", "Back up the server and apply the available update?") {
                     ui.request("/admin/system/updates/apply", done = { system() })
                 }
             }
-            ui.button("Create backup") {
+            val backups = group()
+            val backup =
+                ui.panel(
+                    "Backups",
+                    "Create a snapshot or restore a retained server backup.",
+                    "archive",
+                    backups,
+                )
+            var latestBackup = data.optJSONObject("backups") ?: JSONObject()
+            val slots = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            backup.addView(slots)
+            val restore = ui.button("Restore backup", backup) {}
+            fun renderBackups(state: JSONObject) {
+                latestBackup = state
+                slots.removeAllViews()
+                for (name in listOf("current", "previous")) {
+                    val stored = state.optJSONObject(name)
+                    ui.label(name.replaceFirstChar(Char::uppercase), 16, slots)
+                    if (stored == null)
+                        ui.label("No backup created for this slot yet.", 14, slots, ui.muted)
+                    else {
+                        ui.label(stored.optString("filename"), 14, slots)
+                        ui.label(
+                            "${stored.optString("size_label")} · ${stored.optString("created_at")} · ${if (stored.optBoolean("exists")) "Available" else "Missing file"}",
+                            13,
+                            slots,
+                            ui.muted,
+                        )
+                    }
+                    ui.space(12, slots)
+                }
+                restore.isEnabled =
+                    listOf("current", "previous").any {
+                        state.optJSONObject(it)?.optBoolean("exists") == true
+                    }
+            }
+            renderBackups(latestBackup)
+            restore.setOnClickListener {
+                val available =
+                    listOf("current", "previous").filter {
+                        latestBackup.optJSONObject(it)?.optBoolean("exists") == true
+                    }
+                ui.choose("Restore slot", available) { slot ->
+                    val selected = available.getOrNull(slot)
+                    if (selected != null)
+                        ui.confirm(
+                            "Restore server",
+                            "Restore the $selected backup and replace current server data?",
+                        ) {
+                            ui.request(
+                                "/admin/system/backups/restore",
+                                form = mapOf("slot" to selected),
+                                done = { system() },
+                            )
+                        }
+                }
+            }
+            ui.button("Create backup", backup, true) {
                 ui.request("/admin/system/backups/create", done = { system() })
             }
-            ui.button("Restore backup") {
-                ui.choose("Restore slot", listOf("current", "previous")) { slot ->
-                    ui.confirm(
-                        "Restore server",
-                        "Restore this backup and replace current server data?",
-                    ) {
-                        ui.request(
-                            "/admin/system/backups/restore",
-                            form = mapOf("slot" to listOf("current", "previous")[slot]),
-                            done = { system() },
-                        )
+            monitorPolling(backups, owner, 10000, { "/api/mobile/v2/admin/system" }) { status ->
+                status.optJSONObject("backups")?.let(::renderBackups)
+            }
+            val backupState = data.optJSONObject("backups") ?: JSONObject()
+            ui.space(16, backup)
+            val enabled =
+                ui.toggle(
+                    "Enable daily autobackup",
+                    backupState.optBoolean("autobackup_enabled"),
+                    backup,
+                ) {}
+            val hour =
+                ui.labelledField(
+                        "Hour",
+                        backup,
+                        value = backupState.optInt("autobackup_hour").toString(),
+                    )
+                    .apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+            val minute =
+                ui.labelledField(
+                        "Minute",
+                        backup,
+                        value = backupState.optInt("autobackup_minute").toString(),
+                    )
+                    .apply { inputType = android.text.InputType.TYPE_CLASS_NUMBER }
+            val zone =
+                ui.labelledField(
+                    "Timezone",
+                    backup,
+                    value = backupState.optString("autobackup_timezone", "UTC"),
+                )
+            ui.button("Save backup settings", backup, true) {
+                val h = hour.text.toString().toIntOrNull()
+                val m = minute.text.toString().toIntOrNull()
+                val tz = zone.text.toString().trim()
+                if (h == null || h !in 0..23) hour.error = "Choose an hour from 0 to 23"
+                else if (m == null || m !in 0..59) minute.error = "Choose a minute from 0 to 59"
+                else if (
+                    tz !in java.util.TimeZone.getAvailableIDs() &&
+                        tz != backupState.optString("autobackup_timezone")
+                )
+                    zone.error = "Enter a valid timezone, for example Europe/Madrid"
+                else
+                    ui.request(
+                        "/admin/system/backups/settings",
+                        form =
+                            mapOf(
+                                "autobackup_enabled" to enabled.isChecked.toString(),
+                                "autobackup_hour" to h.toString(),
+                                "autobackup_minute" to m.toString(),
+                                "autobackup_timezone" to tz,
+                            ),
+                        done = { system() },
+                    )
+            }
+            val wrapped = group()
+            val schedule =
+                ui.panel(
+                    "Wrapped",
+                    "Controls whether the yearly Wrapped experience is visible in the app.",
+                    "sparkles",
+                    wrapped,
+                )
+            val configuration = data.optJSONObject("wrapped") ?: JSONObject()
+            val visible =
+                ui.toggle(
+                    "Show Wrapped in the app",
+                    configuration.optBoolean("enabled"),
+                    schedule,
+                ) {}
+            val fromDate =
+                scheduleField(
+                    "Visible from date",
+                    configuration.optString("visible_from_date_input"),
+                    schedule,
+                )
+            val fromTime =
+                scheduleField(
+                    "Visible from time",
+                    configuration.optString("visible_from_time_input"),
+                    schedule,
+                    time = true,
+                )
+            val untilDate =
+                scheduleField(
+                    "Visible until date",
+                    configuration.optString("visible_until_date_input"),
+                    schedule,
+                )
+            val untilTime =
+                scheduleField(
+                    "Visible until time",
+                    configuration.optString("visible_until_time_input"),
+                    schedule,
+                    time = true,
+                )
+            val message =
+                ui.labelledField(
+                        "Artist clip message",
+                        schedule,
+                        value = configuration.optString("artist_clip_message"),
+                    )
+                    .apply {
+                        isSingleLine = false
+                        minLines = 3
+                        gravity = android.view.Gravity.TOP
+                        inputType =
+                            android.text.InputType.TYPE_CLASS_TEXT or
+                                android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE
+                        filters = arrayOf(android.text.InputFilter.LengthFilter(4000))
+                        setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12))
+                        (parent as android.widget.FrameLayout).layoutParams.height = ui.dp(100)
+                    }
+            ui.button("Save Wrapped", schedule, true) {
+                ui.request(
+                    "/admin/system/wrapped/settings",
+                    form =
+                        mapOf(
+                            "wrapped_enabled" to visible.isChecked.toString(),
+                            "wrapped_visible_from_date" to fromDate.text.toString(),
+                            "wrapped_visible_from_time" to fromTime.text.toString(),
+                            "wrapped_visible_until_date" to untilDate.text.toString(),
+                            "wrapped_visible_until_time" to untilTime.text.toString(),
+                            "wrapped_artist_clip_message" to message.text.toString(),
+                        ),
+                    done = { system() },
+                )
+            }
+            ui.label(
+                "Current state: ${if (configuration.optBoolean("visible")) "visible" else if (configuration.optBoolean("enabled")) "scheduled/hidden by date" else "disabled"}. Leave dates empty to show immediately while enabled. Schedule uses ${configuration.optString("timezone", "UTC")}.",
+                13,
+                schedule,
+                ui.muted,
+            )
+            ui.space(16, schedule)
+            ui.label(
+                "Operational year (automatic): ${configuration.optInt("year", java.util.Calendar.getInstance().get(java.util.Calendar.YEAR))}",
+                14,
+                schedule,
+                ui.muted,
+            )
+            ui.button("Regenerate Wrapped", schedule) {
+                ui.request("/admin/system/wrapped/regenerate", done = { system() })
+            }
+            ui.button("Reset user Wrapped data", schedule) {
+                ui.sheet("Reset user Wrapped data") { body, dialog ->
+                    ui.label("Loading users…", 14, body, ui.muted)
+                    api.execute({ api.request("/api/mobile/v2/admin/users") }) { result, error ->
+                        if (!dialog.isShowing) return@execute
+                        body.removeAllViews()
+                        if (error != null) {
+                            ui.label(error.message ?: "Users unavailable", 14, body, ui.muted)
+                            return@execute
+                        }
+                        val users = NativeTrack.items((result as JSONObject).optJSONArray("users"))
+                        var username = users.firstOrNull()?.optString("username").orEmpty()
+                        val select = ui.button(username.ifBlank { "No users" }, body) {}
+                        select.setOnClickListener {
+                            ui.choose("User", users.map { it.optString("username") }) {
+                                username = users[it].optString("username")
+                                select.text = username
+                            }
+                        }
+                        val purge = ui.toggle("Also reset listening history", false, body) {}
+                        ui.button("Reset Wrapped data", body, true) {
+                                if (username.isNotBlank())
+                                    ui.confirm(
+                                        "Reset Wrapped data",
+                                        "Delete Wrapped aggregates${if (purge.isChecked) " and listening history" else ""} for $username?",
+                                    ) {
+                                        ui.request(
+                                            "/admin/system/wrapped/reset-user",
+                                            form =
+                                                mapOf(
+                                                    "wrapped_username" to username,
+                                                    "wrapped_reset_purge_tracking" to
+                                                        purge.isChecked.toString(),
+                                                ),
+                                            done = {
+                                                dialog.dismiss()
+                                                system()
+                                            },
+                                        )
+                                    }
+                            }
+                            .isEnabled = users.isNotEmpty()
                     }
                 }
             }
-            ui.button("Automatic backup settings") {
-                form(
-                    "Automatic backups",
-                    "/admin/system/backups/settings",
-                    listOf(
-                        "autobackup_enabled",
-                        "autobackup_hour",
-                        "autobackup_minute",
-                        "autobackup_timezone",
-                    ),
+            val jobs = group()
+            val history =
+                ui.panel(
+                    "Recent Admin Jobs",
+                    "Status and results of server operations.",
+                    "list-music",
+                    jobs,
+                )
+            val historyRows =
+                LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            history.addView(historyRows)
+            fun renderJobs(status: JSONObject) {
+                historyRows.removeAllViews()
+                val entries = NativeTrack.items(status.optJSONArray("jobs"))
+                if (entries.isEmpty()) ui.label("No recent admin jobs.", 14, historyRows, ui.muted)
+                for (job in entries) ui.row(
+                    job.optString("message", job.optString("job_type")),
+                    job.optString("status"),
+                    parent = historyRows,
                 ) {
-                    system()
+                    ui.load("Operation", "/admin/api/system/jobs/" + job.get("id")) {
+                        summary(it as JSONObject)
+                    }
                 }
             }
-            ui.button("Wrapped schedule") {
-                form(
-                    "Wrapped schedule",
-                    "/admin/system/wrapped/settings",
-                    listOf(
-                        "wrapped_enabled",
-                        "wrapped_visible_from_date",
-                        "wrapped_visible_from_time",
-                        "wrapped_visible_until_date",
-                        "wrapped_visible_until_time",
-                        "wrapped_artist_clip_message",
-                    ),
-                ) {
-                    system()
-                }
-            }
-            ui.button("Pool storage limit") {
-                form("Pool limit", "/admin/system/pool-limit", listOf("limit_gb")) { system() }
-            }
-            for (job in NativeTrack.items(data.optJSONArray("jobs"))) ui.row(
-                job.optString("message", job.optString("kind")),
-                job.optString("status"),
-            ) {
-                ui.load("Operation", "/admin/api/system/jobs/" + job.get("id")) {
-                    summary(it as JSONObject)
-                }
-            }
+            renderJobs(data)
+            monitorPolling(jobs, owner, 10000, { "/api/mobile/v2/admin/system" }, ::renderJobs)
         }
     }
 
-    private fun adminLibrary() {
-        ui.screen("Library tools", { admin() })
-        val query = ui.field("Search server library")
-        ui.button("Search") {
-            ui.load(
-                "Server library",
-                "/admin/api/library/search?q=" + NativeApi.encode(query.text.toString()),
-            ) { data ->
-                for (t in NativeTrack.items(data)) ui.row(
-                    t.optString("title"),
-                    t.optString("artist"),
-                ) {
-                    ui.confirm(
-                        "Delete server track",
-                        "Permanently delete this track from the server?",
-                    ) {
-                        ui.request(
-                            "/admin/api/library/track/" + t.get("id"),
-                            "DELETE",
-                            done = { adminLibrary() },
+    private fun scheduleField(
+        title: String,
+        value: String,
+        parent: LinearLayout,
+        time: Boolean = false,
+    ): android.widget.EditText {
+        val owner = ui.content
+        val input =
+            ui.labelledField(title, parent, value = value.takeUnless { it == "null" }.orEmpty())
+                .apply {
+                    isFocusable = false
+                    isClickable = true
+                    setPadding(ui.dp(14), 0, ui.dp(50), 0)
+                    setOnClickListener {
+                        val parts =
+                            text.toString().split(if (time) ':' else '-').mapNotNull {
+                                it.toIntOrNull()
+                            }
+                        val calendar = java.util.Calendar.getInstance()
+                        if (time)
+                            ui.showDialog(
+                                android.app.TimePickerDialog(
+                                    ui.activity,
+                                    { _, hour, minute ->
+                                        if (ui.content === owner)
+                                            setText(
+                                                String.format(
+                                                    java.util.Locale.ROOT,
+                                                    "%02d:%02d",
+                                                    hour,
+                                                    minute,
+                                                )
+                                            )
+                                    },
+                                    parts.getOrNull(0)
+                                        ?: calendar.get(java.util.Calendar.HOUR_OF_DAY),
+                                    parts.getOrNull(1) ?: calendar.get(java.util.Calendar.MINUTE),
+                                    true,
+                                )
+                            )
+                        else
+                            ui.showDialog(
+                                android.app.DatePickerDialog(
+                                    ui.activity,
+                                    { _, year, month, day ->
+                                        if (ui.content === owner)
+                                            setText(
+                                                String.format(
+                                                    java.util.Locale.ROOT,
+                                                    "%04d-%02d-%02d",
+                                                    year,
+                                                    month + 1,
+                                                    day,
+                                                )
+                                            )
+                                    },
+                                    parts.getOrNull(0) ?: calendar.get(java.util.Calendar.YEAR),
+                                    (parts.getOrNull(1)?.minus(1)
+                                            ?: calendar.get(java.util.Calendar.MONTH))
+                                        .coerceIn(0, 11),
+                                    (parts.getOrNull(2)
+                                            ?: calendar.get(java.util.Calendar.DAY_OF_MONTH))
+                                        .coerceIn(1, 31),
+                                )
+                            )
+                    }
+                }
+        val frame = input.parent as android.widget.FrameLayout
+        frame.addView(
+            NativeIconButton(ui.activity, ui.muted, ui.design.theme).apply {
+                text = "x"
+                contentDescription = "Clear $title"
+                setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
+                background = null
+                setOnClickListener { input.text.clear() }
+            },
+            android.widget.FrameLayout.LayoutParams(ui.dp(44), -1, android.view.Gravity.END),
+        )
+        return input
+    }
+
+    private fun monitorPolling(
+        panel: LinearLayout,
+        owner: LinearLayout,
+        interval: Long,
+        path: () -> String,
+        render: (JSONObject) -> Unit,
+    ): Runnable {
+        val notice = ui.label("", 13, panel, ui.muted).apply { visibility = android.view.View.GONE }
+        var serial = 0
+        val poll =
+            object : Runnable {
+                override fun run() {
+                    main.removeCallbacks(this)
+                    if (
+                        !foreground ||
+                            ui.content !== owner ||
+                            panel.visibility != android.view.View.VISIBLE
+                    )
+                        return
+                    val ticket = ++serial
+                    val requestPath = path()
+                    api.execute({ api.request(requestPath) }) { result, error ->
+                        if (
+                            !foreground ||
+                                ui.content !== owner ||
+                                panel.visibility != android.view.View.VISIBLE ||
+                                ticket != serial
                         )
+                            return@execute
+                        if (error != null) {
+                            notice.text = error.message ?: "Statistics unavailable"
+                            notice.visibility = android.view.View.VISIBLE
+                        } else if (result is JSONObject) {
+                            notice.visibility = android.view.View.GONE
+                            render(result)
+                        }
+                        if (error !is NativeApi.Failure || error.code !in listOf(401, 403))
+                            main.postDelayed(this, interval)
                     }
                 }
             }
+        monitorPolls.add(owner to poll)
+        main.post(poll)
+        return poll
+    }
+
+    private fun monitorMetric(
+        parent: LinearLayout,
+        caption: String,
+        percent: Double,
+        detail: String,
+        glyph: String,
+        color: Int,
+    ) {
+        val card =
+            LinearLayout(ui.activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(ui.dp(22), ui.dp(22), ui.dp(22), ui.dp(22))
+                background =
+                    ui.design.shape(
+                        if (ui.design.theme == "classic") 0xff17191f.toInt() else ui.design.content,
+                        16,
+                        true,
+                    )
+            }
+        parent.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(16) })
+        val header =
+            LinearLayout(ui.activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+        card.addView(header)
+        ui.label(caption, 13, header, ui.muted).layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        header.addView(
+            android.widget.ImageView(ui.activity).apply {
+                setImageDrawable(NativeIcon(glyph, ui.muted, ui.design.theme))
+            },
+            LinearLayout.LayoutParams(ui.dp(20), ui.dp(20)),
+        )
+        val number = if (percent.isFinite()) percent.coerceIn(0.0, 100.0) else 0.0
+        ui.label("${String.format(java.util.Locale.US, "%.1f", number)}%", 35, card)
+        ui.label(detail, 13, card, ui.muted)
+        card.addView(
+            android.widget
+                .ProgressBar(ui.activity, null, android.R.attr.progressBarStyleHorizontal)
+                .apply {
+                    max = 1000
+                    progress = (number * 10).toInt()
+                    progressTintList = android.content.res.ColorStateList.valueOf(color)
+                    progressBackgroundTintList =
+                        android.content.res.ColorStateList.valueOf(ui.design.border)
+                },
+            LinearLayout.LayoutParams(-1, ui.dp(4)).apply { topMargin = ui.dp(14) },
+        )
+    }
+
+    private fun listeningTime(seconds: Double): String {
+        val minutes = (seconds.coerceAtLeast(0.0) / 60 + .5).toLong()
+        return if (minutes < 60) "${minutes}m"
+        else "${minutes/60}h" + if (minutes % 60 == 0L) "" else " ${minutes%60}m"
+    }
+
+    private fun userStatistics(panel: LinearLayout, owner: LinearLayout) {
+        val body =
+            ui.panel(
+                "User listening statistics",
+                "Listening activity, collections and recent music for regular users.",
+                "chart-column",
+                panel,
+            )
+        val periods = listOf("24h", "7d", "30d", "year", "all")
+        val periodNames =
+            listOf("Last 24 hours", "Last 7 days", "Last 30 days", "This year", "All time")
+        val sorts = listOf("listening_seconds", "qualified_listens", "last_listen_at", "username")
+        val sortNames = listOf("Listening time", "Listens", "Last listen", "Username")
+        var period = 2
+        var sort = 0
+        var offset = 0
+        val filters = LinearLayout(ui.activity)
+        body.addView(filters)
+        val periodButton = ui.button(periodNames[period], filters) {}
+        val sortButton = ui.button(sortNames[sort], filters) {}
+        for (button in listOf(periodButton, sortButton)) button.layoutParams =
+            LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = ui.dp(8) }
+        val rows = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        lateinit var poll: Runnable
+        fun refresh() {
+            main.removeCallbacks(poll)
+            main.post(poll)
         }
-        ui.button("Find duplicates") {
-            ui.load("Duplicates", "/admin/api/library/duplicates") { value ->
-                val data = value as JSONObject
-                summary(data)
-                for (group in NativeTrack.items(data.optJSONArray("groups"))) {
-                    ui.label(group.optString("reason", "Similar recordings"), 21)
-                    for (t in NativeTrack.items(group)) ui.row(
+        periodButton.setOnClickListener {
+            ui.choose("Period", periodNames) {
+                period = it
+                offset = 0
+                periodButton.text = periodNames[it]
+                refresh()
+            }
+        }
+        sortButton.setOnClickListener {
+            ui.choose("Sort", sortNames) {
+                sort = it
+                offset = 0
+                sortButton.text = sortNames[it]
+                refresh()
+            }
+        }
+        ui.button("Refresh", body) { refresh() }
+        body.addView(rows)
+        poll =
+            monitorPolling(
+                panel,
+                owner,
+                30000,
+                {
+                    "/admin/api/user-statistics?period=${periods[period]}&sort=${sorts[sort]}&order=${if (sorts[sort] == "username") "asc" else "desc"}&limit=25&offset=$offset"
+                },
+            ) { data ->
+                rows.removeAllViews()
+                val totals = data.optJSONObject("totals") ?: JSONObject()
+                val totalsRow = NativeFlowLayout(ui.activity, ui.dp(12))
+                rows.addView(totalsRow)
+                for ((caption, amount) in
+                    listOf(
+                        "Users" to totals.optInt("users").toString(),
+                        "Active accounts" to totals.optInt("active_users").toString(),
+                        "Qualified listens" to totals.optInt("qualified_listens").toString(),
+                        "Listening time" to
+                            listeningTime(totals.optDouble("listening_seconds", 0.0)),
+                    )) {
+                    totalsRow.addView(
+                        LinearLayout(ui.activity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            minimumWidth =
+                                ui.dp(
+                                    (ui.activity.resources.configuration.screenWidthDp -
+                                            ui.design.gutter * 2 -
+                                            68)
+                                        .coerceAtLeast(180) / 2
+                                )
+                            setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
+                            background = ui.design.shape(ui.design.wash, 10, true)
+                            ui.label(caption, 13, this, ui.muted)
+                            ui.label(amount, 24, this)
+                        }
+                    )
+                }
+                val users = NativeTrack.items(data.optJSONArray("users"))
+                if (users.isEmpty()) ui.empty("No regular users found.", parent = rows)
+                for (user in users) {
+                    val card =
+                        ui.panel(
+                            user.optString("username"),
+                            if (user.optBoolean("is_active")) "Active" else "Inactive",
+                            "user",
+                            rows,
+                        )
+                    ui.label("Listening", 12, card, ui.muted)
+                    ui.label(
+                        "${listeningTime(user.optDouble("listening_seconds", 0.0))} · ${user.optInt("qualified_listens")} listens · ${user.optInt("unique_tracks")} tracks",
+                        14,
+                        card,
+                    )
+                    ui.label("Collection", 12, card, ui.muted)
+                    ui.label(
+                        "${user.optInt("playlist_count")} playlists · ${user.optInt("favorite_count")} favorites",
+                        14,
+                        card,
+                    )
+                    ui.label("Top music", 12, card, ui.muted)
+                    val top = user.optJSONObject("top_track")
+                    ui.label(
+                        if (top == null) "No qualified listens"
+                        else "${top.optString("title")} · ${top.optString("artist")}",
+                        14,
+                        card,
+                    )
+                    ui.label("Last listen", 12, card, ui.muted)
+                    ui.label(
+                        user.optString("last_listen_at").takeIf { it.isNotBlank() && it != "null" }
+                            ?: "Never",
+                        14,
+                        card,
+                    )
+                }
+                val total = data.optJSONObject("pagination")?.optInt("total") ?: users.size
+                val pages = LinearLayout(ui.activity)
+                rows.addView(pages)
+                for ((title, next) in
+                    listOf("Previous" to (offset - 25).coerceAtLeast(0), "Next" to offset + 25)) ui
+                    .button(title, pages) {
+                        offset = next
+                        refresh()
+                    }
+                    .apply {
+                        layoutParams =
+                            LinearLayout.LayoutParams(0, ui.dp(44), 1f).apply {
+                                marginEnd = ui.dp(8)
+                            }
+                        isEnabled = if (title == "Previous") offset > 0 else offset + 25 < total
+                    }
+                ui.label(
+                    "${if (total == 0) 0 else offset+1}–${minOf(offset+users.size, total)} of $total",
+                    13,
+                    rows,
+                    ui.muted,
+                )
+            }
+    }
+
+    private fun adminLibrary(tab: String = "library") {
+        ui.screen("Administration", { ui.home() }, key = "/admin/$tab")
+        adminHeader(tab)
+        if (tab == "library") {
+            val body =
+                ui.panel(
+                    "Library explorer",
+                    "Search and review tracks in the server library.",
+                    "library",
+                )
+            val query = ui.labelledField("Search server library", body)
+            ui.button("Search", body) {
+                ui.load(
+                    "Server library",
+                    "/admin/api/library/search?q=" + NativeApi.encode(query.text.toString()),
+                ) { data ->
+                    for (t in NativeTrack.items(data)) ui.row(
                         t.optString("title"),
-                        t.optString("artist") + " · ID " + t.get("id"),
+                        t.optString("artist"),
                     ) {
                         ui.confirm(
-                            "Delete duplicate",
-                            "Permanently delete this server recording? Keep at least one verified copy.",
+                            "Delete server track",
+                            "Permanently delete this track from the server?",
                         ) {
                             ui.request(
-                                "/admin/api/library/track/${t.get("id")}",
+                                "/admin/api/library/track/" + t.get("id"),
                                 "DELETE",
                                 done = { adminLibrary() },
                             )
@@ -977,72 +3340,206 @@ class NativeTools(private val ui: NativeUi) {
                 }
             }
         }
-        for ((name, path) in
-            listOf(
-                "Scan duplicates" to "duplicates",
-                "Audit library" to "audit",
-                "Rescan metadata" to "metadata-rescan",
-                "Scan loudness" to "loudness-scan",
-            )) ui.button(name) {
-            ui.request(
-                "/admin/api/library/$path/jobs",
-                body = JSONObject(),
-                done = { ui.toast("Operation queued") },
-            )
-        }
-    }
-
-    private fun adminDownloads() {
-        ui.load("Download manager", "/admin/api/downloader/status") { value ->
-            summary(value as JSONObject)
-            ui.button("Providers & verification") { providers() }
-            ui.button("Active verification session") {
-                ui.load("Verification session", "/admin/api/downloader/auth-browser/status") { data
-                    ->
-                    val session = data as JSONObject
-                    val id = session.optString("session_id")
-                    if (id.isBlank()) ui.label("No active verification session")
-                    else remoteBrowser(id, session.optString("provider"))
-                }
-            }
-            ui.button("Downloader mode") {
-                form("Downloader mode", "/admin/system/downloader/mode", listOf("mode")) {
-                    adminDownloads()
-                }
-            }
-        }
-    }
-
-    private fun providers() {
-        ui.load("Providers", "/admin/api/downloader/providers") { value ->
-            for (provider in NativeTrack.items((value as JSONObject).optJSONArray("providers"))) {
-                val key = provider.optString("provider", provider.optString("id"))
-                ui.row(provider.optString("label", key), provider.optString("status")) {
-                    ui.choose(key, listOf("Verify account", "Check status", "Disconnect")) { action
-                        ->
-                        val path = "/admin/api/downloader/providers/${NativeApi.encode(key)}"
-                        when (action) {
-                            0 ->
+        if (tab == "duplicates") {
+            val body =
+                ui.panel(
+                    "Find duplicates",
+                    "Review exact matches, matching tags and similar tracks. Compare titles, artists and duration before deleting a recording.",
+                    "copy",
+                )
+            ui.button("Find duplicates", body, true) {
+                ui.load("Duplicates", "/admin/api/library/duplicates") { value ->
+                    val data = value as JSONObject
+                    summary(data)
+                    for (group in NativeTrack.items(data.optJSONArray("groups"))) {
+                        ui.label(group.optString("reason", "Similar recordings"), 21)
+                        for (t in NativeTrack.items(group)) ui.row(
+                            t.optString("title"),
+                            t.optString("artist") + " · ID " + t.get("id"),
+                        ) {
+                            ui.confirm(
+                                "Delete duplicate",
+                                "Permanently delete this server recording? Keep at least one verified copy.",
+                            ) {
                                 ui.request(
-                                    "$path/auth-browser/start",
-                                    done = { data ->
-                                        val result = data as JSONObject
-                                        val session = result.optJSONObject("browser_session")
-                                        if (session == null) providers()
-                                        else remoteBrowser(session.getString("session_id"), key)
-                                    },
+                                    "/admin/api/library/track/${t.get("id")}",
+                                    "DELETE",
+                                    done = { adminLibrary("duplicates") },
                                 )
-                            1 -> ui.request("$path/auth-browser/check", done = { providers() })
-                            2 ->
-                                ui.confirm("Disconnect provider", key) {
-                                    ui.request(path, "DELETE", done = { providers() })
-                                }
+                            }
                         }
                     }
                 }
             }
         }
+        if (tab == "maintenance") {
+            val body =
+                ui.panel(
+                    "Library maintenance",
+                    "Audit missing files, refresh incomplete metadata, or measure playback loudness.",
+                    "settings",
+                )
+            for ((name, path) in
+                listOf(
+                    "Scan duplicates" to "duplicates",
+                    "Audit library" to "audit",
+                    "Rescan metadata" to "metadata-rescan",
+                    "Scan loudness" to "loudness-scan",
+                )) ui.button(name, body) {
+                ui.request(
+                    "/admin/api/library/$path/jobs",
+                    body = JSONObject(),
+                    done = { ui.toast("Operation queued") },
+                )
+            }
+        }
     }
+
+    private fun adminDownloads(tab: String = "runtime") {
+        val path =
+            if (tab == "providers") "/admin/api/downloader/providers"
+            else "/admin/api/downloader/status"
+        ui.load("Download Manager", path, restore = { adminDownloads(tab) }) { value ->
+            val data = value as JSONObject
+            ui.label("Download Manager", 28)
+            ui.label(
+                "Monitor the isolated downloader, manage provider sessions, and choose the download fallback policy.",
+                14,
+                color = ui.muted,
+            )
+            ui.chipBar(
+                listOf("User Admin" to { admin() }, "System Monitor" to { system() }),
+                top = 12,
+                bottom = 16,
+            )
+            val sections = listOf("runtime", "providers", "policy")
+            ui.tabs(
+                listOf("Runtime", "Provider sessions", "Engine policy"),
+                sections.indexOf(tab),
+                icons = listOf("activity", "key-round", "sliders-horizontal"),
+            ) {
+                adminDownloads(sections[it])
+            }
+            ui.space(16)
+            if (tab == "runtime") {
+                val runtime = ui.panel("Isolated worker", glyph = "activity")
+                ui.label(if (data.optBoolean("available")) "Online" else "Unavailable", 24, runtime)
+                ui.label(
+                    "${data.optInt("active_jobs")} active · ${data.optInt("failed_jobs")} failed",
+                    14,
+                    runtime,
+                    ui.muted,
+                )
+                val versions = data.optJSONObject("versions") ?: JSONObject()
+                for (key in listOf("yt-dlp", "spotdl", "SpotiFLAC")) {
+                    val card = ui.panel(if (key == "spotdl") "spotDL" else key)
+                    ui.label(versions.optString(key, "Unavailable"), 18, card)
+                }
+                if (!data.optBoolean("available") && data.optString("error").isNotBlank())
+                    ui.label(data.optString("error"), 14, color = ui.muted)
+            } else if (tab == "policy") {
+                val panel =
+                    ui.panel(
+                        "Download engine policy",
+                        "Automatic is recommended: it tries the isolated worker first and preserves the legacy downloader as a compatibility fallback.",
+                        "sliders-horizontal",
+                    )
+                ui.label("Active policy", 13, panel, ui.muted)
+                val modes = listOf("automatic", "worker", "legacy")
+                val names =
+                    listOf(
+                        "Automatic — worker first, legacy fallback",
+                        "Isolated worker only",
+                        "Legacy Concierge only",
+                    )
+                var selected = modes.indexOf(data.optString("mode", "automatic")).coerceAtLeast(0)
+                val policy = ui.button(names[selected], panel) {}
+                policy.setOnClickListener {
+                    ui.choose("Active policy", names) {
+                        selected = it
+                        policy.text = names[it]
+                    }
+                }
+                ui.button("Save policy", panel, true) {
+                    ui.request(
+                        "/admin/system/downloader/mode",
+                        form = mapOf("downloader_mode" to modes[selected]),
+                        done = { adminDownloads(tab) },
+                    )
+                }
+                ui.label(
+                    "Automatic mode preserves the legacy Concierge downloader when the worker cannot complete a download.",
+                    14,
+                    color = ui.muted,
+                )
+            } else {
+                ui.sectionHeader("Lossless provider sessions")
+                ui.label(
+                    "Connected sessions are stored in the private worker volume and checked every 15 minutes for renewal.",
+                    14,
+                    color = ui.muted,
+                )
+                ui.button("Refresh") { providers() }
+                ui.button("Active verification session") {
+                    ui.load("Verification session", "/admin/api/downloader/auth-browser/status") {
+                        status ->
+                        val session = status as JSONObject
+                        val id = session.optString("session_id")
+                        if (id.isBlank()) ui.label("No active verification session")
+                        else remoteBrowser(id, session.optString("provider"))
+                    }
+                }
+                val providers = NativeTrack.items(data.optJSONArray("providers"))
+                if (providers.isEmpty())
+                    ui.label(
+                        "Provider status is unavailable. Confirm that the isolated worker is online, then refresh.",
+                        14,
+                        color = ui.muted,
+                    )
+                for (provider in providers) {
+                    val key = provider.optString("provider", provider.optString("id"))
+                    val panel =
+                        ui.panel(
+                            provider.optString("label", key),
+                            "SpotiFLAC service ${provider.optString("service")}",
+                            "radio",
+                        )
+                    ui.label(provider.optString("status").replace('_', ' '), 14, panel, ui.accent)
+                    ui.label("Session expiry", 13, panel, ui.muted)
+                    ui.label(
+                        provider.optString("expires_at").takeIf { it.isNotBlank() && it != "null" }
+                            ?: "Not connected",
+                        15,
+                        panel,
+                    )
+                    val path = "/admin/api/downloader/providers/${NativeApi.encode(key)}"
+                    if (!provider.optBoolean("connected"))
+                        ui.button("Open verification browser", panel, true) {
+                            ui.request(
+                                "$path/auth-browser/start",
+                                done = { data ->
+                                    val result = data as JSONObject
+                                    val session = result.optJSONObject("browser_session")
+                                    if (session == null) providers()
+                                    else remoteBrowser(session.getString("session_id"), key)
+                                },
+                            )
+                        }
+                    else
+                        ui.button("Disconnect", panel) {
+                            ui.confirm("Disconnect provider", key) {
+                                ui.request(path, "DELETE", done = { providers() })
+                            }
+                        }
+                    ui.button("Check verification", panel) {
+                        ui.request("$path/auth-browser/check", done = { providers() })
+                    }
+                }
+            }
+        }
+    }
+
+    private fun providers() = adminDownloads("providers")
 
     @Suppress("ClickableViewAccessibility")
     private fun remoteBrowser(id: String, provider: String) {
@@ -1051,6 +3548,42 @@ class NativeTools(private val ui: NativeUi) {
         ui.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         val body = ui.content
         remoteBody = body
+        // A verification form must receive Tab/text/Enter in exactly the order pressed.
+        val inputs = java.util.ArrayDeque<Pair<JSONObject, () -> Unit>>()
+        var sending = false
+        fun pump() {
+            if (sending) return
+            if (ui.content !== body) {
+                inputs.clear()
+                return
+            }
+            val item = inputs.pollFirst() ?: return
+            sending = true
+            api.execute({
+                api.request("/api/mobile/v2/admin/browser/$id/input", "POST", item.first)
+            }) { _, error ->
+                sending = false
+                if (ui.content !== body) {
+                    inputs.clear()
+                    return@execute
+                }
+                if (error == null) {
+                    item.second()
+                    pump()
+                } else {
+                    inputs.clear()
+                    ui.toast(error.message ?: "Browser input unavailable")
+                }
+            }
+        }
+        fun sendInput(value: JSONObject, done: () -> Unit = {}) {
+            if (inputs.size >= 32) {
+                ui.toast("Wait for the browser to finish receiving input")
+                return
+            }
+            inputs.addLast(value to done)
+            pump()
+        }
         ui.label(
             "Tap the remote page to focus a field. Text is sent only to your authenticated verification session.",
             14,
@@ -1061,6 +3594,7 @@ class NativeTools(private val ui: NativeUi) {
                 scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
                 contentDescription = "Private verification browser"
                 isClickable = true
+                isFocusableInTouchMode = true
             }
         body.addView(image, LinearLayout.LayoutParams(-1, ui.dp(280)))
         var imageWidth = 1024
@@ -1072,14 +3606,41 @@ class NativeTools(private val ui: NativeUi) {
                 val x = (event.x - (view.width - imageWidth * scale) / 2) / scale
                 val y = (event.y - (view.height - imageHeight * scale) / 2) / scale
                 if (x >= 0 && y >= 0 && x < imageWidth && y < imageHeight)
-                    ui.request(
-                        "/api/mobile/v2/admin/browser/$id/input",
-                        body = JSONObject().put("action", "click").put("x", x).put("y", y),
-                        done = {},
-                    )
+                    sendInput(JSONObject().put("action", "click").put("x", x).put("y", y))
+                view.requestFocus()
                 view.performClick()
             }
             true
+        }
+        image.setOnKeyListener { _, code, event ->
+            val key =
+                when (code) {
+                    android.view.KeyEvent.KEYCODE_TAB ->
+                        if (event.isShiftPressed) "Shift+Tab" else "Tab"
+                    android.view.KeyEvent.KEYCODE_SPACE -> "Space"
+                    android.view.KeyEvent.KEYCODE_ENTER,
+                    android.view.KeyEvent.KEYCODE_NUMPAD_ENTER -> "Enter"
+                    android.view.KeyEvent.KEYCODE_DEL -> "Backspace"
+                    android.view.KeyEvent.KEYCODE_FORWARD_DEL -> "Delete"
+                    android.view.KeyEvent.KEYCODE_ESCAPE -> "Escape"
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> "ArrowLeft"
+                    android.view.KeyEvent.KEYCODE_DPAD_UP -> "ArrowUp"
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> "ArrowRight"
+                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> "ArrowDown"
+                    android.view.KeyEvent.KEYCODE_MOVE_HOME -> "Home"
+                    android.view.KeyEvent.KEYCODE_MOVE_END -> "End"
+                    android.view.KeyEvent.KEYCODE_PAGE_UP -> "PageUp"
+                    android.view.KeyEvent.KEYCODE_PAGE_DOWN -> "PageDown"
+                    android.view.KeyEvent.KEYCODE_A ->
+                        if (event.isCtrlPressed) "Control+A" else null
+                    else -> null
+                }
+            if (key == null) false
+            else {
+                if (event.action == android.view.KeyEvent.ACTION_DOWN)
+                    sendInput(JSONObject().put("action", "key").put("key", key))
+                true
+            }
         }
         val input = ui.field("Text for the focused field", password = true)
         ui.button("Send text") {
@@ -1088,33 +3649,43 @@ class NativeTools(private val ui: NativeUi) {
                 input.error = "Text too long"
                 return@button
             }
-            ui.request(
-                "/api/mobile/v2/admin/browser/$id/input",
-                body = JSONObject().put("action", "text").put("text", value),
-                done = { input.text.clear() },
-            )
-        }
-        ui.button("Keyboard controls") {
-            val keys = listOf("Tab", "Enter", "Backspace", "Escape", "ArrowUp", "ArrowDown")
-            ui.choose("Send key", keys) {
-                ui.request(
-                    "/api/mobile/v2/admin/browser/$id/input",
-                    body = JSONObject().put("action", "key").put("key", keys[it]),
-                    done = {},
-                )
+            sendInput(JSONObject().put("action", "text").put("text", value)) {
+                if (input.text.toString() == value) input.text.clear()
             }
         }
+        ui.label("Keyboard", 15)
+        val keys =
+            listOf(
+                "Tab" to "Tab",
+                "Shift + Tab" to "Shift+Tab",
+                "Space" to "Space",
+                "Enter" to "Enter",
+                "Backspace" to "Backspace",
+                "Delete" to "Delete",
+                "Escape" to "Escape",
+                "←" to "ArrowLeft",
+                "↑" to "ArrowUp",
+                "→" to "ArrowRight",
+                "↓" to "ArrowDown",
+                "Home" to "Home",
+                "End" to "End",
+                "Page up" to "PageUp",
+                "Page down" to "PageDown",
+                "Select all" to "Control+A",
+            )
+        for (row in keys.chunked(8)) ui.chipBar(
+            row.map { (label, key) ->
+                label to { sendInput(JSONObject().put("action", "key").put("key", key)) }
+            }
+        )
         ui.button("Scroll page") {
             ui.choose("Scroll", listOf("Down", "Up")) { direction ->
-                ui.request(
-                    "/api/mobile/v2/admin/browser/$id/input",
-                    body =
-                        JSONObject()
-                            .put("action", "scroll")
-                            .put("x", imageWidth / 2)
-                            .put("y", imageHeight / 2)
-                            .put("delta", if (direction == 0) 500 else -500),
-                    done = {},
+                sendInput(
+                    JSONObject()
+                        .put("action", "scroll")
+                        .put("x", imageWidth / 2)
+                        .put("y", imageHeight / 2)
+                        .put("delta", if (direction == 0) 500 else -500)
                 )
             }
         }
@@ -1167,10 +3738,25 @@ class NativeTools(private val ui: NativeUi) {
     }
 
     fun pause() {
+        foreground = false
+        monitorPolls.forEach { main.removeCallbacks(it.second) }
+        downloadPoll?.let(main::removeCallbacks)
         remotePoll?.let(main::removeCallbacks)
     }
 
     fun resume() {
+        foreground = true
+        if (downloadDialog?.isShowing == true)
+            downloadPoll?.let {
+                main.removeCallbacks(it)
+                main.post(it)
+            }
+        monitorPolls
+            .filter { it.first === ui.content }
+            .forEach {
+                main.removeCallbacks(it.second)
+                main.post(it.second)
+            }
         if (ui.content === remoteBody)
             remotePoll?.let {
                 main.removeCallbacks(it)
@@ -1179,7 +3765,8 @@ class NativeTools(private val ui: NativeUi) {
     }
 
     private fun federation() {
-        ui.load("Federation", "/api/admin/federation/instances") { value ->
+        ui.load("Administration", "/api/admin/federation/instances") { value ->
+            adminHeader("federation")
             ui.button("Add node") {
                 form(
                     "Connected node",
@@ -1235,12 +3822,13 @@ class NativeTools(private val ui: NativeUi) {
         json: Boolean = false,
         done: () -> Unit,
     ) {
-        ui.screen(title, { admin() })
+        ui.screen(title, { admin() }, key = path)
         val fields =
             names.associateWith {
-                ui.field(
-                    it.replace('_', ' '),
-                    password = it.contains("password") || it.contains("token"),
+                ui.labelledField(
+                    it.replace('_', ' ').replaceFirstChar(Char::uppercase),
+                    password =
+                        it.contains("password") || it.contains("token") || it.contains("secret"),
                 )
             }
         ui.button("Save", primary = true) {
@@ -1254,7 +3842,7 @@ class NativeTools(private val ui: NativeUi) {
         }
     }
 
-    private fun summary(data: JSONObject) {
+    private fun summary(data: JSONObject, parent: LinearLayout = ui.content) {
         for (key in data.keys()) {
             if (
                 key.contains("token", true) ||
@@ -1265,16 +3853,81 @@ class NativeTools(private val ui: NativeUi) {
                 continue
             val value = data.opt(key)
             if (value is JSONObject) {
-                ui.label(key.replace('_', ' '), 20)
-                summary(value)
+                ui.label(key.replace('_', ' '), 20, parent)
+                summary(value, parent)
             } else if (value !is JSONArray)
-                ui.label("${key.replace('_',' ')}: ${value?.toString().orEmpty().take(240)}", 15)
+                ui.row(
+                        key.replace('_', ' ').replaceFirstChar(Char::uppercase),
+                        value?.toString().orEmpty().take(240),
+                        parent = parent,
+                        coverSize = 0,
+                    ) {}
+                    .apply {
+                        isClickable = false
+                        isFocusable = false
+                        removeViewAt(0)
+                        background = null
+                    }
         }
+    }
+
+    fun saveState() =
+        android.os.Bundle().apply {
+            putString("settings", settingsTab)
+            putInt("system", systemTab)
+            putString("radio", radioHub)
+        }
+
+    fun restoreState(state: android.os.Bundle) {
+        settingsTab =
+            state.getString("settings")?.takeIf {
+                it in listOf("account", "appearance", "playback", "integrations", "youtube")
+            } ?: "account"
+        systemTab = state.getInt("system").coerceIn(0, 5)
+        radioHub = state.getString("radio", radioHub).orEmpty().take(200)
+    }
+
+    fun restorePage(path: String): Boolean {
+        when {
+            path == "/api/mobile/v2/settings" -> settings()
+            path == "/api/mobile/v2/admin/system" -> system()
+            path == "/api/mobile/v2/admin/users" -> admin()
+            path == "/api/mobile/v2/admin/delete-requests" -> adminDeletions()
+            path.startsWith("/user/profile/") ->
+                profile(android.net.Uri.decode(path.removePrefix("/user/profile/")))
+            path.startsWith("/api/artist/") ->
+                artist(android.net.Uri.decode(path.removePrefix("/api/artist/")))
+            path == "radios" -> radios()
+            path == "Device storage" || path == "Pending offline changes" -> storage()
+            path.startsWith("/admin/api/downloader") ->
+                adminDownloads(if (path.endsWith("providers")) "providers" else "runtime")
+            path in
+                listOf(
+                    "/admin/library",
+                    "/admin/duplicates",
+                    "/admin/maintenance",
+                    "/admin/federation",
+                ) -> admin(path.substringAfterLast('/'))
+            path.startsWith("/admin/") -> admin()
+            else -> return false
+        }
+        return true
     }
 
     fun close() {
         main.removeCallbacksAndMessages(null)
         remotePoll = null
         remoteBody = null
+        downloadPoll = null
+        downloadDialog = null
+        monitorPolls.clear()
+        partyBody = null
+        partyState = null
+        partyNow = null
+        partyQueue = null
+        partyCover = null
+        partyArtist = null
+        partyParticipants = null
+        partyToggle = null
     }
 }

@@ -89,6 +89,47 @@ class NativeClientTest {
     }
 
     @Test
+    fun navigationSnapshotRestoresTheRouteWithoutSavingSecretsOrCrossingAccounts() {
+        context()
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.create()
+        ui.search("Sample search")
+        ui.labelledField("Private credential", password = true)
+            .setText("fixture-only-private-draft")
+        val state = ui.saveState()
+        assertEquals("search", state.getString("route"))
+        assertFalse(state.toString().contains("fixture-only-private-draft"))
+        assertTrue(ui.restoreState(state))
+        context("bob", "b".repeat(64))
+        assertFalse(ui.restoreState(state))
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun fileSelectionCannotUploadIntoAnAccountSignedInAfterThePickerOpened() {
+        context()
+        // This boundary needs a registered launcher, not the API 21 window animator.
+        val lifecycle =
+            Robolectric.buildActivity(MainActivity::class.java).create().start().resume()
+        val activity = lifecycle.get()
+        var uploads = 0
+        activity.pickNativeFile("image/*") { uploads++ }
+        @Suppress("UNCHECKED_CAST")
+        val callback =
+            MainActivity::class
+                .java
+                .getDeclaredField("nativeFileCallback")
+                .apply { isAccessible = true }
+                .get(activity) as (Uri) -> Unit
+        context("bob", "b".repeat(64))
+        callback(Uri.parse("content://fixture/image"))
+        assertEquals(0, uploads)
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
     fun configuredOriginPinsSchemeHostPortAndRejectsCredentialedOrMalformedUrls() {
         val origin = ServerOrigin.from(Uri.parse("https://music.test:8443"))!!
         assertEquals("/api/playlists", NativeApi.resolve(origin, "/api/playlists").path)
@@ -257,6 +298,107 @@ class NativeClientTest {
         assertTrue(app.nativeApi.canImportLegacy)
         context("bob", "b".repeat(64))
         assertFalse(app.nativeApi.canImportLegacy)
+    }
+
+    @Test
+    fun partyTransportCannotShuffleLocalQueueAndRemoteTracksCannotToggleLocalFavorites() {
+        context()
+        val player = app.nativePlayback
+        player.play(listOf(JSONObject().put("id", 7).put("db_id", 7)), autoplay = false)
+        val room = NativeParty(app, "1")
+        player.party = room
+        try {
+            player.command("shuffle")
+            player.command("repeat")
+            val engine =
+                NativePlayback::class
+                    .java
+                    .getDeclaredField("engine")
+                    .apply { isAccessible = true }
+                    .get(player) as androidx.media3.exoplayer.ExoPlayer
+            assertFalse(engine.shuffleModeEnabled)
+            assertEquals(androidx.media3.common.Player.REPEAT_MODE_OFF, engine.repeatMode)
+        } finally {
+            room.close()
+        }
+        for (track in
+            listOf(
+                JSONObject().put("id", "radio-1"),
+                JSONObject().put("id", "fed_2_9").put("fed_instance_id", 2).put("fed_remote_id", 9),
+            )) {
+            var error: Throwable? = null
+            player.favorite(track) { error = it }
+            assertTrue(error is IllegalArgumentException)
+            assertFalse(track.optBoolean("is_favorite"))
+        }
+    }
+
+    @Test
+    fun wrappedTransportCannotReplaceThePersonalQueueOrAutomaticallyResumeIt() {
+        context()
+        val player = app.nativePlayback
+        player.play(
+            listOf(JSONObject().put("id", 7).put("title", "Personal recording")),
+            autoplay = false,
+        )
+        val commands = mutableListOf<String>()
+        val story: (String, Long) -> Unit = { action, _ -> commands.add(action) }
+        assertTrue(player.present(story))
+        assertFalse(player.present { _, _ -> fail("Another presentation must not steal controls") })
+        player.command("play")
+        player.command("nexttrack")
+        assertEquals(listOf("play", "nexttrack"), commands)
+        assertFalse(player.playing)
+        assertEquals("7", NativeTrack.reference(player.current!!))
+        player.endPresentation { _, _ -> }
+        player.command("pause")
+        assertEquals("pause", commands.last())
+        player.endPresentation(story)
+        val count = commands.size
+        player.command("pause")
+        assertEquals(count, commands.size)
+        assertFalse(player.playing)
+        assertEquals(1, player.queue.size)
+    }
+
+    @Test
+    fun manualQueueEditsPreserveTheCurrentEngineAndContext() {
+        context()
+        fun song(id: Int) = JSONObject().put("id", id).put("db_id", id).put("duration", 90)
+        val player = app.nativePlayback
+        player.play(listOf(song(7), song(8)), autoplay = false)
+        val field =
+            NativePlayback::class.java.getDeclaredField("engine").apply { isAccessible = true }
+        val engine = field.get(player)
+        player.enqueue(song(9))
+        player.enqueue(song(10))
+        assertEquals(listOf("7", "9", "10", "8"), player.queue.map(NativeTrack::reference))
+        assertTrue(player.moveQueued(2, 1))
+        assertEquals(listOf("7", "10", "9", "8"), player.queue.map(NativeTrack::reference))
+        assertFalse(player.removeQueued(0))
+        assertFalse(player.removeQueued(3))
+        assertTrue(player.removeQueued(1))
+        assertEquals(listOf("7", "9", "8"), player.queue.map(NativeTrack::reference))
+        val remote = player.remoteQueueState()
+        assertEquals(
+            listOf("7", "8"),
+            NativeTrack.items(remote.getJSONArray("context_queue")).map(NativeTrack::reference),
+        )
+        assertEquals(
+            listOf("9"),
+            NativeTrack.items(remote.getJSONArray("manual_queue")).map(NativeTrack::reference),
+        )
+        assertFalse(player.selectQueue(5))
+        assertSame(engine, field.get(player))
+        assertFalse(player.playing)
+        assertTrue(player.selectQueue(0))
+        assertSame("Queue selection must seek on the same player", engine, field.get(player))
+        assertEquals("7", NativeTrack.reference(player.current!!))
+        player.stop()
+        player.restoreRemoteQueue(remote)
+        assertEquals(listOf("7", "9", "8"), player.queue.map(NativeTrack::reference))
+        assertTrue(player.queue[1].getBoolean("_manual"))
+        assertFalse(player.active)
     }
 
     @Test
@@ -450,13 +592,15 @@ class NativeClientTest {
             java.io.File(app.applicationInfo.dataDir, "app_webview").mkdirs()
             app.nativeApi.configure(base)
             assertTrue(
-                app.nativeApi.cookieHeader(ServerOrigin.from(Uri.parse(base))!!)
+                app.nativeApi
+                    .cookieHeader(ServerOrigin.from(Uri.parse(base))!!)
                     .orEmpty()
                     .contains("legacy-owner")
             )
             app.nativeApi.changeClientMode(base, false)
             assertFalse(
-                android.webkit.CookieManager.getInstance().getCookie(base)
+                android.webkit.CookieManager.getInstance()
+                    .getCookie(base)
                     .orEmpty()
                     .contains("legacy-owner")
             )

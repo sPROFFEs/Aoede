@@ -327,6 +327,23 @@ def test_native_browser_only_drives_the_current_session_and_never_exposes_arbitr
     manager.native_view("native_session_a", {"action": "text", "text": "synthetic text"})
     assert commands[-1]["method"] == "Input.insertText"
     assert commands[-1]["params"] == {"text": "synthetic text"}
+    manager.native_view("native_session_a", {"action": "key", "key": "Space"})
+    down, up = commands[-2:]
+    assert down["method"] == up["method"] == "Input.dispatchKeyEvent"
+    assert down["params"] == {"type": "keyDown", "key": " ", "code": "Space", "windowsVirtualKeyCode": 32, "text": " "}
+    assert up["params"] == {"type": "keyUp", "key": " ", "code": "Space", "windowsVirtualKeyCode": 32}
+    manager.native_view("native_session_a", {"action": "key", "key": "Enter"})
+    assert commands[-2]["params"] == {
+        "type": "keyDown",
+        "key": "Enter",
+        "code": "Enter",
+        "windowsVirtualKeyCode": 13,
+        "text": "\r",
+    }
+    assert "text" not in commands[-1]["params"]
+    for key, modifiers in (("Shift+Tab", 8), ("Control+A", 2)):
+        manager.native_view("native_session_a", {"action": "key", "key": key})
+        assert commands[-2]["params"]["modifiers"] == commands[-1]["params"]["modifiers"] == modifiers
     for payload in (
         {"action": "Runtime.evaluate"},
         {"action": "key", "key": "F12"},

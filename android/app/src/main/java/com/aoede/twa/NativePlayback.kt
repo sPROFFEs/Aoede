@@ -165,6 +165,8 @@ class NativePlayback(private val app: AoedeApp) {
 
     var onChanged: (() -> Unit)? = null
     var onOpenPlayer: (() -> Unit)? = null
+    // A visible Wrapped story temporarily owns transport controls, never the personal queue.
+    private var presentation: ((String, Long) -> Unit)? = null
     var party: NativeParty? = null
     val active
         get() = engine != null
@@ -198,6 +200,11 @@ class NativePlayback(private val app: AoedeApp) {
                 if (engine == null) return
                 if (!ownsAccount()) {
                     release()
+                    return
+                }
+                if (presentation != null) {
+                    lastTick = 0
+                    handler.postDelayed(this, 100)
                     return
                 }
                 val now = android.os.SystemClock.elapsedRealtime()
@@ -349,16 +356,24 @@ class NativePlayback(private val app: AoedeApp) {
         persist()
     }
 
-    fun insertNext(track: JSONObject) {
-        if (party != null) return
+    fun insertNext(track: JSONObject) = enqueue(track, true)
+
+    fun enqueue(track: JSONObject, next: Boolean = false) {
+        if (party != null || presentation != null || ownerScope != null && !ownsAccount()) return
+        val queued = JSONObject(track.toString()).put("_manual", true)
         val p = engine
         if (p == null) {
-            play(listOf(track), autoplay = false)
+            play(listOf(queued))
             return
         }
-        val position = (p.currentMediaItemIndex + 1).coerceAtMost(tracks.size)
+        val following = (p.currentMediaItemIndex + 1).coerceAtMost(tracks.size)
+        val position =
+            if (next) following
+            else
+                (following until tracks.size).firstOrNull { !tracks[it].optBoolean("_manual") }
+                    ?: tracks.size
         val all = tracks.toMutableList()
-        all.add(position, JSONObject(track.toString()))
+        all.add(position, queued)
         tracks = all
         val file = runCatching { app.nativeLibrary.audio(NativeTrack.reference(track)) }.getOrNull()
         val uri =
@@ -374,9 +389,67 @@ class NativePlayback(private val app: AoedeApp) {
         onChanged?.invoke()
     }
 
+    fun selectQueue(target: Int): Boolean {
+        if (party != null || presentation != null || !ownsAccount() || target !in tracks.indices)
+            return false
+        val p = engine
+        if (p == null) play(tracks, target, at = if (target == savedIndex) savedPosition else 0)
+        else {
+            if (target != p.currentMediaItemIndex) p.seekTo(target, 0)
+            p.play()
+            persist()
+        }
+        return true
+    }
+
+    fun moveQueued(from: Int, to: Int): Boolean {
+        val p = engine ?: return false
+        if (
+            party != null ||
+                presentation != null ||
+                !ownsAccount() ||
+                from <= index ||
+                to <= index ||
+                from !in tracks.indices ||
+                to !in tracks.indices ||
+                !tracks[from].optBoolean("_manual") ||
+                !tracks[to].optBoolean("_manual")
+        )
+            return false
+        val all = tracks.toMutableList()
+        all.add(to, all.removeAt(from))
+        tracks = all
+        p.moveMediaItem(from, to)
+        persist()
+        onChanged?.invoke()
+        return true
+    }
+
+    fun removeQueued(target: Int): Boolean {
+        val p = engine ?: return false
+        if (
+            party != null ||
+                presentation != null ||
+                !ownsAccount() ||
+                target <= index ||
+                target !in tracks.indices ||
+                !tracks[target].optBoolean("_manual")
+        )
+            return false
+        tracks = tracks.toMutableList().apply { removeAt(target) }
+        p.removeMediaItem(target)
+        persist()
+        onChanged?.invoke()
+        return true
+    }
+
     fun command(action: String, value: Long = 0) {
         if (action != "stop" && ownerScope != null && !ownsAccount()) {
             release()
+            return
+        }
+        presentation?.let {
+            it(action, value)
             return
         }
         when (action) {
@@ -421,11 +494,13 @@ class NativePlayback(private val app: AoedeApp) {
             }
             "favorite" -> favorite()
             "shuffle" -> {
+                if (party != null) return
                 engine?.let { it.shuffleModeEnabled = !it.shuffleModeEnabled }
                 controls()
                 persist()
             }
             "repeat" -> {
+                if (party != null) return
                 engine?.let {
                     it.repeatMode =
                         when (it.repeatMode) {
@@ -475,24 +550,47 @@ class NativePlayback(private val app: AoedeApp) {
             if (error != null || value !is JSONObject || scope != app.nativeApi.scope || playing)
                 return@execute
             if (!value.isNull("volume")) setVolume(value.optDouble("volume", 1.0).toFloat())
-            if (tracks.isEmpty()) {
-                val context = NativeTrack.items(value.optJSONArray("context_queue"))
-                val current = value.optJSONObject("current_track")
-                tracks = if (context.isNotEmpty()) context else listOfNotNull(current)
-                savedIndex =
-                    value.optInt("context_index", 0).coerceIn(0, (tracks.size - 1).coerceAtLeast(0))
-                savedPosition =
-                    (value.optDouble("current_time", 0.0) * 1000).toLong().coerceAtLeast(0)
-                savedShuffle = value.optBoolean("shuffle_mode")
-                savedRepeat =
-                    when (value.optString("repeat_mode")) {
-                        "all" -> Player.REPEAT_MODE_ALL
-                        "one" -> Player.REPEAT_MODE_ONE
-                        else -> Player.REPEAT_MODE_OFF
-                    }
-                onChanged?.invoke()
-            }
+            if (tracks.isEmpty()) restoreRemoteQueue(value)
         }
+    }
+
+    internal fun restoreRemoteQueue(value: JSONObject) {
+        if (tracks.isNotEmpty() || engine != null || party != null || presentation != null) return
+        ownerScope = app.nativeLibrary.scope()
+        val context =
+            NativeTrack.items(value.optJSONArray("context_queue"))
+                .take(500)
+                .map { JSONObject(it.toString()).apply { remove("_manual") } }
+                .toMutableList()
+        val current = value.optJSONObject("current_track")
+        val at = value.optInt("context_index", -1).coerceIn(-1, context.lastIndex.coerceAtLeast(-1))
+        savedIndex =
+            if (
+                current != null &&
+                    (at < 0 || NativeTrack.reference(context[at]) != NativeTrack.reference(current))
+            ) {
+                (at + 1).coerceIn(0, context.size).also {
+                    context.add(it, JSONObject(current.toString()).put("_manual", true))
+                }
+            } else at.coerceAtLeast(0)
+        val manual =
+            NativeTrack.items(value.optJSONArray("manual_queue")).take(500).map {
+                JSONObject(it.toString()).put("_manual", true)
+            }
+        context.addAll((savedIndex + 1).coerceAtMost(context.size), manual)
+        tracks = context
+        savedIndex = savedIndex.coerceIn(0, (tracks.size - 1).coerceAtLeast(0))
+        val seconds = value.optDouble("current_time", 0.0)
+        savedPosition =
+            if (seconds.isFinite()) (seconds.coerceIn(0.0, 86400.0) * 1000).toLong() else 0
+        savedShuffle = value.optBoolean("shuffle_mode")
+        savedRepeat =
+            when (value.optString("repeat_mode")) {
+                "all" -> Player.REPEAT_MODE_ALL
+                "one" -> Player.REPEAT_MODE_ONE
+                else -> Player.REPEAT_MODE_OFF
+            }
+        onChanged?.invoke()
     }
 
     fun favorite(track: JSONObject? = current, done: (Throwable?) -> Unit = {}) {
@@ -501,6 +599,10 @@ class NativePlayback(private val app: AoedeApp) {
             return
         }
         if (track == null) return
+        if (NativeTrack.localId(track) <= 0) {
+            done(IllegalArgumentException("Only local library tracks support favorites"))
+            return
+        }
         val ref = NativeTrack.reference(track)
         val liked = track.optBoolean("is_favorite")
         val scope = app.nativeApi.scope
@@ -585,7 +687,7 @@ class NativePlayback(private val app: AoedeApp) {
         app.mediaController.receive(
             JSONObject()
                 .put("type", "controls")
-                .put("canFavorite", t != null)
+                .put("canFavorite", t != null && NativeTrack.localId(t) > 0)
                 .put("favorite", t?.optBoolean("is_favorite") == true)
                 .put("canShuffle", party == null)
                 .put("shuffle", p?.shuffleModeEnabled == true)
@@ -679,30 +781,45 @@ class NativePlayback(private val app: AoedeApp) {
         handler.postDelayed(saveRemote, 800)
     }
 
+    internal fun remoteQueueState(): JSONObject {
+        val context = tracks.filterNot { it.optBoolean("_manual") }
+        val contextIndex = tracks.take(index + 1).count { !it.optBoolean("_manual") } - 1
+        val first = (contextIndex - 250).coerceAtLeast(0)
+        val portable = JSONArray(context.drop(first).take(500).map(NativeTrack::portable))
+        return JSONObject()
+            .put("context_queue", portable)
+            .put(
+                "manual_queue",
+                JSONArray(
+                    tracks
+                        .drop(index + 1)
+                        .filter { it.optBoolean("_manual") }
+                        .take(500)
+                        .map(NativeTrack::portable)
+                ),
+            )
+            .put("current_track", current?.let(NativeTrack::portable))
+            .put("context_index", contextIndex - first)
+            .put("original_context_queue", portable)
+            .put("current_time", position / 1000.0)
+            .put("duration", duration / 1000.0)
+            .put("was_playing", playing)
+            .put("shuffle_mode", savedShuffle)
+            .put(
+                "repeat_mode",
+                when (savedRepeat) {
+                    Player.REPEAT_MODE_ALL -> "all"
+                    Player.REPEAT_MODE_ONE -> "one"
+                    else -> "off"
+                },
+            )
+            .put("volume", volume)
+    }
+
     private fun syncQueue() {
-        if (tracks.isEmpty() || party != null || !ownsAccount()) return
+        if (tracks.isEmpty() || party != null || presentation != null || !ownsAccount()) return
         val scope = app.nativeApi.scope
-        val first = (index - 250).coerceAtLeast(0)
-        val portable = JSONArray(tracks.drop(first).take(500).map(NativeTrack::portable))
-        val data =
-            JSONObject()
-                .put("context_queue", portable)
-                .put("current_track", current?.let(NativeTrack::portable))
-                .put("context_index", index - first)
-                .put("original_context_queue", portable)
-                .put("current_time", position / 1000.0)
-                .put("duration", duration / 1000.0)
-                .put("was_playing", playing)
-                .put("shuffle_mode", savedShuffle)
-                .put(
-                    "repeat_mode",
-                    when (savedRepeat) {
-                        Player.REPEAT_MODE_ALL -> "all"
-                        Player.REPEAT_MODE_ONE -> "one"
-                        else -> "off"
-                    },
-                )
-                .put("volume", volume)
+        val data = remoteQueueState()
         app.nativeApi.execute({
             if (scope != app.nativeApi.scope) error("Account changed")
             app.nativeApi.request("/api/playback/queue-state", "PUT", data)
@@ -732,7 +849,28 @@ class NativePlayback(private val app: AoedeApp) {
         setVolume(saved.optDouble("volume", 1.0).toFloat())
     }
 
+    fun present(controls: (String, Long) -> Unit): Boolean {
+        if (party != null || presentation != null || ownerScope != null && !ownsAccount())
+            return false
+        if (ownerScope == null) ownerScope = app.nativeLibrary.scope()
+        command("pause")
+        processor.sampling = false
+        presentation = controls
+        return true
+    }
+
+    fun endPresentation(controls: (String, Long) -> Unit) {
+        if (presentation !== controls) return
+        presentation = null
+        if (current != null && ownsAccount()) {
+            metadata()
+            publish()
+        } else app.mediaController.reset()
+    }
+
     fun stop() {
+        presentation?.invoke("stop", 0)
+        presentation = null
         listen(if (engine?.playbackState == Player.STATE_ENDED) "play_complete" else "skip")
         listenTrack = null
         processor.sampling = false
