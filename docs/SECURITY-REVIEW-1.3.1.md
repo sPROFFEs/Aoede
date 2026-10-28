@@ -21,6 +21,8 @@ Scope: the native Android client, its authenticated JSON context/settings/admin 
 
 Switching account after a connection failure could save an old queue in the newly authenticated account's cache. Queues now retain their original storage owner; leaving a party cannot restore another account's personal queue. Queued HTTP/image work and media/download connections bind their account at connection creation, so an old operation cannot pick up a new session's credentials. Sign-in/password changes stop the prior player, and a download worker exits cleanly if its session is cleared. Regression tests exercise account changes during queue teardown and before a queued request opens its connection.
 
+Switching between the native and compatibility clients also resets the selected backend's native session. Compatibility entry requires a fresh browser sign-in, while native entry verifies the current browser cookie before importing it. Artwork requests select the active client's cookie jar; regression checks exercise the actual HTTP Cookie header and mode transition.
+
 Recreating a username could previously reuse the initial session-version value of a deleted account. New accounts now start with a random nonzero version and new tokens bind their random account identity. Existing account sessions are not globally invalidated. Tests reject old/wrong-identity tokens.
 
 Native collection creation could otherwise duplicate a collection after losing a successful response. The request identifier, body hash and resulting collection are committed together; retries are scoped by account and conflicting reuse returns 409.

@@ -355,6 +355,7 @@ class NativeClientTest {
         val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
         val bytes = ByteArray(256) { it.toByte() }
         var origin = ""
+        val cookies = java.util.concurrent.atomic.AtomicReference("")
         val worker =
             Thread {
                     while (!server.isClosed) try {
@@ -370,6 +371,7 @@ class NativeClientTest {
                             }
                             origin =
                                 headers["origin"] ?: headers["referer"].orEmpty().removeSuffix("/")
+                            cookies.set(headers["cookie"].orEmpty())
                             val range = headers["range"]
                             val start =
                                 range?.substringAfter("bytes=")?.substringBefore('-')?.toInt() ?: 0
@@ -416,6 +418,48 @@ class NativeClientTest {
                     .isFailure
             )
             source.close()
+            app.mediaController.serverOrigin = ServerOrigin.from(Uri.parse(base))
+            fun cover(path: String) {
+                app.mediaController.receive(
+                    JSONObject()
+                        .put("type", "metadata")
+                        .put("title", "Session check")
+                        .put("artwork", base + path)
+                        .toString()
+                )
+                org.robolectric.util.ReflectionHelpers.getField<java.util.concurrent.Future<*>>(
+                        app.mediaController,
+                        "artworkJob",
+                    )
+                    .get(5, java.util.concurrent.TimeUnit.SECONDS)
+            }
+            cover("/native-cover")
+            assertTrue(cookies.get().contains("synthetic-session"))
+            android.webkit.CookieManager.getInstance()
+                .setCookie(base, "access_token=legacy-owner; Path=/")
+            AoedeApp::class
+                .java
+                .getDeclaredField("player")
+                .apply { isAccessible = true }
+                .set(app, WebView(app))
+            cover("/legacy-cover")
+            assertTrue(cookies.get().contains("legacy-owner"))
+            assertFalse(cookies.get().contains("synthetic-session"))
+            app.nativeApi.changeClientMode(base, true)
+            assertNull(app.nativeApi.origin)
+            java.io.File(app.applicationInfo.dataDir, "app_webview").mkdirs()
+            app.nativeApi.configure(base)
+            assertTrue(
+                app.nativeApi.cookieHeader(ServerOrigin.from(Uri.parse(base))!!)
+                    .orEmpty()
+                    .contains("legacy-owner")
+            )
+            app.nativeApi.changeClientMode(base, false)
+            assertFalse(
+                android.webkit.CookieManager.getInstance().getCookie(base)
+                    .orEmpty()
+                    .contains("legacy-owner")
+            )
         } finally {
             server.close()
             worker.join(1000)

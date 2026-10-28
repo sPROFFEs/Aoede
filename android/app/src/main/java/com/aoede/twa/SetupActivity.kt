@@ -77,8 +77,10 @@ class SetupActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            prefs.edit().putString(MainActivity.KEY_URL, origin.rule).putBoolean("reduce_effects", effects.isChecked).putBoolean("use_native_player", nativeClient.isChecked).apply()
+            val modeChanged = prefs.getBoolean("use_native_player", true) != nativeClient.isChecked
             (application as AoedeApp).destroyPlayer()
+            if (modeChanged) (application as AoedeApp).nativeApi.changeClientMode(origin.rule, nativeClient.isChecked)
+            prefs.edit().putString(MainActivity.KEY_URL, origin.rule).putBoolean("reduce_effects", effects.isChecked).putBoolean("use_native_player", nativeClient.isChecked).apply()
 
             Toast.makeText(this, R.string.setup_toast_saved, Toast.LENGTH_SHORT).show()
 

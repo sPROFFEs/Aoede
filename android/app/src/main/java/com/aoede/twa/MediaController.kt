@@ -248,7 +248,7 @@ class MediaController(private val app: AoedeApp) {
                         connection.connectTimeout = 5000
                         connection.readTimeout = 5000
                         if (origin == cookieOrigin) {
-                            (if (app.nativeApi.origin == origin) app.nativeApi.cookieHeader(origin) else runCatching { CookieManager.getInstance().getCookie(currentUrl.toString()) }.getOrNull())?.let {
+                            (if (app.player == null && app.nativeApi.origin == origin) app.nativeApi.cookieHeader(origin) else runCatching { CookieManager.getInstance().getCookie(currentUrl.toString()) }.getOrNull())?.let {
                                 connection.setRequestProperty("Cookie", it)
                             }
                         }

@@ -151,6 +151,7 @@ class NativeTools(private val ui: NativeUi) {
                     "This preserves the previous installed interface and its original device library. Native playback will stop before switching.",
                 ) {
                     app.destroyPlayer()
+                    api.origin?.rule?.let { api.changeClientMode(it, false) }
                     prefs.edit().putBoolean("use_native_player", false).apply()
                     ui.activity.recreate()
                 }

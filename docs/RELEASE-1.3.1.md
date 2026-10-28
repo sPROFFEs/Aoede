@@ -10,6 +10,7 @@ Aoede gains a native Android client with Kotlin screens, Media3 playback and acc
 - The compact and fullscreen players support track gestures, seeking, volume, shuffle/repeat, sleep timer and optional normalization/fades. Final-track Next keeps the current player intact.
 - Device downloads use app-private files, checksums, bounded artwork and account/node namespaces. Saved queues restore paused. Offline favorites and supported collection changes can synchronize after reconnection.
 - Queue teardown, party restoration and queued requests retain their original account identity during a sign-in change; clearing a session safely stops its player and outstanding device-download work.
+- Switching between native and compatibility clients resets remembered sessions for that backend. Compatibility requires a fresh sign-in, and artwork uses the active client's credentials.
 - A separate compatibility option retains the previous installed web interface. Original IndexedDB data is preserved. Explicit migration imports only collections attributable to a verified previous account session; unassigned old downloads remain available in compatibility mode.
 - Provider verification is available to administrators through a private native screenshot/input viewer. The remote browser stays in the downloader worker; its ports and debugging protocol are not exposed to the phone.
 

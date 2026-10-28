@@ -553,6 +553,25 @@ class NativeApi(private val app: AoedeApp) {
         }
     }
 
+    fun changeClientMode(server: String, toNative: Boolean) {
+        val target = ServerOrigin.from(Uri.parse(server)) ?: error("Invalid server")
+        synchronized(this) {
+            sessionRevision++
+            vault.clear(target)
+            session = JSONObject()
+            origin = null
+            importedLegacyCookie = false
+        }
+        // A compatibility login must never silently reuse another client's remembered account.
+        // Going native preserves the browser cookie so the normal verified import can identify its owner.
+        if (!toNative)
+            runCatching {
+                CookieManager.getInstance()
+                    .setCookie(target.rule, "access_token=; Path=/; Max-Age=0")
+                CookieManager.getInstance().flush()
+            }
+    }
+
     fun image(task: () -> Any?, done: (Any?, Throwable?) -> Unit) {
         val bound = scoped(task)
         images.execute {

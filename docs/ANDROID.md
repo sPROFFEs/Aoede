@@ -40,6 +40,8 @@ The importer temporarily opens a network-blocked WebView only to read the old da
 
 To inspect the original interface, choose **Appearance & settings → Installed web client · compatibility**. From login, use **Configure server** and disable **Native Android interface**. Switching stops the current engine before opening the other client. Switch back through server configuration. A recent Android System WebView is needed only for compatibility mode or legacy import.
 
+Changing client mode clears that backend's native remembered session. Entering compatibility mode asks for a fresh sign-in; returning to native mode can import only the browser's currently verified account. Artwork follows the active client's session rather than a session retained by the other client. Device libraries are preserved.
+
 ## Dynamic Island and widgets
 
 The optional island remains under **Appearance & settings → Dynamic Island · this device**. Enable it and approve Android's **Display over other apps** permission. It is off by default and configured per device. The editor retains size/position controls, one-unit arrows, live preview and configurable lower handle/touch area. Android owns status-bar touches; the handle is the accessible alternative below it.
