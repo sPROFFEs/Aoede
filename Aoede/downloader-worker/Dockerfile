@@ -28,10 +28,10 @@ RUN python -m venv /opt/spotdl && \
 # Extensions are executable third-party code. Pin both the repository commit
 # and each archive digest so a mutable registry cannot change a rebuild.
 RUN mkdir -p /opt/spotiflac-extensions && \
-    curl -fsSL "https://raw.githubusercontent.com/spotiflacapp/SpotiFLAC-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/tidal-web.sflx" -o /tmp/tidal-web.sflx && \
-    curl -fsSL "https://raw.githubusercontent.com/spotiflacapp/SpotiFLAC-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/qobuz-web.sflx" -o /tmp/qobuz-web.sflx && \
-    curl -fsSL "https://raw.githubusercontent.com/spotiflacapp/SpotiFLAC-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/deezer.sflx" -o /tmp/deezer.sflx && \
-    curl -fsSL "https://raw.githubusercontent.com/spotiflacapp/SpotiFLAC-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/amzn.sflx" -o /tmp/amazon.sflx && \
+    curl -fsSL "https://raw.githubusercontent.com/mornyeapp/Mornye-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/tidal-web.sflx" -o /tmp/tidal-web.sflx && \
+    curl -fsSL "https://raw.githubusercontent.com/mornyeapp/Mornye-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/qobuz-web.sflx" -o /tmp/qobuz-web.sflx && \
+    curl -fsSL "https://raw.githubusercontent.com/mornyeapp/Mornye-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/deezer.sflx" -o /tmp/deezer.sflx && \
+    curl -fsSL "https://raw.githubusercontent.com/mornyeapp/Mornye-Extension/${SPOTIFLAC_EXTENSIONS_COMMIT}/extensions/amzn.sflx" -o /tmp/amazon.sflx && \
     printf '%s  %s\n' \
         'd346f3e5fdb6f349d8f6ede1310d1961862936f64b3dabbbb4fba868cea31a9a' '/tmp/tidal-web.sflx' \
         '3b5fab92608ada9eefe94dcc11a11bef79204804dee3ced2d86809df0d5306cd' '/tmp/qobuz-web.sflx' \
