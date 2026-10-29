@@ -378,13 +378,128 @@ class NativeClientTest {
     }
 
     @Test
+    fun finishingAnOlderActivityCannotClearTheReplacementTask() {
+        val first = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val next = Robolectric.buildActivity(MainActivity::class.java).setup()
+        assertTrue(app.musicIsland.taskActive)
+        first.get().finish()
+        first.pause().stop().destroy()
+        assertTrue(app.musicIsland.taskActive)
+        next.get().finish()
+        next.pause().stop().destroy()
+        assertFalse(app.musicIsland.taskActive)
+    }
+
+    @Test
+    fun libraryLayoutSurvivesNavigationAndIsIsolatedByAccountAndBackend() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.collections(grid = true)
+        ui.screen("Another page")
+        ui.collections()
+        assertTrue(ui.saveState().getBundle("library")!!.getBoolean("grid"))
+        ui.close()
+        val replacement = NativeUi(lifecycle.get(), app)
+        replacement.collections()
+        assertTrue(replacement.saveState().getBundle("library")!!.getBoolean("grid"))
+        context("bob", "b".repeat(64))
+        replacement.collections()
+        assertFalse(replacement.saveState().getBundle("library")!!.getBoolean("grid"))
+        context()
+        replacement.collections()
+        assertTrue(replacement.saveState().getBundle("library")!!.getBoolean("grid"))
+        app.nativeApi.configure("https://other.test")
+        context()
+        replacement.collections()
+        assertFalse(replacement.saveState().getBundle("library")!!.getBoolean("grid"))
+        replacement.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun homeShowsTheOwnedSnapshotBeforeNetworkResponses() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        app.nativeLibrary.put(
+            "snapshot",
+            "home_feed",
+            JSONObject()
+                .put(
+                    "mixes",
+                    org.json
+                        .JSONArray()
+                        .put(JSONObject().put("key", "synthetic").put("title", "Saved home mix")),
+                ),
+        )
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.home()
+        val matches = arrayListOf<View>()
+        ui.content.findViewsWithText(matches, "Saved home mix", View.FIND_VIEWS_WITH_TEXT)
+        assertTrue(
+            "Home must render its persisted snapshot before waiting for HTTP",
+            matches.isNotEmpty(),
+        )
+        val original = ui.content
+        ui.home()
+        assertSame(original, ui.content)
+        ui.screen("Another page", key = "another", restore = { ui.home() })
+        assertTrue(ui.back())
+        assertEquals("home", ui.saveState().getString("route"))
+        assertNotSame(original, ui.content)
+        context("bob", "b".repeat(64))
+        ui.home()
+        val otherAccount = arrayListOf<View>()
+        ui.content.findViewsWithText(otherAccount, "Saved home mix", View.FIND_VIEWS_WITH_TEXT)
+        assertTrue("Another account must never reuse the previous home", otherAccount.isEmpty())
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun spectrumSeesTheRightStereoChannelAndLeavesAudioUntouched() {
+        val processor = NativeAudioProcessor()
+        processor.configure(AudioProcessor.AudioFormat(48000, 2, C.ENCODING_PCM_16BIT))
+        processor.flush()
+        processor.sampling = true
+        val buffer = ByteBuffer.allocateDirect(19200).order(ByteOrder.nativeOrder())
+        repeat(4800) {
+            buffer.putShort(0)
+            buffer.putShort((sin(2 * Math.PI * 1000 * it / 48000) * 9000).toInt().toShort())
+        }
+        buffer.flip()
+        val expected = ByteArray(buffer.remaining()).also { buffer.duplicate().get(it) }
+        processor.queueInput(buffer)
+        val output = processor.output
+        val actual = ByteArray(output.remaining())
+        output.get(actual)
+        assertArrayEquals(expected, actual)
+        assertTrue(processor.levels!!.any { it > .2f })
+        assertTrue(processor.levels!!.all { it.isFinite() && it in 0f..1f })
+        processor.queueInput(ByteBuffer.allocateDirect(19200).order(ByteOrder.nativeOrder()))
+        assertTrue(processor.levels!!.all { it < .001f })
+        processor.sampling = false
+        processor.queueInput(ByteBuffer.allocateDirect(16).order(ByteOrder.nativeOrder()))
+        assertNull(processor.levels)
+        processor.configure(AudioProcessor.AudioFormat(44100, 6, C.ENCODING_PCM_16BIT))
+        // A pending format must not change the channels of PCM still draining before flush.
+        processor.sampling = true
+        processor.queueInput(ByteBuffer.allocateDirect(24).order(ByteOrder.nativeOrder()))
+        assertEquals(24, processor.output.remaining())
+        processor.flush()
+        processor.queueInput(ByteBuffer.allocateDirect(26460).order(ByteOrder.nativeOrder()))
+        assertEquals(26460, processor.output.remaining())
+        assertTrue(processor.levels!!.all { it == 0f })
+    }
+
+    @Test
     fun pcmSamplingDoesNotAlterOutputAndReplayGainCannotOverflowOrPropagateNan() {
         val processor = NativeAudioProcessor()
         processor.configure(AudioProcessor.AudioFormat(48000, 1, C.ENCODING_PCM_16BIT))
         processor.flush()
         processor.sampling = true
-        val buffer = ByteBuffer.allocateDirect(1024).order(ByteOrder.nativeOrder())
-        repeat(512) {
+        val buffer = ByteBuffer.allocateDirect(9600).order(ByteOrder.nativeOrder())
+        repeat(4800) {
             buffer.putShort((sin(2 * Math.PI * 250 * it / 48000) * 16000).toInt().toShort())
         }
         buffer.flip()

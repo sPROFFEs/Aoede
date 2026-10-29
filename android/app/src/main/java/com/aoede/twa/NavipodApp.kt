@@ -51,12 +51,15 @@ class AoedeApp : Application() {
         if (mediaController.serverOrigin != null && mediaController.serverOrigin != origin && nativePlaybackDelegate.isInitialized()) nativePlayback.release()
         nativeApi.configure(url)
         activity = WeakReference(owner)
+        musicIsland.taskActive = true
         mediaController.serverOrigin = origin
         mediaController.setActionInvoker { action, position -> nativePlayback.command(action, position) }
         musicIsland.refresh()
     }
-    fun detachNative(owner: MainActivity) {
-        if (activity.get() === owner) { activity.clear(); nativeChanged = null; nativePlayback.onChanged = null; nativePlayback.onOpenPlayer = null }
+    fun detachNative(owner: MainActivity): Boolean {
+        if (activity.get() !== owner) return false
+        activity.clear(); nativeChanged = null; nativePlayback.onChanged = null; nativePlayback.onOpenPlayer = null
+        return true
     }
 
     val clientInfo: String get() = JSONObject().put("kind", "android-native").put("version", BuildConfig.VERSION_NAME)
@@ -292,11 +295,12 @@ class AoedeApp : Application() {
         return view
     }
 
-    fun detachPlayer(owner: MainActivity) {
-        if (activity.get() !== owner) return
+    fun detachPlayer(owner: MainActivity): Boolean {
+        if (activity.get() !== owner) return false
         (player?.parent as? ViewGroup)?.removeView(player)
         (player?.context as? MutableContextWrapper)?.baseContext = this
         activity.clear()
+        return true
     }
 
     private fun reportConnectionError(url: String, detail: String) {

@@ -431,8 +431,10 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private fun slider(label: String, limit: Int) =
         SeekBar(context).apply {
             contentDescription = label
+            layoutDirection = View.LAYOUT_DIRECTION_LTR
             max = limit
-            setPadding(0, 0, 0, 0)
+            val inset = if (label == "Track position") 0 else dp(8)
+            setPadding(inset, 0, inset, 0)
             splitTrack = false
             progressDrawable =
                 object : android.graphics.drawable.Drawable() {
@@ -471,6 +473,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0x44ffffff)
             thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
             thumb = design.shape(Color.WHITE, 999).apply { setSize(dp(12), dp(12)) }
+            thumbOffset = dp(6)
             if (label == "Track position") thumb.alpha = 0
         }
 
@@ -845,13 +848,16 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                         setImageDrawable(cover.drawable)
                         scaleX = cover.scaleX
                         scaleY = cover.scaleY
+                        translationX = cover.translationX
+                        rotation = cover.rotation
                     }
                 stage.addView(ghost, LayoutParams(cover.width, cover.height, Gravity.CENTER))
                 ghost
                     .animate()
                     .translationX(-ui.trackSlideDirection * stage.width.toFloat())
-                    .alpha(0f)
-                    .setDuration(240)
+                    .rotation(-ui.trackSlideDirection * 2f)
+                    .setDuration(340)
+                    .setInterpolator(android.view.animation.PathInterpolator(.18f, .9f, .22f, 1f))
                     .withEndAction { stage.removeView(ghost) }
                     .start()
             }
@@ -873,8 +879,16 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             if (previous.isNotBlank() && !ui.reducedMotion()) {
                 cover.animate().cancel()
                 cover.translationX = ui.trackSlideDirection * stage.width.toFloat()
-                cover.alpha = .4f
-                cover.animate().translationX(0f).alpha(1f).setDuration(240).start()
+                cover.rotation = ui.trackSlideDirection * 2f
+                cover.alpha = 1f
+                cover
+                    .animate()
+                    .translationX(0f)
+                    .rotation(0f)
+                    .alpha(1f)
+                    .setDuration(340)
+                    .setInterpolator(android.view.animation.PathInterpolator(.18f, .9f, .22f, 1f))
+                    .start()
             }
             if (previous.isNotBlank() && mode != "cover") setMode(mode)
         }

@@ -360,7 +360,8 @@ export function updateVolumeUI() {
     fill.style.width = `${pct}%`;
   });
   document.querySelectorAll('.volume-knob').forEach((knob) => {
-    knob.style.left = `${pct}%`;
+    knob.style.left = `clamp(6px, ${pct}%, calc(100% - 6px))`;
+    knob.style.right = 'auto';
     knob.style.transform = 'translate(-50%, -50%)';
   });
   document.querySelectorAll('#volume-bar, #fs-volume-bar').forEach((bar) => {

@@ -5,7 +5,8 @@ import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.audio.BaseAudioProcessor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.cos
+import kotlin.math.exp
+import kotlin.math.log10
 import kotlin.math.pow
 import kotlin.math.sqrt
 
@@ -26,26 +27,28 @@ class NativeAudioProcessor : BaseAudioProcessor() {
     private var channels = 2
     private var channel = 0
     private var samples = 0
-    private var coefficients = DoubleArray(5)
-    private val first = DoubleArray(5)
-    private val second = DoubleArray(5)
+    private var coefficients = DoubleArray(4)
+    private var filters = DoubleArray(0)
+    private val power = DoubleArray(5)
+    private var analyzing = false
 
     override fun onConfigure(format: AudioProcessor.AudioFormat): AudioProcessor.AudioFormat {
         if (format.encoding != C.ENCODING_PCM_16BIT) return AudioProcessor.AudioFormat.NOT_SET
-        rate = format.sampleRate
-        channels = format.channelCount
-        coefficients =
-            doubleArrayOf(80.0, 250.0, 800.0, 2500.0, 5000.0)
-                .map { 2 * cos(2 * Math.PI * it.coerceAtMost(rate * .45) / rate) }
-                .toDoubleArray()
         return format
     }
 
     override fun onFlush() {
+        rate = inputAudioFormat.sampleRate.takeIf { it > 0 } ?: 48000
+        channels = inputAudioFormat.channelCount.takeIf { it > 0 } ?: 2
+        coefficients =
+            doubleArrayOf(150.0, 400.0, 1200.0, 4000.0)
+                .map { 1 - exp(-2 * Math.PI * it.coerceAtMost(rate * .45) / rate) }
+                .toDoubleArray()
         samples = 0
         channel = 0
-        first.fill(0.0)
-        second.fill(0.0)
+        filters = DoubleArray(channels.coerceAtLeast(1) * 4)
+        power.fill(0.0)
+        analyzing = sampling
         levels = null
     }
 
@@ -53,6 +56,13 @@ class NativeAudioProcessor : BaseAudioProcessor() {
         if (!input.hasRemaining()) return
         val output = replaceOutputBuffer(input.remaining()).order(ByteOrder.nativeOrder())
         input.order(ByteOrder.nativeOrder())
+        if (analyzing != sampling) {
+            analyzing = sampling
+            samples = 0
+            filters.fill(0.0)
+            power.fill(0.0)
+            levels = null
+        }
         val target =
             (gain.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 16f) *
                 (fade.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f)
@@ -70,28 +80,29 @@ class NativeAudioProcessor : BaseAudioProcessor() {
                     .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt())
                     .toShort()
             )
-            if (sampling && channel == 0) {
+            if (analyzing) {
                 val normalized = value / 32768.0
-                for (i in 0..4) {
-                    val next = normalized + coefficients[i] * first[i] - second[i]
-                    second[i] = first[i]
-                    first[i] = next
+                var previous = 0.0
+                for (i in 0..3) {
+                    val index = channel * 4 + i
+                    filters[index] += coefficients[i] * (normalized - filters[index])
+                    val band = filters[index] - previous
+                    power[i] += band * band
+                    previous = filters[index]
                 }
+                power[4] += (normalized - previous) * (normalized - previous)
                 samples++
-                if (samples == 512) {
+                if (samples >= (rate / 20).coerceAtLeast(1) * channels.coerceAtLeast(1)) {
+                    // Broad-band RMS sees music between bins and either stereo channel.
                     levels =
                         FloatArray(5) { i ->
-                            (sqrt(
-                                    (first[i] * first[i] + second[i] * second[i] -
-                                            coefficients[i] * first[i] * second[i])
-                                        .coerceAtLeast(0.0)
-                                ) / samples * 4)
+                            ((20 * log10(sqrt(power[i] / samples).coerceAtLeast(.000001)) + 60) /
+                                    60)
                                 .toFloat()
                                 .coerceIn(0f, 1f)
                         }
                     samples = 0
-                    first.fill(0.0)
-                    second.fill(0.0)
+                    power.fill(0.0)
                 }
             }
             channel = (channel + 1) % channels.coerceAtLeast(1)

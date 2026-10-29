@@ -1,6 +1,17 @@
 # Aoede 1.3.1
 
-Android 1.2.2 improves native artwork loading, rendering and mobile player layout, and completes additional collection and administration flows. Server updates and library maintenance now show operation progress in the native client.
+Android 1.2.3 polishes headers, player gestures, volume and public profiles in the native and installed-web clients, restores saved library layout and improves Home refreshes. The island stays available while native playback is paused and has a smaller, precisely adjustable touch extension.
+
+## Android 1.2.3 · build 33
+
+- Vitrine headers have an opaque background. Native and web volume thumbs stay inside their tracks at both ends in all three themes.
+- The native library remembers list/cover layout per account and backend. Public profiles use compact collection rows with 56 px/dp artwork, names and metadata. Collection links and federation references are retained.
+- Home snapshots now use the supported account-scoped store. Cache writes run outside the UI thread; an already open Home retains its views, coalesces active refreshes and repaints only changed sections. Obsolete queued Home requests are skipped. A late web playback-session restore also preserves a newer user-selected view.
+- Cover pickers show each local song's actual protected artwork. Native sheets use image rows; web pickers use canonical cover URLs with a valid fallback and escaped labels.
+- A live native task keeps the optional island when playback pauses. Dismissing a paused task removes it, while the app still hides it in the foreground.
+- Native spectrum bars use broad-band RMS across both stereo channels in the existing PCM processor. Sampling leaves unmodified playback bytes intact and does not rebuild the sink or change the audio route. Unavailable analysis retains the decorative fallback.
+- The shared island editor allows an 8–160 dp touch extension, 1 dp arrow adjustments and live preview in both client modes. The capsule and visible handle remain touchable; the default extension is still 48 dp. Historical backup APKs are unchanged.
+- Fullscreen gestures lock their direction, drag the complete player for dismissal and use coherent settling/carousel transitions across themes. Cancelled gestures return to their starting state; reduced-motion settings remain respected.
 
 ## Android 1.2.2 · build 32
 
@@ -56,13 +67,13 @@ Update the server to **1.3.1 before using the native interface**. Android remain
 
 ## Downloads and compatibility
 
-`aoede-android.apk` and `aoede-android-source.zip` contain Android 1.2.2/code 32. Android 1.2.1 is retained as `aoede-android-native-1.2.1.apk` and its matching source archive. Android 1.2.0 is retained as `aoede-android-native-1.2.0.apk` and `aoede-android-native-1.2.0-source.zip`. The release also preserves Android 1.1.22 as `aoede-android-webview-1.1.22.apk` and its complete source, the original 1.0.5 wrapper APK/source, and all six Desktop 1.2.10 archives unchanged. Desktop wrappers and the original Android wrapper do not need recompilation.
+`aoede-android.apk` and `aoede-android-source.zip` contain Android 1.2.3/code 33. Android 1.2.2 is retained as `aoede-android-native-1.2.2.apk` and its matching complete source archive. Android 1.2.1 is retained as `aoede-android-native-1.2.1.apk` and its matching source archive. Android 1.2.0 is retained as `aoede-android-native-1.2.0.apk` and `aoede-android-native-1.2.0-source.zip`. The release also preserves Android 1.1.22 as `aoede-android-webview-1.1.22.apk` and its complete source, the original 1.0.5 wrapper APK/source, and all six Desktop 1.2.10 archives unchanged. Desktop wrappers and the original Android wrapper do not need recompilation.
 
 The current distribution signature and package identity are retained. Prefer the in-app compatibility option when checking old device data. Installing a lower-version backup normally requires uninstalling and removes app data; backups cannot be installed alongside the current client.
 
 ## Validation and limits
 
-The full repository check passed with **403 Python tests passed and 2 skipped**, alongside the JavaScript suites. Android includes **154 JVM checks**, release lint and release assembly. Browser checks cover three themes in light/dark mode, desktop sidebar alignment, 108 collection-title cases and private verification keys. Opt-in native captures assert the active theme and exercise the same synthetic routes, dialogs, updater restart and Wrapped completion using real inset handling. The complete source archive is checked for standalone frontend/icon generation. Local shell lint was unavailable; CI enforces it.
+The full repository check passed with **403 Python tests passed and 2 skipped**, alongside the JavaScript suites. Android includes **168 JVM checks**, release lint and release assembly. Browser checks cover three themes in light/dark mode, desktop sidebar alignment, 108 collection-title cases, compact public-profile artwork, volume endpoints and private verification keys. Opt-in native captures assert the active theme and exercise the same synthetic routes, dialogs, updater restart and Wrapped completion using real inset handling. The complete source archive is checked for standalone frontend/icon generation. Local shell lint was unavailable; CI enforces it.
 
 The Android 1.2.2 debug build also authenticated, loaded redirected covers and played a synthetic recording with advancing media position on an isolated API 26 emulator with WebView disabled. Media-session next/pause controls and fullscreen drawing behind three-button navigation were checked. The fixture audio is silent; this does not verify audible Bluetooth output, release-only behavior, modern GPU rendering or uninterrupted playback on a physical device.
 

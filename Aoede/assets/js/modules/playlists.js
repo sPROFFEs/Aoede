@@ -665,7 +665,16 @@ export async function handlePlaylistCoverUpload(playlistId, input) {
 }
 
 export function showPlaylistCoverTrackModal(playlistId) {
-  const tracks = state.currentViewList || [];
+  const tracks = (state.currentViewList || [])
+    .map((track) => ({ track, id: Number(track.db_id || track.track_id || track.id) }))
+    .filter(
+      ({ track, id }) =>
+        Number.isSafeInteger(id) &&
+        id > 0 &&
+        track.is_local !== false &&
+        !track.fed_instance_id &&
+        !String(track.id).startsWith('fed_')
+    );
   if (!tracks.length) {
     ui.showToast('Playlist is empty', 'error');
     return;
@@ -673,29 +682,29 @@ export function showPlaylistCoverTrackModal(playlistId) {
 
   const items = tracks
     .map(
-      (track) => `
-        <button class="modal-playlist-item" onclick="setPlaylistCoverFromTrack(${playlistId}, ${track.id})">
-            <div class="modal-playlist-thumb">
-                <img src="${track.thumbnail || '/static/img/default_cover.png'}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'" alt="">
-            </div>
-            <div class="modal-playlist-info">
-                <span class="modal-playlist-name">${ui.escHtml(track.title || 'Unknown')}</span>
-                <span class="modal-playlist-count">${ui.escHtml(track.artist || 'Unknown')}</span>
-            </div>
-            <i data-lucide="check-circle" class="modal-playlist-add-icon"></i>
-        </button>`
+      ({ track, id }) => `
+<button class="modal-playlist-item" onclick="setPlaylistCoverFromTrack('${ui.escJs(String(playlistId))}', ${id})">
+<div class="modal-playlist-thumb">
+<img src="/api/cover/${id}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='/assets/img/default_cover.png'" alt="">
+</div>
+<div class="modal-playlist-info">
+<span class="modal-playlist-name">${ui.escHtml(track.title || 'Unknown')}</span>
+<span class="modal-playlist-count">${ui.escHtml(track.artist || 'Unknown')}</span>
+</div>
+<i data-lucide="check-circle" class="modal-playlist-add-icon"></i>
+</button>`
     )
     .join('');
 
   const html = `<div class="modal-overlay" onclick="closeModal()">
-        <div class="modal modal-playlist" onclick="event.stopPropagation()">
-            <div class="modal-header">
-                <h2><i data-lucide="disc-3"></i> Choose Cover Track</h2>
-                <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
-            </div>
-            <div class="modal-list">${items}</div>
-        </div>
-    </div>`;
+<div class="modal modal-playlist" onclick="event.stopPropagation()">
+<div class="modal-header">
+<h2><i data-lucide="disc-3"></i> Choose Cover Track</h2>
+<button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+</div>
+<div class="modal-list">${items}</div>
+</div>
+</div>`;
   document.getElementById('modal-container').innerHTML = html;
   lucide.createIcons();
 }

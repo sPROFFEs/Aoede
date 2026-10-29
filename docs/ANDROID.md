@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.2 (32)** connects to **Aoede 1.3.1+** with native Kotlin screens and Media3 playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.3 (33)** connects to **Aoede 1.3.1+** with native Kotlin screens and Media3 playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 ## Install and update
 
@@ -25,6 +25,8 @@ A failed Compose build can leave new bind-mounted source files with the previous
 Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, device downloads, settings and administration use native views and authenticated JSON APIs. Classic, Glass and Vitrine follow the mobile web templates, final CSS values and original interface vectors. Native rendering still requires comparison on physical devices for fonts, clipping and animations. The web/PWA and desktop interfaces remain available independently.
 
 One ExoPlayer owns normal music playback. The compact and fullscreen players, notification, optional island and home-screen widget control that same player. Native audio focus and becoming-noisy handling pause on interruptions/headphone disconnection. A paused party listener stays locally paused until an explicit play action. Normal activity/background transitions do not create another audio player. Wrapped temporarily owns transport and its story soundtrack/preview players; closing it releases them and preserves the personal queue paused.
+
+The library remembers list/cover layout per account and backend on this device. Public profiles use compact 56 dp collection covers. The Home uses the existing account-scoped snapshot store, retains its current views during refresh, and performs cache writes outside the UI thread. It skips obsolete queued reads and avoids repainting unchanged sections. Fullscreen gestures follow the finger, settle back on cancellation and use shared carousel/dismissal transitions; Reduce effects and the system animator setting remain respected.
 
 Activity recreation restores the current route and fullscreen player after validating the same account. Saved navigation state excludes credential drafts. File selection and asynchronous results remain bound to the initiating account and screen.
 
@@ -56,7 +58,9 @@ The optional island remains under **Appearance & settings → Dynamic Island · 
 
 The island hides while Aoede is in the foreground and can appear while minimized/background playback is alive. Expanded controls share transport, favorite, shuffle, repeat and seek behavior with the player. Tap outside to collapse; opening Aoede preserves the same audio owner. Offline artwork comes from the saved device recording.
 
-Native frequency bars read the existing PCM audio pipeline; toggling/locking the island never creates or closes an audio capture stream. Unsupported analysis uses the existing decorative fallback. No microphone, accessibility or notification-reading permission is requested. Android/OEM keyguard policy may hide application overlays; native media-session controls remain the supported lock-screen controls.
+The common editor in Android 1.2.3 supports an 8–160 dp touch extension, with 1 dp arrows and live preview, in both native and installed-web compatibility modes. The capsule and visible handle remain part of the touch area; the previous backup APKs retain their original editor. A native task now keeps the island while paused in the background, until the task is dismissed or the process ends.
+
+Native frequency bars read five broad PCM bands across every channel; toggling/locking the island never creates or closes an audio capture stream. Unsupported analysis uses the existing decorative fallback. No microphone, accessibility or notification-reading permission is requested. Android/OEM keyguard policy may hide application overlays; native media-session controls remain the supported lock-screen controls.
 
 Add the Aoede widget through your launcher's widget picker. It uses the shared native media session and artwork. Android killing/force-stopping the process ends playback and overlays; the app does not restart playback or reconnect Bluetooth to hide a failure.
 
@@ -64,8 +68,9 @@ Add the Aoede widget through your launcher's widget picker. It uses the shared n
 
 | File | Purpose |
 |---|---|
-| `aoede-android.apk` | Current signed native client, Android 1.2.2/code 32. |
+| `aoede-android.apk` | Current signed native client, Android 1.2.3/code 33. |
 | `aoede-android-source.zip` | Complete Android project, tests, editable compatibility frontend and compiler. |
+| `aoede-android-native-1.2.2.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-native-1.2.1.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-native-1.2.0.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-webview-1.1.22.apk` / `-source.zip` | Previous installed web client backup. |

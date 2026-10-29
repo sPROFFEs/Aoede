@@ -1,6 +1,6 @@
 # Native Android implementation and migration
 
-Status: Android **1.2.2/code 32**, server **1.3.1**. Native Kotlin Views and Media3 replace the normal WebView UI and JavaScript audio owner. The previous installed web client remains an explicit compatibility option; it is not silently run underneath native playback.
+Status: Android **1.2.3/code 33**, server **1.3.1**. Native Kotlin Views and Media3 replace the normal WebView UI and JavaScript audio owner. The previous installed web client remains an explicit compatibility option; it is not silently run underneath native playback.
 
 ## Ownership map
 
@@ -37,6 +37,10 @@ The opt-in Android capture renders the actual Android views against the same fix
 Collection titles use a full-width web flex row and native wrap-content measurement, avoiding the previous final-character/word wrap caused by shrink-to-fit width and omitted padding. Browser checks exercise short, accented and long names across three widths, three themes and both appearances; native checks exercise actual TextView layout.
 
 The mobile dock follows the web safe-area structure: Classic and Vitrine backgrounds reach the physical bottom while their controls retain system-navigation padding; Glass floats above that inset. Fullscreen artwork/backgrounds reach behind system bars while controls remain protected. Keyboard insets resize once and hide the dock. The native capture does not replace this logic with artificial root padding. See Android's [edge-to-edge guidance](https://developer.android.com/develop/ui/views/layout/edge-to-edge).
+
+Android 1.2.3 fixes the previously rejected Home cache kind by reusing `snapshot`, coalesces in-flight refreshes and keeps the active Home views when data is unchanged. Disk writes run on existing workers and retain the captured account namespace; Back navigation restores the route rather than a detached view. The library layout preference is also backend/account bound. Native and web public profiles now use compact collection rows.
+
+The common island editor supports 8–160 dp touch-extension height in both APK client modes. Pausing native playback retains the overlay for the live task; dismissing a paused task removes it. The spectrum uses broad-band stereo RMS from the existing PCM processor, preserving output samples and avoiding an audio route change or sink recreation. This is covered by unit checks and is not physical-device evidence for every codec/OEM.
 
 ## Server contract and security
 

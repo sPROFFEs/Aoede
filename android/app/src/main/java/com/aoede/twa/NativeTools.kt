@@ -689,7 +689,58 @@ class NativeTools(private val ui: NativeUi) {
                 ui.sectionHeader(
                     "${ui.text("profile.public_playlists", "Public Playlists & Albums")} (${playlists.size})"
                 )
-                ui.collectionGrid(playlists, columns = 1) { ui.collection(it.get("id").toString()) }
+                for (item in playlists) {
+                    val visibility =
+                        if (
+                            item.optLong("source_playlist_id") > 0 ||
+                                item.optLong("source_instance_id") > 0
+                        )
+                            "Synced copy"
+                        else if (item.optBoolean("is_public")) "Public" else "Private"
+                    val owner =
+                        item
+                            .optString("owner_username")
+                            .takeIf { it.isNotBlank() && !item.optBoolean("is_owner") }
+                            ?.let { "By $it - " }
+                            .orEmpty()
+                    val kind = if (item.optString("kind") == "album") "Album · " else ""
+                    val node =
+                        if (item.optBoolean("is_federated"))
+                            " · ${item.optString("fed_instance_name")}"
+                        else ""
+                    ui.row(
+                            item.optString("name"),
+                            "$kind$owner${item.optInt("track_count")} tracks - $visibility$node",
+                            item.optString("thumbnail"),
+                            coverSize = 56,
+                        ) {
+                            ui.collection(item.get("id").toString())
+                        }
+                        .apply {
+                            setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8))
+                            (layoutParams as LinearLayout.LayoutParams).bottomMargin = ui.dp(8)
+                            background =
+                                ui.design.touch(
+                                    if (ui.design.theme != "glass")
+                                        android.graphics.Color.TRANSPARENT
+                                    else ui.design.content,
+                                    12,
+                                    ui.design.theme == "glass",
+                                )
+                            minimumHeight = ui.dp(if (ui.design.theme == "glass") 74 else 72)
+                            getChildAt(0).background = ui.design.shape(ui.design.wash, 8)
+                            val copy = getChildAt(1) as LinearLayout
+                            ui.design.typography(
+                                copy.getChildAt(0) as TextView,
+                                if (ui.design.theme == "vitrine") 15.04f else 15f,
+                                600,
+                            )
+                            ui.design.lines(copy.getChildAt(0) as TextView, 1.35f)
+                            ui.design.lines(copy.getChildAt(1) as TextView, 1.45f)
+                            (copy.getChildAt(1).layoutParams as LinearLayout.LayoutParams)
+                                .topMargin = 0
+                        }
+                }
             }
             if (favorites.isNotEmpty()) {
                 ui.sectionHeader(

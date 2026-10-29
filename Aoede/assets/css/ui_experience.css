@@ -71,6 +71,12 @@ html[data-native-effects="reduced"] .fullscreen-player .fs-cover { scale: 1 !imp
 .track-row:is(:hover, :focus-within) :is(.action-btns, .action-btn-more) { opacity: 1; }
 .profile-identity { gap: 24px; align-items: center; }
 .user-profile-shell { margin: 0 0 28px; padding: 24px !important; }
+.profile-collections-list { display: grid; gap: 8px; }
+html .profile-collections-list .card { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 8px !important; border-radius: 12px !important; }
+html .profile-collections-list .card-img-container { width: 56px; height: 56px; flex: 0 0 56px; margin: 0; border-radius: 8px !important; }
+.profile-collections-list .playlist-card-copy { min-width: 0; flex: 1; }
+.profile-collections-list :is(.card-title, .card-subtitle) { margin-top: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.profile-collections-list .playlist-icon-large { width: 28px; height: 28px; }
 .user-stat-chip { padding: 8px 12px; font-size: .8125rem; }
 
 /* Every floating surface has one material, rather than a lens per button. */
@@ -154,6 +160,7 @@ html[data-theme="vitrine"] .home-overview .home-tabs { order: 0; margin: 18px 0;
 html[data-theme="vitrine"] .quick-pick { height: 64px; gap: 12px; }
 html[data-theme="vitrine"] .quick-pick-cover { width: 56px; height: 56px; border-radius: 8px; }
 html[data-theme="vitrine"] .quick-pick-name { font-size: .875rem; font-weight: 500; }
+html[data-theme="vitrine"] :is(.top-bar, .m-topbar) { background: var(--background) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 html[data-theme="vitrine"] .shelf-title { font-size: 1.375rem; font-weight: 700; }
 html[data-theme="vitrine"] .home-rail { gap: 20px; }
 html[data-theme="vitrine"] :is(.card-img-container, .library-card-cover) { border-radius: 8px !important; box-shadow: 0 3px 10px #00000012; }
@@ -255,7 +262,7 @@ html[data-theme="vitrine"] .playlist-actions > .btn-icon-pill { color: var(--pri
     html[data-theme="classic"] .player-footer .play-main { background: transparent; color: #fff; }
     html[data-theme="classic"] :is(.card, .library-card) { padding: 0; }
     html[data-theme="vitrine"] { --mobile-player-height: 64px; }
-    html[data-theme="vitrine"] .m-topbar { margin: 0; min-height: 56px; padding: calc(6px + var(--safe-area-top)) 20px 6px !important; border-radius: 0 !important; backdrop-filter: none !important; background-color: transparent !important; }
+    html[data-theme="vitrine"] .m-topbar { margin: 0; min-height: 56px; padding: calc(6px + var(--safe-area-top)) 20px 6px !important; border-radius: 0 !important; }
     html[data-theme="vitrine"] .m-topbar-title { order: -1; font-size: 1.5rem; letter-spacing: -.035em; }
     html[data-theme="vitrine"] .m-topbar-avatar { order: 2; }
     html[data-theme="vitrine"] .m-bottom-nav { left: 0; right: 0; bottom: 0; margin: 0; height: calc(60px + var(--safe-area-bottom)); padding: 4px 8px calc(4px + var(--safe-area-bottom)) !important; border-radius: 0 !important; border-top: 1px solid var(--border-subtle) !important; }

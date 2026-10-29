@@ -107,6 +107,46 @@ class MusicIslandTest {
         assertEquals("paused", app.mediaController.state)
     }
 
+    @Test fun nativePauseKeepsTheIslandAndTouchHeightCanShrinkBelowFortyEightDp() {
+        val owner = activity!!.get()
+        val prefs = app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putBoolean("use_native_player", true).putInt("island_handle_height", 0).apply()
+        app.attachNative(owner, "https://example.test")
+        ReflectionHelpers.setField(app.nativeApi, "session", org.json.JSONObject().put("access_token", "fixture-only")
+            .put("context", org.json.JSONObject().put("storage_scope", "a".repeat(64)).put("account", org.json.JSONObject().put("username", "synthetic"))))
+        app.nativePlayback.play(listOf(org.json.JSONObject().put("id", 1).put("title", "Synthetic recording")), autoplay = false)
+        app.mediaController.updateState("paused", 0, 240000)
+        island.setAppVisible(false)
+        island.setEnabled(true)
+        assertTrue(island.visible)
+        assertTrue(island.taskActive)
+        assertFalse(ReflectionHelpers.getField(island, "sampling"))
+        prefs.edit().putBoolean("reduce_effects", false).apply()
+        app.mediaController.updateState("playing", 0, 240000)
+        assertTrue(ReflectionHelpers.getField(island, "sampling"))
+        val processor = ReflectionHelpers.getField<NativeAudioProcessor>(app.nativePlayback, "processor")
+        assertTrue(processor.sampling)
+        ReflectionHelpers.setField(processor, "levels", floatArrayOf(.2f, .5f, .9f, .6f, .1f))
+        ReflectionHelpers.getField<Runnable>(island, "spectrum").run()
+        assertTrue(ReflectionHelpers.getField<FloatArray>(view().findViewWithTag<View>("bars"), "levels").any { it > .5f })
+        app.mediaController.updateState("paused", 0, 240000)
+        assertTrue(island.visible)
+        assertFalse(processor.sampling)
+        island.showSettings(owner) {}
+        val content = ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog").window!!.decorView
+        val slider = content.findViewWithTag<android.widget.SeekBar>("island_touch_height")
+        slider.progress = slider.max
+        val maximum = (view().layoutParams as WindowManager.LayoutParams).height
+        slider.progress = 0
+        assertEquals(8, prefs.getInt("island_touch_height", -1))
+        assertTrue((view().layoutParams as WindowManager.LayoutParams).height < maximum)
+        content.findViewWithTag<android.widget.Button>("island_touch_height-increase").performClick()
+        assertEquals(9, prefs.getInt("island_touch_height", -1))
+        island.closeSettings(owner)
+        island.taskRemoved()
+        assertFalse(island.visible)
+    }
+
     @Test fun horizontalRevealAndHideSurviveRapidForegroundChanges() {
         app.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE).edit().putBoolean("reduce_effects", false).commit()
         island.setEnabled(true)
@@ -143,7 +183,7 @@ class MusicIslandTest {
         }
         content.findViewWithTag<android.widget.SeekBar>("island_handle_horizontal").progress = 0
         content.findViewWithTag<android.widget.SeekBar>("island_touch_horizontal").progress = 200
-        content.findViewWithTag<android.widget.SeekBar>("island_touch_height").progress = 112
+        content.findViewWithTag<android.widget.SeekBar>("island_touch_height").let { it.progress = it.max }
         val params = host.layoutParams as WindowManager.LayoutParams
         val density = app.resources.displayMetrics.density
         val handle = host.findViewWithTag<View>("handle")

@@ -421,6 +421,26 @@ class NativeDesignTest {
         )
         root.layout(0, 0, 400, 850)
         val full = root.findViewWithTag<NativePlayerView>("native-fullscreen-player")
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(450))
+        androidx.core.view.ViewCompat.dispatchApplyWindowInsets(
+            root,
+            androidx.core.view.WindowInsetsCompat.Builder()
+                .setInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.statusBars(),
+                    androidx.core.graphics.Insets.of(0, 24, 0, 0),
+                )
+                .setInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.navigationBars(),
+                    androidx.core.graphics.Insets.of(0, 0, 0, 48),
+                )
+                .build(),
+        )
+        root.measure(
+            View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(850, View.MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, 400, 850)
         assertEquals(0, full.top)
         assertEquals(850, full.height)
         val header = full.findViewWithTag<View>("native-fs-header")
@@ -579,6 +599,108 @@ class NativeDesignTest {
                 )
             }
         }
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun volumeThumbFitsAtBothEndsAndVitrineHeaderIsOpaque() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.create()
+        for (name in listOf("classic", "glass", "vitrine")) {
+            theme(name)
+            ui.screen("Playback")
+            val player = NativePlayerView(ui)
+            val slider =
+                NativePlayerView::class
+                    .java
+                    .getDeclaredMethod("slider", String::class.java, Integer.TYPE)
+                    .apply { isAccessible = true }
+                    .invoke(player, "Playback volume", 100) as android.widget.SeekBar
+            slider.measure(
+                View.MeasureSpec.makeMeasureSpec(ui.dp(160), View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(ui.dp(44), View.MeasureSpec.EXACTLY),
+            )
+            slider.layout(0, 0, slider.measuredWidth, slider.measuredHeight)
+            for (value in listOf(0, 50, 100)) {
+                slider.progress = value
+                val thumb = slider.thumb.bounds
+                val offset = slider.paddingLeft - slider.thumbOffset
+                assertTrue("$name/$value thumb start", thumb.left + offset >= 0)
+                assertTrue("$name/$value thumb end", thumb.right + offset <= slider.width)
+            }
+            if (name == "vitrine") {
+                val header =
+                    NativeUi::class
+                        .java
+                        .getDeclaredField("chromeHeader")
+                        .apply { isAccessible = true }
+                        .get(ui) as View
+                assertEquals(android.graphics.PixelFormat.OPAQUE, header.background.opacity)
+            }
+        }
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun dismissGestureMovesTheWholePlayerAndCanSettleOrFinishWithoutChangingTracks() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.create()
+        ui.screen("Playback")
+        android.provider.Settings.Global.putFloat(
+            app.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        )
+        NativePlayback::class
+            .java
+            .getDeclaredField("tracks")
+            .apply { isAccessible = true }
+            .set(
+                app.nativePlayback,
+                listOf(org.json.JSONObject().put("id", 1).put("title", "Synthetic recording")),
+            )
+        ui.showPlayer()
+        val root = lifecycle.get().findViewById<android.widget.FrameLayout>(R.id.main_root)
+        root.measure(
+            View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(850, View.MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, 400, 850)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(450))
+        val panel = root.findViewWithTag<NativePlayerView>("native-fullscreen-player")
+        val cover =
+            NativePlayerView::class
+                .java
+                .getDeclaredField("cover")
+                .apply { isAccessible = true }
+                .get(panel) as View
+        fun touch(action: Int, y: Float) {
+            android.view.MotionEvent.obtain(0, 100, action, 100f, y, 0).also {
+                cover.dispatchTouchEvent(it)
+                it.recycle()
+            }
+        }
+        touch(android.view.MotionEvent.ACTION_DOWN, 100f)
+        touch(android.view.MotionEvent.ACTION_MOVE, 200f)
+        assertEquals(100f, panel.translationY, .01f)
+        assertTrue(panel.scaleX < 1f)
+        touch(android.view.MotionEvent.ACTION_CANCEL, 200f)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(450))
+        assertEquals(0f, panel.translationY, .01f)
+        assertEquals(1f, panel.scaleX, .01f)
+        touch(android.view.MotionEvent.ACTION_DOWN, 100f)
+        touch(android.view.MotionEvent.ACTION_MOVE, 230f)
+        touch(android.view.MotionEvent.ACTION_UP, 230f)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofMillis(450))
+        assertNull(panel.parent)
+        assertEquals("1", app.nativePlayback.current?.let(NativeTrack::reference))
         ui.close()
         lifecycle.pause().stop().destroy()
     }

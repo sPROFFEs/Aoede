@@ -273,6 +273,42 @@ class NativeAppearanceCaptureTest {
                 }
                 ui.home()
                 capture("$name-home")
+                if (name == "classic-dark") {
+                    assertTrue(app.nativeLibrary.get("snapshot", "home_feed")!!.has("mixes"))
+                    val started = System.nanoTime()
+                    ui.home()
+                    val cached = arrayListOf<View>()
+                    ui.content.findViewsWithText(
+                        cached,
+                        "Evening listening",
+                        View.FIND_VIEWS_WITH_TEXT,
+                    )
+                    assertTrue(
+                        "Cached home must render before the HTTP callback",
+                        cached.isNotEmpty(),
+                    )
+                    val cachedView = cached.first()
+                    val cachedMillis = (System.nanoTime() - started) / 1_000_000
+                    settle()
+                    val refreshed = arrayListOf<View>()
+                    ui.content.findViewsWithText(
+                        refreshed,
+                        "Evening listening",
+                        View.FIND_VIEWS_WITH_TEXT,
+                    )
+                    assertSame(
+                        "Unchanged home responses must keep cached views",
+                        cachedView,
+                        refreshed.first(),
+                    )
+                    File(output, "home-cache.json")
+                        .writeText(
+                            JSONObject()
+                                .put("cached_layout_ms", cachedMillis)
+                                .put("ready_before_http_callback", true)
+                                .toString()
+                        )
+                }
                 ui.collections()
                 capture("$name-library")
                 ui.search()
@@ -363,6 +399,49 @@ class NativeAppearanceCaptureTest {
                         staleMutationNavigated,
                     )
                 } else downloadDialog.dismiss()
+                ui.collectionMenu(
+                    "1",
+                    JSONObject()
+                        .put("is_owner", true)
+                        .put(
+                            "tracks",
+                            org.json
+                                .JSONArray()
+                                .put(
+                                    JSONObject()
+                                        .put("id", 1)
+                                        .put("db_id", 1)
+                                        .put("title", "Cover candidate")
+                                        .put("artist", "Synthetic artist")
+                                ),
+                        ),
+                )
+                val coverAction = arrayListOf<View>()
+                latestDialog()
+                    .window!!
+                    .decorView
+                    .findViewsWithText(
+                        coverAction,
+                        "Choose cover from songs",
+                        View.FIND_VIEWS_WITH_TEXT,
+                    )
+                assertTrue(coverAction.isNotEmpty())
+                (coverAction.first().parent as View).performClick()
+                captureDialog("$name-choose-cover")
+                fun bitmapCount(view: View): Int =
+                    if (
+                        view is android.widget.ImageView &&
+                            view.drawable is android.graphics.drawable.BitmapDrawable
+                    )
+                        1
+                    else if (view is ViewGroup)
+                        (0 until view.childCount).sumOf { bitmapCount(view.getChildAt(it)) }
+                    else 0
+                assertTrue(
+                    "Cover candidates need loaded thumbnails in $name",
+                    bitmapCount(latestDialog().window!!.decorView) > 0,
+                )
+                latestDialog().dismiss()
                 ui.collaborators("1")
                 captureDialog("$name-collaborators")
                 latestDialog().dismiss()
@@ -411,6 +490,17 @@ class NativeAppearanceCaptureTest {
                 capture("$name-appearance")
                 ui.tools.profile("visual")
                 capture("$name-profile")
+                fun widestProfileImage(view: View): Int =
+                    if (view is android.widget.ImageView) view.width
+                    else if (view is ViewGroup)
+                        (0 until view.childCount).maxOfOrNull {
+                            widestProfileImage(view.getChildAt(it))
+                        } ?: 0
+                    else 0
+                assertTrue(
+                    "Public profiles must keep covers compact in $name",
+                    widestProfileImage(ui.content) <= ui.dp(88),
+                )
                 ui.tools.admin()
                 capture("$name-admin")
                 NativeTools::class

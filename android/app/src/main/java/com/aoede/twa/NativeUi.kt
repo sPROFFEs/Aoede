@@ -65,6 +65,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var renderedStableKey: String? = null
     private var backAction: (() -> Unit)? = null
     private var reload: (() -> Unit)? = null
+    private var refreshHome: (() -> Unit)? = null
     private var theme = "classic"
     var background = Color.rgb(16, 17, 19)
         private set
@@ -878,6 +879,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         renderedPath = null
         renderedSignature = null
         renderedStableKey = null
+        refreshHome = null
         hideKeyboard()
         if (!restoringRoute && key != routeKey) {
             reload?.let { history.addLast(it) }
@@ -924,7 +926,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                                     )
                                 orientation = GradientDrawable.Orientation.TL_BR
                             }
-                        else if (theme == "vitrine") null else shape(this@NativeUi.background, 0)
+                        else shape(this@NativeUi.background, 0)
                 }
             chromeHeader = header
             root.addView(
@@ -1652,6 +1654,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         history.clear()
         routeKey = null
         reload = null
+        refreshHome = null
         backAction = null
         popups.toList().forEach { it.dismiss() }
         dialogs.toList().forEach { it.dismiss() }
@@ -2096,10 +2099,24 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             offlineDownloads()
             return
         }
+        val owner = "${api.origin?.rule}:${api.scope}"
+        if (
+            routeKey == "home" &&
+                renderedPath == "home" &&
+                renderedStableKey == owner &&
+                fullscreen == null &&
+                api.account?.optString("theme", theme) == theme
+        ) {
+            refreshHome?.invoke()
+            return
+        }
         screen(text("menu.home", "Home"), nav = "home", key = "home", restore = { home() })
         browseTabs("all")
         val stamp = generation
-        val snapshot = runCatching { library.get("view", "home_feed") }.getOrNull() ?: JSONObject()
+        val cacheScope = runCatching { library.scope() }.getOrNull()
+        val snapshot =
+            runCatching { cacheScope?.let { library.get("snapshot", "home_feed", it) } }.getOrNull()
+                ?: JSONObject()
         fun region() =
             LinearLayout(activity).apply {
                 orientation = LinearLayout.VERTICAL
@@ -2186,76 +2203,106 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 }
             }
         }
+        val pending = mutableSetOf<String>()
+        var firstRefresh = true
         fun fetch(key: String, path: String, paint: (Any) -> Unit) {
-            snapshot.opt(key)?.let(paint)
-            api.execute({ api.request(path) }) { value, error ->
-                if (!alive || stamp != generation) return@execute
-                if (error == null && value != null) {
-                    snapshot.put(key, value)
-                    paint(value)
-                    runCatching { library.put("view", "home_feed", snapshot) }
-                } else if (!snapshot.has(key) && key == "parties") paint(JSONArray())
-            }
-        }
-        fetch("recent", "/api/recent-activity") { if (it is JSONObject) quickPicks(quick, it) }
-        fetch("parties", "/api/party/rooms", ::paintParties)
-        fetch("mixes", "/api/mixes", ::paintMixes)
-        fetch("sections", "/api/recommendations", ::paintRecommendations)
-        fetch(
-            "wrapped",
-            "/api/wrapped/${java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)}?summary=false",
-        ) {
-            wrapped.removeAllViews()
-            val data = it as? JSONObject
-            if (
-                data != null && data.optBoolean("enabled", true) && data.optBoolean("visible", true)
-            ) {
-                val banner =
-                    LinearLayout(activity).apply {
-                        orientation = LinearLayout.VERTICAL
-                        setPadding(dp(16), dp(14), dp(16), dp(14))
-                        background =
-                            design.shape(
-                                if (theme == "classic") surface else design.content,
-                                if (theme == "classic") 6 else 24,
-                                theme != "classic",
-                            )
-                    }
-                wrapped.addView(
-                    banner,
-                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(26) },
-                )
-                label("Aoede Wrapped ${data.optInt("year")}", 16, banner).apply {
-                    design.typography(this, 16f, 650)
+            if (!pending.add(key)) return
+            if (firstRefresh && key != "recent")
+                synchronized(snapshot) { snapshot.opt(key) }?.let(paint)
+            api.execute({
+                if (!alive || stamp != generation) null
+                else {
+                    val value = api.request(path)
+                    val changed =
+                        synchronized(snapshot) {
+                            val changed = snapshot.opt(key)?.toString() != value.toString()
+                            snapshot.put(key, value)
+                            if (cacheScope != null)
+                                runCatching {
+                                    library.put("snapshot", "home_feed", snapshot, cacheScope)
+                                }
+                            changed
+                        }
+                    value to changed
                 }
-                label(
-                        "Your year in music is ready. Explore your listening highlights.",
-                        16,
-                        banner,
-                        muted,
-                    )
-                    .apply {
-                        design.lines(this, 1.45f)
-                        (layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
-                    }
-                button("Watch Wrapped", banner) {
-                        NativeWrapped(this).open(data.optInt("year"), story = true)
-                    }
-                    .apply {
-                        layoutParams =
-                            LinearLayout.LayoutParams(-2, dp(44)).apply { topMargin = dp(16) }
-                        setCompoundDrawablesRelative(
-                            NativeIcon("sparkles", ink, theme).apply {
-                                setBounds(0, 0, dp(18), dp(18))
-                            },
-                            null,
-                            null,
-                            null,
-                        )
-                        compoundDrawablePadding = dp(8)
-                    }
+            }) { result, error ->
+                pending.remove(key)
+                if (!alive || stamp != generation) return@execute
+                val value = (result as? Pair<*, *>)?.first
+                if (error == null && value != null) {
+                    if ((result as Pair<*, *>).second == true) paint(value)
+                } else if (key == "parties" && synchronized(snapshot) { !snapshot.has(key) })
+                    paint(JSONArray())
             }
         }
+        fun refresh() {
+            fetch("recent", "/api/recent-activity") { if (it is JSONObject) quickPicks(quick, it) }
+            fetch("parties", "/api/party/rooms", ::paintParties)
+            fetch("mixes", "/api/mixes", ::paintMixes)
+            fetch("sections", "/api/recommendations", ::paintRecommendations)
+            fetch(
+                "wrapped",
+                "/api/wrapped/${java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)}?summary=false",
+            ) {
+                wrapped.removeAllViews()
+                val data = it as? JSONObject
+                if (
+                    data != null &&
+                        data.optBoolean("enabled", true) &&
+                        data.optBoolean("visible", true)
+                ) {
+                    val banner =
+                        LinearLayout(activity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPadding(dp(16), dp(14), dp(16), dp(14))
+                            background =
+                                design.shape(
+                                    if (theme == "classic") surface else design.content,
+                                    if (theme == "classic") 6 else 24,
+                                    theme != "classic",
+                                )
+                        }
+                    wrapped.addView(
+                        banner,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(26) },
+                    )
+                    label("Aoede Wrapped ${data.optInt("year")}", 16, banner).apply {
+                        design.typography(this, 16f, 650)
+                    }
+                    label(
+                            "Your year in music is ready. Explore your listening highlights.",
+                            16,
+                            banner,
+                            muted,
+                        )
+                        .apply {
+                            design.lines(this, 1.45f)
+                            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(6)
+                        }
+                    button("Watch Wrapped", banner) {
+                            NativeWrapped(this).open(data.optInt("year"), story = true)
+                        }
+                        .apply {
+                            layoutParams =
+                                LinearLayout.LayoutParams(-2, dp(44)).apply { topMargin = dp(16) }
+                            setCompoundDrawablesRelative(
+                                NativeIcon("sparkles", ink, theme).apply {
+                                    setBounds(0, 0, dp(18), dp(18))
+                                },
+                                null,
+                                null,
+                                null,
+                            )
+                            compoundDrawablePadding = dp(8)
+                        }
+                }
+            }
+            firstRefresh = false
+        }
+        renderedPath = "home"
+        renderedStableKey = owner
+        refreshHome = { refresh() }
+        refresh()
     }
 
     fun artworkPath(track: JSONObject): String =
@@ -2601,13 +2648,25 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
     }
 
+    private fun libraryLayoutKey() =
+        "native_library_grid:" + NativeApi.digest("${api.origin?.rule}:${api.scope}")
+
     fun collections(
         kind: String = "all",
         query: String = "",
         order: String = "recent",
-        grid: Boolean = false,
+        grid: Boolean =
+            activity
+                .getSharedPreferences(MainActivity.PREFS, 0)
+                .getBoolean(libraryLayoutKey(), false),
         offset: Int = 0,
     ) {
+        if (api.scope.isNotBlank())
+            activity
+                .getSharedPreferences(MainActivity.PREFS, 0)
+                .edit()
+                .putBoolean(libraryLayoutKey(), grid)
+                .apply()
         libraryState =
             android.os.Bundle().apply {
                 putString("kind", kind)
@@ -3381,22 +3440,25 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             }
                         if (tracks.isEmpty()) toast("Add songs before choosing a cover")
                         else
-                            choose(
-                                "Choose cover",
-                                tracks.map {
-                                    "${it.optString("title")} · ${it.optString("artist")}"
-                                },
-                            ) { selected ->
-                                request(
-                                    NativeTrack.collectionPath(id) + "/cover/track",
-                                    body =
-                                        JSONObject()
-                                            .put("track_id", NativeTrack.localId(tracks[selected])),
-                                    done = {
-                                        api.artwork.clear()
-                                        collection(id)
-                                    },
-                                )
+                            sheet("Choose cover") { body, dialog ->
+                                for (track in tracks) row(
+                                    track.optString("title"),
+                                    track.optString("artist"),
+                                    "/api/cover/${NativeTrack.localId(track)}",
+                                    body,
+                                ) {
+                                    dialog.dismiss()
+                                    request(
+                                        NativeTrack.collectionPath(id) + "/cover/track",
+                                        body =
+                                            JSONObject()
+                                                .put("track_id", NativeTrack.localId(track)),
+                                        done = {
+                                            api.artwork.clear()
+                                            collection(id)
+                                        },
+                                    )
+                                }
                             }
                     }
                     7 -> tools.smartPlaylist(p)
@@ -5208,11 +5270,17 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         panel.setMode(mode)
         if (!reducedMotion()) {
             panel.translationY = root.height.toFloat()
+            panel.scaleX = .97f
+            panel.scaleY = .97f
+            panel.alpha = .7f
             panel
                 .animate()
                 .translationY(0f)
-                .setDuration(300)
-                .setInterpolator(android.view.animation.DecelerateInterpolator(2f))
+                .scaleX(1f)
+                .scaleY(1f)
+                .alpha(1f)
+                .setDuration(380)
+                .setInterpolator(android.view.animation.PathInterpolator(.18f, .9f, .22f, 1f))
                 .start()
         }
     }
@@ -5252,6 +5320,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         shell.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
         chromeHeader.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
         activity.applyAppearance(!design.light)
+        dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
+        renderMini()
         val remove = {
             root.removeView(panel)
             if (fullscreen == null) dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
@@ -5261,7 +5331,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             panel
                 .animate()
                 .translationY(panel.height.toFloat())
-                .setDuration(240)
+                .scaleX(.94f)
+                .scaleY(.94f)
+                .alpha(.3f)
+                .setDuration(340)
+                .setInterpolator(android.view.animation.PathInterpolator(.3f, 0f, .2f, 1f))
                 .withEndAction { remove() }
                 .start()
         else remove()
@@ -5289,6 +5363,31 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         var dragging = false
         var cancelled = false
         var started = 0L
+        var axis = 0
+        var dragPanel: NativePlayerView? = null
+        fun settle() {
+            val duration = if (reducedMotion()) 0L else 320L
+            view
+                .animate()
+                .translationX(0f)
+                .translationY(0f)
+                .rotation(0f)
+                .setDuration(duration)
+                .setInterpolator(android.view.animation.PathInterpolator(.18f, .9f, .22f, 1f))
+                .start()
+            dragPanel?.let { panel ->
+                panel
+                    .animate()
+                    .translationY(0f)
+                    .scaleX(1f)
+                    .scaleY(1f)
+                    .alpha(1f)
+                    .setDuration(duration)
+                    .setInterpolator(android.view.animation.PathInterpolator(.18f, .9f, .22f, 1f))
+                    .withEndAction { if (fullscreen === panel) dock.visibility = View.INVISIBLE }
+                    .start()
+            }
+        }
         view.setOnTouchListener { target, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -5297,6 +5396,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     y = event.rawY
                     started = event.eventTime
                     dragging = false
+                    axis = 0
+                    dragPanel = if (artwork) fullscreen as? NativePlayerView else null
                     cancelled = event.pointerCount != 1
                     true
                 }
@@ -5305,15 +5406,37 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     val dy = event.rawY - y
                     if (event.pointerCount != 1 || cancelled) {
                         cancelled = true
-                        target.translationX = 0f
-                        target.translationY = 0f
+                        settle()
                         false
                     } else {
-                        dragging = kotlin.math.abs(dx) > dp(12) || (artwork && dy > dp(16))
+                        if (axis == 0) {
+                            if (
+                                kotlin.math.abs(dx) > dp(12) &&
+                                    kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5
+                            )
+                                axis = 1
+                            else if (artwork && dy > dp(16) && dy > kotlin.math.abs(dx) * 1.5)
+                                axis = 2
+                        }
+                        dragging = axis != 0
+                        if (dragging) target.parent?.requestDisallowInterceptTouchEvent(true)
                         if (dragging && !reducedMotion()) {
-                            if (kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5)
+                            if (axis == 1) {
                                 target.translationX = dx
-                            else if (artwork && dy > 0) target.translationY = dy
+                                if (target is ImageView)
+                                    target.rotation =
+                                        (dx / target.width.coerceAtLeast(1) * 2).coerceIn(-3f, 3f)
+                            } else
+                                dragPanel?.let { panel ->
+                                    panel.animate().cancel()
+                                    val progress =
+                                        (dy / panel.height.coerceAtLeast(1)).coerceIn(0f, 1f)
+                                    panel.translationY = dy.coerceAtLeast(0f)
+                                    panel.scaleX = 1f - progress * .06f
+                                    panel.scaleY = panel.scaleX
+                                    panel.alpha = 1f - progress * .15f
+                                    dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
+                                }
                         }
                         dragging
                     }
@@ -5322,39 +5445,41 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     val dx = event.rawX - x
                     val dy = event.rawY - y
                     if (cancelled || event.eventTime - started > 1500) {
-                        target.translationX = 0f
-                        target.translationY = 0f
+                        settle()
                         return@setOnTouchListener true
                     }
-                    target
-                        .animate()
-                        .translationX(0f)
-                        .translationY(0f)
-                        .setDuration(if (reducedMotion()) 0 else 180)
-                        .start()
                     when {
-                        artwork && dy > dp(72) && dy > kotlin.math.abs(dx) * 1.5 -> hidePlayer()
-                        kotlin.math.abs(dx) > dp(48) &&
+                        artwork && axis == 2 && dy > dp(72) && dy > kotlin.math.abs(dx) * 1.5 ->
+                            hidePlayer()
+                        axis == 1 &&
+                            kotlin.math.abs(dx) > dp(48) &&
                             kotlin.math.abs(dx) > kotlin.math.abs(dy) * 1.5 -> {
+                            val previous = player.current?.let(NativeTrack::reference)
                             trackSlideDirection = if (dx < 0) 1 else -1
                             app.mediaController.command(
                                 if (dx < 0) "nexttrack" else "previousgesture"
                             )
+                            if (
+                                previous == player.current?.let(NativeTrack::reference) ||
+                                    target !is ImageView
+                            )
+                                settle()
                         }
-                        !dragging -> target.performClick()
+                        else -> {
+                            settle()
+                            if (!dragging) target.performClick()
+                        }
                     }
                     true
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> {
                     cancelled = true
-                    target.translationX = 0f
-                    target.translationY = 0f
+                    settle()
                     true
                 }
                 MotionEvent.ACTION_CANCEL -> {
                     cancelled = true
-                    target.translationX = 0f
-                    target.translationY = 0f
+                    settle()
                     false
                 }
                 else -> false
@@ -5569,6 +5694,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     fun close() {
         history.clear()
         reload = null
+        refreshHome = null
         popups.toList().forEach { it.dismiss() }
         dialogs.toList().forEach { it.dismiss() }
         api.main.removeCallbacks(dismissToast)

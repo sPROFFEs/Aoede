@@ -199,6 +199,9 @@ def capture():
                 ]:
                     page.evaluate("([v,p])=>loadView(v,p)", [view, param])
                     page.wait_for_timeout(400)
+                    if view == "profile":
+                        covers = page.locator('.profile-collections-list .card-img-container').evaluate_all("items=>items.map(i=>({w:i.getBoundingClientRect().width,h:i.getBoundingClientRect().height}))")
+                        assert covers and all(0 < c['w'] <= 56.5 and 0 < c['h'] <= 56.5 for c in covers), (theme, scheme, covers)
                     name = f"{theme}-{scheme}-{view}"
                     page.screenshot(path=str(args.output / f"web-{name}.png"))
                     measurements[name] = page.evaluate(
@@ -224,6 +227,26 @@ def capture():
                 )
                 page.wait_for_timeout(450)
                 page.screenshot(path=str(args.output / f"web-{theme}-{scheme}-player.png"))
+                for volume in (0, 1):
+                    data = page.evaluate("""async value => {
+                        const ui=await import('/assets/js/modules/ui.js?v=visual');
+                        const audio=await import('/assets/js/modules/audio_engine.js');audio.setVolume(value);ui.updateVolumeUI();
+                        document.querySelector('.fullscreen-player .fs-volume')?.setAttribute('open','');
+                        const bar=document.getElementById('fs-volume-bar'), knob=bar.querySelector('.volume-knob');
+                        const b=bar.getBoundingClientRect(), k=knob.getBoundingClientRect();
+                        const header=getComputedStyle(document.querySelector('.m-topbar'));
+                        return {bar:[b.left,b.right],knob:[k.left,k.right],background:header.backgroundColor};
+                    }""", volume)
+                    assert data["bar"][1] > data["bar"][0], (theme, scheme, data)
+                    assert data["knob"][0] >= data["bar"][0] - .5 and data["knob"][1] <= data["bar"][1] + .5, (theme, scheme, volume, data)
+                    if theme == "vitrine":
+                        assert data["background"].startswith("rgb("), data
+                page.evaluate("window.toggleFullscreenPlayer()")
+                page.evaluate("loadView('playlist','1')")
+                page.wait_for_selector('.playlist-title')
+                page.evaluate("window.showPlaylistCoverTrackModal(1)")
+                page.wait_for_function("[...document.querySelectorAll('.modal-playlist-thumb img')].length > 0 && [...document.querySelectorAll('.modal-playlist-thumb img')].every(i=>i.complete && i.naturalWidth>0 && i.getAttribute('src').startsWith('/api/cover/'))")
+                page.screenshot(path=str(args.output / f"web-{theme}-{scheme}-choose-cover.png"))
                 page.goto(f"http://127.0.0.1:8765/login?theme={theme}")
                 page.add_style_tag(content=await_css)
                 page.evaluate("document.fonts.ready")

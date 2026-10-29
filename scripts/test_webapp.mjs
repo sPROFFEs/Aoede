@@ -358,6 +358,13 @@ await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
   views: { loadView: view => nativeLoads.push(view) }, console
 });
 assert.deepEqual(nativeLoads, ['home']); // Native launch restores music, without reopening transient admin/settings pages.
+const chosenViewLoads = [];
+await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
+  window: { location: { pathname: '/portal' }, AOEDE_INITIAL_VIEW: 'home' },
+  navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'wrapped', param: 2026 }) },
+  views: { navigationVersion: 1, loadView: view => chosenViewLoads.push(view) }, console
+});
+assert.deepEqual(chosenViewLoads, []); // A late restore must preserve the user's newer navigation.
 
 // Timeouts must cover response bodies as well as headers, preserving the local queue fallback.
 let queueTimer, queueSignal, queueClears = 0, queueFetches = 0;

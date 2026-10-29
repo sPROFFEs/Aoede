@@ -257,6 +257,7 @@ ui.updateVolumeUI(); assert.deepEqual(fills.map(fill => fill.style.width), ['70%
 ui.toggleMute(); assert.equal(volume, 0); assert.equal(muteButtons[1].getAttribute('aria-pressed'), 'true');
 ui.toggleMute(); assert.equal(volume, 0.7);
 ui.nudgeVolume(1); assert.deepEqual(fills.map(fill => fill.style.width), ['100%', '100%']);
+assert.ok(knobs.every(knob => knob.style.left === 'clamp(6px, 100%, calc(100% - 6px))' && knob.style.right === 'auto'));
 const seeks = [];
 ui.setupDraggable(progress, (pct, dragging) => seeks.push([pct, dragging]));
 ui.updateUIProgress(30, 120); assert.equal(fields.get('fs-time-remaining').innerText, '−1:30'); assert.equal(progress.getAttribute('aria-valuenow'), '25');

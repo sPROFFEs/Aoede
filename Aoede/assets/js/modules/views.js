@@ -209,7 +209,7 @@ function _pushSpaHistory(view, param = null, replace = false) {
   }
 }
 
-let navigationVersion = 0;
+export let navigationVersion = 0;
 
 export async function loadView(view, param = null, options = {}) {
   const version = ++navigationVersion;
@@ -944,15 +944,15 @@ export function createPlaylistCard(pl) {
   const visibilityLabel =
     pl.source_playlist_id || pl.source_instance_id ? 'Synced copy' : pl.is_public ? 'Public' : 'Private';
 
-  return `<div class="card glass-hover" onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')">
-        <div class="card-img-container playlist-card-bg">
-            ${hasThumb ? `<img src="${ui.escHtml(thumb)}" class="card-img" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music" class="playlist-icon-large"></i>`}
-        </div>
-        <div class="playlist-card-copy">
-            <div class="card-title">${ui.escHtml(pl.name)}</div>
-            <div class="card-subtitle">${pl.kind === 'album' ? 'Album · ' : ''}${ownerLine}${Number(pl.track_count) || 0} tracks - ${visibilityLabel}${pl.is_federated ? ` · ${ui.escHtml(pl.fed_instance_name)}` : ''}</div>
-        </div>
-    </div>`;
+  return `<div class="card glass-hover" role="link" tabindex="0" onkeydown="if(event.key==='Enter'){event.preventDefault();this.click()}" onclick="loadView('playlist', '${ui.escJs(String(pl.id))}')">
+<div class="card-img-container playlist-card-bg">
+            ${hasThumb ? `<img src="${ui.escHtml(thumb)}" class="card-img" alt="" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">` : `<i data-lucide="list-music" class="playlist-icon-large"></i>`}
+</div>
+<div class="playlist-card-copy">
+<div class="card-title">${ui.escHtml(pl.name)}</div>
+<div class="card-subtitle">${pl.kind === 'album' ? 'Album · ' : ''}${ownerLine}${Number(pl.track_count) || 0} tracks - ${visibilityLabel}${pl.is_federated ? ` · ${ui.escHtml(pl.fed_instance_name)}` : ''}</div>
+</div>
+</div>`;
 }
 
 export function createMixCard(mix) {
@@ -2668,7 +2668,7 @@ export async function renderProfile(container, username) {
         <div class="shelf-header">
           <h2 class="shelf-title">Public Playlists & Albums (${playlists.length})</h2>
         </div>
-        <div class="library-cards-grid">
+        <div class="profile-collections-list">
           ${playlists.map(window.createPlaylistCard).join('')}
         </div>
       </section>`;

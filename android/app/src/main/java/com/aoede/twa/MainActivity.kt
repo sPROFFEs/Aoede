@@ -330,11 +330,10 @@ class MainActivity : AppCompatActivity() {
         native?.close()
         nativeUi = null
         nativeFileCallback = null
-        if (native != null) app.detachNative(this)
+        val detached = if (native != null) app.detachNative(this) else app.detachPlayer(this)
         fileCallback?.onReceiveValue(null)
         fileCallback = null
-        app.detachPlayer(this)
-        if (isFinishing && !isChangingConfigurations) app.musicIsland.taskRemoved()
+        if (detached && isFinishing && !isChangingConfigurations) app.musicIsland.taskRemoved()
         app.musicIsland.closeSettings(this)
         super.onDestroy()
     }

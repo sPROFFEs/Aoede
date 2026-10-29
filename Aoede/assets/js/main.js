@@ -478,7 +478,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const homeExit = window.location.hash === '#home';
   const hasInitialView = homeExit || (window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home');
-  if (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname)) {
+  if (
+    !views.navigationVersion &&
+    (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname))
+  ) {
     if (isDeviceOffline) {
       views.loadView('offline', null, { replaceHistory: true });
     } else if (!hasInitialView && !window.AOEDE_ANDROID && restoredSession?.view && restoredSession.view !== 'home') {
@@ -486,9 +489,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     } else {
       views.loadView(_serverView, _serverParam, { replaceHistory: true });
     }
-  } else {
+  } else if (!views.navigationVersion) {
     // If we are on a different page (e.g. /admin/system), we just set the view state without rendering
-    // logic to highlight sidebar can be added here if needed
     console.log('[MAIN] Preserving server-rendered content for path:', window.location.pathname);
     if (window.location.pathname.includes('/admin/system')) state.setCurrentViewName('system_monitor');
     else if (window.location.pathname.includes('/admin/downloads')) state.setCurrentViewName('admin_downloads');

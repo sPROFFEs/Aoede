@@ -673,3 +673,24 @@ await locks.showLoginLockInfo(1, lockButton);
 assert.equal(lockNotices[1].message, 'alice: no active restriction');
 assert.equal(lockButton.classList.active, false);
 console.log('PASS: admin sign-in restriction toast reports remaining time and clears expired status.');
+
+const coverPickerContainer = { innerHTML: '' };
+const coverPicker = (await load('playlists.js', {
+  window: {},
+  document: { addEventListener() {}, getElementById: () => coverPickerContainer },
+  lucide: { createIcons() {} }
+}, {
+  './state.js': { currentViewList: [
+    { id: 7, title: '<Song>', artist: 'Artist', thumbnail: '" onerror="unsafe' },
+    { id: 'external', title: 'Remote preview' },
+    { id: 8, title: 'Another song' }
+  ] },
+  './ui.js': ui, './api.js': {}, './player.js': {}, './offline_store.js': {}
+})).api;
+coverPicker.showPlaylistCoverTrackModal(1);
+assert.match(coverPickerContainer.innerHTML, /src="\/api\/cover\/7"/);
+assert.match(coverPickerContainer.innerHTML, /src="\/api\/cover\/8"/);
+assert.match(coverPickerContainer.innerHTML, /&lt;Song&gt;/);
+assert.equal(coverPickerContainer.innerHTML.includes('unsafe'), false);
+assert.equal(coverPickerContainer.innerHTML.includes('Remote preview'), false);
+console.log('PASS: cover selection loads canonical local artwork and escapes labels.');
