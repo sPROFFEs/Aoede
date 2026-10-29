@@ -9,6 +9,7 @@ Thumbs.db
 *.swo
 
 # AI / Assistant config
+/AGENTS.md
 .codex/
 .praimate/
 opencode.json

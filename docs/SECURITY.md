@@ -32,7 +32,6 @@ Aoede uses this key for authentication-related signing and encryption of stored 
 - Use `COOKIE_SECURE=false` only for trusted plain-HTTP LAN/VPN testing.
 - Web and password-based Subsonic login share failed-attempt restrictions: five failures restrict the source IP for 15 minutes. The username shown in the admin information toast attributes attempts; it does not globally block the account. Restrictions are per process and reset on restart.
 
-The [1.2.9 security review](SECURITY-REVIEW-2026-10-24.md) records the identified defects, fixes, validation and deployment requirements. Install Android 1.1.11 for the matching packaged frontend fixes.
 
 ## TLS
 

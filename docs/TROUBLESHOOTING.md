@@ -22,7 +22,7 @@ curl --max-time 5 -sS -o /dev/null -w 'Local HTTP %{http_code}, %{time_total}s\n
 
 The local URL above assumes the default Cloudflare deployment's port 80. For a custom mapping use its local port and public Host header if required by `ALLOWED_HOSTS`. The `internal` and `domain` templates do not have a `tunnel` service; omit it from the logs command. An HTTP 200/302 on `/login` means the origin is responding; a 502 points to Nginx reaching an unavailable Concierge, and a 400 may indicate a Host restriction rather than slow startup. Never disable Host or certificate validation to diagnose startup.
 
-Concierge logs `Startup schema ready`, `Startup recovery complete` and `Startup ready`, with elapsed seconds. Security validation, migrations, interrupted-job recovery and pausing party rooms still finish before it serves requests. Track-identity backfill now runs in a worker thread after 30 seconds, followed by metadata scanning. Cache cleanup waits 60 seconds, automatic backup 90 seconds, Wrapped analysis 120 seconds, and optional loudness backfill 180 seconds. This removes library-size-dependent work from readiness and staggers the first maintenance passes; it does not prove that a particular VM or tunnel delay is fixed. A first permission migration may still scan the data tree once; subsequent restarts reuse its marker.
+Compare the `Startup schema ready`, `Startup recovery complete` and `Startup ready` timestamps in Concierge logs. If startup has not reached `Startup ready`, inspect the preceding errors before restarting services. Large libraries, interrupted operations and a first permission migration can take longer. Background scans may continue after the sign-in page is available.
 
 If local login responds well before the public domain, inspect the tunnel's timestamped connection/retry errors and the VM's network/DNS readiness. Cloudflared normally selects QUIC automatically and can fall back to HTTP/2; change its protocol only after the logs establish a transport problem. See [Cloudflare Tunnel troubleshooting](https://developers.cloudflare.com/tunnel/troubleshooting/). Compose `depends_on` with `service_started` controls creation order, not application readiness, so service timestamps and local probes are more useful than assuming the tunnel waits for the downloader. See [Docker startup order](https://docs.docker.com/compose/how-tos/startup-order/). Logs may contain private hostnames; redact credentials and personal data before sharing them.
 
@@ -82,7 +82,7 @@ If the challenge reports a network change, verification failure or Cloudflare Tu
 
 Verification is bound to the worker's browser and network context. A challenge completed from another machine or public IP cannot be safely transferred into the worker session.
 
-If startup reports `pthread_create: Resource temporarily unavailable`, Chromium could not create a thread. The downloader's former limit of 256 tasks was shared by Chromium, its threads and concurrent downloads. Current Compose files use `DOWNLOADER_PIDS_LIMIT=1024` and `init: true` to reap orphaned children. The [Linux PID controller](https://docs.kernel.org/admin-guide/cgroup-v2.html#pid) counts threads against this budget; [Docker's init option](https://docs.docker.com/reference/compose-file/services/#init) reaps child processes.
+If startup reports `pthread_create: Resource temporarily unavailable`, Chromium could not create a thread. Current Compose files use `DOWNLOADER_PIDS_LIMIT=1024` and `init: true` to reap orphaned children. The [Linux PID controller](https://docs.kernel.org/admin-guide/cgroup-v2.html#pid) counts threads against this budget; [Docker's init option](https://docs.docker.com/reference/compose-file/services/#init) reaps child processes.
 
 After updating the source and your active Compose file, apply the worker changes with:
 
@@ -90,7 +90,7 @@ After updating the source and your active Compose file, apply the worker changes
 docker compose up -d --build --force-recreate downloader
 ```
 
-A plain container restart does not apply a changed process limit or init setting. Custom deployment files must include the same downloader settings. The startup message now identifies resource exhaustion; its sanitized Chromium diagnostics remain in the downloader logs. Check actual PID and memory pressure before increasing the limit further:
+A plain container restart does not apply a changed process limit or init setting. Custom deployment files must include the same downloader settings. Inspect the downloader logs for resource-exhaustion errors. Check actual PID and memory pressure before increasing the limit further:
 
 ```bash
 docker stats --no-stream aoede_downloader
@@ -99,13 +99,13 @@ docker compose exec downloader sh -c 'cat /sys/fs/cgroup/pids.current /sys/fs/cg
 
 The cgroup paths above apply to cgroup v2. A nonzero `max` counter in `pids.events` records attempts that hit the PID limit. If the task budget has room, inspect available memory and any host-level process limits as well. Missing D-Bus or CPU-frequency files can accompany Chromium's logs and do not alone establish the cause of a startup failure.
 
-If the first session reports that the browser did not become ready within five seconds, update both downloader and Concierge. Startup now uses one 30-second budget across all components, waits for DevTools and a browser tab rather than only a listening port, and gives the client additional time for cleanup. Local DevTools HTTP requests bypass environment proxies; the worker entrypoint also preserves existing `NO_PROXY`/`no_proxy` entries and appends loopback addresses for WebSocket connections. A slow host can set `AUTH_BROWSER_STARTUP_TIMEOUT=60` in its Compose environment; both services receive that value. Recreate both services after changing it:
+If the verification browser repeatedly fails to start, update both downloader and Concierge and check the worker logs. A slow host can set `AUTH_BROWSER_STARTUP_TIMEOUT=60` in its Compose environment. Recreate both services after changing it:
 
 ```bash
 docker compose up -d --build downloader concierge
 ```
 
-The browser's verification-session lifetime starts when the browser is ready. Startup errors release their processes before another attempt; the UI blocks additional start requests while one is already pending.
+Wait for the browser to become ready before verifying. Close a failed session before trying again.
 
 ## Provider says Connected but downloads fail
 

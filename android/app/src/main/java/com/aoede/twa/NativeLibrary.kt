@@ -40,7 +40,8 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
         require(
             kind in setOf("track", "collection", "snapshot", "pending", "migration", "download")
         )
-        require(id.length in 1..256 && data.toString().length <= 4 * 1024 * 1024)
+        val encoded = data.toString()
+        require(id.length in 1..256 && encoded.length <= 4 * 1024 * 1024)
         val result =
             writableDatabase.insertWithOnConflict(
                 "records",
@@ -49,7 +50,7 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
                     put("scope", scope)
                     put("kind", kind)
                     put("id", id)
-                    put("data", data.toString())
+                    put("data", encoded)
                 },
                 SQLiteDatabase.CONFLICT_REPLACE,
             )
@@ -95,34 +96,72 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
     }
 
     @Synchronized
-    fun audio(id: String): File? =
-        get("track", id)?.let { record ->
-            val target = File(directory(), NativeApi.digest(id) + ".audio")
-            val previous = File(directory(), NativeApi.digest(id) + ".previous")
-            if (previous.isFile) {
-                fun matches(file: File): Boolean {
-                    if (!file.isFile || file.length() != record.optLong("offline_size"))
-                        return false
-                    val hash = MessageDigest.getInstance("SHA-256")
-                    file.inputStream().use { input ->
-                        val buffer = ByteArray(65536)
-                        while (true) {
-                            val n = input.read(buffer)
-                            if (n < 0) break
-                            hash.update(buffer, 0, n)
-                        }
-                    }
-                    return hash.digest().joinToString("") { "%02x".format(it) } ==
-                        record.optString("offline_sha256")
-                }
-                if (matches(target)) previous.delete()
-                else if (matches(previous)) {
-                    target.delete()
-                    check(previous.renameTo(target))
-                } else return@let null
-            }
-            target.takeIf { it.isFile && it.length() == record.optLong("offline_size") }
+    fun audio(id: String): File? {
+        val scope = scope()
+        return get("track", id, scope)?.let { audioFile(id, it, scope) }
+    }
+
+    @Synchronized
+    fun audioFiles(ids: Collection<String>? = null): Map<String, File> {
+        val scope = scope()
+        val wanted = ids?.toHashSet()
+        if (wanted?.isEmpty() == true) return emptyMap()
+        var selection = "scope=? AND kind=?"
+        val arguments = mutableListOf(scope, "track")
+        // Older Android SQLite builds allow at most 999 bound parameters.
+        if (wanted != null && wanted.size <= 900) {
+            selection += " AND id IN (${wanted.joinToString(",") { "?" }})"
+            arguments.addAll(wanted)
         }
+        return buildMap {
+            readableDatabase
+                .query(
+                    "records",
+                    arrayOf("id", "data"),
+                    selection,
+                    arguments.toTypedArray(),
+                    null,
+                    null,
+                    null,
+                )
+                .use { cursor ->
+                    while (cursor.moveToNext()) {
+                        val id = cursor.getString(0)
+                        if (wanted == null || id in wanted)
+                            audioFile(id, JSONObject(cursor.getString(1)), scope)?.let {
+                                put(id, it)
+                            }
+                    }
+                }
+        }
+    }
+
+    private fun audioFile(id: String, record: JSONObject, scope: String): File? {
+        val target = File(directory(scope), NativeApi.digest(id) + ".audio")
+        val previous = File(directory(scope), NativeApi.digest(id) + ".previous")
+        if (previous.isFile) {
+            fun matches(file: File): Boolean {
+                if (!file.isFile || file.length() != record.optLong("offline_size")) return false
+                val hash = MessageDigest.getInstance("SHA-256")
+                file.inputStream().use { input ->
+                    val buffer = ByteArray(65536)
+                    while (true) {
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        hash.update(buffer, 0, n)
+                    }
+                }
+                return hash.digest().joinToString("") { "%02x".format(it) } ==
+                    record.optString("offline_sha256")
+            }
+            if (matches(target)) previous.delete()
+            else if (matches(previous)) {
+                target.delete()
+                check(previous.renameTo(target))
+            } else return null
+        }
+        return target.takeIf { it.isFile && it.length() == record.optLong("offline_size") }
+    }
 
     fun download(track: JSONObject, scope: String = scope()) {
         val id = NativeTrack.reference(track)
@@ -258,13 +297,17 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
 }
 
 object NativeTrack {
+    private val deviceFields =
+        setOf("offline_artwork", "offline_sha256", "offline_size", "_native_record_id")
+
     fun portable(t: JSONObject): JSONObject =
-        JSONObject(t.toString()).apply {
-            remove("offline_artwork")
-            remove("offline_sha256")
-            remove("offline_size")
-            remove("_native_record_id")
-        }
+        JSONObject(
+            JSONObject(
+                    t,
+                    t.keys().asSequence().filterNot { it in deviceFields }.toList().toTypedArray(),
+                )
+                .toString()
+        )
 
     fun localId(t: JSONObject): Long =
         if (t.optInt("fed_instance_id") > 0 || t.optBoolean("is_federated")) 0

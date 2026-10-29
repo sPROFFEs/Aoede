@@ -1,4 +1,4 @@
-/* Selected handoff glyph geometry. Provenance: docs/UI-REFRESH.md. */
+/* Selected interface glyph geometry adapted from Spotify and Apple Music references. */
 (() => {
   const recovered = {
     classic: {

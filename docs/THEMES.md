@@ -8,7 +8,7 @@ Choose **Settings → Appearance → Classic, Glass or Vitrine**. Classic is the
 | Glass | Square inspired translucent surfaces, soft rounded controls and an accent sampled from the current artwork. |
 | Vitrine | Apple Music inspired library and collection hierarchy, red accent, clean separators and restrained glass chrome. |
 
-Glass and Vitrine follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content. The latest interface uses the supplied static music UI handoff as an additional reference; [implementation scope and provenance](UI-REFRESH.md) distinguishes recovered resources from Aoede adaptations.
+Glass and Vitrine follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content.
 
 ## Browsing
 
@@ -30,7 +30,7 @@ All themes reuse the same compact and fullscreen player, queue, lyrics, volume a
 
 On mobile, swipe left on the compact player for the next track or right for the previous song. The fullscreen player accepts the same gestures on its artwork. Buttons and sliders keep their normal behavior, including the Previous button's restart-before-skip behavior. Vertical scrolling, short drags, long presses and multi-touch do not skip songs. Gestures use the existing queue, repeat and party controls.
 
-Native Android 1.1.22 adds finger-following artwork and a short carousel transition to fullscreen track swipes. Swipe down on the artwork/header to minimize through the same action as the arrow. Buttons, sliders and scrolling lyrics/queue are excluded. Reduced effects/motion skips decorative movement.
+On Android, fullscreen track swipes move the artwork with your finger and finish with a short carousel transition. Swipe down on the artwork/header to minimize through the same action as the arrow. Buttons, sliders and scrolling lyrics/queue are excluded. Reduced effects/motion skips decorative movement.
 
 Fullscreen lyrics and queue reuse the same panels as the normal player. Switching their views or changing themes does not recreate playback. Desktop supports side-by-side artwork and controls; short displays retain reachable transport controls. Seek and volume sliders support keyboard operation.
 
@@ -38,8 +38,6 @@ Fullscreen lyrics and queue reuse the same panels as the normal player. Switchin
 
 The authenticated server preference wins online. Offline, the last confirmed choice is cached per account, preventing one account from inheriting another's settings. A failed save leaves the previous confirmed theme selected. Viewing another node's public collections uses the viewer's theme; appearance preferences are not published through federation.
 
-The web app and URL wrappers load the server frontend. Native Android packages the same frontend and needs a new APK build to receive interface changes. Android Reduce effects disables costly materials. The application icon, favicons, adaptive icons and desktop installation artwork are independent of the theme and remain Aoede's own design.
+The web app and URL wrappers load the server frontend. The native Android interface is installed with the APK and receives interface changes through APK updates. Its optional compatibility mode uses the bundled web interface. Android Reduce effects disables costly materials. The application icon, favicons, adaptive icons and desktop installation artwork are independent of the theme and remain Aoede's own design.
 
-English, Spanish and German share the same translated runtime labels and placeholders. Native form controls, focus outlines, named dismissal controls, reduced motion, reduced transparency and forced-color fallbacks remain available. No additional animation framework is needed.
-
-Implementation: `ui_tokens.css`, `ui_experience.css`, the existing theme/player/mobile styles, `ui_icons.js`, `appearance.js` and `appearance_head.html`. [Interface refresh](UI-REFRESH.md) describes validation and the boundary between browser checks and physical-device testing.
+English, Spanish and German share the same translated runtime labels and placeholders. Native form controls, focus outlines, named dismissal controls, reduced motion, reduced transparency and forced-color fallbacks remain available.

@@ -351,11 +351,20 @@ class NativeClientTest {
             java.io.File(library.directory(), "test.partial").apply { writeBytes(bytes) }
         library.commitAudio("7", record(bytes), temporary)
         assertArrayEquals(bytes, library.audio("7")!!.readBytes())
+        library.put("track", "8", record(bytes))
+        library.put("track", "9", record(bytes))
+        java.io
+            .File(library.directory(), NativeApi.digest("9") + ".audio")
+            .writeBytes(byteArrayOf(1))
+        assertEquals(setOf("7"), library.audioFiles().keys)
+        assertEquals(setOf("7"), library.audioFiles((0..1000).map(Int::toString)).keys)
+        assertTrue(library.audioFiles(emptyList()).isEmpty())
+        assertTrue(library.audioFiles(listOf("8", "missing")).isEmpty())
         val audioFile = library.audio("7")!!
         val previous = java.io.File(library.directory(), NativeApi.digest("7") + ".previous")
         assertTrue(audioFile.renameTo(previous))
         audioFile.writeBytes(ByteArray(bytes.size) { 42 })
-        assertArrayEquals(bytes, library.audio("7")!!.readBytes())
+        assertArrayEquals(bytes, library.audioFiles(listOf("7", "missing"))["7"]!!.readBytes())
         assertFalse(previous.exists())
         val replacement = "replacement".toByteArray()
         temporary.writeBytes(replacement)
@@ -370,11 +379,33 @@ class NativeClientTest {
         context("bob", "b".repeat(64))
         assertTrue(library.list("track").isEmpty())
         assertNull(library.audio("7"))
+        assertTrue(library.audioFiles().isEmpty())
         assertNotEquals(scope, library.scope())
         app.nativeApi.configure("https://music.test:9443")
         context()
         assertTrue(library.list("track").isEmpty())
+        assertTrue(library.audioFiles().isEmpty())
         assertNotEquals(scope, library.scope())
+    }
+
+    @Test
+    fun portableQueueMetadataNeverSerializesDeviceArtworkAndKeepsNestedCopiesIndependent() {
+        val original =
+            object : JSONObject() {
+                    override fun toString(): String =
+                        error("Never serialize the full device download")
+                }
+                .put("id", 7)
+                .put("offline_artwork", "x".repeat(192 * 1024))
+                .put("offline_size", 1234)
+                .put("offline_sha256", "device-only")
+                .put("_native_record_id", "7")
+                .put("metadata", JSONObject().put("artist", "Original"))
+        val portable = NativeTrack.portable(original)
+        assertEquals(setOf("id", "metadata"), portable.keys().asSequence().toSet())
+        portable.getJSONObject("metadata").put("artist", "Changed")
+        assertEquals("Original", original.getJSONObject("metadata").getString("artist"))
+        assertEquals(192 * 1024, original.getString("offline_artwork").length)
     }
 
     @Test

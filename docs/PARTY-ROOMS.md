@@ -69,9 +69,3 @@ The host's Play button resumes audio on this device before sending the room comm
 - A room queue supports up to **500 songs**.
 - Party search includes music in the host's shared library and enabled federation catalogue; it does not initiate provider searches or downloads.
 - Party endpoints require an authenticated regular user; service accounts and anonymous requests are rejected.
-
-## Good screenshot for the README
-
-For the public README, capture an **active** room rather than an empty list. Show the room name, current track, listeners and a queue long enough to communicate the feature immediately.
-
-See [Screenshot Guide](SCREENSHOTS.md).

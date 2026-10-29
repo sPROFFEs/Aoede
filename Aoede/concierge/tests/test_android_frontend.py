@@ -225,7 +225,7 @@ def test_android_packaging_uses_current_build_metadata_instead_of_stale_signed_a
         target = tmp_path / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes((root / name).read_bytes())
-    for name in ("ANDROID.md", "ANDROID-NATIVE-MIGRATION.md", "SECURITY-REVIEW-1.3.1.md", "RELEASE-1.3.1.md"):
+    for name in ("ANDROID.md", "THEMES.md", "SECURITY.md", "BACKUP-RESTORE.md"):
         target = tmp_path / "docs" / name
         target.parent.mkdir(exist_ok=True)
         target.write_text("Native client documentation")
@@ -242,6 +242,7 @@ def test_android_packaging_uses_current_build_metadata_instead_of_stale_signed_a
         )
     )
     (tmp_path / "android/private.p12").write_text("must not be packaged")
+    (tmp_path / "android/README.md").write_text("[Android guide](../docs/ANDROID.md)")
     for folder in ("assets", "concierge/templates", "concierge/locales"):
         directory = tmp_path / "Aoede" / folder
         directory.mkdir(parents=True)
@@ -254,6 +255,8 @@ def test_android_packaging_uses_current_build_metadata_instead_of_stale_signed_a
     with zipfile.ZipFile(output / "aoede-android-source.zip") as archive:
         assert not any(name.endswith(".p12") for name in archive.namelist())
         assert archive.read("aoede-android/frontend-source/assets/source.txt") == b"editable frontend source"
-        assert archive.read("aoede-android/docs/ANDROID-NATIVE-MIGRATION.md") == b"Native client documentation"
+        assert archive.read("aoede-android/docs/ANDROID.md") == b"Native client documentation"
+        assert archive.read("aoede-android/README.md") == b"[Android guide](docs/ANDROID.md)"
+        assert not any("REVIEW" in name or "MIGRATION.md" in name for name in archive.namelist())
         for name in ("branding/aoede.png", "scripts/enlarge_brand_icons.py"):
             assert archive.read(f"aoede-android/{name}") == (root / name).read_bytes()

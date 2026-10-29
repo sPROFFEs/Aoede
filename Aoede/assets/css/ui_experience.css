@@ -1,6 +1,6 @@
 /* Shared Aoede components, with Spotify's compact chrome and Apple Music's
  * editorial hierarchy. Loaded after theme materials; playback stays shared.
- * Resource measurements and selected glyph provenance: docs/UI-REFRESH.md. */
+ * Classic and Vitrine adapt Spotify and Apple Music interface references. */
 
 html { font-size: 16px; }
 body { font-synthesis: none; -webkit-font-smoothing: antialiased; }

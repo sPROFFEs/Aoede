@@ -338,11 +338,12 @@ class NativePlayback(private val app: AoedeApp) {
         savedIndex = start.coerceIn(tracks.indices)
         savedPosition = at.coerceAtLeast(0)
         val p = player()
+        val downloaded =
+            runCatching { app.nativeLibrary.audioFiles(tracks.map(NativeTrack::reference)) }
+                .getOrDefault(emptyMap())
         p.setMediaItems(
             tracks.map { track ->
-                val file =
-                    runCatching { app.nativeLibrary.audio(NativeTrack.reference(track)) }
-                        .getOrNull()
+                val file = downloaded[NativeTrack.reference(track)]
                 val uri =
                     file?.let { Uri.fromFile(it) }
                         ?: Uri.parse(

@@ -90,6 +90,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var offline = false
     private var migration: NativeMigration? = null
     private var translations = JSONObject()
+    private var translationsLanguage = ""
     internal var trackSlideDirection = 1
     private var miniSignature = ""
     private val popups = mutableSetOf<PopupWindow>()
@@ -216,15 +217,18 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         accent = design.accent
         app.darkAppearance = !light
         activity.applyAppearance(!light)
-        translations =
-            runCatching {
-                    JSONObject(
-                        app.assets.open("native/locales/$language.json").bufferedReader().use {
-                            it.readText()
-                        }
-                    )
-                }
-                .getOrDefault(JSONObject())
+        if (translationsLanguage != language) {
+            translations =
+                runCatching {
+                        JSONObject(
+                            app.assets.open("native/locales/$language.json").bufferedReader().use {
+                                it.readText()
+                            }
+                        )
+                    }
+                    .getOrDefault(JSONObject())
+            translationsLanguage = language
+        }
     }
 
     fun create(saved: android.os.Bundle? = null) {
@@ -855,12 +859,28 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         image.tag = path
         if (image.drawable == null) image.setImageBitmap(defaultCover)
         val pixels = image.layoutParams?.width?.takeIf { it > 0 }?.coerceIn(64, 512) ?: 512
-        api.artwork.load(path, pixels) { value ->
-            if (alive && image.tag == path && value != null) {
-                image.setImageBitmap(value)
-                loaded?.invoke(value)
-                if (::navigation.isInitialized) navigation.invalidate()
-                if (::mini.isInitialized) mini.invalidate()
+        // A removed screen must not keep its covers ahead of the newly visible screen.
+        image.post {
+            if (!alive || image.tag != path || !image.isAttachedToWindow) return@post
+            val current = java.util.concurrent.atomic.AtomicBoolean(true)
+            val listener =
+                object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: View) {}
+
+                    override fun onViewDetachedFromWindow(view: View) {
+                        current.set(false)
+                        view.removeOnAttachStateChangeListener(this)
+                    }
+                }
+            image.addOnAttachStateChangeListener(listener)
+            api.artwork.load(path, pixels, current = { alive && current.get() }) { value ->
+                image.removeOnAttachStateChangeListener(listener)
+                if (alive && image.tag == path && value != null) {
+                    image.setImageBitmap(value)
+                    loaded?.invoke(value)
+                    if (::navigation.isInitialized) navigation.invalidate()
+                    if (::mini.isInitialized) mini.invalidate()
+                }
             }
         }
     }
@@ -4664,6 +4684,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         )
         val saved = runCatching { library.list("track") }.getOrDefault(emptyList())
         val collections = runCatching { library.list("collection") }.getOrDefault(emptyList())
+        val downloaded = runCatching { library.audioFiles() }.getOrDefault(emptyMap())
         val covered =
             collections.flatMap { NativeTrack.items(it).map(NativeTrack::reference) }.toSet()
         val singles =
@@ -4734,7 +4755,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     val id = collection.get("id").toString()
                     val items =
                         NativeTrack.items(collection).filter {
-                            library.audio(NativeTrack.reference(it)) != null
+                            NativeTrack.reference(it) in downloaded
                         }
                     val row =
                         row(
@@ -4933,8 +4954,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             key = "offline:$id",
             restore = { offlineCollection(id) },
         )
-        val available =
-            NativeTrack.items(value).filter { library.audio(NativeTrack.reference(it)) != null }
+        val tracks = NativeTrack.items(value)
+        val downloaded = library.audioFiles(tracks.map(NativeTrack::reference))
+        val available = tracks.filter { NativeTrack.reference(it) in downloaded }
         val editable = value.optBoolean("is_editable", value.optBoolean("is_owner"))
         val copy = JSONObject(value.toString()).put("tracks", JSONArray(available))
         if (copy.optString("owner_username").isBlank()) copy.put("owner_username", api.username)

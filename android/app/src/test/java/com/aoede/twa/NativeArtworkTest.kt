@@ -122,6 +122,38 @@ class NativeArtworkTest {
             }
             assertEquals(6, hits.get())
             assertEquals(0, wrongAccept.get())
+
+            val started = java.util.concurrent.CountDownLatch(2)
+            val release = java.util.concurrent.CountDownLatch(1)
+            val current = java.util.concurrent.atomic.AtomicBoolean(true)
+            try {
+                repeat(2) {
+                    app.nativeApi.image({
+                        started.countDown()
+                        check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                        null
+                    }) { _, _ ->
+                    }
+                }
+                assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                repeat(24) {
+                    app.nativeApi.artwork.load("/stale/$it", 100, current = current::get) {
+                        fail("Detached screens must not receive artwork")
+                    }
+                }
+                app.nativeApi.artwork.load("/replacement", 100, current = current::get) {
+                    fail("A cancelled subscriber must not receive a newer request")
+                }
+                current.set(false)
+                val count = results.size
+                app.nativeApi.artwork.load("/replacement", 100) { results.add(it) }
+                release.countDown()
+                settle { results.size == count + 1 }
+                assertNotNull(results.last())
+                assertEquals("Only the visible screen may fetch its cover", 7, hits.get())
+            } finally {
+                release.countDown()
+            }
         } finally {
             server.close()
             thread.join(1000)

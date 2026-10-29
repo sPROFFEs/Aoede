@@ -28,7 +28,7 @@ shutil.copy2(apk, output / name)
 with zipfile.ZipFile(output / "aoede-android-source.zip", "w", zipfile.ZIP_DEFLATED) as archive:
     for source in (root / "branding/aoede.png", root / "scripts/enlarge_brand_icons.py"):
         archive.write(source, Path("aoede-android") / source.relative_to(root))
-    for name in ("ANDROID.md", "ANDROID-NATIVE-MIGRATION.md", "SECURITY-REVIEW-1.3.1.md", "RELEASE-1.3.1.md"):
+    for name in ("ANDROID.md", "THEMES.md", "SECURITY.md", "BACKUP-RESTORE.md"):
         source = root / "docs" / name
         archive.write(source, Path("aoede-android/docs") / name)
     for source in sorted(project.rglob("*")):
@@ -45,7 +45,10 @@ with zipfile.ZipFile(output / "aoede-android-source.zip", "w", zipfile.ZIP_DEFLA
             ".properties", ".jar", ".pro", ".md", ".bat", ".py", ".txt",
         } and source.name != "gradlew":
             continue
-        archive.write(source, Path("aoede-android") / relative)
+        if relative == Path("README.md"):
+            archive.writestr("aoede-android/README.md", source.read_text().replace("../docs/", "docs/"))
+        else:
+            archive.write(source, Path("aoede-android") / relative)
     # Keep editable canonical sources alongside the generated bundle for standalone builds.
     for folder in ("assets", "concierge/templates", "concierge/locales"):
         for source in sorted((root / "Aoede" / folder).rglob("*")):

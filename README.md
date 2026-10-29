@@ -47,7 +47,7 @@ Bring your library, discovery and shared listening into one place. Keep the audi
 | **Look back** | Explore your listening statistics and an animated annual Aoede Wrapped when enabled by your administrator. |
 | **Stay in control** | Manage users, downloads, library maintenance, duplicate review, backups and updates from the administration interface. |
 
-Each regular account gets its own Navidrome instance, while the shared music pool lets users reuse audio without storing another copy for every account. [See how it works →](docs/ARCHITECTURE.md)
+Each regular account gets its own Navidrome instance, while the shared music pool lets users reuse audio without storing another copy for every account.
 
 ## Screenshots
 
@@ -83,7 +83,7 @@ Choose **Classic**, **Glass** or **Vitrine** in your account settings. Your pref
   </tr>
 </table>
 
-All gallery images are stored in this repository. [Capture details and replacement guide →](docs/SCREENSHOTS.md)
+Screenshots show the responsive web interface with fictional accounts and sample music data.
 
 ## Clients
 
@@ -92,7 +92,7 @@ Start in your browser or choose a client for your device. Every client connects 
 | Platform | Experience | Get started |
 |---|---|---|
 | **Web / PWA** | Responsive desktop and mobile interface, with browser installation where supported. | [User guide](docs/USER-GUIDE.md) |
-| **Android** | Native Kotlin interface and Media3 playback, background controls, widgets, device downloads and verified updates; installed web client retained as a compatibility option. | [Download APK](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android.apk) · [Android guide](docs/ANDROID.md) |
+| **Android** | Native Android interface, background controls, widgets, device downloads and verified updates; installed web client retained as a compatibility option. | [Download APK](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android.apk) · [Android guide](docs/ANDROID.md) |
 | **Windows, macOS, Linux** | Desktop wrappers that open your server's web interface in an application window. | [Downloads](https://github.com/sPROFFEs/Aoede/releases/latest) · [Desktop guide](docs/DESKTOP.md) |
 | **Subsonic clients** | Connect a compatible client to your account's Navidrome endpoint. | [Connection guide](docs/SUBSONIC.md) |
 
@@ -130,7 +130,7 @@ The README is the overview. The guides cover setup, everyday use and server oper
 | [Backup & restore](docs/BACKUP-RESTORE.md) | Application backups and recovery. |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Connection, playback, download and startup diagnostics. |
 
-[Browse all documentation](docs/README.md) · [Architecture](docs/ARCHITECTURE.md) · [Security](docs/SECURITY.md)
+[Browse all documentation](docs/README.md) · [Security](docs/SECURITY.md)
 
 ## Project and license
 
