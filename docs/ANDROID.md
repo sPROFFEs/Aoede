@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.4 (34)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.5 (35)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 ## Install and update
 
@@ -58,7 +58,7 @@ The optional island remains under **Appearance & settings → Dynamic Island · 
 
 The island hides while Aoede is in the foreground and can appear while minimized/background playback is alive. Expanded controls share transport, favorite, shuffle, repeat and seek behavior with the player. Tap outside to collapse; opening Aoede preserves the same audio owner. Offline artwork comes from the saved device recording.
 
-The editor supports an 8–160 dp touch extension, with 1 dp arrows and live preview, in both native and installed-web compatibility modes. The capsule and visible handle remain part of the touch area; the previous backup APKs retain their original editor. An open app task keeps the island while paused in the background, until the task is dismissed or the process ends.
+The editor supports an 8–160 dp touch extension and a top distance of 0–320 dp, with 1 dp arrows and live preview, in both native and installed-web compatibility modes. The capsule and visible handle remain part of the touch area; the previous backup APKs retain their original editor. An open app task keeps the island while paused in the background, until the task is dismissed or the process ends.
 
 Frequency bars follow the music when audio analysis is available; otherwise a decorative animation is used. No microphone, accessibility or notification-reading permission is requested. Android/OEM keyguard policy may hide application overlays; native media-session controls remain the supported lock-screen controls.
 
@@ -68,8 +68,9 @@ Add the Aoede widget through your launcher's widget picker. It uses the shared n
 
 | File | Purpose |
 |---|---|
-| `aoede-android.apk` | Current signed native client, Android 1.2.4/code 34. |
+| `aoede-android.apk` | Current signed native client, Android 1.2.5/code 35. |
 | `aoede-android-source.zip` | Complete Android project, tests, editable compatibility frontend and compiler. |
+| `aoede-android-native-1.2.4.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-native-1.2.3.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-native-1.2.2.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-native-1.2.1.apk` / `-source.zip` | Previous native client backup. |

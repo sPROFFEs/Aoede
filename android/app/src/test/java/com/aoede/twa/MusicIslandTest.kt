@@ -142,6 +142,11 @@ class MusicIslandTest {
         assertTrue((view().layoutParams as WindowManager.LayoutParams).height < maximum)
         content.findViewWithTag<android.widget.Button>("island_touch_height-increase").performClick()
         assertEquals(9, prefs.getInt("island_touch_height", -1))
+        content.findViewWithTag<android.widget.SeekBar>("island_touch_top").progress = 0
+        assertEquals(0, prefs.getInt("island_touch_top", -1))
+        assertEquals(0, (view().layoutParams as WindowManager.LayoutParams).y)
+        content.findViewWithTag<android.widget.Button>("island_touch_top-increase").performClick()
+        assertEquals(1, prefs.getInt("island_touch_top", -1))
         island.closeSettings(owner)
         island.taskRemoved()
         assertFalse(island.visible)
@@ -193,6 +198,9 @@ class MusicIslandTest {
         assertNotNull((host as FrameLayout).foreground)
         content.findViewWithTag<android.widget.SeekBar>("island_handle_height").progress = 0
         assertNull(host.findViewWithTag<View>("handle"))
+        content.findViewWithTag<android.widget.SeekBar>("island_touch_top").progress = 0
+        assertEquals(0, prefs.getInt("island_touch_top", -1))
+        assertEquals(0, (host.layoutParams as WindowManager.LayoutParams).y)
         val dialog = ReflectionHelpers.getField<androidx.appcompat.app.AlertDialog>(island, "dialog")
         dialog.getButton(android.content.DialogInterface.BUTTON_NEUTRAL).performClick()
         shadowOf(Looper.getMainLooper()).idle()

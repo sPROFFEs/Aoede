@@ -259,6 +259,7 @@ class MusicIsland(private val app: AoedeApp) {
     }
 
     private val minimumTouchTop get() = kotlin.math.ceil((safeTop + dp(4)) / app.resources.displayMetrics.density).toInt()
+    private val touchTop get() = prefs.getInt("island_touch_top", maxOf(capsuleTop, minimumTouchTop)).coerceIn(0, 320)
     private val handleTop get() = prefs.getInt("island_handle_top", maxOf(capsuleTop + capsuleHeight, minimumTouchTop) + 4).coerceIn(0, 320)
     private val horizontal get() = prefs.getInt("island_horizontal", 0).coerceIn(-100, 100)
 
@@ -340,7 +341,7 @@ class MusicIsland(private val app: AoedeApp) {
                 handleTop, prefs.getInt("island_handle_horizontal", horizontal))
             val touch = compactRect(prefs.getInt("island_touch_width", capsuleWidth).coerceIn(48, 320),
                 prefs.getInt("island_touch_height", 48).coerceIn(8, 160),
-                prefs.getInt("island_touch_top", maxOf(capsuleTop, minimumTouchTop)).coerceIn(minimumTouchTop, maxOf(320, minimumTouchTop)),
+                touchTop,
                 prefs.getInt("island_touch_horizontal", horizontal))
             val hasHandle = handleHeight > 0 && (capsule.top < safeTop + dp(4) || prefs.contains("island_handle_top"))
             val box = Rect(capsule).apply { union(touch); if (hasHandle) union(handle) }
@@ -691,7 +692,7 @@ class MusicIsland(private val app: AoedeApp) {
         body.addView(TextView(activity).apply { text = app.getString(R.string.island_touch_title); textSize = 18f; setPadding(0, dp(16), 0, dp(8)) })
         slider("island_touch_width", R.string.island_width, R.string.island_width_value, 48, 320, prefs.getInt("island_touch_width", capsuleWidth).coerceIn(48, 320))
         slider("island_touch_height", R.string.island_height, R.string.island_height_value, 8, 160, prefs.getInt("island_touch_height", 48).coerceIn(8, 160))
-        slider("island_touch_top", R.string.island_position, R.string.island_position_value, minimumTouchTop, maxOf(320, minimumTouchTop), prefs.getInt("island_touch_top", maxOf(capsuleTop, minimumTouchTop)).coerceIn(minimumTouchTop, maxOf(320, minimumTouchTop)))
+        slider("island_touch_top", R.string.island_position, R.string.island_position_value, 0, 320, touchTop)
         slider("island_touch_horizontal", R.string.island_horizontal, R.string.island_horizontal_value, -100, 100, prefs.getInt("island_touch_horizontal", horizontal).coerceIn(-100, 100))
         body.addView(TextView(activity).apply { text = app.getString(R.string.island_touch_help); textSize = 12f })
         toggle.setOnCheckedChangeListener { _, checked ->
