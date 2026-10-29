@@ -119,6 +119,16 @@ class NativeVault(private val context: Context) {
 class NativeApi(private val app: AoedeApp) {
     class Failure(val code: Int, message: String) : IOException(message)
 
+    private class ImageWork(
+        val current: () -> Boolean,
+        val discarded: () -> Unit,
+        val work: () -> Unit,
+    ) : Runnable {
+        override fun run() {
+            if (current()) work() else discarded()
+        }
+    }
+
     val main = Handler(Looper.getMainLooper())
     private val workers =
         ThreadPoolExecutor(
@@ -334,6 +344,8 @@ class NativeApi(private val app: AoedeApp) {
         form: Map<String, String>? = null,
     ): Any {
         val c = connection(path, method)
+        if (path.startsWith("/admin/api/downloader/") && path.endsWith("/auth-browser/start"))
+            c.readTimeout = 150000
         try {
             if (body != null || form != null) {
                 val data =
@@ -591,13 +603,26 @@ class NativeApi(private val app: AoedeApp) {
             }
     }
 
-    fun image(task: () -> Any?, done: (Any?, Throwable?) -> Unit) {
+    fun image(
+        task: () -> Any?,
+        current: () -> Boolean = { true },
+        done: (Any?, Throwable?) -> Unit,
+    ) {
         val bound = scoped(task)
+        val discarded = {
+            main.post { done(null, IOException("Artwork request cancelled")) }
+            Unit
+        }
+        for (queued in images.queue.filterIsInstance<ImageWork>()) {
+            if (!queued.current() && images.remove(queued)) queued.discarded()
+        }
         try {
-            images.execute {
-                val result = runCatching(bound)
-                main.post { done(result.getOrNull(), result.exceptionOrNull()) }
-            }
+            images.execute(
+                ImageWork(current, discarded) {
+                    val result = runCatching(bound)
+                    main.post { done(result.getOrNull(), result.exceptionOrNull()) }
+                }
+            )
         } catch (error: java.util.concurrent.RejectedExecutionException) {
             main.post { done(null, IOException("Artwork queue is busy")) }
         }

@@ -250,7 +250,7 @@ class AuthBrowserManager:
                         command("Input.insertText", {"text": action["text"]}, tab)
                     elif kind == "key":
                         key = action["key"]
-                        params = {"key": key, "windowsVirtualKeyCode": keys[key]}
+                        params = {"key": key, "code": key, "windowsVirtualKeyCode": keys[key]}
                         if key == "Space":
                             params.update(key=" ", code="Space")
                         elif key == "Enter":
@@ -274,10 +274,17 @@ class AuthBrowserManager:
                                 tab,
                             )
                     elif kind == "click":
-                        for event in ("mousePressed", "mouseReleased"):
+                        for event, buttons in (("mouseMoved", 0), ("mousePressed", 1), ("mouseReleased", 0)):
                             command(
                                 "Input.dispatchMouseEvent",
-                                {"type": event, "x": x, "y": y, "button": "left", "clickCount": 1},
+                                {
+                                    "type": event,
+                                    "x": x,
+                                    "y": y,
+                                    "button": "none" if event == "mouseMoved" else "left",
+                                    "buttons": buttons,
+                                    "clickCount": 1,
+                                },
                                 tab,
                             )
                     else:

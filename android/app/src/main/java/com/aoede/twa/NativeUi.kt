@@ -59,6 +59,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var fullscreen: View? = null
     private var updateFull: (() -> Unit)? = null
     @Volatile private var generation = 0
+    internal val pageRevision
+        get() = generation
+
     @Volatile private var alive = true
     private var renderedPath: String? = null
     private var renderedSignature: String? = null
@@ -117,6 +120,17 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         )
     }
 
+    private var accentBitmap: android.graphics.Bitmap? = null
+    private var accentSeed = 0
+
+    private fun artworkSeed(bitmap: android.graphics.Bitmap): Int {
+        if (accentBitmap !== bitmap) {
+            accentBitmap = bitmap
+            accentSeed = nativeArtworkSeed(bitmap)
+        }
+        return accentSeed
+    }
+
     fun followAccent(view: View, paint: (Int) -> Unit) {
         if (!accentBindings.containsKey(view))
             view.addOnAttachStateChangeListener(
@@ -151,7 +165,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     private fun refreshArtworkAccent(bitmap: android.graphics.Bitmap?) {
         if (theme != "glass") return
-        design.artworkSeed(nativeArtworkSeed(bitmap ?: defaultCover))
+        design.artworkSeed(artworkSeed(bitmap ?: defaultCover))
         sceneArtwork(bitmap)
         navigation.invalidate()
         if (accent == design.accent) return
@@ -204,7 +218,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             design.artworkSeed(
                 if (loginVisible) 0xff7c5ce6.toInt()
                 else
-                    nativeArtworkSeed(
+                    artworkSeed(
                         app.mediaController.metadata.getBitmap(
                             android.support.v4.media.MediaMetadataCompat.METADATA_KEY_ALBUM_ART
                         ) ?: defaultCover
@@ -859,6 +873,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         image.tag = path
         if (image.drawable == null) image.setImageBitmap(defaultCover)
         val pixels = image.layoutParams?.width?.takeIf { it > 0 }?.coerceIn(64, 512) ?: 512
+        api.artwork.peek(path, pixels)?.let {
+            image.setImageBitmap(it)
+            loaded?.invoke(it)
+            return
+        }
         // A removed screen must not keep its covers ahead of the newly visible screen.
         image.post {
             if (!alive || image.tag != path || !image.isAttachedToWindow) return@post

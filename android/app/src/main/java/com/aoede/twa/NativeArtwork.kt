@@ -18,6 +18,18 @@ class NativeArtwork(private val api: NativeApi) {
     private val pending = mutableMapOf<String, java.util.concurrent.CopyOnWriteArrayList<Request>>()
     @Volatile private var epoch = 0
 
+    private fun size(pixels: Int) =
+        when {
+            pixels <= 128 -> 128
+            pixels <= 256 -> 256
+            else -> 512
+        }
+
+    private fun key(path: String, pixels: Int) =
+        "${api.origin?.rule}:${api.scope}:${size(pixels)}:$path"
+
+    fun peek(path: String, pixels: Int): Bitmap? = cache.get(key(path, pixels))
+
     fun clear() {
         epoch++
         cache.evictAll()
@@ -37,13 +49,8 @@ class NativeArtwork(private val api: NativeApi) {
             done(null)
             return
         }
-        val size =
-            when {
-                pixels <= 128 -> 128
-                pixels <= 256 -> 256
-                else -> 512
-            }
-        val key = "${api.origin?.rule}:${api.scope}:$size:$path"
+        val size = size(pixels)
+        val key = key(path, pixels)
         cache.get(key)?.let {
             done(it)
             return
@@ -58,14 +65,17 @@ class NativeArtwork(private val api: NativeApi) {
         waiting.add(Request(current, done))
         pending[key] = waiting
         val ticket = epoch
-        api.image({
-            if (ticket != epoch || waiting.none { it.current() }) return@image null
-            val bytes =
-                if (path.startsWith("data:image/")) {
-                    Base64.decode(path.substringAfter(','), Base64.DEFAULT)
-                } else read(path)
-            if (ticket == epoch && waiting.any { it.current() }) decode(bytes, size) else null
-        }) { value, _ ->
+        api.image(
+            {
+                if (ticket != epoch || waiting.none { it.current() }) return@image null
+                val bytes =
+                    if (path.startsWith("data:image/")) {
+                        Base64.decode(path.substringAfter(','), Base64.DEFAULT)
+                    } else read(path)
+                if (ticket == epoch && waiting.any { it.current() }) decode(bytes, size) else null
+            },
+            current = { ticket == epoch && waiting.any { it.current() } },
+        ) { value, _ ->
             if (ticket != epoch || pending[key] !== waiting) return@image
             val bitmap = value as? Bitmap
             if (bitmap != null) cache.put(key, bitmap)

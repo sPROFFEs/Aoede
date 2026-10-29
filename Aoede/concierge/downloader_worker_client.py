@@ -168,7 +168,10 @@ def native_browser_frame(session_id: str) -> bytes:
 
 def native_browser_input(session_id: str, payload: dict) -> dict:
     with _client(timeout=8.0) as client:
-        return _worker_json(client.post("/browser/native/input", json={**payload, "session_id": session_id}))
+        response = client.post("/browser/native/input", json={**payload, "session_id": session_id})
+        if response.status_code == 400:
+            raise ValueError("Invalid browser input or expired session. Refresh the verification session.")
+        return _worker_json(response)
 
 
 def stop_auth_browser() -> dict:

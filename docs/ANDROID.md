@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.5 (35)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.6 (36)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 ## Install and update
 
@@ -29,6 +29,8 @@ The compact and fullscreen players, notification, optional island and home-scree
 The library remembers list/cover layout per account and backend on this device. Public profiles use compact 56 dp collection covers. Home keeps its content visible while refreshing. Fullscreen gestures follow the finger, settle back on cancellation and use shared carousel/dismissal transitions; Reduce effects and the system animator setting remain respected.
 
 Returning to the app restores your current page and fullscreen player for the same account.
+
+Tap the artist name in the fullscreen player to open the native artist page without interrupting playback.
 
 Swipe the compact player or fullscreen artwork horizontally for adjacent tracks; swipe the fullscreen artwork downward to minimize. Buttons and seeking retain separate touch handling; cancelled/multi-touch gestures do not skip songs. Reduced effects/motion disables decorative movement. The native UI has no browser zoom gesture. Final-track Next with repeat/shuffle off leaves playback intact.
 
@@ -64,17 +66,16 @@ Frequency bars follow the music when audio analysis is available; otherwise a de
 
 Add the Aoede widget through your launcher's widget picker. It uses the shared native media session and artwork. Android killing/force-stopping the process ends playback and overlays; the app does not restart playback or reconnect Bluetooth to hide a failure.
 
+## Provider verification
+
+Administrators can open a private verification browser from Download Manager. Wait for the starting indicator, tap fields or checkboxes in the page, and use the keyboard controls or text field when needed. Select **Check verification** after completing the challenge. If the page image stops updating, use **Refresh page image**. Session errors remain visible and can require reopening the session. Update both Concierge and the downloader image alongside the APK for these controls.
+
 ## Release artifacts
 
 | File | Purpose |
 |---|---|
-| `aoede-android.apk` | Current signed native client, Android 1.2.5/code 35. |
+| `aoede-android.apk` | Current signed native client, Android 1.2.6/code 36. |
 | `aoede-android-source.zip` | Complete Android project, tests, editable compatibility frontend and compiler. |
-| `aoede-android-native-1.2.4.apk` / `-source.zip` | Previous native client backup. |
-| `aoede-android-native-1.2.3.apk` / `-source.zip` | Previous native client backup. |
-| `aoede-android-native-1.2.2.apk` / `-source.zip` | Previous native client backup. |
-| `aoede-android-native-1.2.1.apk` / `-source.zip` | Previous native client backup. |
-| `aoede-android-native-1.2.0.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-webview-1.1.22.apk` / `-source.zip` | Previous installed web client backup. |
 | `aoede-android-wrapper-1.0.5.apk` / `-source.zip` | Original remote-wrapper backup. |
 

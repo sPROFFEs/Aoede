@@ -31,6 +31,8 @@ class NativeTools(private val ui: NativeUi) {
     private var partySignature = ""
     private var remotePoll: Runnable? = null
     private var remoteBody: LinearLayout? = null
+    private var remoteRevision = -1
+    private var browserStarting = false
     private val main = Handler(Looper.getMainLooper())
 
     private var settingsTab = "account"
@@ -3934,19 +3936,39 @@ class NativeTools(private val ui: NativeUi) {
                         panel,
                     )
                     val path = "/admin/api/downloader/providers/${NativeApi.encode(key)}"
-                    if (!provider.optBoolean("connected"))
-                        ui.button("Open verification browser", panel, true) {
-                            ui.request(
-                                "$path/auth-browser/start",
-                                done = { data ->
-                                    val result = data as JSONObject
-                                    val session = result.optJSONObject("browser_session")
+                    if (!provider.optBoolean("connected")) {
+                        val start = ui.button("Open verification browser", panel, true) {}
+                        start.setOnClickListener {
+                            if (browserStarting) {
+                                ui.toast("A verification browser is already starting. Please wait.")
+                                return@setOnClickListener
+                            }
+                            browserStarting = true
+                            start.isEnabled = false
+                            start.text = "Starting verification browser…"
+                            val page = ui.pageRevision
+                            api.execute({ api.request("$path/auth-browser/start", "POST") }) {
+                                data,
+                                error ->
+                                browserStarting = false
+                                if (ui.pageRevision != page || ui.activity.isDestroyed)
+                                    return@execute
+                                start.isEnabled = true
+                                start.text = "Open verification browser"
+                                if (error != null)
+                                    ui.toast(
+                                        error.message
+                                            ?: "Browser could not start. Check the session status before retrying."
+                                    )
+                                else {
+                                    val session =
+                                        (data as? JSONObject)?.optJSONObject("browser_session")
                                     if (session == null) providers()
                                     else remoteBrowser(session.getString("session_id"), key)
-                                },
-                            )
+                                }
+                            }
                         }
-                    else
+                    } else
                         ui.button("Disconnect", panel) {
                             ui.confirm("Disconnect provider", key) {
                                 ui.request(path, "DELETE", done = { providers() })
@@ -3969,40 +3991,54 @@ class NativeTools(private val ui: NativeUi) {
         ui.activity.window.addFlags(android.view.WindowManager.LayoutParams.FLAG_SECURE)
         val body = ui.content
         remoteBody = body
+        val page = ui.pageRevision
+        remoteRevision = page
+        fun current() = ui.pageRevision == page && !ui.activity.isDestroyed
+        val status = ui.label("Loading verification page…", 13, body, ui.muted)
         // A verification form must receive Tab/text/Enter in exactly the order pressed.
         val inputs = java.util.ArrayDeque<Pair<JSONObject, () -> Unit>>()
         var sending = false
         fun pump() {
             if (sending) return
-            if (ui.content !== body) {
+            if (!current()) {
                 inputs.clear()
                 return
             }
             val item = inputs.pollFirst() ?: return
             sending = true
             api.execute({
+                check(current()) { "Verification page closed" }
                 api.request("/api/mobile/v2/admin/browser/$id/input", "POST", item.first)
             }) { _, error ->
                 sending = false
-                if (ui.content !== body) {
+                if (!current()) {
                     inputs.clear()
                     return@execute
                 }
                 if (error == null) {
+                    status.text = "Input sent. Updating page…"
                     item.second()
                     pump()
+                    if (!sending)
+                        remotePoll?.let {
+                            main.removeCallbacks(it)
+                            main.postDelayed(it, 150)
+                        }
                 } else {
                     inputs.clear()
+                    status.text = "Input was not sent. Refresh the page and try again."
                     ui.toast(error.message ?: "Browser input unavailable")
                 }
             }
         }
         fun sendInput(value: JSONObject, done: () -> Unit = {}) {
+            if (!current()) return
             if (inputs.size >= 32) {
                 ui.toast("Wait for the browser to finish receiving input")
                 return
             }
             inputs.addLast(value to done)
+            status.text = "Sending ${if (value.optString("action") == "click") "tap" else "input"}…"
             pump()
         }
         ui.label(
@@ -4018,10 +4054,11 @@ class NativeTools(private val ui: NativeUi) {
                 isFocusableInTouchMode = true
             }
         body.addView(image, LinearLayout.LayoutParams(-1, ui.dp(280)))
-        var imageWidth = 1024
-        var imageHeight = 768
+        var imageWidth = 0
+        var imageHeight = 0
         image.setOnTouchListener { view, event ->
             if (event.actionMasked == android.view.MotionEvent.ACTION_UP) {
+                if (imageWidth == 0 || imageHeight == 0) return@setOnTouchListener true
                 val scale =
                     minOf(view.width.toFloat() / imageWidth, view.height.toFloat() / imageHeight)
                 val x = (event.x - (view.width - imageWidth * scale) / 2) / scale
@@ -4110,20 +4147,49 @@ class NativeTools(private val ui: NativeUi) {
                 )
             }
         }
-        ui.button("Check verification", primary = true) {
-            ui.request(
-                "/admin/api/downloader/providers/${NativeApi.encode(provider)}/auth-browser/check",
-                done = { providers() },
-            )
+        val verify = ui.button("Check verification", primary = true) {}
+        verify.setOnClickListener {
+            verify.isEnabled = false
+            verify.text = "Checking verification…"
+            api.execute({
+                api.request(
+                    "/admin/api/downloader/providers/${NativeApi.encode(provider)}/auth-browser/check",
+                    "POST",
+                )
+            }) { data, error ->
+                if (!current()) return@execute
+                verify.isEnabled = true
+                verify.text = "Check verification"
+                if (error != null) ui.toast(error.message ?: "Verification check failed")
+                else if ((data as? JSONObject)?.optBoolean("connected") == true) {
+                    ui.toast("Provider connected")
+                    providers()
+                } else status.text = "Not verified yet. Complete the challenge, then check again."
+            }
         }
         ui.button("Stop verification") {
             ui.request("/admin/api/downloader/auth-browser", "DELETE", done = { providers() })
         }
+        var loadingFrame = false
+        var frameErrors = 0
+        ui.button("Refresh page image") {
+            frameErrors = 0
+            remotePoll?.let {
+                main.removeCallbacks(it)
+                main.post(it)
+            }
+        }
         remotePoll =
             object : Runnable {
                 override fun run() {
-                    if (ui.content !== body) return
+                    if (!current() || !foreground || loadingFrame) return
+                    if (sending || inputs.isNotEmpty()) {
+                        main.postDelayed(this, 300)
+                        return
+                    }
+                    loadingFrame = true
                     api.image({
+                        check(current()) { "Verification page closed" }
                         val c = api.connection("/api/mobile/v2/admin/browser/$id/frame")
                         try {
                             require(c.responseCode == 200)
@@ -4144,14 +4210,26 @@ class NativeTools(private val ui: NativeUi) {
                             c.disconnect()
                         }
                     }) { value, error ->
-                        if (ui.content !== body) return@image
+                        loadingFrame = false
+                        if (!current()) return@image
                         if (value is android.graphics.Bitmap) {
                             imageWidth = value.width
                             imageHeight = value.height
                             image.setImageBitmap(value)
+                            status.text =
+                                "Tap fields or checkboxes. Complete the challenge, then check verification."
                         }
-                        if (error == null) main.postDelayed(this, 1000)
-                        else ui.toast("Verification frame unavailable. Check the session status.")
+                        main.removeCallbacks(this)
+                        if (error == null) {
+                            frameErrors = 0
+                            if (foreground) main.postDelayed(this, 1000)
+                        } else {
+                            frameErrors++
+                            status.text =
+                                "Page image unavailable. ${if (frameErrors < 3) "Retrying…" else "Tap Refresh page image, or reopen the session."}"
+                            if (foreground && frameErrors < 3)
+                                main.postDelayed(this, frameErrors * 1500L)
+                        }
                     }
                 }
             }
@@ -4178,7 +4256,7 @@ class NativeTools(private val ui: NativeUi) {
                 main.removeCallbacks(it.second)
                 main.post(it.second)
             }
-        if (ui.content === remoteBody)
+        if (ui.content === remoteBody && ui.pageRevision == remoteRevision)
             remotePoll?.let {
                 main.removeCallbacks(it)
                 main.post(it)

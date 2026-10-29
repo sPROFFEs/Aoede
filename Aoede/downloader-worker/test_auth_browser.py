@@ -344,6 +344,25 @@ def test_native_browser_only_drives_the_current_session_and_never_exposes_arbitr
     for key, modifiers in (("Shift+Tab", 8), ("Control+A", 2)):
         manager.native_view("native_session_a", {"action": "key", "key": key})
         assert commands[-2]["params"]["modifiers"] == commands[-1]["params"]["modifiers"] == modifiers
+    for key in (
+        "Tab",
+        "Backspace",
+        "Delete",
+        "Escape",
+        "ArrowLeft",
+        "ArrowUp",
+        "ArrowRight",
+        "ArrowDown",
+        "Home",
+        "End",
+        "PageUp",
+        "PageDown",
+    ):
+        manager.native_view("native_session_a", {"action": "key", "key": key})
+        assert commands[-2]["params"]["code"] == commands[-1]["params"]["code"] == key
+    manager.native_view("native_session_a", {"action": "click", "x": 20, "y": 40})
+    assert [c["params"]["type"] for c in commands[-3:]] == ["mouseMoved", "mousePressed", "mouseReleased"]
+    assert [c["params"]["buttons"] for c in commands[-3:]] == [0, 1, 0]
     for payload in (
         {"action": "Runtime.evaluate"},
         {"action": "key", "key": "F12"},

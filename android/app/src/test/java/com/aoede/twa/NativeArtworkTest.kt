@@ -100,6 +100,10 @@ class NativeArtworkTest {
             settle { results.size == 2 }
             assertNotNull(results[0])
             assertSame(results[0], results[1])
+            assertSame(
+                results[0],
+                app.nativeApi.artwork.peek("http://127.0.0.1:${server.localPort}/cover", 100),
+            )
             assertEquals(2, hits.get())
             app.nativeApi.artwork.load("http://127.0.0.1:${server.localPort}/cover", 100) {
                 results.add(it)
@@ -108,6 +112,9 @@ class NativeArtworkTest {
             assertEquals(2, hits.get())
             app.nativeApi.clearSession()
             session("b".repeat(64))
+            assertNull(
+                app.nativeApi.artwork.peek("http://127.0.0.1:${server.localPort}/cover", 100)
+            )
             app.nativeApi.artwork.load("http://127.0.0.1:${server.localPort}/cover", 100) {
                 results.add(it)
             }
@@ -136,7 +143,7 @@ class NativeArtworkTest {
                     }
                 }
                 assertTrue(started.await(5, java.util.concurrent.TimeUnit.SECONDS))
-                repeat(24) {
+                repeat(128) {
                     app.nativeApi.artwork.load("/stale/$it", 100, current = current::get) {
                         fail("Detached screens must not receive artwork")
                     }

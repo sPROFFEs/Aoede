@@ -36,6 +36,7 @@ class NativeClientTest {
         name: String = "alice",
         scope: String = "a".repeat(64),
         token: String = "synthetic-session",
+        theme: String = "classic",
     ) {
         val value =
             JSONObject()
@@ -45,7 +46,7 @@ class NativeClientTest {
                     JSONObject()
                         .put("protocol", 2)
                         .put("storage_scope", scope)
-                        .put("theme", "classic")
+                        .put("theme", theme)
                         .put("language", "en")
                         .put("account", JSONObject().put("id", 1).put("username", name)),
                 )
@@ -89,6 +90,57 @@ class NativeClientTest {
     }
 
     @Test
+    fun fullscreenArtistOpensItsNativePageInEveryThemeWithoutStoppingPlayback() {
+        val life = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(life.get(), app)
+        app.nativePlayback.play(
+            listOf(
+                JSONObject()
+                    .put("id", 7)
+                    .put("db_id", 7)
+                    .put("title", "Song")
+                    .put("artist", "Artist / Name")
+            ),
+            autoplay = false,
+        )
+        for (theme in listOf("classic", "glass", "vitrine")) {
+            context(theme = theme)
+            ui.screen("Start")
+            ui.showPlayer()
+            val panel =
+                org.robolectric.util.ReflectionHelpers.getField<android.widget.FrameLayout>(
+                        ui,
+                        "root",
+                    )
+                    .findViewWithTag<NativePlayerView>("native-fullscreen-player")
+            val artist =
+                org.robolectric.util.ReflectionHelpers.getField<android.widget.TextView>(
+                    panel,
+                    "artist",
+                )
+            assertTrue(artist.isClickable)
+            val page = ui.pageRevision
+            artist.performClick()
+            assertTrue(ui.pageRevision > page)
+            assertNull(org.robolectric.util.ReflectionHelpers.getField<View?>(ui, "fullscreen"))
+            assertEquals(
+                "Artist / Name",
+                org.robolectric.util.ReflectionHelpers.getField<android.widget.TextView>(
+                        ui,
+                        "headerTitle",
+                    )
+                    .text
+                    .toString(),
+            )
+            assertTrue(app.nativePlayback.active)
+            assertEquals(7, NativeTrack.localId(app.nativePlayback.current!!))
+        }
+        ui.close()
+        life.pause().stop().destroy()
+    }
+
+    @Test
     fun refreshingAnUnchangedPageKeepsItsViewsAndOnlyReplacesChangedData() {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         context()
@@ -128,6 +180,37 @@ class NativeClientTest {
         )
         ui.close()
         lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun verificationPollingStopsAfterNavigation() {
+        val life = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(life.get(), app)
+        ui.screen("Start")
+        NativeTools::class
+            .java
+            .getDeclaredMethod("remoteBrowser", String::class.java, String::class.java)
+            .apply { isAccessible = true }
+            .invoke(ui.tools, "synthetic_session", "deezer")
+        val body = ui.content
+        val images =
+            org.robolectric.util.ReflectionHelpers.getField<
+                java.util.concurrent.ThreadPoolExecutor
+            >(
+                app.nativeApi,
+                "images",
+            )
+        val before = images.taskCount
+        val poll = org.robolectric.util.ReflectionHelpers.getField<Runnable>(ui.tools, "remotePoll")
+        ui.screen("Another page")
+        assertNotSame(body, ui.content)
+        poll.run()
+        ui.tools.resume()
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertEquals(before, images.taskCount)
+        ui.close()
+        life.pause().stop().destroy()
     }
 
     @Test

@@ -274,5 +274,9 @@ def browser_input(session_id: str, body: BrowserInput, request: Request, admin: 
         return JSONResponse(
             downloader_worker_client.native_browser_input(session_id, body.model_dump()), headers=PRIVATE
         )
+    except ValueError as exc:
+        raise HTTPException(400, "Invalid input or expired browser session. Reopen the verification session.") from exc
+    except downloader_worker_client.WorkerConflict as exc:
+        raise HTTPException(409, "Browser session changed. Refresh the verification session.") from exc
     except Exception as exc:
         raise HTTPException(503, "Browser input unavailable") from exc

@@ -67,13 +67,15 @@ def _group_local_albums(local_tracks: list[dict]) -> dict[str, list[dict]]:
     return by_album
 
 
-@router.get("/api/artist/{name}")
+@router.get("/api/artist/{name:path}")
 async def get_artist(name: str, request: Request, db: Session = Depends(get_db)):
     """Artist detail view: local tracks, full discography (with
     have/missing counts), similar artists, top tracks, bio."""
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not name.strip() or len(name) > 256:
+        return JSONResponse({"error": "Invalid artist name"}, status_code=400)
 
     settings = user.download_settings
     spotify_id = getattr(settings, "spotify_client_id", None) if settings else None

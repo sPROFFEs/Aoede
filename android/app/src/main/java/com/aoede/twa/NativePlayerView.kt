@@ -80,6 +80,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private val title = text(if (glass) 18f else 22f, 700)
     private val artist = text(15.2f)
     private val viewLabel = text(if (apple) 13f else 16f, 600)
+    private var backdropBitmap: Bitmap? = null
     private val seek = slider("Track position", 1000)
     private val elapsed = text(12.8f)
     private val duration = text(12.8f)
@@ -192,6 +193,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         artist.setTextColor(0xffd0d1d6.toInt())
         artist.setLineSpacing(0f, 1f)
         artist.minHeight = 0
+        artist.background = design.touch(Color.TRANSPARENT, 4)
+        artist.setOnClickListener { openArtist() }
+        viewLabel.setOnClickListener { if (mode == "cover") openArtist() }
         copy.addView(title, LinearLayout.LayoutParams(-1, -2))
         copy.addView(artist, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(3) })
         val infoPadding = if (glass) 11 else if (apple) 4 else 8
@@ -789,6 +793,17 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
 
     fun render() {
         val t = player.current ?: return
+        val artistAvailable =
+            player.failure == null &&
+                t.optString("artist").trim().let {
+                    it.isNotBlank() &&
+                        !it.equals("Unknown", true) &&
+                        !it.equals("Unknown Artist", true)
+                }
+        artist.isClickable = artistAvailable
+        artist.isFocusable = artistAvailable
+        viewLabel.isClickable = artistAvailable && mode == "cover"
+        viewLabel.isFocusable = viewLabel.isClickable
         if (mode == "queue" && queueState() != queueSignature) {
             stage.removeAllViews()
             queue()
@@ -934,12 +949,28 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
     }
 
+    private fun openArtist() {
+        val name = player.current?.optString("artist")?.trim().orEmpty()
+        if (
+            player.failure != null ||
+                name.isBlank() ||
+                name.equals("Unknown", true) ||
+                name.equals("Unknown Artist", true)
+        )
+            return
+        ui.hidePlayer()
+        ui.tools.artist(name)
+    }
+
     private fun background(bitmap: Bitmap) {
         if (ui.reduced()) {
+            backdropBitmap = null
             backdrop.setImageDrawable(null)
             shade.setBackgroundColor(0xff111218.toInt())
             return
         }
+        if (backdropBitmap === bitmap) return
+        backdropBitmap = bitmap
         if (design.theme == "classic") {
             val base = nativeArtworkSeed(bitmap)
             shade.background =

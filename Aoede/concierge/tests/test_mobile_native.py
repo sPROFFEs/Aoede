@@ -287,6 +287,21 @@ def test_native_browser_requires_admin_session_owner_and_valid_input(db_session,
                     await client.post(path + "/input", json={"action": "key", "key": key}, headers=headers)
                 ).status_code == 200
                 assert calls[-1][1]["key"] == key
+
+            def rejected(*args):
+                raise ValueError("private worker error")
+
+            monkeypatch.setattr(mobile.downloader_worker_client, "native_browser_input", rejected)
+            response = await client.post(path + "/input", json={"action": "key", "key": "Space"}, headers=headers)
+            assert response.status_code == 400 and "private worker error" not in response.text
+
+            def conflict(*args):
+                raise mobile.downloader_worker_client.WorkerConflict("private session")
+
+            monkeypatch.setattr(mobile.downloader_worker_client, "native_browser_input", conflict)
+            assert (
+                await client.post(path + "/input", json={"action": "key", "key": "Tab"}, headers=headers)
+            ).status_code == 409
             auth_browser.remove(session_id)
             assert (await client.get(path + "/frame")).status_code == 403
 
