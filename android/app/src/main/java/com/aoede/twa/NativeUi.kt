@@ -48,6 +48,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private lateinit var headerTitle: TextView
     private var chromeTheme = ""
     private var keyboardOpen = false
+    private var safeBars = androidx.core.graphics.Insets.NONE
     private var destination = "home"
     lateinit var design: NativeDesign
         private set
@@ -57,8 +58,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var restoringRoute = false
     private var fullscreen: View? = null
     private var updateFull: (() -> Unit)? = null
-    private var generation = 0
-    private var alive = true
+    @Volatile private var generation = 0
+    @Volatile private var alive = true
+    private var renderedPath: String? = null
+    private var renderedSignature: String? = null
+    private var renderedStableKey: String? = null
     private var backAction: (() -> Unit)? = null
     private var reload: (() -> Unit)? = null
     private var theme = "classic"
@@ -97,6 +101,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var loginVisible = false
     private var connecting = false
     private var requestedPlayerMode: String? = null
+    private val playbackChanged: () -> Unit = {
+        if (alive) {
+            renderMini()
+            updateFull?.invoke()
+        }
+    }
+    private val openPlayer: () -> Unit = { if (alive) showPlayer() }
     private val accentBindings = linkedMapOf<View, (Int) -> Unit>()
     private val defaultCover by lazy {
         requireNotNull(
@@ -225,7 +236,22 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 )
             val keyboard = insets.getInsets(WindowInsetsCompat.Type.ime())
             keyboardOpen = insets.isVisible(WindowInsetsCompat.Type.ime()) && keyboard.bottom > 0
-            view.setPadding(bars.left, bars.top, bars.right, maxOf(bars.bottom, keyboard.bottom))
+            safeBars = bars
+            // The material reaches the screen edge; only its controls avoid system navigation.
+            view.setPadding(
+                bars.left,
+                bars.top,
+                bars.right,
+                if (keyboardOpen) keyboard.bottom else 0,
+            )
+            applyDockInsets()
+            if (loginVisible)
+                (root.getChildAt(0) as? ScrollView)?.setPadding(
+                    0,
+                    0,
+                    0,
+                    if (keyboardOpen) 0 else bars.bottom,
+                )
             if (::dock.isInitialized && fullscreen == null && shell.parent === root)
                 dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
             (fullscreen as? NativePlayerView)?.let(::placePlayer)
@@ -239,19 +265,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             )
             insets
         }
-        player.onChanged = {
-            if (alive) {
-                renderMini()
-                updateFull?.invoke()
-            }
-        }
-        player.onOpenPlayer = { if (alive) showPlayer() }
-        app.nativeChanged = {
-            if (alive) {
-                renderMini()
-                updateFull?.invoke()
-            }
-        }
+        ViewCompat.requestApplyInsets(root)
+        player.onChanged = playbackChanged
+        player.onOpenPlayer = openPlayer
+        app.nativeChanged = playbackChanged
         if (api.hasCredentials) {
             connecting = true
             palette()
@@ -315,19 +332,29 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         action: () -> Unit,
     ): Button =
         Button(activity).apply {
+            val style = if (primary) parent.tag as? JSONObject else null
             text = value
             isAllCaps = false
-            design.typography(this, 14f, 600)
+            design.typography(
+                this,
+                style?.optDouble("font", 14.0)?.toFloat() ?: 14f,
+                style?.optInt("weight", 600) ?: 600,
+            )
             setTextColor(if (primary) design.onAccent else ink)
             minHeight = dp(44)
             minimumHeight = dp(44)
             background =
                 design.touch(
                     if (primary) accent else design.wash,
-                    if (theme == "vitrine") 10 else 999,
-                    !primary && theme != "classic",
+                    style?.optInt("radius")
+                        ?: if (theme == "vitrine") {
+                            if (primary) 10 else 8
+                        } else 999,
+                    false,
                 )
-            setPadding(dp(16), dp(10), dp(16), dp(10))
+            val x = style?.optInt("paddingX", 16) ?: 16
+            val y = style?.optInt("paddingY", 10) ?: 10
+            setPadding(dp(x), dp(y), dp(x), dp(y))
             parent.addView(
                 this,
                 LinearLayout.LayoutParams(-1, -2).apply {
@@ -436,6 +463,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         val modern = theme != "classic"
         val admin =
             routeKey.orEmpty().startsWith("/admin") ||
+                routeKey.orEmpty().startsWith("/api/admin/") ||
                 routeKey.orEmpty().startsWith("/api/mobile/v2/admin")
         val spec =
             if (settings || admin) design.component(if (settings) "settingsPanel" else "adminPanel")
@@ -528,6 +556,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         )
         val body =
             LinearLayout(activity).apply {
+                tag = spec?.optJSONObject("button")
                 orientation = LinearLayout.VERTICAL
                 if (settings) setPadding(0, dp(16), 0, 0)
                 else setPadding(dp(16), dp(16), dp(16), dp(16))
@@ -794,6 +823,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             cover,
             LinearLayout.LayoutParams(dp(coverSize), dp(coverSize)).apply { marginEnd = dp(12) },
         )
+        if (coverSize == 0) cover.visibility = View.GONE
         if (image.isNotBlank()) artwork(cover, image)
         val copy =
             LinearLayout(activity).apply {
@@ -822,39 +852,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     ) {
         if (path.length > if (path.startsWith("data:image/")) 192 * 1024 else 4096) return
         image.tag = path
+        if (image.drawable == null) image.setImageBitmap(defaultCover)
         val pixels = image.layoutParams?.width?.takeIf { it > 0 }?.coerceIn(64, 512) ?: 512
-        if (path.startsWith("data:image/")) {
-            runCatching {
-                    val b =
-                        android.util.Base64.decode(
-                            path.substringAfter(','),
-                            android.util.Base64.DEFAULT,
-                        )
-                    decodeArtwork(b, pixels)
-                }
-                .getOrNull()
-                ?.let {
-                    image.setImageBitmap(it)
-                    loaded?.invoke(it)
-                }
-            return
-        }
-        val target =
-            if (path.startsWith("/") && !path.startsWith("//")) path
-            else if (path.startsWith("https://")) "/api/proxy-image?url=" + NativeApi.encode(path)
-            else return
-        api.image({
-            val c = api.connection(target)
-            try {
-                require(c.responseCode == 200)
-                val bytes = c.inputStream.use { it.readBytesBounded(2 * 1024 * 1024) }
-                api.checkResponse(c)
-                decodeArtwork(bytes, pixels)
-            } finally {
-                c.disconnect()
-            }
-        }) { value, _ ->
-            if (alive && image.tag == path && value is android.graphics.Bitmap) {
+        api.artwork.load(path, pixels) { value ->
+            if (alive && image.tag == path && value != null) {
                 image.setImageBitmap(value)
                 loaded?.invoke(value)
                 if (::navigation.isInitialized) navigation.invalidate()
@@ -864,17 +865,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     private fun decodeArtwork(bytes: ByteArray, pixels: Int = 512): android.graphics.Bitmap? {
-        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-        var sample =
-            MediaController.artworkSampleSize(bounds.outWidth, bounds.outHeight) ?: return null
-        while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= pixels) sample *= 2
-        return BitmapFactory.decodeByteArray(
-            bytes,
-            0,
-            bytes.size,
-            BitmapFactory.Options().apply { inSampleSize = sample },
-        )
+        return NativeArtwork.decode(bytes, pixels)
     }
 
     fun screen(
@@ -884,6 +875,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         key: String = title,
         restore: (() -> Unit)? = null,
     ) {
+        renderedPath = null
+        renderedSignature = null
+        renderedStableKey = null
         hideKeyboard()
         if (!restoringRoute && key != routeKey) {
             reload?.let { history.addLast(it) }
@@ -1039,11 +1033,17 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         dp(if (theme == "glass") 7 else if (theme == "vitrine") 4 else 0),
                     )
                     background =
-                        design.shape(
-                            if (theme == "classic") this@NativeUi.background else surface,
-                            if (theme == "glass") 999 else 0,
-                            theme != "classic",
-                        )
+                        if (theme == "classic")
+                            GradientDrawable(
+                                GradientDrawable.Orientation.TOP_BOTTOM,
+                                intArrayOf(0xec121212.toInt(), 0xff121212.toInt()),
+                            )
+                        else
+                            design.shape(
+                                if (theme == "classic") this@NativeUi.background else surface,
+                                if (theme == "glass") 999 else 0,
+                                theme != "classic",
+                            )
                 }
             dock.addView(
                 navigation,
@@ -1142,6 +1142,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             (item.getChildAt(1) as TextView).setTextColor(color)
         }
         sceneArtwork()
+        applyDockInsets()
         miniSignature = ""
         renderMini()
         if (offline) label(text("offline.local_mode", "Offline mode"), 13, color = muted)
@@ -1167,6 +1168,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         path: String,
         read: () -> Any = { api.request(path) },
         restore: (() -> Unit)? = null,
+        stableKey: String? = null,
         render: (Any) -> Unit,
     ) {
         val tab =
@@ -1183,17 +1185,50 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 path.startsWith("/api/search") -> "search"
                 else -> ""
             }
-        screen(
-            title,
-            if (path == "/api/recommendations") null else ({ home() }),
-            nav = tab,
-            key = path,
-            restore = restore ?: { load(title, path, read, restore, render) },
-        )
+        val refreshing = renderedPath == path && routeKey == path && ::content.isInitialized
+        val previousY = if (refreshing) scroll.scrollY else 0
+        if (refreshing) {
+            generation++
+            reload = restore ?: { load(title, path, read, restore, stableKey, render) }
+            popups.toList().forEach { it.dismiss() }
+            dialogs.toList().forEach { it.dismiss() }
+        } else
+            screen(
+                title,
+                if (path == "/api/recommendations") null else ({ home() }),
+                nav = tab,
+                key = path,
+                restore = restore ?: { load(title, path, read, restore, stableKey, render) },
+            )
         val stamp = generation
-        label(text("common.loading", "Loading…"), 15, color = muted)
-        api.execute(read) { data, error ->
+        if (!refreshing) label(text("common.loading", "Loading…"), 15, color = muted)
+        api.execute({
+            if (!alive || stamp != generation) null
+            else
+                read().let {
+                    it to if (stableKey != null) NativeApi.digest(it.toString()) else null
+                }
+        }) { result, error ->
             if (!alive || stamp != generation) return@execute
+            val data = (result as? Pair<*, *>)?.first
+            val signature = (result as? Pair<*, *>)?.second as? String
+            if (refreshing && error != null) {
+                if (error is NativeApi.Failure && error.code == 401) {
+                    player.release()
+                    api.clearSession()
+                    login("Sign in again")
+                    return@execute
+                }
+                toast(error.message ?: "Refresh failed")
+                return@execute
+            }
+            if (
+                refreshing &&
+                    stableKey != null &&
+                    stableKey == renderedStableKey &&
+                    signature == renderedSignature
+            )
+                return@execute
             content.removeAllViews()
             if (error != null) {
                 label(error.message ?: "Request failed")
@@ -1202,6 +1237,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             } else if (data != null)
                 try {
                     render(data)
+                    if (generation == stamp) {
+                        renderedPath = path
+                        renderedSignature = signature
+                        renderedStableKey = stableKey
+                        if (refreshing)
+                            scroll.post { if (generation == stamp) scroll.scrollTo(0, previousY) }
+                    }
                 } catch (_: org.json.JSONException) {
                     content.removeAllViews()
                     label("The server returned an incompatible response. Update Aoede and retry.")
@@ -1234,7 +1276,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             if (!alive || scope != api.scope || origin != api.origin) return@execute
             if (error != null) toast(error.message ?: "Request failed")
             else {
+                if (path.contains("/cover")) api.artwork.clear()
                 if (stamp == generation) {
+                    if (path.startsWith("/admin/") && tools.followAdminJob(data)) return@execute
                     if (done != null) done(data) else reload?.invoke()
                 }
             }
@@ -1475,7 +1519,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             setDimAmount(Color.alpha(scrim) / 255f)
             setGravity(Gravity.BOTTOM)
             setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-            navigationBarColor = color
+            navigationBarColor = Color.TRANSPARENT
+            if (Build.VERSION.SDK_INT >= 29) isNavigationBarContrastEnforced = false
         }
         showDialog(dialog)
         if (track == null) {
@@ -1627,6 +1672,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             ScrollView(activity).apply {
                 isFillViewport = true
                 isVerticalScrollBarEnabled = false
+                clipToPadding = false
+                setPadding(0, 0, 0, if (keyboardOpen) 0 else safeBars.bottom)
             }
         root.addView(scroller, FrameLayout.LayoutParams(-1, -1))
         if (theme == "classic") root.setBackgroundColor(Color.BLACK) else sceneArtwork()
@@ -1972,12 +2019,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         for (r in NativeTrack.items(recent.optJSONArray("radios"))) entries.add(
             r to { tools.playSavedRadio(r) }
         )
-        for (pair in entries.take(8).chunked(2)) {
+        val rows = entries.take(8).chunked(2)
+        for ((index, pair) in rows.withIndex()) {
             val row = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
             parent.addView(
                 row,
                 LinearLayout.LayoutParams(-1, dp(if (theme == "vitrine") 64 else 56)).apply {
-                    bottomMargin = dp(8)
+                    bottomMargin = if (index < rows.lastIndex) dp(8) else 0
                 },
             )
             for ((position, entry) in pair.withIndex()) {
@@ -2211,14 +2259,28 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     fun artworkPath(track: JSONObject): String =
-        runCatching {
-                library
-                    .get("track", NativeTrack.reference(track))
-                    ?.optString("offline_artwork")
-                    .orEmpty()
-            }
-            .getOrDefault("")
-            .ifBlank { track.optString("thumbnail") }
+        track.optString("offline_artwork").ifBlank {
+            if (!offline && track.optString("thumbnail").isNotBlank()) track.optString("thumbnail")
+            else
+                runCatching {
+                        library
+                            .get("track", NativeTrack.reference(track))
+                            ?.optString("offline_artwork")
+                            .orEmpty()
+                    }
+                    .getOrDefault("")
+                    .ifBlank { track.optString("thumbnail") }
+        }
+
+    fun refreshAvatar() {
+        api.artwork.clear()
+        if (!::chromeHeader.isInitialized) return
+        for (i in 0 until chromeHeader.childCount) {
+            val view = chromeHeader.getChildAt(i) as? ImageView ?: continue
+            val path = view.tag as? String ?: continue
+            if (path.startsWith("/user/avatar/")) artwork(view, path)
+        }
+    }
 
     fun tracks(
         items: List<JSONObject>,
@@ -2982,19 +3044,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 val inset = (textSize * .1f + .5f).toInt()
                 setPadding(inset, (textSize * .05f).toInt(), inset, (textSize * .05f + .5f).toInt())
                 layoutParams =
-                    LinearLayout.LayoutParams(
-                            minOf(
-                                dp(available),
-                                kotlin.math
-                                    .ceil(paint.measureText(text.toString()).toDouble())
-                                    .toInt(),
-                            ),
-                            -2,
-                        )
-                        .apply {
-                            gravity = Gravity.CENTER_HORIZONTAL
-                            bottomMargin = dp(6)
-                        }
+                    LinearLayout.LayoutParams(-2, -2).apply {
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        bottomMargin = dp(6)
+                    }
                 translationX = -textSize * .05f
             }
         if (theme == "classic")
@@ -3217,28 +3270,65 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun collectionMenu(id: String, p: JSONObject) {
         val owner = p.optBoolean("is_owner")
+        val source =
+            if (p.optLong("source_instance_id") > 0 && p.optLong("source_remote_playlist_id") > 0)
+                "fed_${p.optLong("source_instance_id")}_${p.optLong("source_remote_playlist_id")}"
+            else
+                p.optLong("source_playlist_id")
+                    .takeIf {
+                        it > 0 &&
+                            p.optBoolean("source_playlist_exists") &&
+                            p.optBoolean("source_playlist_public")
+                    }
+                    ?.toString()
+        val ownerCodes =
+            (0..6)
+                .filter { it != 1 || p.optBoolean("is_editable") }
+                .toMutableList()
+                .apply {
+                    if (p.optBoolean("is_smart")) addAll(listOf(7, 8))
+                    if (source != null) add(9)
+                }
+        val ownerLabels =
+            listOf(
+                "Rename",
+                "Collaborators",
+                "Sharing",
+                "Upload cover",
+                "Reset cover",
+                "Delete",
+                "Choose cover from songs",
+                "Edit smart rules",
+                "Refresh matches",
+                "Sync from source",
+            )
+        val ownerIcons =
+            listOf(
+                "pencil",
+                "users",
+                "globe",
+                "image",
+                "rotate-ccw",
+                "trash-2",
+                "music-2",
+                "sparkles",
+                "refresh-cw",
+                "refresh-cw",
+            )
         val options =
-            if (owner)
-                listOf(
-                    "Rename",
-                    "Collaborators",
-                    "Sharing",
-                    "Upload cover",
-                    "Reset cover",
-                    "Delete",
-                )
+            if (owner) ownerCodes.map { ownerLabels[it] }
             else if (p.optBoolean("is_editable"))
                 listOf("Copy / sync", "Collaborators", "Leave playlist")
             else listOf("Copy / sync")
         choose(
             p.optString("name"),
             options,
-            if (owner) listOf("pencil", "users", "globe", "image", "rotate-ccw", "trash-2")
+            if (owner) ownerCodes.map { ownerIcons[it] }
             else if (p.optBoolean("is_editable")) listOf("copy", "users", "log-out")
             else listOf("copy"),
         ) { index ->
             if (owner)
-                when (index) {
+                when (ownerCodes[index]) {
                     0 ->
                         prompt("Rename collection", initial = p.optString("name")) {
                             request(
@@ -3284,9 +3374,49 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                                 done = { collections() },
                             )
                         }
+                    6 -> {
+                        val tracks =
+                            NativeTrack.items(p.optJSONArray("tracks")).filter {
+                                NativeTrack.localId(it) > 0
+                            }
+                        if (tracks.isEmpty()) toast("Add songs before choosing a cover")
+                        else
+                            choose(
+                                "Choose cover",
+                                tracks.map {
+                                    "${it.optString("title")} · ${it.optString("artist")}"
+                                },
+                            ) { selected ->
+                                request(
+                                    NativeTrack.collectionPath(id) + "/cover/track",
+                                    body =
+                                        JSONObject()
+                                            .put("track_id", NativeTrack.localId(tracks[selected])),
+                                    done = {
+                                        api.artwork.clear()
+                                        collection(id)
+                                    },
+                                )
+                            }
+                    }
+                    7 -> tools.smartPlaylist(p)
+                    8 -> request("/api/smart-playlists/$id/refresh", done = { collection(id) })
+                    9 ->
+                        source?.let {
+                            request(
+                                NativeTrack.collectionPath(it) + "/copy",
+                                done = { collection(id) },
+                            )
+                        }
                 }
             else if (index == 0)
-                request(NativeTrack.collectionPath(id) + "/copy", done = { collections() })
+                request(
+                    NativeTrack.collectionPath(id) + "/copy",
+                    done = { value ->
+                        val copy = (value as? JSONObject)?.optString("id").orEmpty()
+                        if (Regex("[1-9][0-9]*").matches(copy)) collection(copy) else collections()
+                    },
+                )
             else if (index == 1) collaborators(id)
             else
                 request(
@@ -4796,6 +4926,29 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
     }
 
+    private fun applyDockInsets() {
+        if (!::navigation.isInitialized || !::shell.isInitialized || shell.parent !== root) return
+        val floating = theme == "glass"
+        val vertical = dp(if (floating) 7 else if (theme == "vitrine") 4 else 0)
+        navigation.setPadding(
+            navigation.paddingLeft,
+            vertical,
+            navigation.paddingRight,
+            vertical + if (floating) 0 else safeBars.bottom,
+        )
+        (navigation.layoutParams as LinearLayout.LayoutParams).apply {
+            height = dp(60) + if (floating) 0 else safeBars.bottom
+            bottomMargin = if (floating) maxOf(dp(8), safeBars.bottom) else 0
+            navigation.layoutParams = this
+        }
+        content.setPadding(
+            content.paddingLeft,
+            content.paddingTop,
+            content.paddingRight,
+            dp(if (player.current == null) 84 else 84 + design.miniHeight + 8) + safeBars.bottom,
+        )
+    }
+
     private fun renderMini() {
         if (
             !::mini.isInitialized ||
@@ -4818,7 +4971,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             content.paddingLeft,
             content.paddingTop,
             content.paddingRight,
-            dp(if (player.current == null) 84 else 84 + design.miniHeight + 8),
+            dp(if (player.current == null) 84 else 84 + design.miniHeight + 8) + safeBars.bottom,
         )
         val t = player.current ?: return
         val r =
@@ -4997,19 +5150,24 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 root.paddingLeft,
                 root.paddingTop,
                 root.paddingRight,
-                root.paddingBottom,
+                maxOf(root.paddingBottom, safeBars.bottom),
             )
 
     private fun placePlayer(panel: NativePlayerView) {
         val safe = playerInsets
         val params = panel.layoutParams as FrameLayout.LayoutParams
         if (
-            params.leftMargin != -safe.left ||
-                params.topMargin != -safe.top ||
-                params.rightMargin != -safe.right ||
-                params.bottomMargin != -safe.bottom
+            params.leftMargin != -root.paddingLeft ||
+                params.topMargin != -root.paddingTop ||
+                params.rightMargin != -root.paddingRight ||
+                params.bottomMargin != -root.paddingBottom
         ) {
-            params.setMargins(-safe.left, -safe.top, -safe.right, -safe.bottom)
+            params.setMargins(
+                -root.paddingLeft,
+                -root.paddingTop,
+                -root.paddingRight,
+                -root.paddingBottom,
+            )
             panel.layoutParams = params
         }
         panel.applyInsets(safe)
@@ -5062,7 +5220,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private fun placeStory(panel: NativeWrappedStory) {
         val safe = playerInsets
         (panel.layoutParams as FrameLayout.LayoutParams).apply {
-            setMargins(-safe.left, -safe.top, -safe.right, -safe.bottom)
+            setMargins(-root.paddingLeft, -root.paddingTop, -root.paddingRight, -root.paddingBottom)
             panel.layoutParams = this
         }
         panel.setPadding(safe.left, safe.top, safe.right, safe.bottom)
@@ -5421,9 +5579,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         generation++
         migration?.close()
         migration = null
-        player.onChanged = null
-        player.onOpenPlayer = null
-        app.nativeChanged = null
+        if (player.onChanged === playbackChanged) player.onChanged = null
+        if (player.onOpenPlayer === openPlayer) player.onOpenPlayer = null
+        if (app.nativeChanged === playbackChanged) app.nativeChanged = null
     }
 
     fun pause() {

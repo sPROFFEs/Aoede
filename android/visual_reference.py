@@ -30,7 +30,7 @@ TRACKS = [
         "artist": artist,
         "album": album,
         "duration": 240,
-        "thumbnail": f"/fixture/art/{i}.png",
+        "thumbnail": f"/api/cover/{i}",
         "source": "local",
         "is_favorite": i == 1,
     }
@@ -95,6 +95,7 @@ ROOMS = [
 
 class Reference(BaseHTTPRequestHandler):
     theme = "classic"
+    jobs = {}
     members = [{"id": 2, "username": "listener", "profile_key": "listener", "is_federated": False}]
 
     def log_message(self, *_):
@@ -115,6 +116,36 @@ class Reference(BaseHTTPRequestHandler):
         url = urlsplit(self.path)
         path = unquote(url.path)
         query = parse_qs(url.query)
+        if path == "/api/admin/federation/outbound":
+            return self.send(
+                [
+                    {
+                        "id": 1,
+                        "name": "Connected partner",
+                        "peer_url": "https://partner.example",
+                        "revoked": False,
+                        "token_prefix": "fixture",
+                    }
+                ]
+            )
+        if path.startswith("/admin/api/system/jobs/") or path.startswith("/updater/api/jobs/"):
+            if path.startswith("/updater/") and query.get("access") != ["b" * 64]:
+                return self.send({}, code=403)
+            job_id = int(path.rsplit("/", 1)[-1])
+            count = Reference.jobs.get(job_id, 0)
+            Reference.jobs[job_id] = count + 1
+            if count in (1, 2):
+                return self.send({"error": "Fixture services restarting"}, code=503)
+            return self.send(
+                {
+                    "id": job_id,
+                    "monitor_endpoint": f"/updater/api/jobs/{job_id}?access=" + "b" * 64,
+                    "job_type": "apply_update",
+                    "status": "running" if count < 2 else "completed",
+                    "message": "Recreating services" if count < 2 else "Update applied successfully",
+                    "details": {"phase": "recreate" if count < 2 else "done", "progress": 65 if count < 2 else 100},
+                }
+            )
         if path == "/fixture/keyboard":
             return self.send(
                 b'<!doctype html><input id="first"><input type="checkbox" id="check"><input id="last"><button id="submit" onclick="this.dataset.clicked=\'yes\'">Continue</button>',
@@ -160,7 +191,7 @@ class Reference(BaseHTTPRequestHandler):
         if path == "/api/cover/resolve":
             path = "/fixture/art/2.png"
         elif path.startswith("/api/cover/") and path.rsplit("/", 1)[-1].isdigit():
-            path = "/fixture/art/" + path.rsplit("/", 1)[-1] + ".png"
+            return self.send(b"", code=307, headers={"Location": "/fixture/art/" + path.rsplit("/", 1)[-1] + ".png"})
         if path.startswith("/fixture/art/") or path.startswith("/user/avatar/"):
             number = int(Path(path).stem) if path.startswith("/fixture/") else 1
             colors = [(40, 77, 96), (201, 122, 81), (113, 129, 100), (141, 65, 77), (82, 80, 119), (192, 151, 74)]
@@ -423,6 +454,17 @@ class Reference(BaseHTTPRequestHandler):
     def do_POST(self):
         length = min(int(self.headers.get("Content-Length", "0")), 4096)
         data = self.rfile.read(length)
+        if self.path == "/api/smart-playlists/preview":
+            return self.send({"track_count": len(TRACKS), "summary": "Matching the selected rules", "tracks": TRACKS})
+        if self.path in {
+            "/admin/system/updates/check",
+            "/admin/system/updates/apply",
+            "/admin/system/wrapped/regenerate",
+        }:
+            Reference.jobs[42] = 0
+            return self.send(
+                b"", code=303, headers={"Location": "/admin/system/updates/jobs/42?msg=Operation%20started"}
+            )
         if self.path == "/login":
             body = parse_qs(data.decode())
             if body.get("username") != ["visual"] or body.get("password") != ["fixture-only"]:

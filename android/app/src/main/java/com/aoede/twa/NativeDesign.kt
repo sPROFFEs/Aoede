@@ -200,6 +200,10 @@ class NativeDesign(
     fun press(view: View, reduced: Boolean) {
         // API 21 clears the previous animator's target without cancelling its frames.
         view.stateListAnimator?.jumpToCurrentState()
+        if (view is android.widget.Button) {
+            view.elevation = 0f
+            view.translationZ = 0f
+        }
         if (reduced) {
             view.stateListAnimator = null
             return

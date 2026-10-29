@@ -138,8 +138,9 @@ class NativeApi(private val app: AoedeApp) {
             TimeUnit.SECONDS,
             LinkedBlockingQueue<Runnable>(128),
             { r -> Thread(r, "aoede-native-image").apply { isDaemon = true } },
-            ThreadPoolExecutor.DiscardOldestPolicy(),
+            ThreadPoolExecutor.AbortPolicy(),
         )
+    val artwork = NativeArtwork(this)
     private val vault by lazy { NativeVault(app) }
     var origin: ServerOrigin? = null
         private set
@@ -225,6 +226,7 @@ class NativeApi(private val app: AoedeApp) {
     fun configure(value: String) {
         val next = ServerOrigin.from(Uri.parse(value)) ?: error("Invalid server")
         if (origin == next) return
+        artwork.clear()
         sessionRevision++
         importedLegacyCookie = false
         origin = next
@@ -363,7 +365,7 @@ class NativeApi(private val app: AoedeApp) {
                 Uri.parse(location).getQueryParameter("error")?.let {
                     throw Failure(400, it.take(240))
                 }
-                return JSONObject().put("ok", true)
+                return JSONObject().put("ok", true).put("redirect", location)
             }
             val stream = if (code in 200..299) c.inputStream else c.errorStream
             val bytes =
@@ -407,7 +409,21 @@ class NativeApi(private val app: AoedeApp) {
         val bytes =
             app.contentResolver.openInputStream(uri)?.use { it.readBytesBounded(8 * 1024 * 1024) }
                 ?: throw IOException("Cannot read selected file")
-        val mime = app.contentResolver.getType(uri).orEmpty().substringBefore(';').take(80)
+        val declared =
+            app.contentResolver.getType(uri).orEmpty().substringBefore(';').trim().lowercase()
+        val mime =
+            if (field == "cookies_file") "text/plain"
+            else {
+                val imageType = Regex("image/[a-z0-9.+-]{1,64}")
+                if (imageType.matches(declared)) declared
+                else {
+                    val bounds =
+                        android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                    android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+                    bounds.outMimeType?.takeIf { imageType.matches(it) }
+                        ?: "application/octet-stream"
+                }
+            }
         val extension =
             android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime)?.takeIf {
                 Regex("[a-zA-Z0-9]{1,8}").matches(it)
@@ -420,7 +436,7 @@ class NativeApi(private val app: AoedeApp) {
             c.setRequestProperty("Content-Type", "multipart/form-data; boundary=$boundary")
             c.outputStream.use { output ->
                 output.write(
-                    ("--$boundary\r\nContent-Disposition: form-data; name=\"$field\"; filename=\"$filename\"\r\nContent-Type: application/octet-stream\r\n\r\n")
+                    ("--$boundary\r\nContent-Disposition: form-data; name=\"$field\"; filename=\"$filename\"\r\nContent-Type: $mime\r\n\r\n")
                         .toByteArray()
                 )
                 output.write(bytes)
@@ -546,6 +562,7 @@ class NativeApi(private val app: AoedeApp) {
     }
 
     fun clearSession() {
+        artwork.clear()
         synchronized(this) {
             sessionRevision++
             origin?.let(vault::clear)
@@ -554,6 +571,7 @@ class NativeApi(private val app: AoedeApp) {
     }
 
     fun changeClientMode(server: String, toNative: Boolean) {
+        artwork.clear()
         val target = ServerOrigin.from(Uri.parse(server)) ?: error("Invalid server")
         synchronized(this) {
             sessionRevision++
@@ -563,7 +581,8 @@ class NativeApi(private val app: AoedeApp) {
             importedLegacyCookie = false
         }
         // A compatibility login must never silently reuse another client's remembered account.
-        // Going native preserves the browser cookie so the normal verified import can identify its owner.
+        // Going native preserves the browser cookie so the normal verified import can identify its
+        // owner.
         if (!toNative)
             runCatching {
                 CookieManager.getInstance()
@@ -574,9 +593,13 @@ class NativeApi(private val app: AoedeApp) {
 
     fun image(task: () -> Any?, done: (Any?, Throwable?) -> Unit) {
         val bound = scoped(task)
-        images.execute {
-            val result = runCatching(bound)
-            main.post { done(result.getOrNull(), result.exceptionOrNull()) }
+        try {
+            images.execute {
+                val result = runCatching(bound)
+                main.post { done(result.getOrNull(), result.exceptionOrNull()) }
+            }
+        } catch (error: java.util.concurrent.RejectedExecutionException) {
+            main.post { done(null, IOException("Artwork queue is busy")) }
         }
     }
 

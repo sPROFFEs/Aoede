@@ -251,6 +251,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun applyAppearance(dark: Boolean) {
+        if (android.os.Build.VERSION.SDK_INT >= 29) {
+            window.isNavigationBarContrastEnforced = false
+            window.isStatusBarContrastEnforced = false
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 28)
+            window.attributes =
+                window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        android.view.WindowManager.LayoutParams
+                            .LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                }
         // Older Android cannot draw dark bar icons; retain a scrim for light themes there.
         window.statusBarColor =
             if (!dark && android.os.Build.VERSION.SDK_INT < 23) 0x66000000 else Color.TRANSPARENT

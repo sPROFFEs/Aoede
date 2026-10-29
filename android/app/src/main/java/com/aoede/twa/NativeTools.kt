@@ -976,25 +976,128 @@ class NativeTools(private val ui: NativeUi) {
         }
     }
 
-    fun smartPlaylist() {
-        ui.screen("Smart playlist", { ui.collections() })
-        val name = ui.field("Name")
-        val artist = ui.field("Artist contains")
-        val genre = ui.field("Genre contains")
-        ui.button("Create smart playlist", primary = true) {
-            ui.request(
-                "/api/smart-playlists",
-                body =
-                    JSONObject()
-                        .put("name", name.text.toString())
-                        .put(
-                            "rules",
-                            JSONObject()
-                                .put("artist", artist.text.toString())
-                                .put("genre", genre.text.toString()),
-                        ),
-                done = { ui.collections() },
+    fun smartPlaylist(existing: JSONObject? = null) {
+        ui.sheet(if (existing == null) "New smart playlist" else "Edit smart playlist") {
+            body,
+            dialog ->
+            ui.label(
+                "Preview the rules before saving. Matching songs refresh when favorites change.",
+                14,
+                body,
+                ui.muted,
             )
+            val initial = existing?.optJSONObject("smart_rules") ?: JSONObject()
+            val name =
+                ui.labelledField(
+                    "Playlist name",
+                    body,
+                    value = existing?.optString("name").orEmpty(),
+                )
+            name.filters = arrayOf(android.text.InputFilter.LengthFilter(100))
+            val fields = linkedMapOf<String, android.widget.EditText>()
+            for ((key, label) in
+                listOf(
+                    "artist" to "Artist",
+                    "album" to "Album",
+                    "genre" to "Genre",
+                    "year_min" to "Released after year",
+                    "year_max" to "Released before year",
+                    "added_within_days" to "Added in last N days",
+                    "min_plays" to "Minimum play count",
+                    "not_played_days" to "Not played for N days",
+                    "limit" to "Maximum songs",
+                )) {
+                val value =
+                    if (initial.isNull(key)) {
+                        if (key == "limit") "50" else ""
+                    } else initial.optString(key)
+                fields[key] =
+                    ui.labelledField(label, body, value = value).apply {
+                        if (key !in listOf("artist", "album", "genre"))
+                            inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                    }
+            }
+            var favoriteOnly = initial.optBoolean("favorite_only")
+            ui.toggle("Favorites only", favoriteOnly, body) { favoriteOnly = it }
+            val sorts = listOf("newest", "artist", "album", "most_played", "least_played")
+            var sort = initial.optString("sort", "newest").takeIf { it in sorts } ?: "newest"
+            val order = ui.button("Sort · ${sort.replace('_', ' ')}", body) {}
+            order.setOnClickListener {
+                ui.choose("Sort", sorts.map { it.replace('_', ' ') }) {
+                    sort = sorts[it]
+                    order.text = "Sort · ${sort.replace('_', ' ')}"
+                }
+            }
+            fun rules(): JSONObject? {
+                val result = JSONObject().put("favorite_only", favoriteOnly).put("sort", sort)
+                for ((key, input) in fields) {
+                    val text = input.text.toString().trim()
+                    if (key in listOf("artist", "album", "genre")) result.put(key, text)
+                    else if (text.isNotBlank()) {
+                        val number = text.toIntOrNull()
+                        val range =
+                            if (key.startsWith("year_")) 1000..9999
+                            else if (key == "limit") 1..500 else 0..Int.MAX_VALUE
+                        if (number == null || number !in range) {
+                            input.error = "Enter a number in $range"
+                            return null
+                        }
+                        result.put(key, number)
+                    }
+                }
+                if (!result.has("limit")) result.put("limit", 50)
+                if (
+                    result.has("year_min") &&
+                        result.has("year_max") &&
+                        result.getInt("year_min") > result.getInt("year_max")
+                ) {
+                    fields.getValue("year_max").error = "End year must follow start year"
+                    return null
+                }
+                return result
+            }
+            val preview = ui.label("Preview matching songs before saving.", 14, body, ui.muted)
+            val previewButton = ui.button("Preview", body) {}
+            previewButton.setOnClickListener {
+                val rules = rules() ?: return@setOnClickListener
+                previewButton.isEnabled = false
+                preview.text = "Loading preview…"
+                api.execute({
+                    api.request(
+                        "/api/smart-playlists/preview",
+                        "POST",
+                        JSONObject().put("rules", rules),
+                    )
+                }) { data, error ->
+                    if (!dialog.isShowing) return@execute
+                    previewButton.isEnabled = true
+                    preview.text =
+                        if (error != null) error.message
+                        else
+                            (data as? JSONObject)?.let {
+                                "${it.optInt("track_count")} matching songs · ${it.optString("summary")}"
+                            }
+                }
+            }
+            ui.button("Save playlist", body, true) {
+                val rules = rules() ?: return@button
+                if (name.text.isBlank()) {
+                    name.error = "Enter a playlist name"
+                    return@button
+                }
+                val id = existing?.optLong("id")?.takeIf { it > 0 }
+                ui.request(
+                    "/api/smart-playlists" + if (id == null) "" else "/$id",
+                    if (id == null) "POST" else "PUT",
+                    JSONObject().put("name", name.text.toString().trim()).put("rules", rules),
+                    done = {
+                        if (dialog.isShowing) {
+                            dialog.dismiss()
+                            if (id == null) ui.collections() else ui.collection(id.toString())
+                        }
+                    },
+                )
+            }
         }
     }
 
@@ -2256,7 +2359,10 @@ class NativeTools(private val ui: NativeUi) {
 
     fun upload(path: String, field: String, uri: Uri, done: () -> Unit) {
         val owner = ui.content
+        val scope = api.scope
         api.execute({ api.upload(path, field, uri) }) { _, error ->
+            if (scope != api.scope) return@execute
+            if (error == null) ui.refreshAvatar()
             if (ui.content !== owner) return@execute
             if (error != null) ui.toast(error.message ?: "Upload failed") else done()
         }
@@ -2496,66 +2602,91 @@ class NativeTools(private val ui: NativeUi) {
                     "users",
                 )
             for (user in NativeTrack.items((value as JSONObject).optJSONArray("users"))) ui.row(
-                user.optString("username"),
-                if (user.optBoolean("is_admin")) "Administrator" else "Listener",
-                parent = accounts,
-            ) {
-                ui.choose(
                     user.optString("username"),
-                    listOf(
-                        "Login restriction information",
-                        "Change role",
-                        "Reset password",
-                        "Delete user",
-                    ),
-                ) { action ->
-                    val id = user.get("id").toString()
-                    when (action) {
-                        0 ->
-                            ui.load("Login restriction", "/admin/api/users/$id/login-lock") { r ->
-                                ui.label(
-                                    (r as JSONObject).optInt("remaining_seconds").toString() +
-                                        " seconds remaining"
-                                )
-                            }
-                        1 ->
-                            ui.confirm("Change role", user.optString("username")) {
-                                ui.request(
-                                    "/admin/users/toggle-role",
-                                    form = mapOf("user_id" to id),
-                                    done = { adminUsers() },
-                                )
-                            }
-                        2 ->
-                            ui.prompt("New password", password = true) {
-                                ui.request(
-                                    "/admin/users/reset-password",
-                                    form = mapOf("user_id" to id, "new_password" to it),
-                                    done = { adminUsers() },
-                                )
-                            }
-                        3 ->
-                            ui.confirm(
-                                "Delete user",
-                                "Permanently remove this user and their server data?",
-                            ) {
-                                ui.request(
-                                    "/admin/users/delete",
-                                    form = mapOf("user_id" to id),
-                                    done = { adminUsers() },
-                                )
-                            }
+                    if (user.optBoolean("is_admin")) "Administrator" else "Listener",
+                    parent = accounts,
+                    coverSize = 0,
+                ) {
+                    ui.choose(
+                        user.optString("username"),
+                        listOf(
+                            "Login restriction information",
+                            "Change role",
+                            "Reset password",
+                            "Delete user",
+                        ),
+                    ) { action ->
+                        val id = user.get("id").toString()
+                        when (action) {
+                            0 -> loginRestriction(user)
+                            1 ->
+                                ui.confirm("Change role", user.optString("username")) {
+                                    ui.request(
+                                        "/admin/users/toggle-role",
+                                        form = mapOf("user_id" to id),
+                                        done = { adminUsers() },
+                                    )
+                                }
+                            2 ->
+                                ui.prompt("New password", password = true) {
+                                    ui.request(
+                                        "/admin/users/reset-password",
+                                        form = mapOf("user_id" to id, "new_password" to it),
+                                        done = { adminUsers() },
+                                    )
+                                }
+                            3 ->
+                                ui.confirm(
+                                    "Delete user",
+                                    "Permanently remove this user and their server data?",
+                                ) {
+                                    ui.request(
+                                        "/admin/users/delete",
+                                        form = mapOf("user_id" to id),
+                                        done = { adminUsers() },
+                                    )
+                                }
+                        }
                     }
                 }
-            }
+                .apply {
+                    ui.iconButton(
+                        this,
+                        "info",
+                        "Login restriction for ${user.optString("username")}",
+                    ) {
+                        loginRestriction(user)
+                    }
+                }
+        }
+    }
+
+    private fun loginRestriction(user: JSONObject) {
+        val owner = ui.content
+        api.execute({ api.request("/admin/api/users/${user.getLong("id")}/login-lock") }) {
+            value,
+            error ->
+            if (ui.content !== owner) return@execute
+            val state = value as? JSONObject
+            val seconds = state?.optInt("remaining_seconds")?.coerceAtLeast(0) ?: 0
+            ui.toast(
+                error?.message
+                    ?: "${user.optString("username")} · " +
+                        if (state?.optBoolean("blocked") == true)
+                            "Login temporarily blocked · ${seconds / 60}m ${seconds % 60}s remaining"
+                        else "No active login restriction"
+            )
         }
     }
 
     private var systemTab = 0
 
     private fun system() {
-        ui.load(ui.text("monitor.title", "System monitor"), "/api/mobile/v2/admin/system") { value
-            ->
+        ui.load(
+            ui.text("monitor.title", "System monitor"),
+            "/api/mobile/v2/admin/system",
+            stableKey = systemTab.toString(),
+        ) { value ->
             val data = value as JSONObject
             val owner = ui.content
             monitorPolls.forEach { main.removeCallbacks(it.second) }
@@ -2693,11 +2824,11 @@ class NativeTools(private val ui: NativeUi) {
                 summary(state.optJSONObject("updates") ?: JSONObject(), updateStatus)
             }
             ui.button("Check server update", updater, true) {
-                ui.request("/admin/system/updates/check", done = { system() })
+                startAdminJob("/admin/system/updates/check", "Checking server updates")
             }
             ui.button("Apply server update", updater) {
                 ui.confirm("Update server", "Back up the server and apply the available update?") {
-                    ui.request("/admin/system/updates/apply", done = { system() })
+                    startAdminJob("/admin/system/updates/apply", "Updating Aoede")
                 }
             }
             val backups = group()
@@ -2969,9 +3100,7 @@ class NativeTools(private val ui: NativeUi) {
                     job.optString("status"),
                     parent = historyRows,
                 ) {
-                    ui.load("Operation", "/admin/api/system/jobs/" + job.get("id")) {
-                        summary(it as JSONObject)
-                    }
+                    adminJob(job.getInt("id"))
                 }
             }
             renderJobs(data)
@@ -3067,6 +3196,13 @@ class NativeTools(private val ui: NativeUi) {
         path: () -> String,
         render: (JSONObject) -> Unit,
     ): Runnable {
+        monitorPolls.removeAll { (previous, poll) ->
+            if (previous === owner) false
+            else {
+                main.removeCallbacks(poll)
+                true
+            }
+        }
         val notice = ui.label("", 13, panel, ui.muted).apply { visibility = android.view.View.GONE }
         var serial = 0
         val poll =
@@ -3081,7 +3217,17 @@ class NativeTools(private val ui: NativeUi) {
                         return
                     val ticket = ++serial
                     val requestPath = path()
-                    api.execute({ api.request(requestPath) }) { result, error ->
+                    api.execute({
+                        try {
+                            api.request(requestPath)
+                        } catch (error: java.io.IOException) {
+                            val monitor =
+                                Regex("/updater/api/jobs/([1-9][0-9]*)\\?access=[a-f0-9]{64}")
+                                    .matchEntire(requestPath)
+                            if (monitor == null) throw error
+                            api.request("/admin/api/system/jobs/${monitor.groupValues[1]}")
+                        }
+                    }) { result, error ->
                         if (
                             !foreground ||
                                 ui.content !== owner ||
@@ -3096,7 +3242,15 @@ class NativeTools(private val ui: NativeUi) {
                             notice.visibility = android.view.View.GONE
                             render(result)
                         }
-                        if (error !is NativeApi.Failure || error.code !in listOf(401, 403))
+                        val finished =
+                            (requestPath.startsWith("/admin/api/system/jobs/") ||
+                                requestPath.startsWith("/updater/api/jobs/")) &&
+                                (result as? JSONObject)?.optString("status") in
+                                    listOf("completed", "failed", "cancelled")
+                        if (
+                            !finished &&
+                                (error !is NativeApi.Failure || error.code !in listOf(401, 403))
+                        )
                             main.postDelayed(this, interval)
                     }
                 }
@@ -3306,6 +3460,238 @@ class NativeTools(private val ui: NativeUi) {
             }
     }
 
+    private var startingJob = false
+
+    private fun adminJobId(response: JSONObject?): Int? =
+        response?.optInt("job_id")?.takeIf { it > 0 }
+            ?: Regex("/admin/system/updates/jobs/([1-9][0-9]*)")
+                .matchEntire(Uri.parse(response?.optString("redirect").orEmpty()).path.orEmpty())
+                ?.groupValues
+                ?.get(1)
+                ?.toIntOrNull()
+
+    fun followAdminJob(value: Any?): Boolean {
+        if (!api.isAdmin) return false
+        val id = adminJobId(value as? JSONObject) ?: return false
+        adminJob(id)
+        return true
+    }
+
+    private fun startAdminJob(path: String, title: String) {
+        if (startingJob) return
+        startingJob = true
+        val owner = ui.content
+        val scope = api.scope
+        ui.toast("Starting operation…")
+        api.execute({ api.request(path, "POST") }) { value, error ->
+            startingJob = false
+            if (ui.content !== owner || api.scope != scope) return@execute
+            val response = value as? JSONObject
+            val id = adminJobId(response)
+            if (error != null || id == null)
+                ui.toast(error?.message ?: "The server did not return an operation ID")
+            else adminJob(id, title)
+        }
+    }
+
+    private fun adminJob(id: Int, title: String = "Operation progress") {
+        val path = "/admin/api/system/jobs/$id"
+        var endpoint = path
+        ui.screen(title, { system() }, key = path, restore = { adminJob(id, title) })
+        val owner = ui.content
+        val body =
+            ui.panel(title, "Progress remains visible while server services restart.", "activity")
+        val phase = ui.label("Queued", 20, body)
+        val message = ui.label("Connecting to the operation…", 14, body, ui.muted)
+        val bar =
+            android.widget
+                .ProgressBar(ui.activity, null, android.R.attr.progressBarStyleHorizontal)
+                .apply {
+                    max = 100
+                    isIndeterminate = true
+                    progressTintList = android.content.res.ColorStateList.valueOf(ui.accent)
+                }
+        body.addView(
+            bar,
+            LinearLayout.LayoutParams(-1, ui.dp(8)).apply {
+                topMargin = ui.dp(16)
+                bottomMargin = ui.dp(12)
+            },
+        )
+        val percent = ui.label("Waiting for progress", 13, body, ui.muted)
+        val result = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        body.addView(result)
+        var rendered = false
+        monitorPolling(owner, owner, 1500, { endpoint }) { job ->
+            job.optString("monitor_endpoint")
+                .takeIf { Regex("/updater/api/jobs/$id\\?access=[a-f0-9]{64}").matches(it) }
+                ?.let { endpoint = it }
+            val status = job.optString("status", "queued")
+            val details = job.optJSONObject("details") ?: JSONObject()
+            val progress = details.optInt("progress").coerceIn(0, 100)
+            phase.text =
+                details
+                    .optString("phase", status)
+                    .replace('_', ' ')
+                    .replaceFirstChar(Char::uppercase)
+            message.text = job.optString("message").take(1000)
+            bar.isIndeterminate = status == "queued" && progress == 0
+            bar.progress = if (status == "completed") 100 else progress
+            percent.text = "${bar.progress}% · $status"
+            if (!rendered && status in listOf("completed", "failed", "cancelled")) {
+                rendered = true
+                bar.isIndeterminate = false
+                details.optJSONObject("result")?.let { data ->
+                    if (data.has("groups")) duplicateResults(data, result)
+                    else summary(data, result)
+                    for (track in NativeTrack.items(data.optJSONArray("missing_files"))) adminTrack(
+                        track,
+                        result,
+                    )
+                }
+                ui.button("Back to system monitor", result) { system() }
+                ui.button("Library tools", result) { admin("maintenance") }
+            }
+        }
+    }
+
+    private fun adminTrack(track: JSONObject, parent: LinearLayout, deleted: () -> Unit = {}) {
+        val line =
+            ui.row(
+                track.optString("title"),
+                track.optString("artist"),
+                track.optString("thumbnail", "/api/cover/${track.optInt("id")}"),
+                parent,
+                coverSize = 44,
+            ) {
+                if (player.party != null) ui.toast("Leave the party first")
+                else if (track.optBoolean("file_exists", true)) player.play(listOf(track))
+                else ui.toast("This recording's file is missing")
+            }
+        ui.iconButton(line, "trash-2", "Delete server recording") {
+            ui.confirm(
+                "Delete server recording",
+                "Permanently remove ${track.optString("title")} from the pool, playlists and favorites?",
+            ) {
+                ui.request(
+                    "/admin/api/library/track/${track.getInt("id")}",
+                    "DELETE",
+                    done = {
+                        parent.removeView(line)
+                        deleted()
+                    },
+                )
+            }
+        }
+    }
+
+    private fun duplicateResults(data: JSONObject, parent: LinearLayout) {
+        val groups = NativeTrack.items(data.optJSONArray("groups"))
+        val removed = mutableSetOf<Long>()
+        ui.label(
+            "${groups.size} groups · ${data.optInt("exact_count")} exact · ${data.optInt("possible_count")} possible · ${data.optInt("similar_count")} similar",
+            16,
+            parent,
+        )
+        ui.label(
+            "Suggested copies favor an available file, more playlist references and then the oldest entry. Listen before deleting possible matches.",
+            14,
+            parent,
+            ui.muted,
+        )
+        val query = ui.labelledField("Filter song, artist, album or filename", parent)
+        var type = "all"
+        var limit = 20
+        val typeButton = ui.button("All candidates", parent) {}
+        val count = ui.label("", 13, parent, ui.muted)
+        val rows = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+        parent.addView(rows)
+        fun render() {
+            rows.removeAllViews()
+            val text = query.text.toString().trim()
+            val matches =
+                groups.mapNotNull { group ->
+                    val tracks = NativeTrack.items(group).filter { it.optLong("id") !in removed }
+                    if (tracks.size < 2 || type != "all" && group.optString("match_type") != type)
+                        null
+                    else if (
+                        text.isNotEmpty() &&
+                            tracks.none { track ->
+                                listOf("title", "artist", "album", "filename").any {
+                                    track.optString(it).contains(text, true)
+                                }
+                            }
+                    )
+                        null
+                    else group to tracks
+                }
+            count.text = "Showing ${minOf(limit, matches.size)} of ${matches.size} groups"
+            for ((group, tracks) in matches.take(limit)) {
+                val reasons = group.optJSONArray("reasons") ?: JSONArray()
+                val panel =
+                    ui.panel(
+                        group.optString("match_type", "possible").replaceFirstChar(Char::uppercase),
+                        (0 until reasons.length()).joinToString(" · ") { reasons.optString(it) },
+                        "copy",
+                        rows,
+                    )
+                for (track in tracks) {
+                    val recommended = group.optLong("recommended_track_id") == track.optLong("id")
+                    if (recommended) ui.label("Suggested copy to keep", 13, panel, ui.accent)
+                    val seconds =
+                        track
+                            .optDouble("duration", 0.0)
+                            .takeIf { it.isFinite() }
+                            ?.toInt()
+                            ?.coerceAtLeast(0) ?: 0
+                    ui.label(
+                        "${track.optString("format")} · ${seconds/60}:${(seconds%60).toString().padStart(2,'0')} · ${track.optInt("playlist_count")} collections · ${if(track.optBoolean("file_exists")) "File available" else "File missing"}",
+                        12,
+                        panel,
+                        ui.muted,
+                    )
+                    adminTrack(track, panel) {
+                        removed.add(track.getLong("id"))
+                        render()
+                    }
+                }
+            }
+            if (limit < matches.size)
+                ui.button("Show more", rows) {
+                    limit += 20
+                    render()
+                }
+        }
+        typeButton.setOnClickListener {
+            val types = listOf("all", "exact", "possible", "similar")
+            ui.choose("Match type", listOf("All candidates", "Exact", "Possible", "Similar")) {
+                type = types[it]
+                limit = 20
+                typeButton.text =
+                    if (it == 0) "All candidates" else types[it].replaceFirstChar(Char::uppercase)
+                render()
+            }
+        }
+        query.addTextChangedListener(
+            object : android.text.TextWatcher {
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int,
+                ) {}
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    limit = 20
+                    render()
+                }
+
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            }
+        )
+        render()
+    }
+
     private fun adminLibrary(tab: String = "library") {
         ui.screen("Administration", { ui.home() }, key = "/admin/$tab")
         adminHeader(tab)
@@ -3317,28 +3703,39 @@ class NativeTools(private val ui: NativeUi) {
                     "library",
                 )
             val query = ui.labelledField("Search server library", body)
-            ui.button("Search", body) {
-                ui.load(
-                    "Server library",
-                    "/admin/api/library/search?q=" + NativeApi.encode(query.text.toString()),
-                ) { data ->
-                    for (t in NativeTrack.items(data)) ui.row(
-                        t.optString("title"),
-                        t.optString("artist"),
-                    ) {
-                        ui.confirm(
-                            "Delete server track",
-                            "Permanently delete this track from the server?",
-                        ) {
-                            ui.request(
-                                "/admin/api/library/track/" + t.get("id"),
-                                "DELETE",
-                                done = { adminLibrary() },
-                            )
-                        }
+            val search = ui.button("Search", body) {}
+            val rows = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }
+            body.addView(rows)
+            val owner = ui.content
+            var serial = 0
+            fun refresh() {
+                val ticket = ++serial
+                val value = query.text.toString().trim()
+                search.isEnabled = false
+                api.execute({
+                    api.request("/admin/api/library/search?q=" + NativeApi.encode(value))
+                }) { data, error ->
+                    if (ui.content !== owner || ticket != serial) return@execute
+                    search.isEnabled = true
+                    if (error != null) {
+                        ui.toast(error.message ?: "Library search failed")
+                        return@execute
                     }
+                    rows.removeAllViews()
+                    val tracks = NativeTrack.items(data)
+                    if (tracks.isEmpty()) ui.label("No matching tracks", 14, rows, ui.muted)
+                    for (track in tracks) adminTrack(track, rows)
                 }
             }
+            search.setOnClickListener { refresh() }
+            query.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH
+            query.setOnEditorActionListener { _, action, _ ->
+                if (action == android.view.inputmethod.EditorInfo.IME_ACTION_SEARCH) {
+                    refresh()
+                    true
+                } else false
+            }
+            refresh()
         }
         if (tab == "duplicates") {
             val body =
@@ -3348,28 +3745,7 @@ class NativeTools(private val ui: NativeUi) {
                     "copy",
                 )
             ui.button("Find duplicates", body, true) {
-                ui.load("Duplicates", "/admin/api/library/duplicates") { value ->
-                    val data = value as JSONObject
-                    summary(data)
-                    for (group in NativeTrack.items(data.optJSONArray("groups"))) {
-                        ui.label(group.optString("reason", "Similar recordings"), 21)
-                        for (t in NativeTrack.items(group)) ui.row(
-                            t.optString("title"),
-                            t.optString("artist") + " · ID " + t.get("id"),
-                        ) {
-                            ui.confirm(
-                                "Delete duplicate",
-                                "Permanently delete this server recording? Keep at least one verified copy.",
-                            ) {
-                                ui.request(
-                                    "/admin/api/library/track/${t.get("id")}",
-                                    "DELETE",
-                                    done = { adminLibrary("duplicates") },
-                                )
-                            }
-                        }
-                    }
-                }
+                startAdminJob("/admin/api/library/duplicates/jobs", "Finding duplicates")
             }
         }
         if (tab == "maintenance") {
@@ -3385,13 +3761,7 @@ class NativeTools(private val ui: NativeUi) {
                     "Audit library" to "audit",
                     "Rescan metadata" to "metadata-rescan",
                     "Scan loudness" to "loudness-scan",
-                )) ui.button(name, body) {
-                ui.request(
-                    "/admin/api/library/$path/jobs",
-                    body = JSONObject(),
-                    done = { ui.toast("Operation queued") },
-                )
-            }
+                )) ui.button(name, body) { startAdminJob("/admin/api/library/$path/jobs", name) }
         }
     }
 
@@ -3807,9 +4177,113 @@ class NativeTools(private val ui: NativeUi) {
                     }
                 }
             }
-            ui.button("Outbound peers") {
-                ui.load("Outbound peers", "/api/admin/federation/outbound") { value ->
-                    summary(value as JSONObject)
+            ui.button("Outbound peers") { outboundPeers() }
+        }
+    }
+
+    private fun outboundPeers() {
+        ui.load("Outbound peers", "/api/admin/federation/outbound") { value ->
+            ui.label("Tokens issued to connected nodes", 24)
+            ui.button("Issue token", primary = true) {
+                ui.sheet("Issue federation token") { body, dialog ->
+                    val name = ui.labelledField("Peer name", body)
+                    val url = ui.labelledField("Peer URL (optional)", body)
+                    ui.button("Issue token", body, true) {
+                        if (name.text.isBlank()) {
+                            name.error = "Enter a peer name"
+                            return@button
+                        }
+                        ui.request(
+                            "/api/admin/federation/outbound",
+                            body =
+                                JSONObject()
+                                    .put("name", name.text.toString().trim())
+                                    .put("peer_url", url.text.toString().trim()),
+                            done = { data ->
+                                if (!dialog.isShowing) return@request
+                                val token = (data as? JSONObject)?.optString("token").orEmpty()
+                                body.removeAllViews()
+                                dialog.window?.addFlags(
+                                    android.view.WindowManager.LayoutParams.FLAG_SECURE
+                                )
+                                ui.label("Copy this token now. It is shown only once.", 16, body)
+                                ui.label(token, 14, body).apply {
+                                    setTextIsSelectable(true)
+                                    isSaveEnabled = false
+                                }
+                                ui.button("Copy token", body, true) {
+                                    val clipboard =
+                                        ui.activity.getSystemService(
+                                            android.content.Context.CLIPBOARD_SERVICE
+                                        ) as android.content.ClipboardManager
+                                    val clip =
+                                        android.content.ClipData.newPlainText(
+                                            "Aoede federation token",
+                                            token,
+                                        )
+                                    if (android.os.Build.VERSION.SDK_INT >= 33)
+                                        clip.description.extras =
+                                            android.os.PersistableBundle().apply {
+                                                putBoolean(
+                                                    "android.content.extra.IS_SENSITIVE",
+                                                    true,
+                                                )
+                                            }
+                                    clipboard.setPrimaryClip(clip)
+                                    ui.toast("Token copied")
+                                }
+                                ui.button("Done", body) {
+                                    dialog.dismiss()
+                                    outboundPeers()
+                                }
+                            },
+                        )
+                    }
+                }
+            }
+            for (peer in NativeTrack.items(value)) {
+                val panel =
+                    ui.panel(
+                        peer.optString("name"),
+                        peer.optString("peer_url").takeUnless { it == "null" }.orEmpty(),
+                        "globe",
+                    )
+                ui.label(
+                    if (peer.optBoolean("revoked")) "Revoked" else "Active",
+                    14,
+                    panel,
+                    ui.muted,
+                )
+                ui.label(
+                    "${peer.optString("status", "Unknown")} · Last seen ${peer.optString("last_seen_at").takeUnless { it.isBlank() || it == "null" } ?: "Never"}",
+                    13,
+                    panel,
+                    ui.muted,
+                )
+                val id = peer.getLong("id")
+                if (!peer.optBoolean("revoked"))
+                    ui.button("Revoke token", panel) {
+                        ui.confirm(
+                            "Revoke token",
+                            "This peer will lose federation access immediately.",
+                        ) {
+                            ui.request(
+                                "/api/admin/federation/outbound/$id/revoke",
+                                done = { outboundPeers() },
+                            )
+                        }
+                    }
+                ui.button("Remove peer", panel) {
+                    ui.confirm(
+                        "Remove peer",
+                        "Permanently remove this peer and its access token?",
+                    ) {
+                        ui.request(
+                            "/api/admin/federation/outbound/$id",
+                            "DELETE",
+                            done = { outboundPeers() },
+                        )
+                    }
                 }
             }
         }
@@ -3892,6 +4366,10 @@ class NativeTools(private val ui: NativeUi) {
             path == "/api/mobile/v2/settings" -> settings()
             path == "/api/mobile/v2/admin/system" -> system()
             path == "/api/mobile/v2/admin/users" -> admin()
+            path == "/api/admin/federation/outbound" -> outboundPeers()
+            path == "/api/admin/federation/instances" -> federation()
+            Regex("/admin/api/system/jobs/[1-9][0-9]*").matches(path) ->
+                adminJob(path.substringAfterLast('/').toInt())
             path == "/api/mobile/v2/admin/delete-requests" -> adminDeletions()
             path.startsWith("/user/profile/") ->
                 profile(android.net.Uri.decode(path.removePrefix("/user/profile/")))

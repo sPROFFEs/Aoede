@@ -140,6 +140,86 @@ class NativeDesignTest {
     }
 
     @Test
+    fun stationaryGlassReusesItsSceneAndPlayerIconsReuseTheirVectors() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val parent = android.widget.FrameLayout(lifecycle.get())
+        lifecycle.get().setContentView(parent)
+        var draws = 0
+        val scene =
+            object : View(lifecycle.get()) {
+                override fun onDraw(canvas: Canvas) {
+                    draws++
+                    canvas.drawColor(Color.BLUE)
+                }
+            }
+        val target = View(lifecycle.get())
+        parent.addView(scene, android.widget.FrameLayout.LayoutParams(140, 140))
+        parent.addView(target, android.widget.FrameLayout.LayoutParams(100, 50))
+        scene.layout(0, 0, 140, 140)
+        target.layout(0, 0, 100, 50)
+        val material = NativeBackdrop(scene, target, Color.TRANSPARENT, 8f, Color.TRANSPARENT)
+        material.setBounds(0, 0, 100, 50)
+        val bitmap = Bitmap.createBitmap(100, 50, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        material.draw(canvas)
+        val first = draws
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofMillis(100))
+        repeat(10) { material.draw(canvas) }
+        assertEquals("A stationary material must not recapture its entire scene", first, draws)
+        scene.viewTreeObserver.javaClass
+            .getDeclaredMethod("dispatchOnScrollChanged")
+            .apply { isAccessible = true }
+            .invoke(scene.viewTreeObserver)
+        material.draw(canvas)
+        assertEquals(first + 1, draws)
+        val button = NativeIconButton(lifecycle.get(), Color.WHITE).apply { text = "play" }
+        val vector = button.drawable
+        repeat(20) {
+            button.text = "play"
+            button.color(Color.WHITE)
+        }
+        assertSame("Position updates must not reparse unchanged SVG paths", vector, button.drawable)
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [34])
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun hardwareMaterialRecordsOnlyWhenChangedAndReleasesItsDisplayList() {
+        val material =
+            NativeGpuBackdrop(
+                20f,
+                android.graphics.ColorMatrixColorFilter(android.graphics.ColorMatrix()),
+            )
+        val output = android.graphics.RenderNode("Synthetic output")
+        var records = 0
+        fun draw(dirty: Boolean, width: Int = 100) {
+            val canvas = output.beginRecording(200, 160)
+            try {
+                material.draw(canvas, width, 50, dirty) { capture, padding ->
+                    records++
+                    assertTrue(capture.isHardwareAccelerated)
+                    assertEquals(40f, padding)
+                    capture.drawColor(Color.BLUE)
+                }
+            } finally {
+                output.endRecording()
+            }
+        }
+        draw(false)
+        repeat(10) { draw(false) }
+        assertEquals(1, records)
+        draw(true)
+        draw(false, 120)
+        assertEquals(3, records)
+        material.release()
+        draw(false, 120)
+        assertEquals(4, records)
+        material.release()
+        output.discardDisplayList()
+    }
+
+    @Test
     fun replacingPlatformPressAnimatorFinishesItBeforeItsTargetIsCleared() {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val layout = android.widget.LinearLayout(lifecycle.get())
@@ -315,7 +395,19 @@ class NativeDesignTest {
         ui.create()
         ui.screen("Playback")
         val root = activity.findViewById<android.widget.FrameLayout>(R.id.main_root)
-        root.setPadding(0, 24, 0, 48)
+        androidx.core.view.ViewCompat.dispatchApplyWindowInsets(
+            root,
+            androidx.core.view.WindowInsetsCompat.Builder()
+                .setInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.statusBars(),
+                    androidx.core.graphics.Insets.of(0, 24, 0, 0),
+                )
+                .setInsets(
+                    androidx.core.view.WindowInsetsCompat.Type.navigationBars(),
+                    androidx.core.graphics.Insets.of(0, 0, 0, 48),
+                )
+                .build(),
+        )
         val track = org.json.JSONObject().put("id", 1).put("title", "Synthetic recording")
         NativePlayback::class
             .java
@@ -343,6 +435,150 @@ class NativeDesignTest {
             image.getPixel(0, 0),
         )
         assertEquals(image.getPixel(0, 0), image.getPixel(0, 849))
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [34])
+    fun navigationMaterialReachesTheGestureEdgeWithoutMovingItsControlsIntoIt() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.create()
+        val root = lifecycle.get().findViewById<android.widget.FrameLayout>(R.id.main_root)
+        for (name in listOf("classic", "glass", "vitrine")) {
+            theme(name)
+            ui.screen("Library")
+            val dock = root.findViewWithTag<android.widget.LinearLayout>("native-bottom-dock")
+            val nav = dock.getChildAt(1) as android.widget.LinearLayout
+            for (bottom in listOf(24, 48, 0, 24, 24)) {
+                androidx.core.view.ViewCompat.dispatchApplyWindowInsets(
+                    root,
+                    androidx.core.view.WindowInsetsCompat.Builder()
+                        .setInsets(
+                            androidx.core.view.WindowInsetsCompat.Type.statusBars(),
+                            androidx.core.graphics.Insets.of(0, 24, 0, 0),
+                        )
+                        .setInsets(
+                            androidx.core.view.WindowInsetsCompat.Type.navigationBars(),
+                            androidx.core.graphics.Insets.of(0, 0, 0, bottom),
+                        )
+                        .build(),
+                )
+                root.measure(
+                    View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(850, View.MeasureSpec.EXACTLY),
+                )
+                root.layout(0, 0, 400, 850)
+                assertEquals("$name must draw to the screen edge", 0, root.paddingBottom)
+                assertEquals(850, dock.bottom)
+                assertEquals(if (name == "glass") ui.dp(60) else ui.dp(60) + bottom, nav.height)
+                val params = nav.layoutParams as android.widget.LinearLayout.LayoutParams
+                assertEquals(
+                    if (name == "glass") maxOf(ui.dp(8), bottom) else 0,
+                    params.bottomMargin,
+                )
+                assertTrue(nav.getChildAt(0).bottom <= nav.height - nav.paddingBottom)
+                assertEquals(bottom, ui.playerInsets.bottom)
+            }
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 29)
+            assertFalse(lifecycle.get().window.isNavigationBarContrastEnforced)
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun closingAnOldInterfaceDoesNotDetachTheCurrentPlayerControls() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val old = NativeUi(lifecycle.get(), app).apply { create() }
+        val current =
+            NativeUi(lifecycle.get(), app).apply {
+                create()
+                screen("Playback")
+            }
+        val changed = app.nativePlayback.onChanged
+        val opened = app.nativePlayback.onOpenPlayer
+        old.close()
+        assertSame(changed, app.nativePlayback.onChanged)
+        assertSame(changed, app.nativeChanged)
+        assertSame(opened, app.nativePlayback.onOpenPlayer)
+        NativePlayback::class
+            .java
+            .getDeclaredField("tracks")
+            .apply { isAccessible = true }
+            .set(
+                app.nativePlayback,
+                listOf(org.json.JSONObject().put("id", 1).put("title", "Synthetic recording")),
+            )
+        changed!!.invoke()
+        val root = lifecycle.get().findViewById<android.widget.FrameLayout>(R.id.main_root)
+        val dock = root.findViewWithTag<android.widget.LinearLayout>("native-bottom-dock")
+        assertEquals(1, (dock.getChildAt(0) as android.view.ViewGroup).childCount)
+        current.close()
+        assertNull(app.nativePlayback.onChanged)
+        assertNull(app.nativePlayback.onOpenPlayer)
+        assertNull(app.nativeChanged)
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    @Config(sdk = [28, 34])
+    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
+    fun shortCollectionTitlesIncludeTheirPaddingAndLongNamesStayInsideThePage() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.create()
+        val render =
+            NativeUi::class
+                .java
+                .getDeclaredMethod(
+                    "renderCollection",
+                    org.json.JSONObject::class.java,
+                    String::class.java,
+                    kotlin.jvm.functions.Function0::class.java,
+                )
+                .apply { isAccessible = true }
+        fun title(view: View, value: String): android.widget.TextView? {
+            if (view is android.widget.TextView && view.text.toString() == value) return view
+            if (view is android.view.ViewGroup)
+                for (i in 0 until view.childCount) title(view.getChildAt(i), value)?.let {
+                    return it
+                }
+            return null
+        }
+        for (name in listOf("classic", "glass", "vitrine")) {
+            theme(name)
+            for (value in
+                listOf(
+                    "Trap",
+                    "Liked Songs",
+                    "2000s",
+                    "Evening essentials",
+                    "Álbum del verano",
+                    "A".repeat(180),
+                )) {
+                ui.screen("Collection")
+                render.invoke(
+                    ui,
+                    org.json.JSONObject().put("name", value).put("is_liked", true),
+                    null,
+                    null,
+                )
+                ui.content.measure(
+                    View.MeasureSpec.makeMeasureSpec(ui.dp(360), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
+                )
+                ui.content.layout(0, 0, ui.content.measuredWidth, ui.content.measuredHeight)
+                val heading = title(ui.content, value)!!
+                if (value.length < 40) assertEquals("$name/$value", 1, heading.lineCount)
+                assertTrue(heading.width <= ui.content.width)
+                for (i in 0 until heading.lineCount) assertTrue(
+                    heading.layout.getLineWidth(i) <=
+                        heading.width - heading.totalPaddingLeft - heading.totalPaddingRight + 1
+                )
+            }
+        }
         ui.close()
         lifecycle.pause().stop().destroy()
     }

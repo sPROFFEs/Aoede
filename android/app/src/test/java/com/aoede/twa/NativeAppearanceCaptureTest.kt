@@ -46,12 +46,6 @@ class NativeAppearanceCaptureTest {
         )
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val activity = lifecycle.get()
-        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(
-            activity.findViewById(R.id.main_root)
-        ) { view, insets ->
-            view.setPadding(0, 24, 0, 48)
-            insets
-        }
         val ui =
             MainActivity::class
                 .java
@@ -99,10 +93,27 @@ class NativeAppearanceCaptureTest {
             fail("Local visual fixture did not settle")
         }
         fun capture(name: String) {
+            assertEquals(
+                "Capture must use its actual theme",
+                name.substringBefore('-'),
+                ui.design.theme,
+            )
             settle()
             shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(50))
             val root = activity.findViewById<View>(R.id.main_root)
-            root.setPadding(0, 24, 0, 48)
+            androidx.core.view.ViewCompat.dispatchApplyWindowInsets(
+                root,
+                androidx.core.view.WindowInsetsCompat.Builder()
+                    .setInsets(
+                        androidx.core.view.WindowInsetsCompat.Type.statusBars(),
+                        androidx.core.graphics.Insets.of(0, 24, 0, 0),
+                    )
+                    .setInsets(
+                        androidx.core.view.WindowInsetsCompat.Type.navigationBars(),
+                        androidx.core.graphics.Insets.of(0, 0, 0, 48),
+                    )
+                    .build(),
+            )
             root.measure(
                 View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(850, View.MeasureSpec.EXACTLY),
@@ -138,6 +149,50 @@ class NativeAppearanceCaptureTest {
             check(root)
             val bitmap = Bitmap.createBitmap(400, 850, Bitmap.Config.ARGB_8888)
             root.draw(Canvas(bitmap))
+            root.findViewWithTag<NativePlayerView>("native-fullscreen-player")?.let { player ->
+                val metrics = JSONObject()
+                for (role in
+                    listOf(
+                        "header",
+                        "stage",
+                        "info",
+                        "progress",
+                        "controls",
+                        "volume",
+                        "actions",
+                    )) {
+                    val view = player.findViewWithTag<View>("native-fs-$role")
+                    val position = IntArray(2)
+                    view.getLocationOnScreen(position)
+                    metrics.put(
+                        role,
+                        JSONObject()
+                            .put("x", position[0])
+                            .put("y", position[1])
+                            .put("width", view.width)
+                            .put("height", view.height),
+                    )
+                }
+                for (role in listOf("title", "artist", "cover")) {
+                    val view =
+                        NativePlayerView::class
+                            .java
+                            .getDeclaredField(role)
+                            .apply { isAccessible = true }
+                            .get(player) as View
+                    val position = IntArray(2)
+                    view.getLocationOnScreen(position)
+                    val value =
+                        JSONObject()
+                            .put("x", position[0])
+                            .put("y", position[1])
+                            .put("width", view.width * view.scaleX)
+                            .put("height", view.height * view.scaleY)
+                    if (view is TextView) value.put("font", view.textSize)
+                    metrics.put(role, value)
+                }
+                File(output, "native-$name-layout.json").writeText(metrics.toString(2))
+            }
             File(output, "native-$name.png").outputStream().use {
                 bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
             }
@@ -187,16 +242,24 @@ class NativeAppearanceCaptureTest {
                 )
                 context.put("theme", theme)
                 // Only the synthetic loopback fixture is mutated; no production credentials.
+                var fixtureStatus = 0
                 val update = Thread {
-                    app.nativeApi.request(
-                        "/api/mobile/v2/settings",
-                        "PATCH",
-                        JSONObject().put("theme", theme),
-                    )
+                    // The JVM's HttpURLConnection rejects PATCH, unlike Android's implementation.
+                    // Select the synthetic fixture's theme through its existing preview GET.
+                    val connection = app.nativeApi.connection("/?theme=$theme")
+                    try {
+                        fixtureStatus = connection.responseCode
+                        connection.inputStream.close()
+                    } finally {
+                        connection.disconnect()
+                    }
                 }
                 update.start()
                 update.join(3000)
                 assertFalse(update.isAlive)
+                assertEquals("Fixture theme must actually update", 200, fixtureStatus)
+                app.nativeApi.saveContextPreference("theme", theme)
+                assertEquals(theme, app.nativeApi.account?.optString("theme"))
                 val name = "$theme-$scheme"
                 if (name == "classic-dark") {
                     ui.create()
@@ -306,6 +369,15 @@ class NativeAppearanceCaptureTest {
                 ui.tools.resolveCollection("https://open.spotify.com/playlist/fixture")
                 captureDialog("$name-import")
                 latestDialog().dismiss()
+                ui.tools.smartPlaylist()
+                captureDialog("$name-smart-playlist")
+                latestDialog().dismiss()
+                NativeTools::class
+                    .java
+                    .getDeclaredMethod("outboundPeers")
+                    .apply { isAccessible = true }
+                    .invoke(ui.tools)
+                capture("$name-outbound-peers")
                 ui.tools.wrapped()
                 capture("$name-wrapped")
                 val songs = arrayListOf<View>()
@@ -378,6 +450,54 @@ class NativeAppearanceCaptureTest {
                         routed,
                         workers[0].completedTaskCount,
                     )
+                }
+                if (name == "classic-dark") {
+                    NativeTools::class
+                        .java
+                        .getDeclaredMethod("startAdminJob", String::class.java, String::class.java)
+                        .apply { isAccessible = true }
+                        .invoke(ui.tools, "/admin/system/updates/apply", "Updating Aoede")
+                    settle()
+                    assertEquals("/admin/api/system/jobs/42", ui.saveState().getString("route"))
+                    fun jobText(): String {
+                        val matches = arrayListOf<View>()
+                        ui.content.findViewsWithText(matches, "% ·", View.FIND_VIEWS_WITH_TEXT)
+                        return matches.filterIsInstance<TextView>().joinToString { it.text }
+                    }
+                    assertTrue(jobText().contains("65%"))
+                    capture("$name-update-progress")
+                    shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1600))
+                    settle()
+                    assertTrue(
+                        "A service restart must keep the last progress visible",
+                        jobText().contains("65%"),
+                    )
+                    shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(1600))
+                    settle()
+                    assertTrue(jobText().contains("100% · completed"))
+                    capture("$name-update-completed")
+                    val finished = workers[0].completedTaskCount
+                    shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2000))
+                    settle()
+                    assertEquals(
+                        "A completed job must stop polling",
+                        finished,
+                        workers[0].completedTaskCount,
+                    )
+                    assertFalse(
+                        "Updater capabilities must stay out of saved navigation",
+                        ui.saveState().toString().contains("b".repeat(64)),
+                    )
+                    ui.request(
+                        "/admin/system/wrapped/regenerate",
+                        done = {
+                            fail(
+                                "An administrative job must open its progress instead of reloading its form"
+                            )
+                        },
+                    )
+                    settle()
+                    assertEquals("/admin/api/system/jobs/42", ui.saveState().getString("route"))
                 }
                 NativeTools::class
                     .java

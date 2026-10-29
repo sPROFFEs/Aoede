@@ -59,6 +59,7 @@ html[data-native-effects="reduced"] .fullscreen-player .fs-cover { scale: 1 !imp
 .playlist-header-section { align-items: end; gap: 28px; margin-bottom: 24px; }
 .playlist-cover-large { flex-shrink: 0; width: clamp(180px, 19vw, 256px); height: auto; aspect-ratio: 1; }
 .playlist-title { font-size: clamp(2rem, 4.5vw, 4rem); line-height: 1.08; letter-spacing: -.05em; }
+.playlist-title-row { width: 100%; min-width: 0; }
 .playlist-stats { line-height: 1.5; margin-top: 10px; }
 .playlist-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 20px; }
 .track-list .track-row:not(.header) { min-height: 64px; padding-block: 8px; }

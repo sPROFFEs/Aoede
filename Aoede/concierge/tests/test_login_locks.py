@@ -51,6 +51,52 @@ def test_attribution_is_bounded_and_success_clears_it(clock):
     assert security.get_login_blocks() == {}
 
 
+def test_update_monitor_capability_is_admin_only_job_bound_and_uncacheable(db_session, monkeypatch):
+    with patch("docker.from_env", return_value=MagicMock()):
+        from routers import admin
+    root = database.User(username="monitor_root", hashed_password="unused", is_admin=True)
+    user = database.User(username="monitor_user", hashed_password="unused")
+    db_session.add_all([root, user])
+    db_session.commit()
+    monkeypatch.setattr(
+        admin.operations_service,
+        "get_admin_job",
+        lambda db, job_id: {
+            "id": job_id,
+            "job_type": "apply_update" if job_id == 42 else "backup",
+            "status": "running",
+        },
+    )
+    minted = []
+
+    def token(job_id):
+        minted.append(job_id)
+        return "a" * 64
+
+    monkeypatch.setattr(admin.operations_service, "get_update_monitor_token", token)
+    app = FastAPI()
+    app.include_router(admin.router)
+    app.dependency_overrides[admin.get_db] = lambda: db_session
+
+    async def check():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app), base_url="https://aoede.test") as client:
+            url = "/admin/api/system/jobs/42"
+            assert (await client.get(url)).status_code == 401
+            client.cookies.set("access_token", auth.create_access_token({"sub": user.username}))
+            assert (await client.get(url)).status_code == 403
+            assert minted == []
+            client.cookies.set("access_token", auth.create_access_token({"sub": root.username}))
+            response = await client.get(url)
+            assert response.status_code == 200
+            assert response.json()["monitor_endpoint"] == "/updater/api/jobs/42?access=" + "a" * 64
+            assert response.headers["cache-control"] == "private, no-store"
+            assert minted == [42]
+            assert "monitor_endpoint" not in (await client.get("/admin/api/system/jobs/43")).json()
+            assert minted == [42]
+
+    asyncio.run(check())
+
+
 def test_admin_login_lock_endpoint_is_private_current_and_admin_only(db_session, clock):
     with patch("docker.from_env", return_value=MagicMock()):
         from routers import admin

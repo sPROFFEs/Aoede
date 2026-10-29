@@ -32,10 +32,44 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private val header = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
     private val stage = FrameLayout(context)
     private val cover =
-        ImageView(context).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            contentDescription = "Current artwork"
-        }
+        object : androidx.appcompat.widget.AppCompatImageView(context) {
+                private val mask =
+                    android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                        xfermode =
+                            android.graphics.PorterDuffXfermode(
+                                android.graphics.PorterDuff.Mode.DST_IN
+                            )
+                    }
+
+                override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+                    super.onSizeChanged(w, h, oldw, oldh)
+                    mask.shader =
+                        android.graphics.LinearGradient(
+                            0f,
+                            0f,
+                            0f,
+                            h.coerceAtLeast(1).toFloat(),
+                            intArrayOf(Color.BLACK, Color.BLACK, Color.TRANSPARENT),
+                            floatArrayOf(0f, .88f, 1f),
+                            android.graphics.Shader.TileMode.CLAMP,
+                        )
+                }
+
+                override fun onDraw(canvas: android.graphics.Canvas) {
+                    if (!glass) {
+                        super.onDraw(canvas)
+                        return
+                    }
+                    val layer = canvas.saveLayer(0f, 0f, width.toFloat(), height.toFloat(), null)
+                    super.onDraw(canvas)
+                    canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), mask)
+                    canvas.restoreToCount(layer)
+                }
+            }
+            .apply {
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                contentDescription = "Current artwork"
+            }
     private val info = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
     private val detailCover =
         ImageView(context).apply {
@@ -44,7 +78,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
     private var volumePopup: PopupWindow? = null
     private val title = text(if (glass) 18f else 22f, 700)
-    private val artist = text(15f)
+    private val artist = text(15.2f)
     private val viewLabel = text(if (apple) 13f else 16f, 600)
     private val seek = slider("Track position", 1000)
     private val elapsed = text(12.8f)
@@ -54,7 +88,12 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             gravity = Gravity.CENTER
             clipChildren = false
         }
-    private val actions = LinearLayout(context).apply { gravity = Gravity.CENTER }
+    private val actions =
+        LinearLayout(context).apply {
+            gravity = Gravity.CENTER
+            clipChildren = false
+            clipToPadding = false
+        }
     private val toggle: NativeIconButton
     private val favorite: NativeIconButton
     private var shuffle: NativeIconButton? = null
@@ -74,6 +113,11 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private var queueSignature = ""
 
     init {
+        clipChildren = false
+        clipToPadding = false
+        grid.clipChildren = false
+        grid.clipToPadding = false
+        info.clipChildren = false
         tag = "native-fullscreen-player"
         setBackgroundColor(0xff202025.toInt())
         addView(backdrop, LayoutParams(-1, -1))
@@ -119,10 +163,12 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             if (apple) playbackMenu() else volumeDialog()
         }
         stage.addView(cover, LayoutParams(-1, -1, Gravity.CENTER))
-        cover.background = design.shape(Color.TRANSPARENT, if (apple) 18 else 8)
+        cover.background =
+            if (glass) null else design.shape(Color.TRANSPARENT, if (apple) 18 else 8)
         cover.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-        cover.clipToOutline = true
+        cover.clipToOutline = !glass
         stage.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
+            if (!apple) return@addOnLayoutChangeListener
             val size = minOf(r - l, b - t).coerceAtLeast(0)
             val lp = cover.layoutParams as LayoutParams
             if (lp.width != size || lp.height != size) {
@@ -144,9 +190,17 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         artist.maxLines = 1
         artist.ellipsize = TextUtils.TruncateAt.END
         artist.setTextColor(0xffd0d1d6.toInt())
+        artist.setLineSpacing(0f, 1f)
+        artist.minHeight = 0
         copy.addView(title, LinearLayout.LayoutParams(-1, -2))
         copy.addView(artist, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(3) })
-        info.setPadding(if (glass) dp(12) else 0, dp(4), if (glass) dp(10) else 0, dp(4))
+        val infoPadding = if (glass) 11 else if (apple) 4 else 8
+        info.setPadding(
+            if (glass) dp(13) else 0,
+            dp(infoPadding),
+            if (glass) dp(13) else 0,
+            dp(infoPadding),
+        )
         info.addView(
             detailCover,
             LinearLayout.LayoutParams(dp(64), dp(64)).apply { marginEnd = dp(12) },
@@ -156,19 +210,26 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             control(info, "heart", ui.text("player.favorite", "Favorite"), 44, 22, glass) {
                 ui.app.mediaController.command("favorite")
             }
+        (favorite.layoutParams as LinearLayout.LayoutParams).marginStart = dp(8)
         control(
-            info,
-            "list-plus",
-            ui.text("player.add_to_playlist", "Add to playlist"),
-            44,
-            22,
-            glass,
-        ) {
-            ui.addCurrentToCollection()
-        }
+                info,
+                "list-plus",
+                ui.text("player.add_to_playlist", "Add to playlist"),
+                44,
+                22,
+                glass,
+            ) {
+                ui.addCurrentToCollection()
+            }
+            .apply { (layoutParams as LinearLayout.LayoutParams).marginStart = dp(6) }
         if (glass) info.background = film(999)
         add("info", info)
-        val progress = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        val progress =
+            LinearLayout(context).apply {
+                orientation = LinearLayout.VERTICAL
+                clipChildren = false
+                clipToPadding = false
+            }
         progress.addView(seek, LinearLayout.LayoutParams(-1, dp(28)))
         val clocks = LinearLayout(context)
         elapsed.setTextColor(0xffc5c7d1.toInt())
@@ -344,7 +405,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
 
     private fun film(radius: Int) =
-        design.shape(0x12ffffff, radius).apply { setStroke(maxOf(1, dp(1)), 0x66ffffff) }
+        design.shape(0x662a282c, radius).apply { setStroke(maxOf(1, dp(1)), 0x7affffff) }
 
     private fun control(
         parent: LinearLayout,
@@ -436,7 +497,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         render()
     }
 
-    private fun queueState() = player.index.toString() + org.json.JSONArray(player.queue).toString()
+    private fun queueState() = "${player.index}:${player.queueRevision}"
 
     private fun queue() {
         queueSignature = queueState()
@@ -729,9 +790,12 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             stage.removeAllViews()
             queue()
         }
-        title.text = t.optString("title")
-        artist.text = player.failure ?: t.optString("artist")
-        if (mode == "cover") viewLabel.text = t.optString("artist")
+        fun copy(view: TextView, value: String) {
+            if (view.text.toString() != value) view.text = value
+        }
+        copy(title, t.optString("title"))
+        copy(artist, player.failure ?: t.optString("artist"))
+        if (mode == "cover") copy(viewLabel, t.optString("artist"))
         toggle.text = if (player.playing) "pause" else "play"
         toggle.contentDescription = if (player.playing) "Pause" else "Play"
         toggle.color(if (design.theme == "classic") Color.BLACK else Color.WHITE)
@@ -758,10 +822,12 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         if (!seeking)
             seek.progress =
                 if (player.duration > 0) (player.position * 1000 / player.duration).toInt() else 0
-        elapsed.text = time(player.position)
-        duration.text =
+        copy(elapsed, time(player.position))
+        copy(
+            duration,
             if (apple) "−" + time((player.duration - player.position).coerceAtLeast(0))
-            else time(player.duration)
+            else time(player.duration),
+        )
         if (!volume.isPressed) volume.progress = (player.volume * 100).toInt()
         val id = NativeTrack.reference(t)
         if (id != reference) {
@@ -840,14 +906,17 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
         for (i in 0 until actions.childCount) {
             val v = actions.getChildAt(i)
-            v.isSelected =
+            val selected =
                 when (v.tag) {
                     "mic-2" -> mode == "lyrics"
                     "list-music" -> mode == "queue"
                     "disc-3" -> mode == "cover"
                     else -> false
                 }
-            if (glass) v.background = if (v.isSelected) film(999) else null
+            if (v.isSelected != selected) {
+                v.isSelected = selected
+                if (glass) v.background = if (selected) film(999) else null
+            }
         }
     }
 
@@ -858,23 +927,13 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             return
         }
         if (design.theme == "classic") {
-            val tiny = Bitmap.createScaledBitmap(bitmap, 8, 8, true)
-            var r = 0
-            var g = 0
-            var b = 0
-            for (y in 0..7) for (x in 0..7) {
-                val c = tiny.getPixel(x, y)
-                r += Color.red(c)
-                g += Color.green(c)
-                b += Color.blue(c)
-            }
-            val base = Color.rgb(r / 64, g / 64, b / 64)
+            val base = nativeArtworkSeed(bitmap)
             shade.background =
                 GradientDrawable(
                     GradientDrawable.Orientation.TOP_BOTTOM,
                     intArrayOf(
-                        base,
-                        androidx.core.graphics.ColorUtils.blendARGB(base, Color.BLACK, .73f),
+                        androidx.core.graphics.ColorUtils.compositeColors(0x06ffffff, base),
+                        androidx.core.graphics.ColorUtils.compositeColors(0xbb000000.toInt(), base),
                     ),
                 )
         } else {
@@ -910,23 +969,53 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             val height = MeasureSpec.getSize(h)
             setMeasuredDimension(width, height)
             val density = resources.displayMetrics.density
-            val viewport = resources.displayMetrics.heightPixels / density
+            val margins = layoutParams as? ViewGroup.MarginLayoutParams
+            val viewport =
+                (height + (margins?.topMargin ?: 0) + (margins?.bottomMargin ?: 0)) / density
+            val viewportWidth = width / density
+            for (i in 0 until controls.childCount) {
+                val button = controls.getChildAt(i) as? NativeIconButton ?: continue
+                val size =
+                    when (button) {
+                        toggle -> (viewportWidth * .2f).toInt().coerceIn(64, 80)
+                        shuffle,
+                        repeat -> 44
+                        else -> (viewportWidth * .15f).toInt().coerceIn(48, 64)
+                    }
+                val icon =
+                    if (button === toggle) {
+                        if (apple) 48 else if (glass) 32 else 38
+                    } else if (apple) 32 else 24
+                val params = button.layoutParams as LinearLayout.LayoutParams
+                params.width = dp(size)
+                params.height = dp(size)
+                val inset = dp((size - icon) / 2)
+                button.setPadding(inset, inset, inset, inset)
+            }
+            if (apple) {
+                val font = (width / density * .048f).coerceIn(17.6f, 24.8f)
+                if (
+                    kotlin.math.abs(
+                        title.textSize / resources.displayMetrics.scaledDensity - font
+                    ) > .1f
+                )
+                    design.typography(title, font, 700)
+            }
             val gutter = dp(if (width / density < 360) 16 else 24)
             val gap =
                 (density *
-                        (if (apple) (viewport * .012f).coerceIn(4f, 12f)
-                        else (viewport * .015f).coerceIn(6f, 14f)))
-                    .toInt()
+                    (if (apple) (viewport * .012f).coerceIn(4f, 12f)
+                    else (viewport * .015f).coerceIn(6f, 14f)))
             val top = dp(16)
-            val bottom = dp(if (apple) (viewport * .04f).toInt().coerceIn(20, 40) else 20)
+            val bottom = dp(if (apple) (viewport * .04f).toInt().coerceIn(20, 40) else 16)
             val heights =
                 mutableMapOf(
                     "header" to dp(if (apple) 44 else 48),
-                    "info" to dp(if (mode != "cover" && apple) 80 else 64),
+                    "info" to dp(if (mode != "cover" && apple) 80 else if (glass) 66 else 64),
                     "progress" to dp(if (apple) 44 else 46),
                     "controls" to dp(if (apple) 72 else 80),
                     "volume" to dp(44),
-                    "actions" to dp(48),
+                    "actions" to dp(if (apple) 48 else 52),
                 )
             val order =
                 if (apple && mode != "cover")
@@ -990,21 +1079,27 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                         bottom -
                         heights.filterKeys { it in order }.values.sum() -
                         gap * (order.size - 1) -
-                        dp(16))
-                    .coerceAtLeast(0)
-            var y = top
+                        dp(if (glass) 0 else 16))
+                    .let { kotlin.math.round(it).toInt().coerceAtLeast(0) }
+            var y = top.toFloat()
             boxes.clear()
             for (name in order) {
                 val child = findViewWithTag<View>("native-fs-$name")
-                if (name == "stage") y += dp(8)
+                if (name == "stage" && !glass) y += dp(8)
                 val hh = if (name == "stage") stageHeight else heights.getValue(name)
-                val rect = android.graphics.Rect(gutter, y, width - gutter, y + hh)
+                val rect =
+                    android.graphics.Rect(
+                        gutter,
+                        kotlin.math.round(y).toInt(),
+                        width - gutter,
+                        kotlin.math.round(y + if (name == "actions") dp(48) else hh).toInt(),
+                    )
                 boxes[child] = rect
                 child.measure(
                     MeasureSpec.makeMeasureSpec(rect.width(), MeasureSpec.EXACTLY),
                     MeasureSpec.makeMeasureSpec(rect.height(), MeasureSpec.EXACTLY),
                 )
-                y += hh + gap + if (name == "stage") dp(8) else 0
+                y += hh + gap + if (name == "stage" && !glass) dp(8) else 0
             }
         }
 

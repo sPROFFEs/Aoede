@@ -89,6 +89,48 @@ class NativeClientTest {
     }
 
     @Test
+    fun refreshingAnUnchangedPageKeepsItsViewsAndOnlyReplacesChangedData() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(lifecycle.get(), app)
+        ui.screen("Starting")
+        val workers =
+            NativeApi::class
+                .java
+                .getDeclaredField("workers")
+                .apply { isAccessible = true }
+                .get(app.nativeApi) as java.util.concurrent.ThreadPoolExecutor
+        fun refresh(value: String) {
+            val before = workers.completedTaskCount
+            ui.load(
+                "Saved collection",
+                "/api/playlists/7",
+                read = { JSONObject().put("label", value) },
+                stableKey = "fixture-layout",
+            ) {
+                ui.label((it as JSONObject).getString("label"))
+            }
+            val deadline = System.nanoTime() + 5_000_000_000L
+            while (workers.completedTaskCount <= before && System.nanoTime() < deadline) Thread
+                .sleep(5)
+            assertTrue(workers.completedTaskCount > before)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        refresh("Original content")
+        val original = ui.content.getChildAt(0)
+        refresh("Original content")
+        assertSame(original, ui.content.getChildAt(0))
+        refresh("Updated content")
+        assertNotSame(original, ui.content.getChildAt(0))
+        assertEquals(
+            "Updated content",
+            (ui.content.getChildAt(0) as android.widget.TextView).text.toString(),
+        )
+        ui.close()
+        lifecycle.pause().stop().destroy()
+    }
+
+    @Test
     fun navigationSnapshotRestoresTheRouteWithoutSavingSecretsOrCrossingAccounts() {
         context()
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
@@ -105,6 +147,116 @@ class NativeClientTest {
         assertFalse(ui.restoreState(state))
         ui.close()
         lifecycle.pause().stop().destroy()
+    }
+
+    @Test
+    fun coverUploadSendsTheActualImageTypeToTheExistingValidatedController() {
+        val server = ServerSocket(0, 1, InetAddress.getByName("127.0.0.1"))
+        app.nativeApi.configure("http://127.0.0.1:${server.localPort}")
+        context()
+        val folder = java.io.File(app.cacheDir, "updates").apply { mkdirs() }
+        val image = java.io.File(folder, "native-upload-fixture.png")
+        image.writeBytes(app.assets.open("web/assets/img/default_cover.png").use { it.readBytes() })
+        val provider =
+            object : android.content.ContentProvider() {
+                override fun onCreate() = true
+
+                override fun getType(uri: Uri) = "image/png"
+
+                override fun openFile(uri: Uri, mode: String) =
+                    android.os.ParcelFileDescriptor.open(
+                        image,
+                        android.os.ParcelFileDescriptor.MODE_READ_ONLY,
+                    )
+
+                override fun query(
+                    uri: Uri,
+                    projection: Array<out String>?,
+                    selection: String?,
+                    selectionArgs: Array<out String>?,
+                    sortOrder: String?,
+                ): android.database.Cursor? = null
+
+                override fun insert(uri: Uri, values: android.content.ContentValues?): Uri? = null
+
+                override fun delete(
+                    uri: Uri,
+                    selection: String?,
+                    selectionArgs: Array<out String>?,
+                ) = 0
+
+                override fun update(
+                    uri: Uri,
+                    values: android.content.ContentValues?,
+                    selection: String?,
+                    selectionArgs: Array<out String>?,
+                ) = 0
+            }
+        provider.attachInfo(
+            app,
+            android.content.pm.ProviderInfo().apply { authority = "native.upload.fixture" },
+        )
+        org.robolectric.shadows.ShadowContentResolver.registerProviderInternal(
+            "native.upload.fixture",
+            provider,
+        )
+        val uri = Uri.parse("content://native.upload.fixture/cover.png")
+        val part = java.util.concurrent.atomic.AtomicReference("")
+        val worker =
+            Thread {
+                    server.accept().use { socket ->
+                        val input = socket.getInputStream()
+                        fun line(): String {
+                            val text = StringBuilder()
+                            while (true) {
+                                val n = input.read()
+                                if (n < 0 || n == 10) return text.toString().trimEnd('\r')
+                                text.append(n.toChar())
+                            }
+                        }
+                        line()
+                        val headers =
+                            generateSequence { line().takeIf { it.isNotEmpty() } }.toList()
+                        val length =
+                            headers
+                                .first { it.startsWith("Content-Length:", true) }
+                                .substringAfter(':')
+                                .trim()
+                                .toInt()
+                        val bytes = ByteArray(length)
+                        var count = 0
+                        while (count < length) {
+                            val n = input.read(bytes, count, length - count)
+                            check(n > 0)
+                            count += n
+                        }
+                        part.set(bytes.toString(Charsets.ISO_8859_1))
+                        val body = "{\"ok\":true}"
+                        socket
+                            .getOutputStream()
+                            .write(
+                                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\nConnection: close\r\n\r\n$body"
+                                    .toByteArray()
+                            )
+                    }
+                }
+                .apply {
+                    isDaemon = true
+                    start()
+                }
+        try {
+            val result =
+                app.nativeApi.upload("/api/playlists/1/cover/upload", "cover_file", uri)
+                    as JSONObject
+            assertTrue(result.getBoolean("ok"))
+            assertTrue(part.get().contains("Content-Type: image/png\r\n"))
+            assertTrue(part.get().contains("name=\"cover_file\""))
+            assertFalse(part.get().contains("Content-Type: application/octet-stream"))
+        } finally {
+            server.close()
+            worker.join(1000)
+            image.delete()
+        }
     }
 
     @Test
@@ -368,8 +520,10 @@ class NativeClientTest {
         val field =
             NativePlayback::class.java.getDeclaredField("engine").apply { isAccessible = true }
         val engine = field.get(player)
+        val revision = player.queueRevision
         player.enqueue(song(9))
         player.enqueue(song(10))
+        assertTrue(player.queueRevision > revision)
         assertEquals(listOf("7", "9", "10", "8"), player.queue.map(NativeTrack::reference))
         assertTrue(player.moveQueued(2, 1))
         assertEquals(listOf("7", "10", "9", "8"), player.queue.map(NativeTrack::reference))

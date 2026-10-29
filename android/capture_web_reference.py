@@ -54,6 +54,40 @@ def check_sidebar(browser, output):
     (output / "sidebar-layout.json").write_text(json.dumps(measurements, indent=2) + "\n")
 
 
+def check_collection_titles(browser, output):
+    measurements = []
+    for theme in ("classic", "glass", "vitrine"):
+        for scheme in ("dark", "light"):
+            for width in (320, 400, 1280):
+                page = browser.new_page(viewport={"width": width, "height": 850}, color_scheme=scheme)
+                page.route("**/*", lambda route: route.continue_() if route.request.url.startswith("http://127.0.0.1:8765/") else route.abort())
+                page.goto(f"http://127.0.0.1:8765/?theme={theme}")
+                page.wait_for_function("typeof window.loadView === 'function'")
+                page.evaluate("loadView('playlist', '1')")
+                page.wait_for_selector(".playlist-title")
+                page.evaluate("document.fonts.ready")
+                for title in ("Trap", "Liked Songs", "2000s", "Evening essentials", "Álbum del verano", "A" * 180):
+                    data = page.evaluate("""value => {
+                        const h=document.querySelector('.playlist-title');h.textContent=value;
+                        const probe=h.cloneNode(true);probe.removeAttribute('id');
+                        Object.assign(probe.style,{position:'fixed',visibility:'hidden',whiteSpace:'nowrap',width:'max-content',maxWidth:'none',margin:'0'});
+                        h.parentElement.append(probe);const needed=probe.getBoundingClientRect().width;probe.remove();
+                        const range=document.createRange();range.selectNodeContents(h);
+                        const rects=[...range.getClientRects()];
+                        return {lines:new Set(rects.map(r=>r.top)).size,
+                            right:Math.max(...rects.map(r=>r.right)),
+                            width:innerWidth,pageWidth:document.documentElement.scrollWidth,
+                            needed,available:h.parentElement.clientWidth};
+                    }""", title)
+                    if len(title) < 40 and data["needed"] <= data["available"]:
+                        assert data["lines"] == 1, f"{theme}/{scheme}/{width}/{title}: {data}"
+                    assert data["right"] <= data["width"] + 1, (theme, width, title, data)
+                    assert data["pageWidth"] <= data["width"] + 1, (theme, width, title, data)
+                    measurements.append({"theme": theme, "scheme": scheme, "viewport": width, "title": title, **data})
+                page.close()
+    (output / "collection-title-layout.json").write_text(json.dumps(measurements, indent=2) + "\n")
+
+
 def capture():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -86,6 +120,8 @@ def capture():
             browser.close()
             print("Verified centred covers and hidden, working scrolling across three desktop themes and two widths.")
             return
+        if not args.tokens_only:
+            check_collection_titles(browser, args.output)
         for theme in ("classic", "glass", "vitrine"):
             tokens[theme] = {}
             for scheme in ("dark", "light"):

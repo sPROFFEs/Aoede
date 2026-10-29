@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.1 (31)** connects to **Aoede 1.3.1+** with native Kotlin screens and Media3 playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.2 (32)** connects to **Aoede 1.3.1+** with native Kotlin screens and Media3 playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 ## Install and update
 
@@ -64,8 +64,9 @@ Add the Aoede widget through your launcher's widget picker. It uses the shared n
 
 | File | Purpose |
 |---|---|
-| `aoede-android.apk` | Current signed native client, Android 1.2.1/code 31. |
+| `aoede-android.apk` | Current signed native client, Android 1.2.2/code 32. |
 | `aoede-android-source.zip` | Complete Android project, tests, editable compatibility frontend and compiler. |
+| `aoede-android-native-1.2.1.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-native-1.2.0.apk` / `-source.zip` | Previous native client backup. |
 | `aoede-android-webview-1.1.22.apk` / `-source.zip` | Previous installed web client backup. |
 | `aoede-android-wrapper-1.0.5.apk` / `-source.zip` | Original remote-wrapper backup. |

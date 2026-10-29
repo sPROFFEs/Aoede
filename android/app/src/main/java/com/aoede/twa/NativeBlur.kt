@@ -76,13 +76,37 @@ class NativeBackdrop(
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var snapshot: Bitmap? = null
     private var last = 0L
+    private var dirty = true
+    private var backgroundRevision = -1L
+    private var gpu: NativeGpuBackdrop? = null
     private val location = IntArray(2)
     private val origin = IntArray(2)
     private var observer: android.view.ViewTreeObserver? = null
     private val scroll =
-        android.view.ViewTreeObserver.OnScrollChangedListener { target.invalidate() }
+        android.view.ViewTreeObserver.OnScrollChangedListener {
+            dirty = true
+            target.invalidate()
+        }
     private val layout =
-        android.view.ViewTreeObserver.OnGlobalLayoutListener { target.invalidate() }
+        android.view.ViewTreeObserver.OnGlobalLayoutListener {
+            dirty = true
+            target.invalidate()
+        }
+    private val preDraw =
+        android.view.ViewTreeObserver.OnPreDrawListener {
+            val revision =
+                ((scene.parent as? View)?.background as? NativeArtworkBackground)?.revision ?: 0L
+            if ((scene.isDirty || revision != backgroundRevision) && target.isShown) {
+                backgroundRevision = revision
+                dirty = true
+                target.invalidate()
+            }
+            true
+        }
+    private val saturationFilter =
+        android.graphics.ColorMatrixColorFilter(
+            android.graphics.ColorMatrix().apply { setSaturation(saturation) }
+        )
 
     init {
         target.addOnAttachStateChangeListener(this)
@@ -104,11 +128,43 @@ class NativeBackdrop(
                 bottomRadius,
             )
         canvas.clipPath(Path().apply { addRoundRect(rect, corners, Path.Direction.CW) })
-        if (
+        val hardware = android.os.Build.VERSION.SDK_INT >= 31 && canvas.isHardwareAccelerated
+        if (hardware && scene.width > 0 && scene.height > 0) {
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                val material =
+                    gpu
+                        ?: NativeGpuBackdrop(
+                                blurDp * target.resources.displayMetrics.density,
+                                saturationFilter,
+                            )
+                            .also { gpu = it }
+                material.draw(canvas, bounds.width(), bounds.height(), dirty) { capture, padding ->
+                    target.getLocationOnScreen(location)
+                    (scene.parent as? View)?.let { parent ->
+                        parent.getLocationOnScreen(origin)
+                        capture.save()
+                        capture.translate(
+                            padding + origin[0] - location[0],
+                            padding + origin[1] - location[1],
+                        )
+                        parent.background?.draw(capture)
+                        capture.restore()
+                    }
+                    scene.getLocationOnScreen(origin)
+                    capture.translate(
+                        padding + origin[0] - location[0],
+                        padding + origin[1] - location[1],
+                    )
+                    scene.draw(capture)
+                }
+                dirty = false
+            }
+        } else if (
             scene.width > 0 &&
                 scene.height > 0 &&
-                (snapshot == null || SystemClock.uptimeMillis() - last >= 40)
+                (snapshot == null || dirty && SystemClock.uptimeMillis() - last >= 40)
         ) {
+            dirty = false
             last = SystemClock.uptimeMillis()
             val bitmap =
                 Bitmap.createBitmap(
@@ -143,25 +199,28 @@ class NativeBackdrop(
             bitmap.recycle()
             snapshot?.recycle()
             snapshot = blurred
-        } else if (scene.width > 0 && scene.height > 0) {
+        } else if (dirty && scene.width > 0 && scene.height > 0) {
             target.postInvalidateDelayed(
                 (40 - (SystemClock.uptimeMillis() - last)).coerceAtLeast(1)
             )
         }
-        snapshot?.let { image ->
-            scene.getLocationOnScreen(origin)
-            target.getLocationOnScreen(location)
-            paint.color = Color.WHITE
-            paint.style = Paint.Style.FILL
-            val x = (origin[0] - location[0]).toFloat()
-            val y = (origin[1] - location[1]).toFloat()
-            paint.colorFilter =
-                android.graphics.ColorMatrixColorFilter(
-                    android.graphics.ColorMatrix().apply { setSaturation(saturation) }
+        if (!hardware)
+            snapshot?.let { image ->
+                scene.getLocationOnScreen(origin)
+                target.getLocationOnScreen(location)
+                paint.color = Color.WHITE
+                paint.style = Paint.Style.FILL
+                val x = (origin[0] - location[0]).toFloat()
+                val y = (origin[1] - location[1]).toFloat()
+                paint.colorFilter = saturationFilter
+                canvas.drawBitmap(
+                    image,
+                    null,
+                    RectF(x, y, x + scene.width, y + scene.height),
+                    paint,
                 )
-            canvas.drawBitmap(image, null, RectF(x, y, x + scene.width, y + scene.height), paint)
-            paint.colorFilter = null
-        }
+                paint.colorFilter = null
+            }
         paint.style = Paint.Style.FILL
         paint.color = shade
         canvas.drawRect(rect, paint)
@@ -191,9 +250,11 @@ class NativeBackdrop(
     }
 
     override fun onViewAttachedToWindow(view: View) {
+        dirty = true
         observer = scene.viewTreeObserver
         observer?.addOnScrollChangedListener(scroll)
         observer?.addOnGlobalLayoutListener(layout)
+        observer?.addOnPreDrawListener(preDraw)
     }
 
     override fun onViewDetachedFromWindow(view: View) {
@@ -202,11 +263,15 @@ class NativeBackdrop(
             ?.let {
                 it.removeOnScrollChangedListener(scroll)
                 it.removeOnGlobalLayoutListener(layout)
+                it.removeOnPreDrawListener(preDraw)
             }
         observer = null
+        if (android.os.Build.VERSION.SDK_INT >= 31) gpu?.release()
+        gpu = null
         snapshot?.eraseColor(Color.TRANSPARENT)
         snapshot?.recycle()
         snapshot = null
+        dirty = true
     }
 
     override fun setAlpha(alpha: Int) {}
@@ -216,14 +281,61 @@ class NativeBackdrop(
     @Deprecated("Deprecated in Android") override fun getOpacity() = PixelFormat.TRANSLUCENT
 }
 
+/** Record only the visible material and its blur fringe, not a full-screen bitmap per frame. */
+@androidx.annotation.RequiresApi(31)
+internal class NativeGpuBackdrop(radius: Float, filter: ColorFilter) {
+    private val node = android.graphics.RenderNode("Aoede backdrop")
+    private val padding = kotlin.math.ceil(radius * 2).toInt()
+
+    init {
+        node.setRenderEffect(
+            android.graphics.RenderEffect.createColorFilterEffect(
+                filter,
+                android.graphics.RenderEffect.createBlurEffect(
+                    radius,
+                    radius,
+                    android.graphics.Shader.TileMode.CLAMP,
+                ),
+            )
+        )
+    }
+
+    fun draw(
+        canvas: Canvas,
+        width: Int,
+        height: Int,
+        dirty: Boolean,
+        record: (Canvas, Float) -> Unit,
+    ) {
+        if (width <= 0 || height <= 0) return
+        val w = width + padding * 2
+        val h = height + padding * 2
+        val resized = node.setPosition(-padding, -padding, width + padding, height + padding)
+        if (dirty || resized || !node.hasDisplayList()) {
+            val recording = node.beginRecording(w, h)
+            try {
+                record(recording, padding.toFloat())
+            } finally {
+                node.endRecording()
+            }
+        }
+        canvas.drawRenderNode(node)
+    }
+
+    fun release() = node.discardDisplayList()
+}
+
 /** The one Glass body artwork layer; individual materials crop this same scene. */
 class NativeArtworkBackground(private val base: Int) : Drawable() {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private var original: Bitmap? = null
     private var blurred: Bitmap? = null
+    var revision = 0L
+        private set
 
     fun artwork(bitmap: Bitmap?) {
         if (original === bitmap) return
+        revision++
         original = bitmap
         blurred?.recycle()
         blurred = null

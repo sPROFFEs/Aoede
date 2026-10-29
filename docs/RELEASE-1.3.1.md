@@ -1,6 +1,22 @@
 # Aoede 1.3.1
 
-Android now follows the mobile web layouts for Classic, Glass and Vitrine, using the web templates, final CSS values and original interface vectors as the source. This update also completes native Wrapped, collection dialogs and queue controls, improves private verification input, and fixes the desktop library sidebar alignment.
+Android 1.2.2 improves native artwork loading, rendering and mobile player layout, and completes additional collection and administration flows. Server updates and library maintenance now show operation progress in the native client.
+
+## Android 1.2.2 · build 32
+
+- Covers share a bounded decoded-image cache within the active account/backend. Concurrent requests are coalesced, local fallback redirects are followed without forwarding credentials off-origin, and offline data images decode outside the UI thread. Failed or HTML responses retain a placeholder.
+- Stationary translucent surfaces reuse their scene instead of scheduling continuous full-screen captures. Android 12+ uses a cropped GPU backdrop for hardware-rendered windows; older Android and software captures retain the sampled fallback. Position updates reuse unchanged vectors and text. Queue changes use a revision counter rather than serializing the entire queue on each player refresh.
+- Classic and Vitrine navigation materials extend behind Android's gesture/button area with safe padding for controls. Glass keeps its floating offset. Keyboard resizing, fullscreen player bounds and navigation contrast no longer introduce a separate bottom band. Home quick-access rows no longer add an extra final gap.
+- Classic, Glass and Vitrine player geometry follows the final mobile CSS: theme-specific text, artwork sizing/mask, materials, spacing, responsive transport controls and overflow behavior. Buttons discard Android's implicit elevation and retain the web themes' shapes.
+- Playlist/album/mix titles keep their natural text width in both the web and native clients, including padding; short names no longer wrap their final character. Closing a replaced native interface cannot detach the current interface's playback callbacks.
+- Refreshing retains content while fetching; unchanged-page reuse has an explicit layout key so changing a library or monitor tab cannot retain the wrong screen.
+- Server check/apply operations open their actual job progress, including phases, percentage and completion/failure. The protected job response can hand native monitoring to the existing updater while Concierge restarts; its capability stays in memory and never enters navigation state. Library maintenance uses the same visible job flow.
+- The administrative library keeps its search field and results together, plays a tapped recording and exposes deletion separately. Duplicate results retain match-type/text filtering, recommended copies, playback comparison and explicit deletion.
+- Smart playlists include all web rule fields, preview, editing and refresh. Collection actions include choosing a local track as cover and syncing an existing copy from its source.
+- Cover uploads send the actual validated image content type. Changing a cover or avatar invalidates the native artwork cache.
+- Outbound federation peers render the actual array response and support issuing, copying, revoking and deleting tokens through the existing protected controllers. The one-time token sheet blocks screenshots and excludes its text from saved state.
+- Login restriction information is available beside each account without leaving the user list.
+
 
 ## Android 1.2.1 · build 31
 
@@ -40,14 +56,14 @@ Update the server to **1.3.1 before using the native interface**. Android remain
 
 ## Downloads and compatibility
 
-`aoede-android.apk` and `aoede-android-source.zip` contain Android 1.2.1/code 31. Android 1.2.0 is retained as `aoede-android-native-1.2.0.apk` and `aoede-android-native-1.2.0-source.zip`. The release also preserves Android 1.1.22 as `aoede-android-webview-1.1.22.apk` and its complete source, the original 1.0.5 wrapper APK/source, and all six Desktop 1.2.10 archives unchanged. Desktop wrappers and the original Android wrapper do not need recompilation.
+`aoede-android.apk` and `aoede-android-source.zip` contain Android 1.2.2/code 32. Android 1.2.1 is retained as `aoede-android-native-1.2.1.apk` and its matching source archive. Android 1.2.0 is retained as `aoede-android-native-1.2.0.apk` and `aoede-android-native-1.2.0-source.zip`. The release also preserves Android 1.1.22 as `aoede-android-webview-1.1.22.apk` and its complete source, the original 1.0.5 wrapper APK/source, and all six Desktop 1.2.10 archives unchanged. Desktop wrappers and the original Android wrapper do not need recompilation.
 
 The current distribution signature and package identity are retained. Prefer the in-app compatibility option when checking old device data. Installing a lower-version backup normally requires uninstalling and removes app data; backups cannot be installed alongside the current client.
 
 ## Validation and limits
 
-The full repository check passed with **402 Python tests passed and 2 skipped**, alongside the JavaScript suites. Android includes **140 JVM checks**, release lint and release assembly. Browser checks cover three themes in light/dark mode, desktop sidebar alignment and private verification keys. Opt-in native captures exercise the same synthetic routes, dialogs and Wrapped completion. The complete source archive is checked for standalone frontend/icon generation. Local shell lint was unavailable; CI enforces it.
+The full repository check passed with **403 Python tests passed and 2 skipped**, alongside the JavaScript suites. Android includes **154 JVM checks**, release lint and release assembly. Browser checks cover three themes in light/dark mode, desktop sidebar alignment, 108 collection-title cases and private verification keys. Opt-in native captures assert the active theme and exercise the same synthetic routes, dialogs, updater restart and Wrapped completion using real inset handling. The complete source archive is checked for standalone frontend/icon generation. Local shell lint was unavailable; CI enforces it.
 
-The earlier Android 1.2.0 native client opened, authenticated and played a test recording on an isolated API 26 emulator with its WebView provider disabled. That run is not evidence for every current layout or uninterrupted playback.
+The Android 1.2.2 debug build also authenticated, loaded redirected covers and played a synthetic recording with advancing media position on an isolated API 26 emulator with WebView disabled. Media-session next/pause controls and fullscreen drawing behind three-button navigation were checked. The fixture audio is silent; this does not verify audible Bluetooth output, release-only behavior, modern GPU rendering or uninterrupted playback on a physical device.
 
 Physical Pixel/GrapheneOS, Samsung/One UI, Bluetooth/AirPods, Vitreo and LibrePods behavior is not established by these software checks. The earlier intermittent Bluetooth silence report is not declared resolved. See the [native migration guide](ANDROID-NATIVE-MIGRATION.md) for data ownership limits and the remaining device acceptance matrix.

@@ -114,7 +114,15 @@ class NativeHttpSource(private val api: NativeApi, private val accountScope: Str
 class NativePlayback(private val app: AoedeApp) {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: ExoPlayer? = null
+    var queueRevision = 0L
+        private set
+
     private var tracks = listOf<JSONObject>()
+        set(value) {
+            field = value
+            queueRevision++
+        }
+
     private var ownerScope: String? = null
 
     private fun ownsAccount() =

@@ -1052,7 +1052,11 @@ async def get_admin_job_status(
     job = operations_service.get_admin_job(db, job_id)
     if not job:
         return JSONResponse({"error": "Job not found"}, status_code=404)
-    return JSONResponse(job)
+    if job.get("job_type") in {"check_update", "apply_update"}:
+        job["monitor_endpoint"] = (
+            f"/updater/api/jobs/{job_id}?access={operations_service.get_update_monitor_token(job_id)}"
+        )
+    return JSONResponse(job, headers={"Cache-Control": "private, no-store"})
 
 
 @router.get("/api/update-notification")

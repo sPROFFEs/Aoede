@@ -178,17 +178,24 @@ class NativeIconButton(
     private val ink: Int,
     private val theme: String = "classic",
 ) : AppCompatImageButton(context) {
+    private var drawnColor = ink
+    private var drawnFilled = false
+
     init {
         scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
     }
 
     var text: String = ""
         set(value) {
+            if (field == value && drawable != null) return
             field = value
-            setImageDrawable(NativeIcon(value, ink, theme))
+            setImageDrawable(NativeIcon(value, drawnColor, theme, drawnFilled))
         }
 
     fun color(value: Int, filled: Boolean = false) {
+        if (drawnColor == value && drawnFilled == filled && drawable != null) return
+        drawnColor = value
+        drawnFilled = filled
         setImageDrawable(NativeIcon(text, value, theme, filled))
     }
 }
