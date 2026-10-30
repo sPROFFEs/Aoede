@@ -9,6 +9,7 @@ import android.text.InputType
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -6191,7 +6192,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         val card = LinearLayout(activity).apply {
             tag = "native_update_notice"
             orientation = LinearLayout.VERTICAL
-            background = shape(design.card, if (theme == "glass") 20 else if (theme == "classic") 8 else 12)
+            background = shape(design.surface, if (theme == "glass") 20 else if (theme == "classic") 8 else 12)
             setPadding(dp(16), dp(16), dp(16), dp(16))
             val lp = LinearLayout.LayoutParams(-1, -2).apply {
                 bottomMargin = dp(20)
@@ -6289,7 +6290,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
         actions.addView(dismissBtn, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
 
-        button(text("updates.install", "Update app"), actions, accent = true) {
+        button(text("updates.install", "Update app"), actions, primary = true) {
             app.updater.offer(activity)
         }.apply {
             layoutParams = LinearLayout.LayoutParams(-2, dp(38))

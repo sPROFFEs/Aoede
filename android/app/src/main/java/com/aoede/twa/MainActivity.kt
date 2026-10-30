@@ -25,7 +25,7 @@ class MainActivity : AppCompatActivity() {
     private val app
         get() = application as AoedeApp
 
-    private var nativeUi: NativeUi? = null
+    internal var nativeUi: NativeUi? = null
     private var nativeFileCallback: ((Uri) -> Unit)? = null
     private val nativeFile =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
