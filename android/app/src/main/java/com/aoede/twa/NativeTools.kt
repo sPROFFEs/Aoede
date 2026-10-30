@@ -197,6 +197,24 @@ class NativeTools(private val ui: NativeUi) {
                     "globe",
                     account,
                 )
+            val deletionPanel =
+                settingsPanel(
+                    "Track deletion requests",
+                    "Review decisions and administrator notes on tracks you requested to be removed.",
+                    "trash-2",
+                    account,
+                )
+            val requestsBtn = ui.button("View deletion requests", deletionPanel) {
+                myDeleteRequests()
+            }
+            api.execute({
+                runCatching { api.request("/api/tracks/delete-requests/unseen-count") }.getOrNull()
+            }) { res, _ ->
+                val unseen = (res as? JSONObject)?.optInt("unseen_count") ?: 0
+                if (unseen > 0) {
+                    requestsBtn.text = "View deletion requests ($unseen new)"
+                }
+            }
             ui.button(
                 when (api.account?.optString("language")) {
                     "es" -> "Español"
@@ -816,6 +834,74 @@ class NativeTools(private val ui: NativeUi) {
                 ui.button("Previous page") {
                     libraryBrowser(kind, query, (offset - 40).coerceAtLeast(0))
                 }
+        }
+    }
+
+    fun myDeleteRequests() {
+        ui.sheet("Deletion requests") { body, _ ->
+            ui.musicLoader(body)
+            api.execute({
+                val requests = runCatching { api.request("/api/tracks/delete-requests/mine") }.getOrNull()
+                runCatching { api.request("/api/tracks/delete-requests/ack", "POST", JSONObject()) }
+                requests
+            }) { res, error ->
+                body.removeAllViews()
+                val items = NativeTrack.items((res as? JSONObject)?.optJSONArray("items"))
+                if (items.isEmpty()) {
+                    ui.label("No deletion requests submitted.", 14, body, ui.muted).apply {
+                        gravity = android.view.Gravity.CENTER_HORIZONTAL
+                        setPadding(0, ui.dp(24), 0, ui.dp(24))
+                    }
+                    return@execute
+                }
+                for (item in items) {
+                    val status = item.optString("status", "pending")
+                    val statusColor = when (status) {
+                        "approved" -> 0xff22c55e.toInt()
+                        "rejected" -> 0xffff6479.toInt()
+                        else -> ui.muted
+                    }
+                    val card = LinearLayout(ui.activity).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(ui.dp(14), ui.dp(12), ui.dp(14), ui.dp(12))
+                        background = ui.design.shape(ui.design.wash, 10)
+                    }
+                    body.addView(card, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = ui.dp(10) })
+                    val titleRow = LinearLayout(ui.activity).apply { gravity = android.view.Gravity.CENTER_VERTICAL }
+                    card.addView(titleRow, LinearLayout.LayoutParams(-1, -2))
+                    titleRow.addView(
+                        TextView(ui.activity).apply {
+                            text = item.optString("track_title", "Unknown Track")
+                            ui.design.typography(this, 14f, 700)
+                            setTextColor(ui.ink)
+                        },
+                        LinearLayout.LayoutParams(0, -2, 1f)
+                    )
+                    titleRow.addView(
+                        TextView(ui.activity).apply {
+                            text = status.uppercase()
+                            ui.design.typography(this, 11f, 700)
+                            setTextColor(statusColor)
+                            background = ui.design.shape(statusColor and 0x1fffffff, 999)
+                            setPadding(ui.dp(8), ui.dp(2), ui.dp(8), ui.dp(2))
+                        },
+                        LinearLayout.LayoutParams(-2, -2)
+                    )
+                    ui.label(item.optString("track_artist"), 12, card, ui.muted)
+                    val reason = item.optString("reason")
+                    if (reason.isNotBlank()) {
+                        ui.label("Your reason: $reason", 13, card, ui.ink).apply {
+                            (layoutParams as LinearLayout.LayoutParams).topMargin = ui.dp(6)
+                        }
+                    }
+                    val note = item.optString("review_note")
+                    if (note.isNotBlank()) {
+                        ui.label("Admin note: $note", 13, card, statusColor).apply {
+                            (layoutParams as LinearLayout.LayoutParams).topMargin = ui.dp(4)
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -2310,12 +2396,30 @@ class NativeTools(private val ui: NativeUi) {
             partySignature = signature
             partyParticipants?.let { parent ->
                 parent.removeAllViews()
-                ui.chipBar(
-                    NativeTrack.items(room.optJSONArray("participants")).map {
-                        it.optString("username") to {}
-                    },
-                    parent = parent,
-                )
+                val participants = NativeTrack.items(room.optJSONArray("participants"))
+                if (participants.isNotEmpty()) {
+                    val flow = NativeFlowLayout(ui.activity, ui.dp(8))
+                    parent.addView(flow, LinearLayout.LayoutParams(-1, -2))
+                    for (p in participants) {
+                        val chip = TextView(ui.activity).apply {
+                            text = p.optString("username")
+                            ui.design.typography(this, 12f, 600)
+                            setTextColor(ui.ink)
+                            background = ui.design.shape(ui.design.wash, 999)
+                            setPadding(ui.dp(10), ui.dp(5), ui.dp(12), ui.dp(5))
+                            setCompoundDrawablesRelative(
+                                NativeIcon("user", ui.muted, ui.design.theme).apply {
+                                    setBounds(0, 0, ui.dp(14), ui.dp(14))
+                                },
+                                null,
+                                null,
+                                null,
+                            )
+                            compoundDrawablePadding = ui.dp(6)
+                        }
+                        flow.addView(chip)
+                    }
+                }
             }
             val list = partyQueue ?: return
             list.removeAllViews()
@@ -2587,6 +2691,7 @@ class NativeTools(private val ui: NativeUi) {
         ui.tabs(
             listOf("Users", "Library", "Duplicates", "Maintenance", "Federation"),
             keys.indexOf(tab),
+            icons = listOf("users", "library", "copy", "settings", "globe"),
         ) {
             admin(keys[it])
         }
@@ -2654,63 +2759,100 @@ class NativeTools(private val ui: NativeUi) {
                     "Manage roles, login restrictions and account access.",
                     "users",
                 )
-            for (user in NativeTrack.items((value as JSONObject).optJSONArray("users"))) ui.row(
-                    user.optString("username"),
-                    if (user.optBoolean("is_admin")) "Administrator" else "Listener",
-                    parent = accounts,
-                    coverSize = 0,
-                ) {
-                    ui.choose(
-                        user.optString("username"),
-                        listOf(
-                            "Login restriction information",
-                            "Change role",
-                            "Reset password",
+            for (user in NativeTrack.items((value as JSONObject).optJSONArray("users"))) {
+                val id = user.get("id").toString()
+                val isAdmin = user.optBoolean("is_admin")
+                val isSelf = user.optString("username") == api.username
+                val username = user.optString("username")
+                val subtitle = "ID: $id · ${if (isAdmin) "Administrator" else "Listener"}${if (isSelf) " (You)" else ""}"
+                val row =
+                    ui.row(
+                        username,
+                        subtitle,
+                        parent = accounts,
+                        coverSize = 36,
+                    ) {
+                        ui.choose(
+                            username,
+                            listOf(
+                                "Login restriction information",
+                                "Change role",
+                                "Reset password",
+                                "Delete user",
+                            ),
+                        ) { action ->
+                            when (action) {
+                                0 -> loginRestriction(user)
+                                1 ->
+                                    ui.confirm("Change role", username) {
+                                        ui.request(
+                                            "/admin/users/toggle-role",
+                                            form = mapOf("user_id" to id),
+                                            done = { adminUsers() },
+                                        )
+                                    }
+                                2 ->
+                                    ui.prompt("New password", password = true) {
+                                        ui.request(
+                                            "/admin/users/reset-password",
+                                            form = mapOf("user_id" to id, "new_password" to it),
+                                            done = { adminUsers() },
+                                        )
+                                    }
+                                3 ->
+                                    ui.confirm(
+                                        "Delete user",
+                                        "Permanently remove this user and their server data?",
+                                    ) {
+                                        ui.request(
+                                            "/admin/users/delete",
+                                            form = mapOf("user_id" to id),
+                                            done = { adminUsers() },
+                                        )
+                                    }
+                            }
+                        }
+                    }
+                (row.getChildAt(0) as? ImageView)?.apply {
+                    setImageDrawable(NativeIcon(if (isAdmin) "shield" else "user", if (isAdmin) ui.accent else ui.muted, ui.theme))
+                    setPadding(ui.dp(6), ui.dp(6), ui.dp(6), ui.dp(6))
+                }
+                ui.iconButton(row, "info", "Login restriction for $username") {
+                    loginRestriction(user)
+                }
+                ui.iconButton(row, "key-round", "Reset password for $username") {
+                    ui.prompt("New password", password = true) {
+                        ui.request(
+                            "/admin/users/reset-password",
+                            form = mapOf("user_id" to id, "new_password" to it),
+                            done = { adminUsers() },
+                        )
+                    }
+                }
+                if (!isSelf) {
+                    ui.iconButton(row, "shield", "Toggle role for $username") {
+                        ui.confirm("Change role", "Toggle role for $username?") {
+                            ui.request(
+                                "/admin/users/toggle-role",
+                                form = mapOf("user_id" to id),
+                                done = { adminUsers() },
+                            )
+                        }
+                    }
+                    ui.iconButton(row, "trash-2", "Delete user $username") {
+                        ui.confirm(
                             "Delete user",
-                        ),
-                    ) { action ->
-                        val id = user.get("id").toString()
-                        when (action) {
-                            0 -> loginRestriction(user)
-                            1 ->
-                                ui.confirm("Change role", user.optString("username")) {
-                                    ui.request(
-                                        "/admin/users/toggle-role",
-                                        form = mapOf("user_id" to id),
-                                        done = { adminUsers() },
-                                    )
-                                }
-                            2 ->
-                                ui.prompt("New password", password = true) {
-                                    ui.request(
-                                        "/admin/users/reset-password",
-                                        form = mapOf("user_id" to id, "new_password" to it),
-                                        done = { adminUsers() },
-                                    )
-                                }
-                            3 ->
-                                ui.confirm(
-                                    "Delete user",
-                                    "Permanently remove this user and their server data?",
-                                ) {
-                                    ui.request(
-                                        "/admin/users/delete",
-                                        form = mapOf("user_id" to id),
-                                        done = { adminUsers() },
-                                    )
-                                }
+                            "Permanently remove $username and their server data?",
+                        ) {
+                            ui.request(
+                                "/admin/users/delete",
+                                form = mapOf("user_id" to id),
+                                done = { adminUsers() },
+                            )
                         }
                     }
                 }
-                .apply {
-                    ui.iconButton(
-                        this,
-                        "info",
-                        "Login restriction for ${user.optString("username")}",
-                    ) {
-                        loginRestriction(user)
-                    }
-                }
+            }
         }
     }
 
@@ -3228,7 +3370,21 @@ class NativeTools(private val ui: NativeUi) {
                             )
                     }
                 }
+        input.setPadding(ui.dp(14), 0, ui.dp(84), 0)
         val frame = input.parent as android.widget.FrameLayout
+        val iconName = if (time) "clock" else "calendar"
+        frame.addView(
+            NativeIconButton(ui.activity, ui.muted, ui.design.theme).apply {
+                text = iconName
+                contentDescription = "Pick $title"
+                setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(12))
+                background = null
+                setOnClickListener { input.performClick() }
+            },
+            android.widget.FrameLayout.LayoutParams(ui.dp(40), -1, android.view.Gravity.END).apply {
+                marginEnd = ui.dp(40)
+            },
+        )
         frame.addView(
             NativeIconButton(ui.activity, ui.muted, ui.design.theme).apply {
                 text = "x"
@@ -3237,7 +3393,7 @@ class NativeTools(private val ui: NativeUi) {
                 background = null
                 setOnClickListener { input.text.clear() }
             },
-            android.widget.FrameLayout.LayoutParams(ui.dp(44), -1, android.view.Gravity.END),
+            android.widget.FrameLayout.LayoutParams(ui.dp(40), -1, android.view.Gravity.END),
         )
         return input
     }
@@ -3808,13 +3964,27 @@ class NativeTools(private val ui: NativeUi) {
                     "Audit missing files, refresh incomplete metadata, or measure playback loudness.",
                     "settings",
                 )
-            for ((name, path) in
+            val tasks =
                 listOf(
-                    "Scan duplicates" to "duplicates",
-                    "Audit library" to "audit",
-                    "Rescan metadata" to "metadata-rescan",
-                    "Scan loudness" to "loudness-scan",
-                )) ui.button(name, body) { startAdminJob("/admin/api/library/$path/jobs", name) }
+                    Triple("Audit library", "Identify missing audio files and verify storage roots", "activity") to "audit",
+                    Triple("Rescan metadata", "Refresh incomplete tags, covers and artist info", "refresh-cw") to "metadata-rescan",
+                    Triple("Scan loudness", "Calculate EBU R128 loudness normalisation for consistent volume", "audio-lines") to "loudness-scan",
+                    Triple("Scan duplicates", "Detect exact matches and candidate duplicates", "copy") to "duplicates",
+                )
+            for ((info, path) in tasks) {
+                val (title, desc, iconName) = info
+                val row =
+                    ui.row(title, desc, parent = body, coverSize = 40) {
+                        startAdminJob("/admin/api/library/$path/jobs", title)
+                    }
+                (row.getChildAt(0) as? ImageView)?.apply {
+                    setImageDrawable(NativeIcon(iconName, ui.accent, ui.theme))
+                    setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8))
+                }
+                ui.iconButton(row, "play", "Run $title") {
+                    startAdminJob("/admin/api/library/$path/jobs", title)
+                }
+            }
         }
     }
 
@@ -4266,47 +4436,111 @@ class NativeTools(private val ui: NativeUi) {
     private fun federation() {
         ui.load("Administration", "/api/admin/federation/instances") { value ->
             adminHeader("federation")
-            ui.button("Add node") {
-                form(
-                    "Connected node",
-                    "/api/admin/federation/instances",
-                    listOf("name", "base_url", "api_token"),
-                    json = true,
-                ) {
-                    federation()
+            val panel =
+                ui.panel(
+                    "Connected federation nodes",
+                    "Connect this Aoede to other instances to search and play their remote libraries.",
+                    "globe",
+                )
+            val actionsBar =
+                LinearLayout(ui.activity).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    setPadding(0, 0, 0, ui.dp(12))
                 }
-            }
-            for (peer in NativeTrack.items(value)) ui.row(
-                peer.optString("name"),
-                peer.optString("status"),
-            ) {
-                val id = peer.get("id")
-                ui.choose("Node", listOf("Sync", "Enable / disable", "Remove")) { action ->
-                    when (action) {
-                        0 ->
-                            ui.request(
-                                "/api/admin/federation/instances/$id/sync",
-                                done = { federation() },
-                            )
-                        1 ->
-                            ui.request(
-                                "/api/admin/federation/instances/$id",
-                                "PATCH",
-                                JSONObject().put("enabled", !peer.optBoolean("enabled")),
-                                done = { federation() },
-                            )
-                        2 ->
-                            ui.confirm("Remove node", peer.optString("name")) {
-                                ui.request(
-                                    "/api/admin/federation/instances/$id",
-                                    "DELETE",
-                                    done = { federation() },
-                                )
-                            }
+            panel.addView(actionsBar)
+            ui.button("Add node", actionsBar, true).apply {
+                (layoutParams as LinearLayout.LayoutParams).apply {
+                    weight = 1f
+                    width = 0
+                    marginEnd = ui.dp(8)
+                }
+                setOnClickListener {
+                    form(
+                        "Connected node",
+                        "/api/admin/federation/instances",
+                        listOf("name", "base_url", "api_token"),
+                        json = true,
+                    ) {
+                        federation()
                     }
                 }
             }
-            ui.button("Outbound peers") { outboundPeers() }
+            ui.button("Outbound peers", actionsBar).apply {
+                (layoutParams as LinearLayout.LayoutParams).apply {
+                    weight = 1f
+                    width = 0
+                }
+                setOnClickListener { outboundPeers() }
+            }
+            val peers = NativeTrack.items(value)
+            if (peers.isEmpty()) {
+                ui.label("No connected federation nodes yet.", 14, panel, ui.muted)
+            }
+            for (peer in peers) {
+                val id = peer.get("id")
+                val isEnabled = peer.optBoolean("enabled", true)
+                val status = peer.optString("status", if (isEnabled) "Active" else "Disabled")
+                val row =
+                    ui.row(
+                        peer.optString("name"),
+                        "Status: $status · ${peer.optString("base_url")}",
+                        parent = panel,
+                        coverSize = 36,
+                    ) {
+                        ui.choose(
+                            peer.optString("name"),
+                            listOf(
+                                "Sync library",
+                                if (isEnabled) "Disable node" else "Enable node",
+                                "Remove node",
+                            ),
+                        ) { action ->
+                            when (action) {
+                                0 ->
+                                    ui.request(
+                                        "/api/admin/federation/instances/$id/sync",
+                                        done = { federation() },
+                                    )
+                                1 ->
+                                    ui.request(
+                                        "/api/admin/federation/instances/$id",
+                                        "PATCH",
+                                        JSONObject().put("enabled", !isEnabled),
+                                        done = { federation() },
+                                    )
+                                2 ->
+                                    ui.confirm("Remove node", peer.optString("name")) {
+                                        ui.request(
+                                            "/api/admin/federation/instances/$id",
+                                            "DELETE",
+                                            done = { federation() },
+                                        )
+                                    }
+                            }
+                        }
+                    }
+                (row.getChildAt(0) as? ImageView)?.apply {
+                    setImageDrawable(
+                        NativeIcon("globe", if (isEnabled) ui.accent else ui.muted, ui.theme)
+                    )
+                    setPadding(ui.dp(6), ui.dp(6), ui.dp(6), ui.dp(6))
+                }
+                ui.iconButton(row, "refresh-cw", "Sync library") {
+                    ui.request(
+                        "/api/admin/federation/instances/$id/sync",
+                        done = { federation() },
+                    )
+                }
+                ui.iconButton(row, "trash-2", "Remove node") {
+                    ui.confirm("Remove node", peer.optString("name")) {
+                        ui.request(
+                            "/api/admin/federation/instances/$id",
+                            "DELETE",
+                            done = { federation() },
+                        )
+                    }
+                }
+            }
         }
     }
 

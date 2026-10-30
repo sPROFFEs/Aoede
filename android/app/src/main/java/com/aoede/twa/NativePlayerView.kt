@@ -83,6 +83,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private var backdropBitmap: Bitmap? = null
     private val seek = slider("Track position", 1000)
     private val elapsed = text(12.8f)
+    private var showRemainingTime = false
+    private var userScrolledLyrics = false
+    private var followLyricBtn: TextView? = null
     private val duration = text(12.8f)
     private val controls =
         LinearLayout(context).apply {
@@ -101,7 +104,8 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private var repeat: NativeIconButton? = null
     private val volume = slider("Playback volume", 100)
     private var seeking = false
-    private var mode = "cover"
+    var mode = "cover"
+        private set
     val presentationMode
         get() = mode
 
@@ -239,6 +243,10 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         elapsed.setTextColor(0xffc5c7d1.toInt())
         duration.setTextColor(0xffc5c7d1.toInt())
         duration.gravity = Gravity.END
+        duration.setOnClickListener {
+            showRemainingTime = !showRemainingTime
+            render()
+        }
         clocks.addView(elapsed, LinearLayout.LayoutParams(0, dp(18), 1f))
         clocks.addView(duration, LinearLayout.LayoutParams(0, dp(18), 1f))
         progress.addView(clocks)
@@ -661,8 +669,43 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(12), dp(16), dp(12), dp(16))
             }
+        userScrolledLyrics = false
         scroll.addView(body)
         stage.addView(scroll, LayoutParams(-1, -1))
+        val follow =
+            TextView(context).apply {
+                text = "Follow current line"
+                design.typography(this, 13f, 600)
+                setTextColor(Color.WHITE)
+                background = design.shape(0xdd202024.toInt(), 999, true)
+                setPadding(dp(16), dp(8), dp(16), dp(8))
+                elevation = dp(6).toFloat()
+                visibility = View.GONE
+                setOnClickListener {
+                    userScrolledLyrics = false
+                    visibility = View.GONE
+                    if (lyricActive >= 0 && lyricActive < lyricLines.size) {
+                        lyricScroll?.smoothScrollTo(
+                            0,
+                            (lyricLines[lyricActive].second.top - stage.height / 3).coerceAtLeast(0),
+                        )
+                    }
+                }
+            }
+        followLyricBtn = follow
+        stage.addView(
+            follow,
+            LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+                bottomMargin = dp(16)
+            },
+        )
+        scroll.setOnTouchListener { _, event ->
+            if (event.actionMasked == MotionEvent.ACTION_MOVE) {
+                userScrolledLyrics = true
+                if (lyricLines.isNotEmpty()) follow.visibility = View.VISIBLE
+            }
+            false
+        }
         lyricScroll = scroll
         if (!apple) scroll.background = if (glass) film(18) else design.shape(0xdd121212.toInt(), 8)
         val loading = text(20f, 600).apply { text = ui.text("common.loading", "Loading…") }
@@ -678,6 +721,17 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 return@execute
             body.removeAllViews()
             val data = value as? JSONObject
+            if (data?.optBoolean("instrumental") == true) {
+                body.addView(
+                    text(24f, 600).apply {
+                        text = "Instrumental track ♪"
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        setPadding(0, dp(48), 0, dp(24))
+                    }
+                )
+                render()
+                return@execute
+            }
             val synced = data?.optString("synced_lyrics", data.optString("synced")).orEmpty()
             val parsed =
                 Regex("\\[(\\d+):(\\d+(?:\\.\\d+)?)\\](.*)")
@@ -702,16 +756,29 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             lyricLines = parsed
             if (parsed.isEmpty())
                 body.addView(
-                    text(22f, 600).apply {
+                    text(18f, 600).apply {
                         text =
                             if (error != null) "Lyrics unavailable. Try again."
                             else
                                 data
                                     ?.optString("plain_lyrics", data.optString("plain"))
                                     .orEmpty()
-                                    .ifBlank { "No lyrics available for this recording" }
+                                    .ifBlank { "No lyrics found for this track." }
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        setPadding(0, dp(48), 0, dp(24))
+                        setTextColor(0x80c5c7d1.toInt())
                     }
                 )
+            else {
+                body.addView(
+                    text(12f).apply {
+                        text = "via lrclib.net"
+                        setTextColor(0x80c5c7d1.toInt())
+                        gravity = Gravity.CENTER_HORIZONTAL
+                        setPadding(0, dp(32), 0, dp(16))
+                    }
+                )
+            }
             render()
         }
     }
@@ -760,11 +827,18 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     }
 
     private fun sleepTimer() {
-        ui.choose(
-            "Sleep timer",
-            listOf("Off", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours"),
-        ) {
-            player.setSleepTimer(listOf(0, 15, 30, 45, 60, 120)[it])
+        val current = player.sleepTimerMinutes
+        val title = if (current > 0) "Sleep timer ($current min)" else "Sleep timer"
+        val labels = listOf("Off", "15 minutes", "30 minutes", "45 minutes", "1 hour", "2 hours")
+        val values = listOf(0, 15, 30, 45, 60, 120)
+        ui.choose(title, labels) { idx ->
+            val minutes = values[idx]
+            player.setSleepTimer(minutes)
+            if (minutes > 0) {
+                ui.toast("Sleep timer set for $minutes minutes")
+            } else {
+                ui.toast("Sleep timer turned off")
+            }
         }
     }
 
@@ -776,7 +850,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 "Show artwork",
                 if (ui.app.mediaController.shuffle) "Shuffle · On" else "Shuffle · Off",
                 "Repeat · ${ui.app.mediaController.repeat}",
-                "Sleep timer",
+                if (player.sleepTimerMinutes > 0) "Sleep timer · ${player.sleepTimerMinutes}m" else "Sleep timer",
                 "Download track",
             ),
             listOf("disc-3", "shuffle", "repeat", "timer", "download"),
@@ -843,7 +917,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         copy(elapsed, time(player.position))
         copy(
             duration,
-            if (apple) "−" + time((player.duration - player.position).coerceAtLeast(0))
+            if (showRemainingTime || apple) "−" + time((player.duration - player.position).coerceAtLeast(0))
             else time(player.duration),
         )
         if (!volume.isPressed) volume.progress = (player.volume * 100).toInt()
@@ -926,7 +1000,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 lyricLines.forEachIndexed { i, line ->
                     line.second.alpha = if (i == index) 1f else .45f
                 }
-                if (index >= 0 && !lyricScroll!!.isPressed)
+                if (index >= 0 && !lyricScroll!!.isPressed && !userScrolledLyrics)
                     lyricScroll?.smoothScrollTo(
                         0,
                         (lyricLines[index].second.top - stage.height / 3).coerceAtLeast(0),
@@ -940,6 +1014,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                     "mic-2" -> mode == "lyrics"
                     "list-music" -> mode == "queue"
                     "disc-3" -> mode == "cover"
+                    "timer" -> player.sleepTimerMinutes > 0
                     else -> false
                 }
             if (v.isSelected != selected) {

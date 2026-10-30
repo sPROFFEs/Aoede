@@ -292,7 +292,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             connecting = true
             palette()
             screen("Aoede")
-            label("Connecting to your music…", 16)
+            musicLoader()
+            label("Connecting to your music…", 15, color = muted).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
             val waitingGeneration = generation
             api.execute({ api.refreshContext() }) { _, error ->
                 if (!alive) return@execute
@@ -317,6 +320,40 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     fun shape(color: Int, radius: Int = 14) = design.shape(color, radius)
+
+    fun musicLoader(parent: LinearLayout = content): LinearLayout {
+        val loader =
+            LinearLayout(activity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER
+                setPadding(0, dp(18), 0, dp(10))
+            }
+        val reduced = reducedMotion()
+        for (i in 0..4) {
+            val bar =
+                View(activity).apply {
+                    background = shape(accent, 4)
+                    followAccent(this) { background = shape(it, 4) }
+                }
+            loader.addView(
+                bar,
+                LinearLayout.LayoutParams(dp(4), dp(22)).apply {
+                    setMargins(dp(3), 0, dp(3), 0)
+                },
+            )
+            if (!reduced) {
+                android.animation.ObjectAnimator.ofFloat(bar, "scaleY", 0.25f, 1f).apply {
+                    duration = 450L
+                    repeatMode = android.animation.ValueAnimator.REVERSE
+                    repeatCount = android.animation.ValueAnimator.INFINITE
+                    startDelay = i * 110L
+                    start()
+                }
+            }
+        }
+        parent.addView(loader, LinearLayout.LayoutParams(-1, -2))
+        return loader
+    }
 
     fun space(height: Int, parent: LinearLayout = content) {
         parent.addView(View(activity), LinearLayout.LayoutParams(1, dp(height)))
@@ -1242,7 +1279,12 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 restore = restore ?: { load(title, path, read, restore, stableKey, render) },
             )
         val stamp = generation
-        if (!refreshing) label(text("common.loading", "Loading…"), 15, color = muted)
+        if (!refreshing) {
+            musicLoader()
+            label(text("common.loading", "Loading…"), 14, color = muted).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        }
         api.execute({
             if (!alive || stamp != generation) null
             else
@@ -1326,7 +1368,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
     }
 
-    fun toast(message: String) {
+    fun toast(
+        message: String,
+        actionLabel: String? = null,
+        action: (() -> Unit)? = null,
+    ) {
         api.main.removeCallbacks(dismissToast)
         dismissToast.run()
         val box =
@@ -1360,6 +1406,21 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             },
             LinearLayout.LayoutParams(0, -2, 1f),
         )
+        if (actionLabel != null && action != null) {
+            box.addView(
+                TextView(activity).apply {
+                    text = actionLabel
+                    design.typography(this, 13f, 700)
+                    setTextColor(accent)
+                    setPadding(dp(12), dp(4), dp(4), dp(4))
+                    setOnClickListener {
+                        dismissToast.run()
+                        action()
+                    }
+                },
+                LinearLayout.LayoutParams(-2, -2),
+            )
+        }
         root.addView(
             box,
             FrameLayout.LayoutParams(
@@ -1995,6 +2056,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             (activity.resources.configuration.screenWidthDp * .43f).toInt().coerceIn(140, 200)
         for ((index, item) in items.withIndex()) {
             val padding = if (theme == "classic") 0 else if (theme == "glass") 11 else 12
+            val isTrack = item.has("artist") || item.has("title")
             val card =
                 LinearLayout(activity).apply {
                     orientation = LinearLayout.VERTICAL
@@ -2007,17 +2069,78 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             theme == "glass",
                         )
                     contentDescription = item.optString("title", item.optString("name"))
-                    setOnClickListener { action(item, index) }
+                }
+            val artFrame =
+                FrameLayout(activity).apply {
+                    outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                    clipToOutline = true
+                    background = shape(design.wash, if (theme == "classic") 4 else 8)
                 }
             val art =
                 ImageView(activity).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    background = shape(design.wash, if (theme == "classic") 4 else 8)
-                    outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-                    clipToOutline = true
                 }
-            card.addView(art, LinearLayout.LayoutParams(-1, dp(size - padding * 2)))
+            artFrame.addView(art, FrameLayout.LayoutParams(-1, -1))
             artwork(art, item.optString("thumbnail"))
+
+            val overlay =
+                if (isTrack) {
+                    LinearLayout(activity).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER
+                        setBackgroundColor(0x99000000.toInt())
+                        visibility = View.GONE
+                        tag = "card_overlay"
+
+                        val playBtn =
+                            NativeIconButton(activity, Color.WHITE, theme).apply {
+                                text = "▶"
+                                contentDescription = text("player.play", "Play")
+                                background = shape(0x55ffffff, 999)
+                                setPadding(dp(10), dp(10), dp(10), dp(10))
+                                setOnClickListener { action(item, index) }
+                            }
+                        addView(playBtn, LinearLayout.LayoutParams(dp(44), dp(44)))
+
+                        val addBtn =
+                            NativeIconButton(activity, Color.WHITE, theme).apply {
+                                text = "plus"
+                                contentDescription = text("player.add_to_playlist", "Add to Playlist")
+                                background = shape(0x55ffffff, 999)
+                                setPadding(dp(10), dp(10), dp(10), dp(10))
+                                setOnClickListener { addTrackToCollection(item) }
+                            }
+                        addView(
+                            addBtn,
+                            LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginStart = dp(10) },
+                        )
+                    }
+                } else null
+
+            if (overlay != null) {
+                artFrame.addView(overlay, FrameLayout.LayoutParams(-1, -1))
+            }
+            card.addView(artFrame, LinearLayout.LayoutParams(-1, dp(size - padding * 2)))
+
+            card.setOnClickListener {
+                if (overlay == null) {
+                    action(item, index)
+                } else if (overlay.visibility == View.VISIBLE) {
+                    action(item, index)
+                } else {
+                    for (i in 0 until strip.childCount) {
+                        strip.getChildAt(i).findViewWithTag<View>("card_overlay")?.visibility =
+                            View.GONE
+                    }
+                    overlay.visibility = View.VISIBLE
+                }
+            }
+            if (isTrack) {
+                card.setOnLongClickListener {
+                    trackMenu(item)
+                    true
+                }
+            }
             space(10, card)
             label(item.optString("title", item.optString("name")), 15, card).apply {
                 maxLines = 1
@@ -2150,6 +2273,35 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             return
         }
         screen(text("menu.home", "Home"), nav = "home", key = "home", restore = { home() })
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val greeting = when {
+            hour < 12 -> text("home.greeting_morning", "Good morning")
+            hour < 18 -> text("home.greeting_afternoon", "Good afternoon")
+            else -> text("home.greeting_evening", "Good evening")
+        }
+        val user = api.username.ifBlank { "there" }
+        val heroBox = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(4), 0, dp(6))
+        }
+        heroBox.addView(
+            TextView(activity).apply {
+                text = text("home.hero_kicker", "Your library, tuned for right now")
+                design.typography(this, 12.5f, 600)
+                setTextColor(accent)
+                letterSpacing = .04f
+            }
+        )
+        heroBox.addView(
+            TextView(activity).apply {
+                text = "$greeting, $user"
+                design.typography(this, 26f, 700)
+                setTextColor(ink)
+                letterSpacing = -.03f
+            },
+            LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(4) }
+        )
+        content.addView(heroBox)
         browseTabs("all")
         val stamp = generation
         val cacheScope = runCatching { library.scope() }.getOrNull()
@@ -2401,7 +2553,37 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 val copy = r.getChildAt(1) as LinearLayout
                 design.typography(copy.getChildAt(0) as TextView, 15f, 500)
                 design.lines(copy.getChildAt(0) as TextView, 1.4f)
-                if (copy.childCount > 1) design.lines(copy.getChildAt(1) as TextView, 1.4f)
+                if (copy.childCount > 1) {
+                    val sub = copy.getChildAt(1) as TextView
+                    design.lines(sub, 1.4f)
+                    val source = t.optString("source").lowercase()
+                    val isFed = NativeTrack.reference(t).startsWith("fed_")
+                    val badgeGlyph = when {
+                        isFed -> "globe"
+                        source == "spotify" -> "music-2"
+                        source == "youtube" -> "radio"
+                        source == "lastfm" -> "radio"
+                        source == "musicbrainz" -> "disc-3"
+                        else -> null
+                    }
+                    if (badgeGlyph != null) {
+                        val tint = when {
+                            source == "spotify" -> 0xff1db954.toInt()
+                            source == "youtube" -> 0xffff3333.toInt()
+                            isFed -> accent
+                            else -> muted
+                        }
+                        sub.setCompoundDrawablesRelative(
+                            NativeIcon(badgeGlyph, tint, theme).apply {
+                                setBounds(0, 0, dp(12), dp(12))
+                            },
+                            null,
+                            null,
+                            null,
+                        )
+                        sub.compoundDrawablePadding = dp(4)
+                    }
+                }
                 if (collectionId != null) r.setPadding(dp(6), dp(8), dp(6), dp(8))
                 if (collectionId != null)
                     r.addView(
@@ -2454,7 +2636,19 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             }
         if (local)
             action(if (t.optBoolean("is_favorite")) "Unlike" else "Like", "heart") {
-                player.favorite(t) { error -> toast(error?.message ?: "Favorites updated") }
+                val wasFav = t.optBoolean("is_favorite")
+                player.favorite(t) { error ->
+                    if (error != null) {
+                        toast(error.message ?: "Favorites updated")
+                    } else {
+                        toast(
+                            if (wasFav) "Removed from favorites" else "Added to favorites",
+                            "Undo",
+                        ) {
+                            player.favorite(t) {}
+                        }
+                    }
+                }
             }
         if (!local && !remote)
             action("Download to Library", "download") {
@@ -2560,10 +2754,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     )
                 }
         }
-        action("Start radio", "radio") {
-            tools.smartRadio(t.optString("artist"), t.optString("title"))
+        val artName = t.optString("artist").trim()
+        if (artName.isNotBlank() && !artName.equals("Unknown", true) && !artName.equals("Unknown Artist", true)) {
+            action("Go to artist", "user") { tools.artist(artName) }
+            action("Start radio", "radio") { tools.smartRadio(artName, t.optString("title")) }
         }
-        action("Go to artist", "user") { tools.artist(t.optString("artist")) }
         choose(t.optString("title"), labels, icons, track = t) { actions[it]() }
     }
 
@@ -3174,8 +3369,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     if (mix.isNotBlank())
                         "${list.size} songs · ${data.optString("summary", "Built from your local library")}"
                     else if (liked) "${list.size} songs"
-                    else
-                        "By ${data.optString("owner_username")}  ·  ${list.size} songs  ·  ${seconds/60} min"
+                    else {
+                        val durationStr = if (seconds >= 3600) "${seconds / 3600} h ${(seconds % 3600) / 60} min" else "${seconds / 60} min"
+                        "By ${data.optString("owner_username")}  ·  ${list.size} songs  ·  $durationStr"
+                    }
                 design.typography(this, 13.44f, 600)
                 design.lines(this, 1.5f)
                 setTextColor(muted)
@@ -4165,6 +4362,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 results.removeAllViews()
                 button("Open album or playlist", results, true) { tools.resolveCollection(q) }
             } else {
+                val isAllMode = searchSource == "all" && !searchCollections
                 val path =
                     if (searchSource == "users") "/user/list"
                     else if (searchCollections)
@@ -4172,7 +4370,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     else "/api/search?q=${NativeApi.encode(q)}&source=$searchSource"
                 progress.visibility = View.VISIBLE
                 results.alpha = .65f
-                api.execute({ api.request(path) }) { value, error ->
+                api.execute({
+                    val mainRes = api.request(path)
+                    val userRes = if (isAllMode) runCatching { api.request("/user/list") }.getOrNull() else null
+                    Pair(mainRes, userRes)
+                }) { pair, error ->
                     if (!alive || stamp != generation || ticket != serial) return@execute
                     progress.visibility = View.GONE
                     results.alpha = 1f
@@ -4181,30 +4383,104 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         return@execute
                     }
                     results.removeAllViews()
-                    val items = NativeTrack.items(value)
+                    val items = NativeTrack.items(pair?.first)
                     if (searchSource == "users") {
-                        for (user in
-                            items.filter {
-                                (it.optString("username") + " " + it.optString("fed_instance_name"))
-                                    .contains(q, true)
-                            }) row(
-                            user.optString("username"),
-                            user.optString("fed_instance_name"),
-                            user.optString("avatar_url"),
-                            results,
-                        ) {
-                            tools.profile(user.optString("profile_key", user.optString("username")))
+                        val matching = items.filter {
+                            (it.optString("username") + " " + it.optString("fed_instance_name")).contains(q, true)
+                        }
+                        if (matching.isEmpty()) {
+                            val emptyBox = LinearLayout(activity).apply {
+                                orientation = LinearLayout.VERTICAL
+                                gravity = Gravity.CENTER
+                                setPadding(0, dp(48), 0, dp(32))
+                            }
+                            emptyBox.addView(
+                                ImageView(activity).apply {
+                                    setImageDrawable(NativeIcon("search", muted, theme))
+                                },
+                                LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(12) }
+                            )
+                            label(text("search.no_results", "No matching profiles found."), 14, emptyBox, muted).apply {
+                                gravity = Gravity.CENTER_HORIZONTAL
+                            }
+                            results.addView(emptyBox)
+                        } else {
+                            for (user in matching) row(
+                                user.optString("username"),
+                                user.optString("fed_instance_name"),
+                                user.optString("avatar_url"),
+                                results,
+                            ) {
+                                tools.profile(user.optString("profile_key", user.optString("username")))
+                            }
                         }
                     } else if (searchCollections) {
-                        for (item in items) row(
-                            item.optString("name"),
-                            item.optString("artist"),
-                            item.optString("thumbnail"),
-                            results,
-                        ) {
-                            tools.resolveCollection(item.optString("url"))
+                        if (items.isEmpty()) {
+                            val emptyBox = LinearLayout(activity).apply {
+                                orientation = LinearLayout.VERTICAL
+                                gravity = Gravity.CENTER
+                                setPadding(0, dp(48), 0, dp(32))
+                            }
+                            emptyBox.addView(
+                                ImageView(activity).apply {
+                                    setImageDrawable(NativeIcon("search", muted, theme))
+                                },
+                                LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(12) }
+                            )
+                            label(text("search.no_results", "No matching collections found."), 14, emptyBox, muted).apply {
+                                gravity = Gravity.CENTER_HORIZONTAL
+                            }
+                            results.addView(emptyBox)
+                        } else {
+                            for (item in items) row(
+                                item.optString("name"),
+                                item.optString("artist"),
+                                item.optString("thumbnail"),
+                                results,
+                            ) {
+                                tools.resolveCollection(item.optString("url"))
+                            }
                         }
-                    } else tracks(items, parent = results)
+                    } else {
+                        if (isAllMode && pair?.second != null) {
+                            val matchingUsers = NativeTrack.items(pair.second).filter {
+                                (it.optString("username") + " " + it.optString("fed_instance_name")).contains(q, true)
+                            }
+                            if (matchingUsers.isNotEmpty()) {
+                                label(text("search.matching_profiles", "Matching Profiles"), 16, results).apply {
+                                    setPadding(dp(12), dp(8), dp(12), dp(4))
+                                }
+                                for (user in matchingUsers.take(3)) {
+                                    row(
+                                        user.optString("username"),
+                                        user.optString("fed_instance_name").ifBlank { "Community profile" },
+                                        user.optString("avatar_url"),
+                                        results,
+                                    ) {
+                                        tools.profile(user.optString("profile_key", user.optString("username")))
+                                    }
+                                }
+                                space(12, results)
+                            }
+                        }
+                        if (items.isEmpty()) {
+                            val emptyBox = LinearLayout(activity).apply {
+                                orientation = LinearLayout.VERTICAL
+                                gravity = Gravity.CENTER
+                                setPadding(0, dp(48), 0, dp(32))
+                            }
+                            emptyBox.addView(
+                                ImageView(activity).apply {
+                                    setImageDrawable(NativeIcon("search", muted, theme))
+                                },
+                                LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(12) }
+                            )
+                            label(text("search.no_results", "No matching audio tracks found."), 14, emptyBox, muted).apply {
+                                gravity = Gravity.CENTER_HORIZONTAL
+                            }
+                            results.addView(emptyBox)
+                        } else tracks(items, parent = results)
+                    }
                 }
             }
         }
@@ -4722,11 +4998,64 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 bottomMargin = dp(6)
             }
         }
+        val totalBytes = saved.sumOf { it.optLong("offline_size") }
+        val mbUsed = totalBytes / (1024.0 * 1024)
+        val mbUsedStr = String.format(java.util.Locale.US, "%.1f", mbUsed)
         label(
-            "${saved.size} tracks · ${collections.size} collections · ${String.format(java.util.Locale.US, "%.1f", saved.sumOf { it.optLong("offline_size") } / (1024.0 * 1024))} MB on device",
+            "${saved.size} tracks · ${collections.size} collections · $mbUsedStr MB on device",
             14,
             color = muted,
         )
+        val stat = runCatching { android.os.StatFs(activity.filesDir.absolutePath) }.getOrNull()
+        if (stat != null) {
+            val totalStorageBytes = stat.totalBytes
+            val freeStorageBytes = stat.availableBytes
+            val usedPercent = if (totalStorageBytes > 0) ((totalBytes.toDouble() / totalStorageBytes) * 100).coerceIn(0.0, 100.0) else 0.0
+            val totalGb = String.format(java.util.Locale.US, "%.1f", totalStorageBytes / (1024.0 * 1024 * 1024))
+            val freeGb = String.format(java.util.Locale.US, "%.1f", freeStorageBytes / (1024.0 * 1024 * 1024))
+            val storageBox = LinearLayout(activity).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+                background = design.shape(design.wash, 12)
+            }
+            content.addView(storageBox, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8); bottomMargin = dp(4) })
+            val storageProgress = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 1000
+                progress = (usedPercent * 10).toInt().coerceAtLeast(15)
+                progressTintList = android.content.res.ColorStateList.valueOf(accent)
+            }
+            storageBox.addView(storageProgress, LinearLayout.LayoutParams(-1, dp(4)).apply { bottomMargin = dp(6) })
+            val metaRow = LinearLayout(activity).apply { gravity = Gravity.CENTER_VERTICAL }
+            storageBox.addView(metaRow, LinearLayout.LayoutParams(-1, -2))
+            metaRow.addView(
+                TextView(activity).apply {
+                    text = "$mbUsedStr MB downloaded · $freeGb GB free of $totalGb GB"
+                    design.typography(this, 12f)
+                    setTextColor(muted)
+                },
+                LinearLayout.LayoutParams(0, -2, 1f)
+            )
+            if (saved.isNotEmpty() || collections.isNotEmpty()) {
+                val clearBtn = TextView(activity).apply {
+                    text = text("offline.clear_all", "Clear All")
+                    design.typography(this, 12f, 700)
+                    setTextColor(0xffff6479.toInt())
+                    setPadding(dp(8), dp(4), dp(4), dp(4))
+                    setOnClickListener {
+                        confirm(
+                            "Clear all downloads",
+                            "Remove all offline tracks and collections from this device? This will free $mbUsedStr MB.",
+                        ) {
+                            for (c in collections) library.remove("collection", c.get("id").toString())
+                            for (t in saved) library.remove("track", NativeTrack.reference(t))
+                            toast("All offline downloads cleared")
+                            offlineDownloads(selected, query)
+                        }
+                    }
+                }
+                metaRow.addView(clearBtn, LinearLayout.LayoutParams(-2, -2))
+            }
+        }
         if (saved.isNotEmpty()) {
             val actions = LinearLayout(activity)
             content.addView(
@@ -5117,8 +5446,23 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             else app.mediaController.command("play")
         }
         iconButton(r, "›|", "Next") { app.mediaController.command("nexttrack") }
+        val miniWrapper = FrameLayout(activity).apply {
+            addView(r, FrameLayout.LayoutParams(-1, -1))
+            val progressLine = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 1000
+                progress = if (player.duration > 0) ((player.position * 1000) / player.duration).toInt() else 0
+                progressTintList = android.content.res.ColorStateList.valueOf(accent)
+                background = null
+            }
+            addView(
+                progressLine,
+                FrameLayout.LayoutParams(-1, dp(2), Gravity.BOTTOM).apply {
+                    setMargins(dp(design.miniRadius / 2), 0, dp(design.miniRadius / 2), 0)
+                }
+            )
+        }
         mini.addView(
-            r,
+            miniWrapper,
             LinearLayout.LayoutParams(-1, dp(design.miniHeight)).apply {
                 setMargins(dp(8), 0, dp(8), dp(8))
             },

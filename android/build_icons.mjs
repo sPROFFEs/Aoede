@@ -31,6 +31,9 @@ const names = new Set([
   'timer',
   'list-plus',
   'download-cloud',
+  'calendar',
+  'trash',
+  'trash-2',
   'cloud-off',
   'radio',
   'globe',
@@ -78,7 +81,10 @@ const names = new Set([
   'flag',
   'list-plus',
   'radio-tower',
-  'download-cloud'
+  'download-cloud',
+  'calendar',
+  'trash',
+  'trash-2'
 ]);
 const result = {};
 for (const theme of ['classic', 'glass', 'vitrine']) {

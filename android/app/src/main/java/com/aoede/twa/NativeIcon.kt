@@ -54,6 +54,8 @@ class NativeIcon(
                 "discover" to "compass",
                 "⋮" to "ellipsis-vertical",
                 "•••" to "ellipsis",
+                "trash" to "trash-2",
+                "+" to "plus",
             )
     }
 

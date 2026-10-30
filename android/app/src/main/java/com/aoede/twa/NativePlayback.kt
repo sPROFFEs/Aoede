@@ -144,12 +144,20 @@ class NativePlayback(private val app: AoedeApp) {
     private var savedRepeat = Player.REPEAT_MODE_OFF
     private var lastSaved = 0L
     private val saveRemote = Runnable { syncQueue() }
-    private val sleep = Runnable { app.mediaController.pauseLocal() }
+    var sleepTimerMinutes: Int = 0
+        private set
+    private val sleep = Runnable {
+        sleepTimerMinutes = 0
+        app.mediaController.pauseLocal()
+        onChanged?.invoke()
+    }
 
     fun setSleepTimer(minutes: Int) {
         require(minutes in 0..240)
+        sleepTimerMinutes = minutes
         handler.removeCallbacks(sleep)
         if (minutes > 0) handler.postDelayed(sleep, minutes * 60000L)
+        onChanged?.invoke()
     }
 
     val levels

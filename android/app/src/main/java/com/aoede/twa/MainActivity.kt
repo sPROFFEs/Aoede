@@ -325,6 +325,52 @@ class MainActivity : AppCompatActivity() {
         return true
     }
 
+    override fun onKeyDown(keyCode: Int, event: android.view.KeyEvent): Boolean {
+        val currentFocus = currentFocus
+        if (currentFocus is android.widget.EditText) return super.onKeyDown(keyCode, event)
+        when (keyCode) {
+            android.view.KeyEvent.KEYCODE_SPACE -> {
+                if (app.nativePlayback.playing) app.mediaController.pauseLocal()
+                else app.mediaController.command("play")
+                return true
+            }
+            android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE -> {
+                if (app.nativePlayback.playing) app.mediaController.pauseLocal()
+                else app.mediaController.command("play")
+                return true
+            }
+            android.view.KeyEvent.KEYCODE_MEDIA_NEXT -> {
+                app.mediaController.command("nexttrack")
+                return true
+            }
+            android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS -> {
+                app.mediaController.command("previousgesture")
+                return true
+            }
+            android.view.KeyEvent.KEYCODE_L -> {
+                val playerView = nativeUi?.fullscreen as? NativePlayerView
+                if (playerView != null) {
+                    playerView.setMode(if (playerView.mode == "lyrics") "cover" else "lyrics")
+                    return true
+                }
+            }
+            android.view.KeyEvent.KEYCODE_Q -> {
+                val playerView = nativeUi?.fullscreen as? NativePlayerView
+                if (playerView != null) {
+                    playerView.setMode(if (playerView.mode == "queue") "cover" else "queue")
+                    return true
+                }
+            }
+            android.view.KeyEvent.KEYCODE_M -> {
+                val player = app.nativePlayback
+                player.setVolume(if (player.volume > 0) 0f else .7f, true)
+                nativeUi?.toast(if (player.volume > 0) "Volume restored" else "Muted")
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
     override fun onDestroy() {
         val native = nativeUi
         native?.close()
