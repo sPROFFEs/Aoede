@@ -142,11 +142,11 @@ class NativeApi(internal val app: AoedeApp) {
         )
     private val images =
         ThreadPoolExecutor(
-            4,
-            4,
+            2,
+            2,
             30,
             TimeUnit.SECONDS,
-            LinkedBlockingQueue<Runnable>(256),
+            LinkedBlockingQueue<Runnable>(128),
             { r -> Thread(r, "aoede-native-image").apply { isDaemon = true } },
             ThreadPoolExecutor.AbortPolicy(),
         )

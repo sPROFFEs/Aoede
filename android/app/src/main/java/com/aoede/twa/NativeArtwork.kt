@@ -60,6 +60,7 @@ class NativeArtwork(private val api: NativeApi) {
         epoch++
         cache.evictAll()
         pending.clear()
+        diskCacheDir.listFiles()?.forEach { it.delete() }
     }
 
     fun load(
