@@ -86,6 +86,10 @@ export async function loadLyricsFor(track) {
     album: (track.album || '').slice(0, 300),
     duration: String(Number.isFinite(rawDuration) && rawDuration > 0 ? Math.min(86400, rawDuration) : 0)
   });
+  const localId = track.db_id || track.id;
+  if (localId && Number.isInteger(Number(localId))) {
+    params.set('track_id', String(localId));
+  }
   const timeout = setTimeout(() => controller.abort(), 10000);
   try {
     const res = await fetch(`${state.API}/lyrics?${params}`, { signal: controller.signal });

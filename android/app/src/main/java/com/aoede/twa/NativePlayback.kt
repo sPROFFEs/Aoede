@@ -135,6 +135,7 @@ class NativePlayback(private val app: AoedeApp) {
     private var listened = 0L
     private var lastTick = 0L
     private val processor = NativeAudioProcessor()
+    private val trackGainCache = android.util.LruCache<Long, Float>(256)
     private val preferences
         get() = app.getSharedPreferences(MainActivity.PREFS, 0)
 
@@ -345,6 +346,12 @@ class NativePlayback(private val app: AoedeApp) {
         tracks = list.map { JSONObject(it.toString()) }
         savedIndex = start.coerceIn(tracks.indices)
         savedPosition = at.coerceAtLeast(0)
+        val initialTrackId = NativeTrack.localId(tracks[savedIndex])
+        val initialGain = if (initialTrackId > 0) trackGainCache.get(initialTrackId) else null
+        if (initialGain != null && preferences.getBoolean("native_replaygain", false)) {
+            processor.gain = initialGain
+            processor.syncGainImmediate()
+        }
         val p = player()
         val downloaded =
             runCatching { app.nativeLibrary.audioFiles(tracks.map(NativeTrack::reference)) }
@@ -653,10 +660,40 @@ class NativePlayback(private val app: AoedeApp) {
         }
     }
 
+    private fun prefetchNextTrackGain() {
+        if (!preferences.getBoolean("native_replaygain", false)) return
+        val nextIdx = index + 1
+        if (nextIdx !in tracks.indices) return
+        val nextTrack = tracks[nextIdx]
+        val nextId = NativeTrack.localId(nextTrack)
+        if (nextId <= 0 || trackGainCache.get(nextId) != null) return
+        app.nativeApi.execute({
+            app.nativeApi.request("/api/track/$nextId/gain")
+        }) { value, error ->
+            if (error == null && value is JSONObject) {
+                val computed =
+                    NativeAudioProcessor.replayGain(
+                        value.optDouble("gain_db", 0.0),
+                        value.optDouble("peak", 1.0),
+                    )
+                trackGainCache.put(nextId, computed)
+            }
+        }
+    }
+
     private fun metadata() {
         if (!ownsAccount()) return
         val t = current ?: return
-        processor.gain = 1f
+        val trackId = NativeTrack.localId(t)
+        val rgEnabled = preferences.getBoolean("native_replaygain", false)
+        if (rgEnabled && trackId > 0) {
+            val cached = trackGainCache.get(trackId)
+            if (cached != null) {
+                processor.gain = cached
+            }
+        } else {
+            processor.gain = 1f
+        }
         val stamp = ++gainGeneration
         if (preferences.getBoolean("native_replaygain", false) && NativeTrack.localId(t) > 0) {
             app.nativeApi.execute({
@@ -668,11 +705,15 @@ class NativePlayback(private val app: AoedeApp) {
                         preferences.getBoolean("native_replaygain", false) &&
                         value is JSONObject
                 )
-                    processor.gain =
+                    val computed =
                         NativeAudioProcessor.replayGain(
                             value.optDouble("gain_db", 0.0),
                             value.optDouble("peak", 1.0),
                         )
+                    trackGainCache.put(trackId, computed)
+                    processor.gain = computed
+                }
+                prefetchNextTrackGain()
             }
         }
         val stored =

@@ -97,6 +97,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var translationsLanguage = ""
     internal var trackSlideDirection = 1
     private var miniSignature = ""
+    private var miniProgress: ProgressBar? = null
     private val popups = mutableSetOf<PopupWindow>()
     private val dialogs = mutableSetOf<android.app.Dialog>()
     private var toastView: View? = null
@@ -107,10 +108,34 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var loginVisible = false
     private var connecting = false
     private var requestedPlayerMode: String? = null
+
+    private fun updateMiniProgress() {
+        val bar = miniProgress ?: return
+        val dur = player.duration
+        val p = if (dur > 0) ((player.position * 1000) / dur).toInt().coerceIn(0, 1000) else 0
+        if (bar.progress != p) bar.progress = p
+    }
+
+    private val uiProgressTicker = object : Runnable {
+        override fun run() {
+            if (!alive) return
+            if (player.playing) {
+                updateMiniProgress()
+                if (fullscreen != null) updateFull?.invoke()
+                root.postDelayed(this, 250)
+            }
+        }
+    }
+
     private val playbackChanged: () -> Unit = {
         if (alive) {
             renderMini()
+            updateMiniProgress()
             updateFull?.invoke()
+            root.removeCallbacks(uiProgressTicker)
+            if (player.playing) {
+                root.postDelayed(uiProgressTicker, 250)
+            }
         }
     }
     private val openPlayer: () -> Unit = { if (alive) showPlayer() }
@@ -5397,9 +5422,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             )
         val signature =
             "${player.current?.let(NativeTrack::reference)}:${player.playing}:${player.failure}:${System.identityHashCode(bitmap)}"
+        updateMiniProgress()
         if (signature == miniSignature) return
         miniSignature = signature
         refreshArtworkAccent(bitmap)
+        miniProgress = null
         mini.removeAllViews()
         content.setPadding(
             content.paddingLeft,
@@ -5452,9 +5479,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             addView(r, FrameLayout.LayoutParams(-1, -1))
             val progressLine = ProgressBar(activity, null, android.R.attr.progressBarStyleHorizontal).apply {
                 max = 1000
-                progress = if (player.duration > 0) ((player.position * 1000) / player.duration).toInt() else 0
+                progress = if (player.duration > 0) ((player.position * 1000) / player.duration).toInt().coerceIn(0, 1000) else 0
                 progressTintList = android.content.res.ColorStateList.valueOf(accent)
                 background = null
+            }
+            miniProgress = progressLine
+            followAccent(progressLine) { color ->
+                progressLine.progressTintList = android.content.res.ColorStateList.valueOf(color)
             }
             addView(
                 progressLine,
@@ -6086,6 +6117,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         dialogs.toList().forEach { it.dismiss() }
         api.main.removeCallbacks(dismissToast)
         dismissToast.run()
+        root.removeCallbacks(uiProgressTicker)
+        miniProgress = null
         accentBindings.clear()
         tools.close()
         alive = false
@@ -6098,11 +6131,15 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     fun pause() {
+        root.removeCallbacks(uiProgressTicker)
         (fullscreen as? NativeWrappedStory)?.foreground(false)
         tools.pause()
     }
 
     fun resume() {
+        if (alive && player.playing) {
+            root.post(uiProgressTicker)
+        }
         (fullscreen as? NativeWrappedStory)?.foreground(true)
         tools.resume()
     }

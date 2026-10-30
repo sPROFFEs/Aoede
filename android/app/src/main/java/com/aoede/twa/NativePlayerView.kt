@@ -711,8 +711,10 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         if (!apple) scroll.background = if (glass) film(18) else design.shape(0xdd121212.toInt(), 8)
         val loading = text(20f, 600).apply { text = ui.text("common.loading", "Loading…") }
         body.addView(loading)
+        val trackId = NativeTrack.localId(t)
+        val trackParam = if (trackId > 0) "&track_id=$trackId" else ""
         val path =
-            "/api/lyrics?title=${NativeApi.encode(t.optString("title"))}&artist=${NativeApi.encode(t.optString("artist"))}&album=${NativeApi.encode(t.optString("album"))}&duration=${t.optDouble("duration").coerceIn(0.0,86400.0)}"
+            "/api/lyrics?title=${NativeApi.encode(t.optString("title"))}&artist=${NativeApi.encode(t.optString("artist"))}&album=${NativeApi.encode(t.optString("album"))}&duration=${t.optDouble("duration").coerceIn(0.0,86400.0)}$trackParam"
         ui.api.execute({ ui.api.request(path) }) { value, error ->
             if (
                 parent == null ||

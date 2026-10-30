@@ -26,6 +26,7 @@ async def lyrics(
     artist: str = Query(..., max_length=200),
     album: str = Query("", max_length=300),
     duration: float = Query(0.0, ge=0.0, le=86400.0),
+    track_id: int | None = Query(None),
 ):
     """Returns synced + plain lyrics for a track. Cached per-song
     globally so a popular song gets fetched once for the whole instance.
@@ -39,5 +40,7 @@ async def lyrics(
         artist=artist,
         album=album or None,
         duration=duration if duration > 0 else None,
+        track_id=track_id,
+        db=db,
     )
     return JSONResponse(data, status_code=503 if data.get("source") == "unavailable" else 200)

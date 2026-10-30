@@ -52,6 +52,13 @@ class NativeAudioProcessor : BaseAudioProcessor() {
         levels = null
     }
 
+    fun syncGainImmediate() {
+        val target =
+            (gain.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 4f) *
+                (fade.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f)
+        multiplier = target
+    }
+
     override fun queueInput(input: ByteBuffer) {
         if (!input.hasRemaining()) return
         val output = replaceOutputBuffer(input.remaining()).order(ByteOrder.nativeOrder())
@@ -64,7 +71,7 @@ class NativeAudioProcessor : BaseAudioProcessor() {
             levels = null
         }
         val target =
-            (gain.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 16f) *
+            (gain.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 4f) *
                 (fade.takeIf { it.isFinite() } ?: 1f).coerceIn(0f, 1f)
         if (!sampling && kotlin.math.abs(multiplier - 1f) < .0001f && target == 1f) {
             output.put(input)
@@ -73,7 +80,8 @@ class NativeAudioProcessor : BaseAudioProcessor() {
         }
         while (input.remaining() >= 2) {
             val value = input.short
-            multiplier += (target - multiplier) * (1f / (rate * .02f)).coerceAtMost(1f)
+            val rampStep = (1f / (rate * channels.coerceAtLeast(1) * .15f)).coerceIn(0.00001f, 1f)
+            multiplier += (target - multiplier) * rampStep
             output.putShort(
                 (value * multiplier)
                     .toInt()
@@ -112,9 +120,11 @@ class NativeAudioProcessor : BaseAudioProcessor() {
 
     companion object {
         internal fun replayGain(db: Double, peak: Double): Float {
-            if (!db.isFinite() || !peak.isFinite() || peak < 0) return 1f
-            val desired = 10.0.pow((db - 1.0).coerceIn(-60.0, 24.0) / 20.0)
-            return minOf(desired, .99 / peak.coerceAtLeast(.000001)).toFloat().coerceIn(0f, 16f)
+            if (!db.isFinite()) return 1f
+            val safePeak = if (peak.isFinite() && peak > 0.01) peak else 1.0
+            val desired = 10.0.pow((db - 1.0).coerceIn(-30.0, 12.0) / 20.0)
+            val maxGain = .99 / safePeak
+            return minOf(desired, maxGain).toFloat().coerceIn(0.1f, 2.5f)
         }
     }
 }
