@@ -136,6 +136,11 @@ class NativePlayback(private val app: AoedeApp) {
     private var lastTick = 0L
     private val processor = NativeAudioProcessor()
     private val trackGainCache = android.util.LruCache<Long, Float>(256)
+    private val playbackHistory = ArrayDeque<Int>()
+    private val forwardHistory = ArrayDeque<Int>()
+    private var lastPlayedIndex = -1
+    private var isNavigatingHistory = false
+    private var isNavigatingForward = false
     private val preferences
         get() = app.getSharedPreferences(MainActivity.PREFS, 0)
 
@@ -286,6 +291,17 @@ class NativePlayback(private val app: AoedeApp) {
                 p.addListener(
                     object : Player.Listener {
                         override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                            val newIndex = p.currentMediaItemIndex
+                            if (isNavigatingHistory || isNavigatingForward) {
+                                lastPlayedIndex = newIndex
+                            } else {
+                                if (lastPlayedIndex in tracks.indices && lastPlayedIndex != newIndex) {
+                                    playbackHistory.addLast(lastPlayedIndex)
+                                    if (playbackHistory.size > 200) playbackHistory.removeFirst()
+                                }
+                                forwardHistory.clear()
+                                lastPlayedIndex = newIndex
+                            }
                             if (listenTrack != null)
                                 listen(
                                     if (reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO)
@@ -346,6 +362,9 @@ class NativePlayback(private val app: AoedeApp) {
         tracks = list.map { JSONObject(it.toString()) }
         savedIndex = start.coerceIn(tracks.indices)
         savedPosition = at.coerceAtLeast(0)
+        playbackHistory.clear()
+        forwardHistory.clear()
+        lastPlayedIndex = savedIndex
         val initialTrackId = NativeTrack.localId(tracks[savedIndex])
         val initialGain = if (initialTrackId > 0) trackGainCache.get(initialTrackId) else null
         if (initialGain != null && preferences.getBoolean("native_replaygain", false)) {
@@ -419,6 +438,13 @@ class NativePlayback(private val app: AoedeApp) {
         val p = engine
         if (p == null) play(tracks, target, at = if (target == savedIndex) savedPosition else 0)
         else {
+            val currentIdx = p.currentMediaItemIndex
+            if (currentIdx in tracks.indices && currentIdx != target) {
+                playbackHistory.addLast(currentIdx)
+                if (playbackHistory.size > 200) playbackHistory.removeFirst()
+            }
+            forwardHistory.clear()
+            lastPlayedIndex = target
             if (target != p.currentMediaItemIndex) p.seekTo(target, 0)
             p.play()
             persist()
@@ -467,6 +493,62 @@ class NativePlayback(private val app: AoedeApp) {
         return true
     }
 
+    private fun nextTrack() {
+        val p = engine ?: return
+        if (forwardHistory.isNotEmpty()) {
+            val nextIdx = forwardHistory.removeLast()
+            if (nextIdx in tracks.indices) {
+                isNavigatingForward = true
+                try {
+                    val currentIdx = p.currentMediaItemIndex
+                    if (currentIdx in tracks.indices && currentIdx != nextIdx) {
+                        playbackHistory.addLast(currentIdx)
+                        if (playbackHistory.size > 200) playbackHistory.removeFirst()
+                    }
+                    lastPlayedIndex = nextIdx
+                    p.seekTo(nextIdx, 0)
+                    p.play()
+                } finally {
+                    isNavigatingForward = false
+                }
+                return
+            }
+        }
+        if (p.hasNextMediaItem()) {
+            p.seekToNextMediaItem()
+            p.play()
+        }
+    }
+
+    private fun previousTrack(fromGesture: Boolean = false) {
+        val p = engine ?: return
+        if (playbackHistory.isNotEmpty()) {
+            val prevIdx = playbackHistory.removeLast()
+            if (prevIdx in tracks.indices) {
+                val currentIdx = p.currentMediaItemIndex
+                if (currentIdx in tracks.indices && currentIdx != prevIdx) {
+                    forwardHistory.addLast(currentIdx)
+                    if (forwardHistory.size > 200) forwardHistory.removeFirst()
+                }
+                isNavigatingHistory = true
+                try {
+                    lastPlayedIndex = prevIdx
+                    p.seekTo(prevIdx, 0)
+                    p.play()
+                } finally {
+                    isNavigatingHistory = false
+                }
+                return
+            }
+        }
+        if (!p.shuffleModeEnabled && p.hasPreviousMediaItem()) {
+            p.seekToPreviousMediaItem()
+            p.play()
+        } else {
+            p.seekTo(0)
+        }
+    }
+
     fun command(action: String, value: Long = 0) {
         if (action != "stop" && ownerScope != null && !ownsAccount()) {
             release()
@@ -504,17 +586,16 @@ class NativePlayback(private val app: AoedeApp) {
             }
             "nexttrack" -> {
                 if (party != null) party?.control("next")
-                else if (engine?.hasNextMediaItem() == true) engine?.seekToNextMediaItem()
+                else nextTrack()
             }
             "previousgesture" -> {
                 if (party != null) party?.control("previous")
-                else if (engine?.hasPreviousMediaItem() == true) engine?.seekToPreviousMediaItem()
-                else engine?.seekTo(0)
+                else previousTrack(fromGesture = true)
             }
             "previoustrack" -> {
                 if (party != null) party?.control("previous")
                 else if (engine?.currentPosition ?: 0 > 3000) engine?.seekTo(0)
-                else if (engine?.hasPreviousMediaItem() == true) engine?.seekToPreviousMediaItem()
+                else previousTrack(fromGesture = false)
             }
             "favorite" -> favorite()
             "shuffle" -> {
@@ -904,6 +985,9 @@ class NativePlayback(private val app: AoedeApp) {
         savedPosition = saved.optLong("position")
         savedShuffle = saved.optBoolean("shuffle")
         savedRepeat = saved.optInt("repeat", Player.REPEAT_MODE_OFF).coerceIn(0, 2)
+        playbackHistory.clear()
+        forwardHistory.clear()
+        lastPlayedIndex = savedIndex
         setVolume(saved.optDouble("volume", 1.0).toFloat())
     }
 
@@ -940,6 +1024,9 @@ class NativePlayback(private val app: AoedeApp) {
         engine = null
         handler.removeCallbacks(tick)
         handler.removeCallbacks(sleep)
+        playbackHistory.clear()
+        forwardHistory.clear()
+        lastPlayedIndex = -1
         tracks = emptyList()
         app.mediaController.reset()
         onChanged?.invoke()
