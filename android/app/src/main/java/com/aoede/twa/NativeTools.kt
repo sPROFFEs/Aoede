@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import org.json.JSONArray
@@ -2814,7 +2815,7 @@ class NativeTools(private val ui: NativeUi) {
                         }
                     }
                 (row.getChildAt(0) as? ImageView)?.apply {
-                    setImageDrawable(NativeIcon(if (isAdmin) "shield" else "user", if (isAdmin) ui.accent else ui.muted, ui.theme))
+                    setImageDrawable(NativeIcon(if (isAdmin) "shield" else "user", if (isAdmin) ui.accent else ui.muted, ui.design.theme))
                     setPadding(ui.dp(6), ui.dp(6), ui.dp(6), ui.dp(6))
                 }
                 ui.iconButton(row, "info", "Login restriction for $username") {
@@ -3978,7 +3979,7 @@ class NativeTools(private val ui: NativeUi) {
                         startAdminJob("/admin/api/library/$path/jobs", title)
                     }
                 (row.getChildAt(0) as? ImageView)?.apply {
-                    setImageDrawable(NativeIcon(iconName, ui.accent, ui.theme))
+                    setImageDrawable(NativeIcon(iconName, ui.accent, ui.design.theme))
                     setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(8))
                 }
                 ui.iconButton(row, "play", "Run $title") {
@@ -4521,7 +4522,7 @@ class NativeTools(private val ui: NativeUi) {
                     }
                 (row.getChildAt(0) as? ImageView)?.apply {
                     setImageDrawable(
-                        NativeIcon("globe", if (isEnabled) ui.accent else ui.muted, ui.theme)
+                        NativeIcon("globe", if (isEnabled) ui.accent else ui.muted, ui.design.theme)
                     )
                     setPadding(ui.dp(6), ui.dp(6), ui.dp(6), ui.dp(6))
                 }
