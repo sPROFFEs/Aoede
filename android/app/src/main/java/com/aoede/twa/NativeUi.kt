@@ -2614,10 +2614,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun trackMenu(
         t: JSONObject,
-        items: List<JSONObject>,
-        index: Int,
-        collectionId: String?,
-        collection: JSONObject?,
+        items: List<JSONObject> = emptyList(),
+        index: Int = -1,
+        collectionId: String? = null,
+        collection: JSONObject? = null,
     ) {
         val labels = mutableListOf<String>()
         val icons = mutableListOf<String>()
@@ -4383,7 +4383,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         return@execute
                     }
                     results.removeAllViews()
-                    val items = NativeTrack.items(pair?.first)
+                    val resultPair = pair as? Pair<*, *>
+                    val items = NativeTrack.items(resultPair?.first)
                     if (searchSource == "users") {
                         val matching = items.filter {
                             (it.optString("username") + " " + it.optString("fed_instance_name")).contains(q, true)
@@ -4442,8 +4443,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             }
                         }
                     } else {
-                        if (isAllMode && pair?.second != null) {
-                            val matchingUsers = NativeTrack.items(pair.second).filter {
+                        if (isAllMode && resultPair?.second != null) {
+                            val matchingUsers = NativeTrack.items(resultPair.second).filter {
                                 (it.optString("username") + " " + it.optString("fed_instance_name")).contains(q, true)
                             }
                             if (matchingUsers.isNotEmpty()) {
