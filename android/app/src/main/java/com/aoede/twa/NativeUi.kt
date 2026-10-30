@@ -213,6 +213,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
     }
 
+    private val pageCache = object : android.util.LruCache<String, Pair<Long, Any>>(64) {}
+
+    fun invalidatePageCache() {
+        synchronized(pageCache) { pageCache.evictAll() }
+    }
     private val mutations = mutableSetOf<String>()
     val tools by lazy { NativeTools(this) }
 
@@ -1323,7 +1328,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 restore = restore ?: { load(title, path, read, restore, stableKey, render) },
             )
         val stamp = generation
-        val cached = if (!refreshing) api.cachedResponse(path) else null
+        val cached = if (!refreshing) synchronized(pageCache) {
+            pageCache.get("${api.scope}:$path")?.takeIf { System.currentTimeMillis() - it.first < 60000L }?.second
+        } else null
         if (cached != null) {
             render(cached)
             renderedPath = path
@@ -1338,6 +1345,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             if (!alive || stamp != generation) null
             else
                 read().let {
+                    synchronized(pageCache) {
+                        pageCache.put("${api.scope}:$path", System.currentTimeMillis() to it)
+                    }
                     it to if (stableKey != null) NativeApi.digest(it.toString()) else null
                 }
         }) { result, error ->
@@ -3119,9 +3129,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     .background = design.touch(if (grid) design.strong else design.wash, 6)
             }
             space(16)
-            var items =
-                NativeTrack.items(if (saved) (value as JSONObject).opt("collections") else value)
-            var total = (value as? JSONObject)?.optInt("total", items.size) ?: items.size
+            val dataObj = value as? JSONObject
+            val rawCollections = if (saved) dataObj?.opt("collections") ?: (value as? org.json.JSONArray) else value
+            var items = NativeTrack.items(rawCollections)
+            var total = dataObj?.optInt("total", items.size) ?: items.size
             var pageOffset = offset
             if (saved) {
                 if (kind != "albums")
@@ -3135,7 +3146,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                                 .put("is_liked", true)
                                 .put(
                                     "track_count",
-                                    NativeTrack.items((value as JSONObject).opt("favorites")).size,
+                                    NativeTrack.items(dataObj?.opt("favorites")).size,
                                 )
                         ) + items
 
