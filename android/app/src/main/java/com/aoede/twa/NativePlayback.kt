@@ -704,7 +704,7 @@ class NativePlayback(private val app: AoedeApp) {
                         stamp == gainGeneration &&
                         preferences.getBoolean("native_replaygain", false) &&
                         value is JSONObject
-                )
+                ) {
                     val computed =
                         NativeAudioProcessor.replayGain(
                             value.optDouble("gain_db", 0.0),
