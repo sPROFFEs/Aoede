@@ -2549,7 +2549,7 @@ class NativeTools(private val ui: NativeUi) {
             brand.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
             ui.label("Aoede", 28, copy)
             val version = ui.label("Your music. Your server.", 13, copy, ui.muted)
-            ui.button("Check Android update", body, true) {
+            ui.button(if (app.updater.availableUpdate != null) "Update available (${app.updater.availableUpdate?.version})" else "Check Android update", body, true) {
                 app.updater.check { app.updater.offer(ui.activity) }
             }
             val content = LinearLayout(ui.activity).apply { orientation = LinearLayout.VERTICAL }

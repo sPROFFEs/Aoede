@@ -68,4 +68,36 @@ class AppUpdaterTest {
         assertEquals(1, JSONObject(context.clientInfo).getInt("updater"))
         assertEquals(BuildConfig.VERSION_CODE, JSONObject(context.clientInfo).getInt("versionCode"))
     }
+
+    @Test fun atomFeedParsesValidEntryAndExtractsVersionAndCode() {
+        val xml = """<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <link rel="alternate" type="text/html" href="https://github.com/sPROFFEs/Aoede/releases/tag/v1.3.1"/>
+    <title>Aoede 1.3.1</title>
+    <content type="html">&lt;h1&gt;Aoede 1.3.1 · Android 1.2.6 (36)&lt;/h1&gt;</content>
+  </entry>
+</feed>"""
+        val update = AppUpdater.parseAtomFeed(xml, 30)!!
+        assertEquals("1.2.6", update.version)
+        assertEquals(36, update.code)
+        assertEquals("https://github.com/sPROFFEs/Aoede/releases/download/v1.3.1/aoede-android.apk", update.url)
+
+        assertNull(AppUpdater.parseAtomFeed(xml, 36))
+        assertNull(AppUpdater.parseAtomFeed(xml, 40))
+        assertNull(AppUpdater.parseAtomFeed("<feed></feed>", 1))
+    }
+
+    @Test fun expandedAssetsExtractsApkSha256Digest() {
+        val html = """<div>
+<a href="/sPROFFEs/Aoede/releases/download/v1.3.1/aoede-android.apk">aoede-android.apk</a>
+<span class="Truncate-text">sha256:3e52c3b17ba451e2c0cc5d8b63352f6ddc024590e255fde1864a874a1c922dab</span>
+</div>"""
+        val digest = AppUpdater.parseExpandedAssetsDigest(html)
+        assertEquals("3e52c3b17ba451e2c0cc5d8b63352f6ddc024590e255fde1864a874a1c922dab", digest)
+
+        val empty = AppUpdater.parseExpandedAssetsDigest("<div>no assets</div>")
+        assertEquals("", empty)
+    }
+
 }

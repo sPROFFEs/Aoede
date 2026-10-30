@@ -219,6 +219,14 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun text(key: String, fallback: String): String = translations.optString(key, fallback)
 
+    fun text(key: String, fallback: String, vararg replacements: Pair<String, String>): String {
+        var raw = translations.optString(key, fallback)
+        for ((k, v) in replacements) {
+            raw = raw.replace("{$k}", v)
+        }
+        return raw
+    }
+
     private fun palette() {
         val prefs = activity.getSharedPreferences(MainActivity.PREFS, 0)
         theme =
@@ -930,12 +938,14 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     fun artwork(
         image: ImageView,
         path: String,
+        targetDp: Int = 0,
         loaded: ((android.graphics.Bitmap) -> Unit)? = null,
     ) {
         if (path.length > if (path.startsWith("data:image/")) 192 * 1024 else 4096) return
         image.tag = path
         if (image.drawable == null) image.setImageBitmap(defaultCover)
-        val pixels = image.layoutParams?.width?.takeIf { it > 0 }?.coerceIn(64, 512) ?: 512
+        val requestedPx = if (targetDp > 0) dp(targetDp) else 0
+        val pixels = maxOf(requestedPx, image.layoutParams?.width ?: 0, image.width).takeIf { it > 0 }?.coerceIn(64, 512) ?: 512
         api.artwork.peek(path, pixels)?.let {
             image.setImageBitmap(it)
             loaded?.invoke(it)
@@ -944,6 +954,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         // A removed screen must not keep its covers ahead of the newly visible screen.
         image.post {
             if (!alive || image.tag != path || !image.isAttachedToWindow) return@post
+            val measuredPx = maxOf(
+                requestedPx,
+                image.width,
+                image.height,
+                (image.parent as? View)?.width ?: 0,
+                image.layoutParams?.width ?: 0,
+            ).takeIf { it > 0 }?.coerceIn(64, 512) ?: pixels
             val current = java.util.concurrent.atomic.AtomicBoolean(true)
             val listener =
                 object : View.OnAttachStateChangeListener {
@@ -955,7 +972,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     }
                 }
             image.addOnAttachStateChangeListener(listener)
-            api.artwork.load(path, pixels, current = { alive && current.get() }) { value ->
+            api.artwork.load(path, measuredPx, current = { alive && current.get() }) { value ->
                 image.removeOnAttachStateChangeListener(listener)
                 if (alive && image.tag == path && value != null) {
                     image.setImageBitmap(value)
@@ -1305,7 +1322,12 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 restore = restore ?: { load(title, path, read, restore, stableKey, render) },
             )
         val stamp = generation
-        if (!refreshing) {
+        val cached = if (!refreshing) api.cachedResponse(path) else null
+        if (cached != null) {
+            render(cached)
+            renderedPath = path
+            renderedStableKey = stableKey
+        } else if (!refreshing) {
             musicLoader()
             label(text("common.loading", "Loading…"), 14, color = muted).apply {
                 gravity = Gravity.CENTER_HORIZONTAL
@@ -1321,6 +1343,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             if (!alive || stamp != generation) return@execute
             val data = (result as? Pair<*, *>)?.first
             val signature = (result as? Pair<*, *>)?.second as? String
+            if (cached != null && error != null) return@execute
             if (refreshing && error != null) {
                 if (error is NativeApi.Failure && error.code == 401) {
                     player.release()
@@ -1338,6 +1361,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     signature == renderedSignature
             )
                 return@execute
+            if (cached != null && cached.toString() == data?.toString()) {
+                renderedSignature = signature
+                return@execute
+            }
             content.removeAllViews()
             if (error != null) {
                 label(error.message ?: "Request failed")
@@ -2107,7 +2134,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     scaleType = ImageView.ScaleType.CENTER_CROP
                 }
             artFrame.addView(art, FrameLayout.LayoutParams(-1, -1))
-            artwork(art, item.optString("thumbnail"))
+            artwork(art, item.optString("thumbnail"), targetDp = size)
 
             val overlay =
                 if (isTrack) {
@@ -2328,6 +2355,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(4); bottomMargin = dp(4) }
         )
         content.addView(heroBox)
+        val updateNotice = updateNoticeCard()
+        if (updateNotice != null) content.addView(updateNotice)
         browseTabs("all")
         val stamp = generation
         val cacheScope = runCatching { library.scope() }.getOrNull()
@@ -6152,4 +6181,136 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             if (alive) toast(error?.message ?: message.orEmpty())
         }
     }
+    private fun updateNoticeCard(update: AppUpdater.Update? = app.updater.availableUpdate): View? {
+        val target = update ?: return null
+        val prefs = activity.getSharedPreferences(MainActivity.PREFS, 0)
+        val dismissKey = "native_update_dismissed_${target.version}_${target.code}"
+        val dismissedUntil = prefs.getLong(dismissKey, 0L)
+        if (System.currentTimeMillis() < dismissedUntil) return null
+
+        val card = LinearLayout(activity).apply {
+            tag = "native_update_notice"
+            orientation = LinearLayout.VERTICAL
+            background = shape(design.card, if (theme == "glass") 20 else if (theme == "classic") 8 else 12)
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            val lp = LinearLayout.LayoutParams(-1, -2).apply {
+                bottomMargin = dp(20)
+            }
+            layoutParams = lp
+        }
+
+        val topRow = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        card.addView(topRow, LinearLayout.LayoutParams(-1, -2))
+
+        val iconBox = FrameLayout(activity).apply {
+            val bg = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(design.wash)
+            }
+            background = bg
+            val boxLp = LinearLayout.LayoutParams(dp(44), dp(44)).apply {
+                marginEnd = dp(14)
+            }
+            layoutParams = boxLp
+        }
+        val icon = ImageView(activity).apply {
+            setImageDrawable(NativeIcon("download-cloud", accent, theme))
+            val pad = dp(10)
+            setPadding(pad, pad, pad, pad)
+        }
+        iconBox.addView(icon, FrameLayout.LayoutParams(-1, -1))
+        topRow.addView(iconBox)
+
+        val copy = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        topRow.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
+
+        val title = TextView(activity).apply {
+            text = text("updates.client_title", "App update available")
+            design.typography(this, 15f, 700)
+            setTextColor(ink)
+        }
+        copy.addView(title)
+
+        val sameVersion = BuildConfig.VERSION_NAME == target.version
+        val installedLabel = if (sameVersion) "${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})" else BuildConfig.VERSION_NAME
+        val availableLabel = if (sameVersion) "${target.version} (${target.code})" else target.version
+        val versionText = text(
+            "updates.client_versions",
+            "Aoede Android: installed $installedLabel · available $availableLabel",
+            "client" to "Aoede Android",
+            "installed" to installedLabel,
+            "available" to availableLabel,
+        )
+        val versions = TextView(activity).apply {
+            text = versionText
+            design.typography(this, 13f, 500)
+            setTextColor(muted)
+            (layoutParams as? LinearLayout.LayoutParams ?: LinearLayout.LayoutParams(-1, -2)).topMargin = dp(2)
+        }
+        copy.addView(versions)
+
+        val hint = TextView(activity).apply {
+            text = text("updates.android_confirm", "Download and verify the APK, then confirm installation in Android.")
+            design.typography(this, 12f, 400)
+            setTextColor(muted)
+            (layoutParams as? LinearLayout.LayoutParams ?: LinearLayout.LayoutParams(-1, -2)).topMargin = dp(6)
+        }
+        card.addView(hint)
+
+        val actions = LinearLayout(activity).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END or Gravity.CENTER_VERTICAL
+            val actLp = LinearLayout.LayoutParams(-1, -2).apply {
+                topMargin = dp(14)
+            }
+            layoutParams = actLp
+        }
+        card.addView(actions)
+
+        val dismissBtn = TextView(activity).apply {
+            text = text("updates.later", "Remind me tomorrow")
+            design.typography(this, 13f, 600)
+            setTextColor(muted)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            isFocusable = true
+            isClickable = true
+            background = design.touch(Color.TRANSPARENT, 8, false)
+            setOnClickListener {
+                prefs.edit().putLong(dismissKey, System.currentTimeMillis() + 86400000L).apply()
+                card.animate().alpha(0f).setDuration(200).withEndAction {
+                    (card.parent as? ViewGroup)?.removeView(card)
+                }.start()
+            }
+        }
+        actions.addView(dismissBtn, LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) })
+
+        button(text("updates.install", "Update app"), actions, accent = true) {
+            app.updater.offer(activity)
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(-2, dp(38))
+            setPadding(dp(14), 0, dp(14), 0)
+            design.typography(this, 13f, 600)
+        }
+
+        return card
+    }
+
+    fun onUpdateDetected(update: AppUpdater.Update?) {
+        if (update == null || !alive) return
+        if (routeKey == "home" && ::content.isInitialized) {
+            if (content.findViewWithTag<View>("native_update_notice") == null) {
+                val card = updateNoticeCard(update)
+                if (card != null) {
+                    val index = if (content.childCount > 1) 1 else 0
+                    content.addView(card, index)
+                }
+            }
+        }
+    }
+
 }

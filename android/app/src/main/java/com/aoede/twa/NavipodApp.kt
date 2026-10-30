@@ -69,6 +69,10 @@ class AoedeApp : Application() {
         if (view != null && ServerOrigin.from(Uri.parse(view.url.orEmpty())) == mediaController.serverOrigin) {
             view.evaluateJavascript("window.__aoedeClientRelease=$data;window.dispatchEvent(new CustomEvent('aoede-client-update',{detail:window.__aoedeClientRelease}));", null)
         }
+    }.apply {
+        onUpdateAvailable = { update ->
+            activity.get()?.nativeUi?.onUpdateDetected(update)
+        }
     } }
     private var playerUrl: String? = null
     var connectionFailure: Pair<String, String>? = null

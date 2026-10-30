@@ -116,7 +116,7 @@ class NativeVault(private val context: Context) {
     }
 }
 
-class NativeApi(private val app: AoedeApp) {
+class NativeApi(internal val app: AoedeApp) {
     class Failure(val code: Int, message: String) : IOException(message)
 
     private class ImageWork(
@@ -142,14 +142,31 @@ class NativeApi(private val app: AoedeApp) {
         )
     private val images =
         ThreadPoolExecutor(
-            2,
-            2,
+            4,
+            4,
             30,
             TimeUnit.SECONDS,
-            LinkedBlockingQueue<Runnable>(128),
+            LinkedBlockingQueue<Runnable>(256),
             { r -> Thread(r, "aoede-native-image").apply { isDaemon = true } },
             ThreadPoolExecutor.AbortPolicy(),
         )
+    private val responseCache = object : android.util.LruCache<String, Pair<Long, Any>>(64) {}
+
+    fun cachedResponse(path: String, maxAgeMs: Long = 60000L): Any? {
+        val entry = synchronized(responseCache) { responseCache.get("${scope}:$path") } ?: return null
+        if (System.currentTimeMillis() - entry.first > maxAgeMs) return null
+        return entry.second
+    }
+
+    fun cacheResponse(path: String, value: Any) {
+        synchronized(responseCache) {
+            responseCache.put("${scope}:$path", System.currentTimeMillis() to value)
+        }
+    }
+
+    fun invalidateResponseCache() {
+        synchronized(responseCache) { responseCache.evictAll() }
+    }
     val artwork = NativeArtwork(this)
     private val vault by lazy { NativeVault(app) }
     var origin: ServerOrigin? = null
@@ -237,6 +254,7 @@ class NativeApi(private val app: AoedeApp) {
         val next = ServerOrigin.from(Uri.parse(value)) ?: error("Invalid server")
         if (origin == next) return
         artwork.clear()
+        invalidateResponseCache()
         sessionRevision++
         importedLegacyCookie = false
         origin = next
@@ -343,6 +361,7 @@ class NativeApi(private val app: AoedeApp) {
         body: JSONObject? = null,
         form: Map<String, String>? = null,
     ): Any {
+        if (method != "GET") invalidateResponseCache()
         val c = connection(path, method)
         if (path.startsWith("/admin/api/downloader/") && path.endsWith("/auth-browser/start"))
             c.readTimeout = 150000
@@ -408,7 +427,11 @@ class NativeApi(private val app: AoedeApp) {
                     502,
                     "Unexpected server response. Update the Aoede server and try again.",
                 )
-            return result ?: JSONObject().put("ok", true)
+            val parsed = result ?: JSONObject().put("ok", true)
+            if (method == "GET" && code == 200 && (path.startsWith("/api/playlists") || path.startsWith("/api/library") || path.startsWith("/api/favorites") || path.startsWith("/api/album") || path.startsWith("/api/artist"))) {
+                cacheResponse(path, parsed)
+            }
+            return parsed
         } finally {
             c.disconnect()
         }

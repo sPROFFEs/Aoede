@@ -29,6 +29,8 @@ class AppUpdater(private val context: Context, private val publish: (String) -> 
     private var checking = false
     private var downloading = false
     private var available: Update? = null
+    val availableUpdate: Update? get() = available
+    var onUpdateAvailable: ((Update?) -> Unit)? = null
     private var pending: Pair<File, Update>? = null
 
     companion object {
@@ -51,6 +53,23 @@ class AppUpdater(private val context: Context, private val publish: (String) -> 
                 return Update(label.groupValues[1], code, "$repository$tag/aoede-android.apk", size, digest)
             }
             return null
+        }
+
+        internal fun parseAtomFeed(xml: String, installed: Int): Update? {
+            val entry = xml.substringAfter("<entry>", "").substringBefore("</entry>")
+            if (entry.isBlank()) return null
+            val tagMatch = Regex("""releases/tag/([A-Za-z0-9][A-Za-z0-9._+-]{0,79})""").find(entry) ?: return null
+            val tag = tagMatch.groupValues[1]
+            val labelMatch = Regex("""Android (\d+\.\d+\.\d+) \((\d+)\)""").find(entry) ?: return null
+            val version = labelMatch.groupValues[1]
+            val code = labelMatch.groupValues[2].toIntOrNull() ?: return null
+            if (code <= installed) return null
+            return Update(version, code, "$repository$tag/aoede-android.apk", 0L, "")
+        }
+
+        internal fun parseExpandedAssetsDigest(html: String): String {
+            val match = Regex("""aoede-android\.apk[\s\S]*?sha256:([a-f0-9]{64})""").find(html)
+            return match?.groupValues?.get(1).orEmpty()
         }
 
         internal fun allowedUrl(url: URL): Boolean = url.protocol == "https" && url.userInfo == null &&
@@ -77,7 +96,7 @@ class AppUpdater(private val context: Context, private val publish: (String) -> 
                 connection.instanceFollowRedirects = false
                 connection.connectTimeout = 10000
                 connection.readTimeout = 30000
-                connection.setRequestProperty("Accept", if (target.host == "api.github.com") "application/vnd.github+json" else "application/octet-stream")
+                connection.setRequestProperty("Accept", when (target.host) { "api.github.com" -> "application/vnd.github+json"; "github.com" -> "*/*"; else -> "application/octet-stream" })
                 connection.setRequestProperty("User-Agent", "AoedeAndroid/${BuildConfig.VERSION_NAME}")
                 val status = connection.responseCode
                 if (status in listOf(301, 302, 303, 307, 308)) {
@@ -113,16 +132,42 @@ class AppUpdater(private val context: Context, private val publish: (String) -> 
         if (System.currentTimeMillis() - checked < 300000) { deliver(); after(); return }
         checking = true
         worker.execute {
-            val result = runCatching {
+            var update: Update? = null
+            var success = false
+            val apiResult = runCatching {
                 var data = ""
                 read("https://api.github.com/repos/sPROFFEs/Aoede/releases/latest", 512 * 1024) { data = it.bufferedReader().readText() }
                 parseRelease(JSONObject(data), BuildConfig.VERSION_CODE)
             }
+            if (apiResult.isSuccess) {
+                success = true
+                update = apiResult.getOrNull()
+            } else {
+                val fallbackResult = runCatching {
+                    var atomXml = ""
+                    read("https://github.com/sPROFFEs/Aoede/releases.atom", 256 * 1024) { atomXml = it.bufferedReader().readText() }
+                    val candidate = parseAtomFeed(atomXml, BuildConfig.VERSION_CODE)
+                    if (candidate != null) {
+                        val tag = candidate.url.substringAfter(repository).substringBefore("/aoede-android.apk")
+                        var assetsHtml = ""
+                        runCatching {
+                            read("https://github.com/sPROFFEs/Aoede/releases/expanded_assets/$tag", 256 * 1024) { assetsHtml = it.bufferedReader().readText() }
+                        }
+                        val digest = parseExpandedAssetsDigest(assetsHtml)
+                        candidate.copy(digest = digest)
+                    } else null
+                }
+                if (fallbackResult.isSuccess) {
+                    success = true
+                    update = fallbackResult.getOrNull()
+                }
+            }
             main.post {
                 checking = false
-                if (result.isSuccess) { checked = System.currentTimeMillis(); available = result.getOrNull() }
+                if (success) { checked = System.currentTimeMillis(); available = update }
                 // Preserve a last successful result when offline; retry on the next foreground check.
                 deliver()
+                onUpdateAvailable?.invoke(available)
                 after()
             }
         }
@@ -162,7 +207,8 @@ class AppUpdater(private val context: Context, private val publish: (String) -> 
             val partial = File(directory, "download.part")
             val result = runCatching {
                 val hash = MessageDigest.getInstance("SHA-256")
-                read(update.url, update.size) { input ->
+                val downloadLimit = if (update.size > 0L) update.size else maximum
+                read(update.url, downloadLimit) { input ->
                     partial.outputStream().use { output ->
                         val bytes = ByteArray(32768)
                         while (true) {
@@ -173,7 +219,12 @@ class AppUpdater(private val context: Context, private val publish: (String) -> 
                         }
                     }
                 }
-                require(partial.length() == update.size && hash.digest().joinToString("") { "%02x".format(it) } == update.digest) { "Update checksum does not match" }
+                if (update.size > 0L) {
+                    require(partial.length() == update.size) { "Update file size does not match" }
+                }
+                if (update.digest.isNotBlank()) {
+                    require(hash.digest().joinToString("") { "%02x".format(it) } == update.digest) { "Update checksum does not match" }
+                }
                 verify(partial, update)
                 val apk = File(directory, "aoede-update.apk")
                 check(partial.renameTo(apk)) { "Cannot save update" }

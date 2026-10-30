@@ -4,14 +4,40 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Base64
 import android.util.LruCache
+import java.io.File
 import java.io.IOException
 
 /** Decoded, account-bound covers shared by lists, heroes and the player. */
 class NativeArtwork(private val api: NativeApi) {
+    private val maxCacheSize =
+        (Runtime.getRuntime().maxMemory() / 8).toInt().coerceIn(24 * 1024 * 1024, 64 * 1024 * 1024)
     private val cache =
-        object : LruCache<String, Bitmap>(8 * 1024 * 1024) {
+        object : LruCache<String, Bitmap>(maxCacheSize) {
             override fun sizeOf(key: String, value: Bitmap) = value.byteCount
         }
+    private val diskCacheDir by lazy {
+        File(api.app.cacheDir, "artwork").apply { mkdirs() }
+    }
+
+    private fun diskKey(path: String): String =
+        NativeApi.digest("${api.origin?.rule}:${api.scope}:$path")
+
+    private fun diskFile(path: String): File =
+        File(diskCacheDir, diskKey(path) + ".bin")
+
+    private fun pruneDiskCache() {
+        val files = diskCacheDir.listFiles() ?: return
+        var totalSize = files.sumOf { it.length() }
+        val maxDiskSize = 60L * 1024 * 1024
+        if (totalSize > maxDiskSize) {
+            files.sortedBy { it.lastModified() }.forEach { file ->
+                if (totalSize > maxDiskSize * 0.75) {
+                    val len = file.length()
+                    if (file.delete()) totalSize -= len
+                }
+            }
+        }
+    }
 
     private class Request(val current: () -> Boolean, val done: (Bitmap?) -> Unit)
 
@@ -71,7 +97,19 @@ class NativeArtwork(private val api: NativeApi) {
                 val bytes =
                     if (path.startsWith("data:image/")) {
                         Base64.decode(path.substringAfter(','), Base64.DEFAULT)
-                    } else read(path)
+                    } else {
+                        val file = diskFile(path)
+                        if (file.isFile && file.length() in 1..(2 * 1024 * 1024)) {
+                            file.setLastModified(System.currentTimeMillis())
+                            runCatching { file.readBytes() }.getOrNull() ?: read(path).also {
+                                runCatching { file.writeBytes(it); pruneDiskCache() }
+                            }
+                        } else {
+                            val networkBytes = read(path)
+                            runCatching { file.writeBytes(networkBytes); pruneDiskCache() }
+                            networkBytes
+                        }
+                    }
                 if (ticket == epoch && waiting.any { it.current() }) decode(bytes, size) else null
             },
             current = { ticket == epoch && waiting.any { it.current() } },
@@ -132,12 +170,11 @@ class NativeArtwork(private val api: NativeApi) {
             var sample =
                 MediaController.artworkSampleSize(bounds.outWidth, bounds.outHeight) ?: return null
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= pixels) sample *= 2
-            return BitmapFactory.decodeByteArray(
-                bytes,
-                0,
-                bytes.size,
-                BitmapFactory.Options().apply { inSampleSize = sample },
-            )
+            val options = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inTempStorage = ByteArray(16 * 1024)
+            }
+            return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
         }
     }
 }
