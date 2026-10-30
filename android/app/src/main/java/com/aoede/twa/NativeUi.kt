@@ -56,7 +56,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private val history = ArrayDeque<() -> Unit>()
     private var routeKey: String? = null
     private var restoringRoute = false
-    private var fullscreen: View? = null
+    var fullscreen: View? = null
+        internal set
     private var updateFull: (() -> Unit)? = null
     @Volatile private var generation = 0
     internal val pageRevision
@@ -385,7 +386,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         value: String,
         parent: LinearLayout = content,
         primary: Boolean = false,
-        action: () -> Unit,
+        action: () -> Unit = {},
     ): Button =
         Button(activity).apply {
             val style = if (primary) parent.tag as? JSONObject else null

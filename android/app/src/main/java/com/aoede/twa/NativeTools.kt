@@ -4449,29 +4449,29 @@ class NativeTools(private val ui: NativeUi) {
                     setPadding(0, 0, 0, ui.dp(12))
                 }
             panel.addView(actionsBar)
-            ui.button("Add node", actionsBar, true).apply {
+            ui.button("Add node", actionsBar, true) {
+                form(
+                    "Connected node",
+                    "/api/admin/federation/instances",
+                    listOf("name", "base_url", "api_token"),
+                    json = true,
+                ) {
+                    federation()
+                }
+            }.apply {
                 (layoutParams as LinearLayout.LayoutParams).apply {
                     weight = 1f
                     width = 0
                     marginEnd = ui.dp(8)
                 }
-                setOnClickListener {
-                    form(
-                        "Connected node",
-                        "/api/admin/federation/instances",
-                        listOf("name", "base_url", "api_token"),
-                        json = true,
-                    ) {
-                        federation()
-                    }
-                }
             }
-            ui.button("Outbound peers", actionsBar).apply {
+            ui.button("Outbound peers", actionsBar) {
+                outboundPeers()
+            }.apply {
                 (layoutParams as LinearLayout.LayoutParams).apply {
                     weight = 1f
                     width = 0
                 }
-                setOnClickListener { outboundPeers() }
             }
             val peers = NativeTrack.items(value)
             if (peers.isEmpty()) {
