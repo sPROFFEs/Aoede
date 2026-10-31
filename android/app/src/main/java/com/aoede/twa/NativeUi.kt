@@ -126,7 +126,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         stopDiscoveryPreview()
 
         if (player.playing) {
-            player.pause()
+            app.mediaController.pauseLocal()
         }
 
         activePreviewKey = itemKey
@@ -134,8 +134,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         btn.text = "pause"
 
         try {
+            val origin = api.origin ?: return
             val factory = DataSource.Factory {
-                NativeHttpSource(api, library.scope())
+                NativeHttpSource(api, api.scope)
             }
             val exo =
                 ExoPlayer.Builder(activity)
@@ -177,7 +178,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 if (streamPath.startsWith("http://") || streamPath.startsWith("https://")) {
                     android.net.Uri.parse(streamPath)
                 } else {
-                    android.net.Uri.parse(api.url(streamPath))
+                    android.net.Uri.parse(NativeApi.resolve(origin, streamPath).toString())
                 }
 
             exo.setMediaItem(MediaItem.fromUri(uri))
