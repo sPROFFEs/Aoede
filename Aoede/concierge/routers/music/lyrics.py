@@ -2,6 +2,7 @@
 to lrclib directly (CORS, plus we want the shared cache)."""
 
 import logging
+import math
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
@@ -18,14 +19,10 @@ logger = logging.getLogger(__name__)
 async def lyrics(
     request: Request,
     db: Session = Depends(get_db),
-    # Hard length caps. Without them an authed user could submit a
-    # 10 MB title that flows into both the outbound HTTP query and the
-    # metadata_cache key (which JSON-serializes the whole thing as the
-    # row identifier) — slow lookups, bloated cache rows.
-    title: str = Query(..., max_length=300),
-    artist: str = Query(..., max_length=200),
-    album: str = Query("", max_length=300),
-    duration: float = Query(0.0, ge=0.0, le=86400.0),
+    title: str = Query("", max_length=1000),
+    artist: str = Query("", max_length=1000),
+    album: str = Query("", max_length=1000),
+    duration: float | str | None = Query("0"),
     track_id: int | None = Query(None),
 ):
     """Returns synced + plain lyrics for a track. Cached per-song
@@ -35,11 +32,24 @@ async def lyrics(
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+    clean_title = (title or "").strip()[:300]
+    clean_artist = (artist or "").strip()[:200]
+    clean_album = (album or "").strip()[:300]
+
+    dur_val = 0.0
+    if duration is not None:
+        try:
+            val = float(duration)
+            if not math.isnan(val) and val > 0:
+                dur_val = min(86400.0, val / 1000.0 if val > 10000.0 else val)
+        except (ValueError, TypeError):
+            dur_val = 0.0
+
     data = await get_lyrics(
-        title=title,
-        artist=artist,
-        album=album or None,
-        duration=duration if duration > 0 else None,
+        title=clean_title,
+        artist=clean_artist,
+        album=clean_album or None,
+        duration=dur_val if dur_val > 0 else None,
         track_id=track_id,
         db=db,
     )

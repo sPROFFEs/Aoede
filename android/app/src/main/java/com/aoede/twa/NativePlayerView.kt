@@ -711,10 +711,46 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         if (!apple) scroll.background = if (glass) film(18) else design.shape(0xdd121212.toInt(), 8)
         val loading = text(20f, 600).apply { text = ui.text("common.loading", "Loading…") }
         body.addView(loading)
-        val trackId = NativeTrack.localId(t)
+
+        val titleRaw = t.optString("title").trim()
+        val artistRaw = t.optString("artist").trim()
+        val albumRaw = t.optString("album").trim()
+
+        if (titleRaw.isEmpty() || artistRaw.isEmpty()) {
+            body.removeAllViews()
+            body.addView(
+                text(18f, 600).apply {
+                    text = "No lyrics found for this track."
+                    gravity = Gravity.CENTER_HORIZONTAL
+                    setPadding(0, dp(48), 0, dp(24))
+                    setTextColor(0x80c5c7d1.toInt())
+                }
+            )
+            render()
+            return
+        }
+
+        val trackId =
+            t.optLong("db_id").takeIf { it > 0 }
+                ?: (if (t.optInt("fed_instance_id") <= 0 && !t.optBoolean("is_federated"))
+                        t.optLong("id").takeIf { it > 0 }
+                    else null)
+                ?: NativeTrack.localId(t).takeIf { it > 0 }
+                ?: 0L
         val trackParam = if (trackId > 0) "&track_id=$trackId" else ""
+
+        val rawDur = t.optDouble("duration", Double.NaN)
+        val durSec =
+            if (rawDur.isFinite() && rawDur > 0.0) {
+                if (rawDur > 10000.0) rawDur / 1000.0 else rawDur
+            } else if (player.duration > 0) {
+                player.duration / 1000.0
+            } else {
+                0.0
+            }.coerceIn(0.0, 86400.0)
+
         val path =
-            "/api/lyrics?title=${NativeApi.encode(t.optString("title"))}&artist=${NativeApi.encode(t.optString("artist"))}&album=${NativeApi.encode(t.optString("album"))}&duration=${t.optDouble("duration").coerceIn(0.0,86400.0)}$trackParam"
+            "/api/lyrics?title=${NativeApi.encode(titleRaw.take(300))}&artist=${NativeApi.encode(artistRaw.take(200))}&album=${NativeApi.encode(albumRaw.take(300))}&duration=$durSec$trackParam"
         ui.api.execute({ ui.api.request(path) }) { value, error ->
             if (
                 parent == null ||
@@ -735,47 +771,80 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 render()
                 return@execute
             }
+
             val synced = data?.optString("synced_lyrics", data.optString("synced")).orEmpty()
+            val lrcTime = Regex("\\[(\\d{1,3}):(\\d{2}(?:[.:]\\d{1,3})?)\\]")
+            val offsetMatch =
+                Regex("\\[offset:([+-]?\\d+)\\]", RegexOption.IGNORE_CASE).find(synced)
+            val offsetMs = offsetMatch?.groupValues?.get(1)?.toLongOrNull() ?: 0L
+
+            val parsedList = mutableListOf<Pair<Long, String>>()
+            for (raw in synced.split(Regex("\\r?\\n"))) {
+                val matches = lrcTime.findAll(raw).toList()
+                if (matches.isEmpty()) continue
+                val lineText = raw.replace(lrcTime, "").trim()
+                for (m in matches) {
+                    val minutes = m.groupValues[1].toLongOrNull() ?: 0L
+                    val secStr = m.groupValues[2].replace(':', '.')
+                    val sec = secStr.toDoubleOrNull() ?: 0.0
+                    val totalMs = ((minutes * 60 + sec) * 1000).toLong() - offsetMs
+                    parsedList.add(maxOf(0L, totalMs) to lineText)
+                }
+            }
+            parsedList.sortBy { it.first }
+
             val parsed =
-                Regex("\\[(\\d+):(\\d+(?:\\.\\d+)?)\\](.*)")
-                    .findAll(synced)
-                    .map { match ->
-                        val ms =
-                            (match.groupValues[1].toLong() * 60000 +
-                                    match.groupValues[2].toDouble() * 1000)
-                                .toLong()
-                        val line =
-                            text(if (apple) 28f else 26f, 700).apply {
-                                text = match.groupValues[3]
-                                setPadding(0, dp(8), 0, dp(8))
-                                minHeight = dp(54)
-                                setOnClickListener { ui.app.mediaController.command("seekto", ms) }
-                                isFocusable = true
-                            }
-                        body.addView(line)
-                        ms to line
-                    }
-                    .toList()
+                parsedList.map { (ms, lineStr) ->
+                    val line =
+                        text(if (apple) 28f else 26f, 700).apply {
+                            text = lineStr.ifEmpty { "♪" }
+                            setPadding(0, dp(8), 0, dp(8))
+                            minHeight = dp(54)
+                            setOnClickListener { ui.app.mediaController.command("seekto", ms) }
+                            isFocusable = true
+                        }
+                    body.addView(line)
+                    ms to line
+                }
             lyricLines = parsed
-            if (parsed.isEmpty())
-                body.addView(
-                    text(18f, 600).apply {
-                        text =
-                            if (error != null) "Lyrics unavailable. Try again."
-                            else
-                                data
-                                    ?.optString("plain_lyrics", data.optString("plain"))
-                                    .orEmpty()
-                                    .ifBlank { "No lyrics found for this track." }
-                        gravity = Gravity.CENTER_HORIZONTAL
-                        setPadding(0, dp(48), 0, dp(24))
-                        setTextColor(0x80c5c7d1.toInt())
+
+            if (parsed.isEmpty()) {
+                val plain =
+                    data?.optString("plain_lyrics", data.optString("plain")).orEmpty().trim()
+                if (plain.isNotEmpty()) {
+                    for (lineText in plain.split(Regex("\\r?\\n"))) {
+                        val trimmed = lineText.trim()
+                        val lineView =
+                            text(if (apple) 22f else 20f, 600).apply {
+                                text = trimmed.ifEmpty { "♪" }
+                                setPadding(0, dp(6), 0, dp(6))
+                                minHeight = dp(38)
+                                setTextColor(
+                                    if (trimmed.isEmpty()) 0x55c5c7d1.toInt()
+                                    else 0xd0c5c7d1.toInt()
+                                )
+                                gravity = Gravity.CENTER_HORIZONTAL
+                            }
+                        body.addView(lineView)
                     }
-                )
-            else {
+                } else {
+                    body.addView(
+                        text(18f, 600).apply {
+                            text =
+                                if (error != null) "Lyrics unavailable. Try again."
+                                else "No lyrics found for this track."
+                            gravity = Gravity.CENTER_HORIZONTAL
+                            setPadding(0, dp(48), 0, dp(24))
+                            setTextColor(0x80c5c7d1.toInt())
+                        }
+                    )
+                }
+            } else {
                 body.addView(
                     text(12f).apply {
-                        text = "via lrclib.net"
+                        text =
+                            if (data?.optString("source") == "netease") "via NetEase Music"
+                            else "via lrclib.net"
                         setTextColor(0x80c5c7d1.toInt())
                         gravity = Gravity.CENTER_HORIZONTAL
                         setPadding(0, dp(32), 0, dp(16))

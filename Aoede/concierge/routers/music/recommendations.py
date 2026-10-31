@@ -393,6 +393,9 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
                         "is_local": False,
                         "source": "spotify",
                         "preview": item.get("preview_url"),
+                        "reason": f"Because you listen to {spotify_search_term}" if top_artists_list else "Curated from top hits",
+                        "category": "for_you",
+                        "badge": "For You",
                         # Keep the raw Spotify track id so we can backfill
                         # the preview URL later via the embed scraper —
                         # Spotify deprecated preview_url in their official
@@ -439,6 +442,9 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
                     "thumbnail": item.get("image", "/static/img/default_cover.png"),
                     "is_local": False,
                     "source": "youtube",
+                    "reason": f"Similar to {yt_search_term}" if (top_artists and yt_search_term) else "Trending music audition",
+                    "category": "for_you" if (top_artists and yt_search_term) else "trending",
+                    "badge": "Taste Match" if (top_artists and yt_search_term) else "Trending",
                 }
             )
     except Exception as e:
@@ -469,6 +475,9 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
                         "thumbnail": thumbnail or f"/api/cover/resolve?artist={artist}&title={title}",
                         "is_local": False,
                         "source": "lastfm",
+                        "reason": f"Fans of {lastfm_seed} also love this" if lastfm_seed else "Community discovery",
+                        "category": "gems",
+                        "badge": "Deep Cut",
                     }
                 )
         except Exception as e:
@@ -494,6 +503,9 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
                     "thumbnail": thumbnail,
                     "is_local": False,
                     "source": "musicbrainz",
+                    "reason": f"Explore artists similar to {mb_seed}" if mb_seed else "Artist exploration",
+                    "category": "gems",
+                    "badge": "Explore",
                 }
             )
     except Exception as e:
@@ -558,32 +570,35 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/api/discovery/feed")
-def discovery_feed(request: Request, db: Session = Depends(get_db), limit: int = 20):
-    """Discovery feed — flat list of remote tracks (with preview URLs)
-    the user doesn't already own. Reuses the 48h /api/recommendations
-    cache so the endpoint stays cheap; if the cache is empty (user
-    hasn't visited Home yet) the feed is empty too. The frontend
-    handles that case with an empty-state CTA."""
+async def discovery_feed(
+    request: Request,
+    db: Session = Depends(get_db),
+    limit: int = 20,
+    category: str = None,
+):
+    """Discovery feed — curated preview tracks with contextual reasons,
+    badges, and instant audio previews. If cache is empty or sparse,
+    it dynamically generates fresh recommendations so users always get a rich feed."""
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+    os.makedirs(RECS_CACHE_DIR, exist_ok=True)
     cache_file = os.path.join(RECS_CACHE_DIR, f"recs_{user.username}.json")
     items: list[dict] = []
+    
+    local_section_titles = (
+        "Recently Added",
+        "Recently played",
+        "On repeat",
+        "Rediscover",
+        "From artists you used",
+    )
+
     try:
         if os.path.exists(cache_file):
             with open(cache_file, "r") as f:
                 cached = json.load(f)
-            # We want fresh remote tracks only — skip every library-driven
-            # section the home shelves use. Their tracks are already in
-            # the user's library so they don't belong in a discovery feed.
-            local_section_titles = (
-                "Recently Added",
-                "Recently played",
-                "On repeat",
-                "Rediscover",
-                "From artists you used",
-            )
             for section in cached.get("sections", []):
                 title = section.get("title", "") or ""
                 if any(title.startswith(prefix) for prefix in local_section_titles):
@@ -591,16 +606,86 @@ def discovery_feed(request: Request, db: Session = Depends(get_db), limit: int =
                 for item in section.get("items", []):
                     if item.get("is_local"):
                         continue
-                    # Items without a preview URL still surface — the
-                    # card just hides the ▶ button. Spotify deprecated
-                    # preview_url in late 2024 so requiring it would
-                    # leave the feed nearly empty for most users.
-                    items.append(item)
+                    item_copy = dict(item)
+                    if not item_copy.get("reason"):
+                        t_low = title.lower()
+                        if "for you" in t_low or "taste" in t_low:
+                            item_copy["reason"] = "Curated for you based on your taste"
+                            item_copy["category"] = "for_you"
+                            item_copy["badge"] = "For You"
+                        elif "trending" in t_low:
+                            item_copy["reason"] = "Trending release right now"
+                            item_copy["category"] = "trending"
+                            item_copy["badge"] = "Trending"
+                        elif "discover" in t_low or "explore" in t_low:
+                            item_copy["reason"] = "Deep cut discovery for your style"
+                            item_copy["category"] = "gems"
+                            item_copy["badge"] = "Deep Cut"
+                        else:
+                            item_copy["reason"] = "Recommended for you"
+                            item_copy["category"] = "for_you"
+                            item_copy["badge"] = "Discovery"
+                    items.append(item_copy)
     except Exception as e:
         logger.warning("Discovery feed cache read error: %s", e)
 
-    # De-dupe through indexed normalized columns. The previous implementation
-    # loaded every title/artist in the library for each feed request.
+    # If cache is missing, empty, or has fewer than 6 items, generate fresh recommendations dynamically!
+    if len(items) < 6:
+        try:
+            recs_resp = await get_recommendations(request, db)
+            if hasattr(recs_resp, "body"):
+                data = json.loads(recs_resp.body.decode("utf-8"))
+                if isinstance(data, list):
+                    for section in data:
+                        title = section.get("title", "") or ""
+                        if any(title.startswith(prefix) for prefix in local_section_titles):
+                            continue
+                        for item in section.get("items", []):
+                            if item.get("is_local"):
+                                continue
+                            item_copy = dict(item)
+                            if not item_copy.get("reason"):
+                                item_copy["reason"] = "Curated for you based on your taste"
+                                item_copy["category"] = "for_you"
+                                item_copy["badge"] = "For You"
+                            items.append(item_copy)
+        except Exception as e:
+            logger.warning("Dynamic recommendations generation for discovery failed: %s", e)
+
+    # Fallback to unplayed / unfavorited local tracks if remote services gave few items
+    if len(items) < 6:
+        try:
+            fav_track_ids = {
+                f.track_id for f in db.query(database.UserFavorite.track_id)
+                .filter(database.UserFavorite.user_id == user.id).all()
+                if f.track_id
+            }
+            local_raw = (
+                db.query(database.Track)
+                .filter(database.Track.id.notin_(fav_track_ids) if fav_track_ids else True)
+                .order_by(database.Track.play_count.asc())
+                .limit(20)
+                .all()
+            )
+            for t in local_raw:
+                items.append({
+                    "id": t.source_id or f"local:{t.id}",
+                    "db_id": t.id,
+                    "title": t.title,
+                    "artist": t.artist,
+                    "album": t.album,
+                    "thumbnail": f"/api/cover/{t.id}",
+                    "stream_url": f"/api/stream/{t.id}",
+                    "is_local": True,
+                    "source": "local",
+                    "reason": "Hidden gem in your library",
+                    "category": "gems",
+                    "badge": "Library Gem",
+                })
+        except Exception as e:
+            logger.warning("Discovery local fallback error: %s", e)
+
+    # De-dupe through indexed normalized columns
     existing_keys = set()
     try:
         candidate_titles = {
@@ -625,10 +710,15 @@ def discovery_feed(request: Request, db: Session = Depends(get_db), limit: int =
         if not title:
             continue
         key = f"{title}|{artist}"
-        if key in existing_keys or key in seen:
+        if key in seen:
+            continue
+        if not item.get("is_local") and key in existing_keys:
             continue
         seen.add(key)
         filtered.append(item)
+
+    if category and category != "all":
+        filtered = [it for it in filtered if it.get("category") == category]
 
     random.shuffle(filtered)
     return JSONResponse({"items": filtered[: max(1, min(limit, 60))], "total": len(filtered)})

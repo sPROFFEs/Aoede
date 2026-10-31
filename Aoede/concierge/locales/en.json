@@ -538,5 +538,13 @@
     "login.intro": "Sign in to your private music library.",
     "login.show_password": "Show password",
     "login.hide_password": "Hide password",
-    "login.signing_in": "Signing in…"
+    "login.signing_in": "Signing in…",
+    "discover.filter_all": "All",
+    "discover.filter_for_you": "For You",
+    "discover.filter_trending": "Trending",
+    "discover.filter_gems": "Deep Cuts",
+    "discover.refresh": "Refresh feed",
+    "discover.play_full": "Play full",
+    "discover.saved": "Saved to library",
+    "discover.preview_badge": "Preview"
 }

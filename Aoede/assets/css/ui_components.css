@@ -2671,3 +2671,21 @@ input[type="checkbox"][role="switch"]:disabled { opacity: .5; cursor: not-allowe
     .update-toast-card { padding: 12px; }
     .update-toast-btn { min-height: 44px; }
 }
+
+.discovery-reason-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--primary, #1db954);
+    background: var(--surface-2);
+    padding: 3px 8px;
+    border-radius: 999px;
+    margin-bottom: 6px;
+    width: fit-content;
+}
+.discovery-reason-banner svg {
+    width: 12px;
+    height: 12px;
+}

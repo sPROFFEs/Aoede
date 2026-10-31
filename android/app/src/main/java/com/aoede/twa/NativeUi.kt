@@ -15,6 +15,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import java.util.ArrayDeque
 import org.json.JSONArray
 import org.json.JSONObject
@@ -22,6 +30,7 @@ import org.json.JSONObject
 /**
  * Native Android views only. No HTML, JavaScript bridge, or WebView is mounted in this interface.
  */
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     val api
         get() = app.nativeApi
@@ -93,6 +102,92 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var searchSource = "all"
     private var searchCollections = false
     private var offline = false
+    private var discoveryPreviewPlayer: ExoPlayer? = null
+    private var activePreviewKey: String? = null
+    private var activePreviewBtn: NativeIconButton? = null
+    private var activeFilterCategory: String = "all"
+
+    fun stopDiscoveryPreview() {
+        activePreviewBtn?.text = "play"
+        activePreviewBtn = null
+        activePreviewKey = null
+        discoveryPreviewPlayer?.stop()
+        discoveryPreviewPlayer?.release()
+        discoveryPreviewPlayer = null
+    }
+
+    private fun togglePreview(item: JSONObject, btn: NativeIconButton) {
+        val itemKey = NativeTrack.reference(item)
+        if (activePreviewKey == itemKey) {
+            stopDiscoveryPreview()
+            return
+        }
+
+        stopDiscoveryPreview()
+
+        if (player.playing) {
+            player.pause()
+        }
+
+        activePreviewKey = itemKey
+        activePreviewBtn = btn
+        btn.text = "pause"
+
+        try {
+            val factory = DataSource.Factory {
+                NativeHttpSource(api, library.scope())
+            }
+            val exo =
+                ExoPlayer.Builder(activity)
+                    .setMediaSourceFactory(
+                        DefaultMediaSourceFactory(
+                            DefaultDataSource.Factory(activity, factory)
+                        )
+                    )
+                    .build()
+            discoveryPreviewPlayer = exo
+
+            exo.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .setUsage(C.USAGE_MEDIA)
+                    .build(),
+                true,
+            )
+            exo.addListener(
+                object : Player.Listener {
+                    override fun onPlaybackStateChanged(state: Int) {
+                        if (state == Player.STATE_ENDED) {
+                            stopDiscoveryPreview()
+                        }
+                    }
+
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        toast("Preview unavailable for this track")
+                        stopDiscoveryPreview()
+                    }
+                }
+            )
+
+            val streamPath =
+                item.optString("preview").ifEmpty {
+                    NativeTrack.stream(item)
+                }
+            val uri =
+                if (streamPath.startsWith("http://") || streamPath.startsWith("https://")) {
+                    android.net.Uri.parse(streamPath)
+                } else {
+                    android.net.Uri.parse(api.url(streamPath))
+                }
+
+            exo.setMediaItem(MediaItem.fromUri(uri))
+            exo.prepare()
+            exo.playWhenReady = true
+        } catch (e: Exception) {
+            toast("Could not play preview")
+            stopDiscoveryPreview()
+        }
+    }
     private var migration: NativeMigration? = null
     private var translations = JSONObject()
     private var translationsLanguage = ""
@@ -1005,6 +1100,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         renderedSignature = null
         renderedStableKey = null
         refreshHome = null
+        stopDiscoveryPreview()
         hideKeyboard()
         if (!restoringRoute && key != routeKey) {
             reload?.let { history.addLast(it) }
@@ -4586,152 +4682,537 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun discover() {
         destination = "discovery"
-        load(text("tabs.discover", "Discover"), "/api/discovery/feed?limit=20") { value ->
+        load(text("tabs.discover", "Discover"), "/api/discovery/feed?limit=30") { value ->
             overviewTabs("discovery")
-            val items = NativeTrack.items(value)
-            if (items.isEmpty())
-                label(
-                    text(
-                        "discover.empty",
-                        "No discovery items right now. Explore music in Search to build recommendations, then come back.",
-                    ),
-                    15,
-                    color = muted,
+            val allItems = NativeTrack.items(value)
+
+            val headerRow =
+                LinearLayout(activity).apply {
+                    gravity = Gravity.CENTER_VERTICAL
+                    orientation = LinearLayout.HORIZONTAL
+                }
+            content.addView(
+                headerRow,
+                LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) },
+            )
+
+            val headerTextCol = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+            headerRow.addView(headerTextCol, LinearLayout.LayoutParams(0, -2, 1f))
+
+            val heading =
+                TextView(activity).apply {
+                    text = text("discover.title", "Discover Feed")
+                    design.typography(this, 22f, 700)
+                }
+            headerTextCol.addView(heading)
+
+            val sub =
+                TextView(activity).apply {
+                    text =
+                        text(
+                            "discover.subtitle",
+                            "Fresh music curated for you with instant audio previews.",
+                        )
+                    design.typography(this, 13f, 400)
+                    setTextColor(muted)
+                    design.lines(this, 1.3f)
+                }
+            headerTextCol.addView(
+                sub,
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(2) },
+            )
+
+            iconButton(headerRow, "refresh-cw", text("discover.refresh", "Refresh feed")) {
+                stopDiscoveryPreview()
+                synchronized(pageCache) {
+                    pageCache.remove("${api.scope}:/api/discovery/feed?limit=30")
+                }
+                discover()
+            }.apply {
+                background =
+                    design.touch(
+                        if (theme == "classic") design.wash else design.color("square-wash"),
+                        999,
+                        theme != "classic",
+                    )
+            }
+
+            val filterCategories =
+                listOf(
+                    "all" to text("discover.filter_all", "All"),
+                    "for_you" to text("discover.filter_for_you", "For You"),
+                    "trending" to text("discover.filter_trending", "Trending"),
+                    "gems" to text("discover.filter_gems", "Deep Cuts"),
                 )
+
             val dismissed =
                 library.get("snapshot", "discovery-dismissed")?.optJSONArray("keys") ?: JSONArray()
             val keys = (0 until dismissed.length()).map { dismissed.optString(it) }.toMutableSet()
-            for (item in items.filter { NativeTrack.reference(it) !in keys }) {
-                val card =
-                    LinearLayout(activity).apply {
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(dp(10), dp(10), dp(10), dp(10))
-                        background =
-                            design.shape(
-                                if (theme == "vitrine") Color.TRANSPARENT
-                                else if (theme == "glass") design.content else surface,
-                                14,
-                                theme == "glass",
-                            )
-                    }
-                content.addView(
-                    card,
-                    LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) },
-                )
-                val cover = FrameLayout(activity)
-                card.addView(
-                    cover,
-                    LinearLayout.LayoutParams(dp(72), dp(72)).apply { marginEnd = dp(12) },
-                )
-                val art =
-                    ImageView(activity).apply {
-                        scaleType = ImageView.ScaleType.CENTER_CROP
-                        background = shape(surface, 8)
-                        outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-                        clipToOutline = true
-                    }
-                cover.addView(art, FrameLayout.LayoutParams(-1, -1))
-                artwork(art, artworkPath(item))
-                cover.addView(
-                    NativeIconButton(activity, Color.WHITE, theme).apply {
-                        text = "play"
-                        contentDescription =
-                            text("player.preview", "Preview") + " " + item.optString("title")
-                        background = design.touch(0x44000000, 8)
-                        setPadding(dp(23), dp(23), dp(23), dp(23))
-                        setOnClickListener {
-                            if (player.party != null) toast("Leave the party first")
-                            else player.play(listOf(item))
-                        }
-                    },
-                    FrameLayout.LayoutParams(-1, -1),
-                )
-                cover.addView(
-                    ImageView(activity).apply {
-                        setImageDrawable(
-                            NativeIcon(
-                                if (NativeTrack.localId(item) > 0) "hard-drive"
-                                else if (item.optInt("fed_instance_id") > 0) "globe" else "music-2",
-                                0xbbffffff.toInt(),
-                                theme,
-                            )
-                        )
-                        setPadding(dp(4), dp(4), dp(4), dp(4))
-                        background = design.shape(0x44000000, 999)
-                        importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-                    },
-                    FrameLayout.LayoutParams(dp(20), dp(20), Gravity.TOP or Gravity.START).apply {
-                        setMargins(dp(3), dp(3), 0, 0)
-                    },
-                )
-                val copy = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-                card.addView(copy, LinearLayout.LayoutParams(0, -2, 1f))
-                label(item.optString("title"), 15, copy).apply {
-                    maxLines = 2
-                    design.typography(this, 15f, 600)
-                    design.lines(this, 1.4f)
-                }
-                label(
-                        item.optString("artist") +
-                            item.optString("album").let { if (it.isBlank()) "" else " · $it" },
-                        13,
-                        copy,
-                        muted,
-                    )
-                    .apply {
-                        maxLines = 2
-                        design.lines(this, 1.4f)
-                    }
-                val actions = LinearLayout(activity)
-                copy.addView(actions)
-                iconButton(actions, "x", "Pass") {
-                    keys.add(NativeTrack.reference(item))
-                    library.put(
-                        "snapshot",
-                        "discovery-dismissed",
-                        JSONObject().put("keys", JSONArray(keys.toList().takeLast(500))),
-                    )
-                    if (reducedMotion()) content.removeView(card)
+            val unDismissed = allItems.filter { NativeTrack.reference(it) !in keys }
+
+            val filterBarHolder = LinearLayout(activity)
+            content.addView(filterBarHolder, LinearLayout.LayoutParams(-1, -2))
+
+            val cardsContainer =
+                LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
+
+            fun renderCards() {
+                cardsContainer.removeAllViews()
+                val visible =
+                    if (activeFilterCategory == "all") unDismissed
                     else
-                        card
-                            .animate()
-                            .alpha(0f)
-                            .translationX(-dp(20).toFloat())
-                            .setDuration(180)
-                            .withEndAction {
-                                (card.parent as? android.view.ViewGroup)?.removeView(card)
-                            }
-                            .start()
+                        unDismissed.filter {
+                            it.optString("category", "for_you") == activeFilterCategory
+                        }
+
+                if (visible.isEmpty()) {
+                    val emptyCard =
+                        LinearLayout(activity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            gravity = Gravity.CENTER
+                            setPadding(dp(24), dp(36), dp(24), dp(36))
+                            background =
+                                design.shape(
+                                    if (theme == "vitrine") design.surface
+                                    else if (theme == "glass") design.content else surface,
+                                    if (theme == "glass") 22 else 14,
+                                    true,
+                                )
+                        }
+                    cardsContainer.addView(
+                        emptyCard,
+                        LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) },
+                    )
+
+                    val emptyIcon =
+                        ImageView(activity).apply {
+                            setImageDrawable(NativeIcon("compass", muted, theme, size = 36))
+                        }
+                    emptyCard.addView(
+                        emptyIcon,
+                        LinearLayout.LayoutParams(dp(44), dp(44)).apply { bottomMargin = dp(12) },
+                    )
+
+                    val emptyText =
+                        TextView(activity).apply {
+                            text =
+                                text(
+                                    "discover.empty",
+                                    "No discovery items right now. Explore music in Search to build recommendations, then come back.",
+                                )
+                            design.typography(this, 14f, 500)
+                            setTextColor(muted)
+                            gravity = Gravity.CENTER
+                            design.lines(this, 1.4f)
+                        }
+                    emptyCard.addView(
+                        emptyText,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) },
+                    )
+
+                    button(text("discover.refresh", "Refresh feed"), emptyCard, primary = true) {
+                        stopDiscoveryPreview()
+                        synchronized(pageCache) {
+                            pageCache.remove("${api.scope}:/api/discovery/feed?limit=30")
+                        }
+                        discover()
+                    }
+                    return
                 }
-                for ((glyph, favorite) in listOf("download" to false, "heart" to true)) iconButton(
-                    actions,
-                    glyph,
-                    if (favorite) "Save to library" else "Download to library",
-                ) {
-                    request(
-                        "/api/download",
-                        body =
-                            JSONObject()
-                                .put("url", item.optString("url", item.optString("id")))
-                                .put("title", item.optString("title"))
-                                .put("artist", item.optString("artist")),
-                        done = {
-                            toast("Download queued")
-                            if (favorite) (card.parent as? android.view.ViewGroup)?.removeView(card)
+
+                for (item in visible) {
+                    val card =
+                        LinearLayout(activity).apply {
+                            orientation = LinearLayout.VERTICAL
+                            val pad =
+                                if (theme == "glass") dp(16)
+                                else if (theme == "vitrine") dp(14) else dp(16)
+                            setPadding(pad, pad, pad, pad)
+                            background =
+                                design.shape(
+                                    if (theme == "vitrine") design.surface
+                                    else if (theme == "glass") design.content else surface,
+                                    if (theme == "glass") 22 else if (theme == "vitrine") 14 else 16,
+                                    outlined = true,
+                                )
+                        }
+                    cardsContainer.addView(
+                        card,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(16) },
+                    )
+
+                    val topBar =
+                        LinearLayout(activity).apply {
+                            gravity = Gravity.CENTER_VERTICAL
+                            orientation = LinearLayout.HORIZONTAL
+                        }
+                    card.addView(
+                        topBar,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) },
+                    )
+
+                    val reasonRow =
+                        LinearLayout(activity).apply {
+                            gravity = Gravity.CENTER_VERTICAL
+                            orientation = LinearLayout.HORIZONTAL
+                            setPadding(dp(8), dp(4), dp(10), dp(4))
+                            background =
+                                design.shape(
+                                    if (theme == "classic") 0x221db954.toInt()
+                                    else if (theme == "glass") 0x1affffff.toInt()
+                                    else 0x18fc3c44.toInt(),
+                                    999,
+                                )
+                        }
+                    topBar.addView(reasonRow, LinearLayout.LayoutParams(-2, -2))
+
+                    val reasonIcon =
+                        ImageView(activity).apply {
+                            val cat = item.optString("category")
+                            val glyph =
+                                if (cat == "trending") "flame"
+                                else if (cat == "gems") "compass" else "sparkles"
+                            setImageDrawable(
+                                NativeIcon(
+                                    glyph,
+                                    if (theme == "classic") 0xff1db954.toInt() else accent,
+                                    theme,
+                                    size = 13,
+                                )
+                            )
+                        }
+                    reasonRow.addView(
+                        reasonIcon,
+                        LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(6) },
+                    )
+
+                    val reasonText =
+                        TextView(activity).apply {
+                            text =
+                                item.optString(
+                                    "reason",
+                                    item.optString("badge", "Curated for you"),
+                                )
+                            design.typography(this, 12f, 600)
+                            setTextColor(if (theme == "classic") 0xff1db954.toInt() else accent)
+                            maxLines = 1
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                        }
+                    reasonRow.addView(reasonText, LinearLayout.LayoutParams(-2, -2))
+
+                    val topSpace = View(activity)
+                    topBar.addView(topSpace, LinearLayout.LayoutParams(0, dp(1), 1f))
+
+                    val dismissBtn =
+                        NativeIconButton(activity, muted, theme).apply {
+                            text = "x"
+                            setPadding(dp(6), dp(6), dp(6), dp(6))
+                            background = design.touch(Color.TRANSPARENT, 999)
+                            contentDescription = "Pass"
+                            setOnClickListener {
+                                keys.add(NativeTrack.reference(item))
+                                library.put(
+                                    "snapshot",
+                                    "discovery-dismissed",
+                                    JSONObject()
+                                        .put("keys", JSONArray(keys.toList().takeLast(500))),
+                                )
+                                if (activePreviewKey == NativeTrack.reference(item)) {
+                                    stopDiscoveryPreview()
+                                }
+                                if (reducedMotion()) (card.parent as? ViewGroup)?.removeView(card)
+                                else {
+                                    card.animate()
+                                        .alpha(0f)
+                                        .translationX(-dp(30).toFloat())
+                                        .setDuration(200)
+                                        .withEndAction {
+                                            (card.parent as? ViewGroup)?.removeView(card)
+                                        }
+                                        .start()
+                                }
+                            }
+                        }
+                    topBar.addView(dismissBtn, LinearLayout.LayoutParams(dp(28), dp(28)))
+
+                    val coverFrame =
+                        FrameLayout(activity).apply {
+                            background = design.shape(surface, 12)
+                            outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                            clipToOutline = true
+                        }
+                    card.addView(
+                        coverFrame,
+                        LinearLayout.LayoutParams(-1, dp(190)).apply { bottomMargin = dp(12) },
+                    )
+
+                    val art =
+                        ImageView(activity).apply {
+                            scaleType = ImageView.ScaleType.CENTER_CROP
+                        }
+                    coverFrame.addView(art, FrameLayout.LayoutParams(-1, -1))
+                    artwork(art, artworkPath(item))
+
+                    val gradientOverlay =
+                        View(activity).apply {
+                            background =
+                                GradientDrawable(
+                                    GradientDrawable.Orientation.TOP_BOTTOM,
+                                    intArrayOf(0x00000000, 0x33000000, 0x88000000.toInt()),
+                                )
+                        }
+                    coverFrame.addView(gradientOverlay, FrameLayout.LayoutParams(-1, -1))
+
+                    val previewBtn =
+                        NativeIconButton(activity, Color.WHITE, theme).apply {
+                            text =
+                                if (activePreviewKey == NativeTrack.reference(item)) "pause"
+                                else "play"
+                            contentDescription =
+                                text("player.preview", "Preview") + " " + item.optString("title")
+                            background = design.touch(0x66000000, 999)
+                            setPadding(dp(16), dp(16), dp(16), dp(16))
+                            setOnClickListener { togglePreview(item, this) }
+                        }
+                    coverFrame.addView(
+                        previewBtn,
+                        FrameLayout.LayoutParams(dp(56), dp(56), Gravity.CENTER),
+                    )
+
+                    val sourceIcon =
+                        ImageView(activity).apply {
+                            setImageDrawable(
+                                NativeIcon(
+                                    if (NativeTrack.localId(item) > 0) "hard-drive"
+                                    else if (item.optInt("fed_instance_id") > 0) "globe"
+                                    else "music-2",
+                                    0xddffffff.toInt(),
+                                    theme,
+                                    size = 14,
+                                )
+                            )
+                            setPadding(dp(5), dp(5), dp(5), dp(5))
+                            background = design.shape(0x55000000, 999)
+                            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                        }
+                    coverFrame.addView(
+                        sourceIcon,
+                        FrameLayout.LayoutParams(dp(26), dp(26), Gravity.TOP or Gravity.START)
+                            .apply { setMargins(dp(8), dp(8), 0, 0) },
+                    )
+
+                    val badgePill =
+                        TextView(activity).apply {
+                            text = text("discover.preview_badge", "Preview") + " · 30s"
+                            design.typography(this, 11f, 600)
+                            setTextColor(Color.WHITE)
+                            setPadding(dp(8), dp(3), dp(8), dp(3))
+                            background = design.shape(0x66000000, 999)
+                        }
+                    coverFrame.addView(
+                        badgePill,
+                        FrameLayout.LayoutParams(-2, -2, Gravity.BOTTOM or Gravity.END).apply {
+                            setMargins(0, 0, dp(8), dp(8))
                         },
                     )
-                }
-                for (i in 0 until actions.childCount) actions.getChildAt(i).apply {
-                    background =
-                        design.touch(
-                            if (theme == "classic") design.wash else design.color("square-wash"),
-                            999,
-                            theme != "classic",
-                        )
-                    setPadding(dp(13), dp(13), dp(13), dp(13))
-                    (layoutParams as LinearLayout.LayoutParams).marginEnd = dp(4)
+
+                    val titleView =
+                        TextView(activity).apply {
+                            text = item.optString("title")
+                            design.typography(this, 17f, 700)
+                            maxLines = 2
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                        }
+                    card.addView(
+                        titleView,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(3) },
+                    )
+
+                    val artistView =
+                        TextView(activity).apply {
+                            val alb =
+                                item.optString("album").let { if (it.isBlank()) "" else " · $it" }
+                            text = item.optString("artist") + alb
+                            design.typography(this, 14f, 500)
+                            setTextColor(muted)
+                            maxLines = 1
+                            ellipsize = android.text.TextUtils.TruncateAt.END
+                        }
+                    card.addView(
+                        artistView,
+                        LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) },
+                    )
+
+                    val actionsRow =
+                        LinearLayout(activity).apply {
+                            gravity = Gravity.CENTER_VERTICAL
+                            orientation = LinearLayout.HORIZONTAL
+                        }
+                    card.addView(actionsRow, LinearLayout.LayoutParams(-1, -2))
+
+                    val heartBtn =
+                        NativeIconButton(activity, ink, theme).apply {
+                            text = "heart"
+                            contentDescription = "Save to library"
+                            setPadding(dp(11), dp(11), dp(11), dp(11))
+                            background =
+                                design.touch(
+                                    if (theme == "classic") design.wash
+                                    else design.color("square-wash"),
+                                    999,
+                                    theme != "classic",
+                                )
+                            setOnClickListener {
+                                color(
+                                    if (theme == "classic") 0xff1db954.toInt() else accent,
+                                    filled = true,
+                                )
+                                request(
+                                    "/api/download",
+                                    body =
+                                        JSONObject()
+                                            .put(
+                                                "url",
+                                                item.optString("url", item.optString("id")),
+                                            )
+                                            .put("title", item.optString("title"))
+                                            .put("artist", item.optString("artist")),
+                                    done = { toast(text("discover.saved", "Saved to library")) },
+                                )
+                            }
+                        }
+                    actionsRow.addView(
+                        heartBtn,
+                        LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(8) },
+                    )
+
+                    val downloadBtn =
+                        NativeIconButton(activity, ink, theme).apply {
+                            text = "download"
+                            contentDescription = "Download to library"
+                            setPadding(dp(11), dp(11), dp(11), dp(11))
+                            background =
+                                design.touch(
+                                    if (theme == "classic") design.wash
+                                    else design.color("square-wash"),
+                                    999,
+                                    theme != "classic",
+                                )
+                            setOnClickListener {
+                                request(
+                                    "/api/download",
+                                    body =
+                                        JSONObject()
+                                            .put(
+                                                "url",
+                                                item.optString("url", item.optString("id")),
+                                            )
+                                            .put("title", item.optString("title"))
+                                            .put("artist", item.optString("artist")),
+                                    done = { toast("Download queued") },
+                                )
+                            }
+                        }
+                    actionsRow.addView(
+                        downloadBtn,
+                        LinearLayout.LayoutParams(dp(44), dp(44)).apply { marginEnd = dp(8) },
+                    )
+
+                    val queueBtn =
+                        NativeIconButton(activity, ink, theme).apply {
+                            text = "list-plus"
+                            contentDescription = "Add to queue"
+                            setPadding(dp(11), dp(11), dp(11), dp(11))
+                            background =
+                                design.touch(
+                                    if (theme == "classic") design.wash
+                                    else design.color("square-wash"),
+                                    999,
+                                    theme != "classic",
+                                )
+                            setOnClickListener {
+                                player.play(
+                                    player.queue + item,
+                                    start = player.index,
+                                    autoplay = false,
+                                )
+                                toast("Added to queue")
+                            }
+                        }
+                    actionsRow.addView(queueBtn, LinearLayout.LayoutParams(dp(44), dp(44)))
+
+                    val spacer = View(activity)
+                    actionsRow.addView(spacer, LinearLayout.LayoutParams(0, dp(1), 1f))
+
+                    val playFullBtn =
+                        LinearLayout(activity).apply {
+                            gravity = Gravity.CENTER
+                            orientation = LinearLayout.HORIZONTAL
+                            setPadding(dp(14), dp(8), dp(16), dp(8))
+                            background =
+                                design.touch(
+                                    if (theme == "classic") 0xff1db954.toInt() else accent,
+                                    999,
+                                )
+                            setOnClickListener {
+                                stopDiscoveryPreview()
+                                if (player.party != null) toast("Leave the party first")
+                                else player.play(listOf(item))
+                            }
+                        }
+                    val playIcon =
+                        ImageView(activity).apply {
+                            setImageDrawable(
+                                NativeIcon(
+                                    "play",
+                                    if (theme == "classic" || (theme == "glass" && !design.light))
+                                        Color.BLACK
+                                    else Color.WHITE,
+                                    theme,
+                                    size = 16,
+                                )
+                            )
+                        }
+                    playFullBtn.addView(
+                        playIcon,
+                        LinearLayout.LayoutParams(dp(16), dp(16)).apply { marginEnd = dp(6) },
+                    )
+                    val playFullText =
+                        TextView(activity).apply {
+                            text = text("discover.play_full", "Play full")
+                            design.typography(this, 13f, 600)
+                            setTextColor(
+                                if (theme == "classic" || (theme == "glass" && !design.light))
+                                    Color.BLACK
+                                else Color.WHITE
+                            )
+                        }
+                    playFullBtn.addView(playFullText, LinearLayout.LayoutParams(-2, -2))
+                    actionsRow.addView(playFullBtn, LinearLayout.LayoutParams(-2, dp(40)))
                 }
             }
+
+            fun updateChips() {
+                filterBarHolder.removeAllViews()
+                chipBar(
+                    filterCategories.map { (catKey, catLabel) ->
+                        catLabel to
+                            {
+                                activeFilterCategory = catKey
+                                updateChips()
+                                renderCards()
+                            }
+                    },
+                    active = filterCategories.indexOfFirst { it.first == activeFilterCategory },
+                    parent = filterBarHolder,
+                    top = 6,
+                    bottom = 14,
+                )
+            }
+
+            updateChips()
+            content.addView(cardsContainer, LinearLayout.LayoutParams(-1, -2))
+            renderCards()
         }
     }
 
@@ -6152,6 +6633,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun close() {
         history.clear()
+        stopDiscoveryPreview()
         reload = null
         refreshHome = null
         popups.toList().forEach { it.dismiss() }
@@ -6172,6 +6654,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     fun pause() {
+        stopDiscoveryPreview()
         root.removeCallbacks(uiProgressTicker)
         (fullscreen as? NativeWrappedStory)?.foreground(false)
         tools.pause()

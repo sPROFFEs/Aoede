@@ -538,5 +538,13 @@
     "login.intro": "Melde dich bei deiner privaten Musikbibliothek an.",
     "login.show_password": "Passwort anzeigen",
     "login.hide_password": "Passwort verbergen",
-    "login.signing_in": "Anmeldung…"
+    "login.signing_in": "Anmeldung…",
+    "discover.filter_all": "Alle",
+    "discover.filter_for_you": "Für dich",
+    "discover.filter_trending": "Trends",
+    "discover.filter_gems": "Geheimtipps",
+    "discover.refresh": "Feed aktualisieren",
+    "discover.play_full": "Ganz abspielen",
+    "discover.saved": "In Bibliothek gespeichert",
+    "discover.preview_badge": "Hörprobe"
 }

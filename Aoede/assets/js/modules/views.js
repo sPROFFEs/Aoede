@@ -1880,9 +1880,13 @@ function _discoveryCard(item) {
   const srcMeta = TRACK_SOURCE_ICONS[src] || TRACK_SOURCE_ICONS.local;
   const preview = item.preview || '';
   const key = ui.escHtml(_discoveryKey(item));
+  const reason = ui.escHtml(item.reason || '');
+  const category = ui.escHtml(item.category || 'for_you');
+  const glyph = category === 'trending' ? 'flame' : category === 'gems' ? 'compass' : 'sparkles';
 
   return `
-    <article class="discovery-card" data-key="${key}">
+    <article class="discovery-card" data-key="${key}" data-category="${category}">
+        ${reason ? `<div class="discovery-reason-banner"><i data-lucide="${glyph}"></i> <span>${reason}</span></div>` : ''}
         <div class="discovery-cover-wrap">
             <img src="${cover}" alt="${title}" class="discovery-cover"
                  loading="lazy" decoding="async"
@@ -1919,7 +1923,7 @@ function _discoveryCard(item) {
 }
 
 export async function renderDiscovery(container) {
-  const data = await api.fetchDiscoveryFeed(20);
+  const data = await api.fetchDiscoveryFeed(30);
   const items = data.items || [];
 
   if (!items.length) {
@@ -1952,6 +1956,12 @@ export async function renderDiscovery(container) {
                 <div class="hero-kicker">${ui.t('discover.hero_kicker', 'New Music Audition')}</div>
                 <h1 class="hero-greeting">${ui.t('discover.title', 'Discover Feed')}</h1>
                 <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('discover.count_preview', '{count} tracks · tap a cover to preview', { count: visible.length })}</p>
+                <div class="discovery-filter-chips" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
+                    <button class="chip active" onclick="discoveryFilterCategory('all', this)">${ui.t('discover.filter_all', 'All')}</button>
+                    <button class="chip" onclick="discoveryFilterCategory('for_you', this)">${ui.t('discover.filter_for_you', 'For You')}</button>
+                    <button class="chip" onclick="discoveryFilterCategory('trending', this)">${ui.t('discover.filter_trending', 'Trending')}</button>
+                    <button class="chip" onclick="discoveryFilterCategory('gems', this)">${ui.t('discover.filter_gems', 'Deep Cuts')}</button>
+                </div>
             </div>
         </section>
         <div class="discovery-shell">
@@ -1960,6 +1970,18 @@ export async function renderDiscovery(container) {
             </div>
         </div>`;
   ui.refreshIcons(container);
+}
+
+export function discoveryFilterCategory(category, btn) {
+  document.querySelectorAll('.discovery-filter-chips .chip').forEach((c) => c.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.discovery-feed .discovery-card').forEach((card) => {
+    if (category === 'all' || card.dataset.category === category) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
 }
 
 // ── Discovery handlers (window-exposed via main.js) ─────────────────

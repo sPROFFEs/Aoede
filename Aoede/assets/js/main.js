@@ -330,6 +330,7 @@ window.trackRecentPlaylist = views.trackRecentPlaylist;
 window.loadUserData = views.loadUserData;
 window.showSaveMixModal = views.showSaveMixModal;
 window.discoveryTogglePreview = views.discoveryTogglePreview;
+window.discoveryFilterCategory = views.discoveryFilterCategory;
 window.discoveryDismiss = views.discoveryDismiss;
 window.discoveryDownload = views.discoveryDownload;
 window.saveMixAsPlaylistAction = views.saveMixAsPlaylistAction;

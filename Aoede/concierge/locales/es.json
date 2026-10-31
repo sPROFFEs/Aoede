@@ -538,5 +538,13 @@
     "login.intro": "Entra en tu biblioteca privada de música.",
     "login.show_password": "Mostrar contraseña",
     "login.hide_password": "Ocultar contraseña",
-    "login.signing_in": "Iniciando sesión…"
+    "login.signing_in": "Iniciando sesión…",
+    "discover.filter_all": "Todo",
+    "discover.filter_for_you": "Para ti",
+    "discover.filter_trending": "Tendencias",
+    "discover.filter_gems": "Joyas ocultas",
+    "discover.refresh": "Actualizar feed",
+    "discover.play_full": "Reproducir completa",
+    "discover.saved": "Guardado en la biblioteca",
+    "discover.preview_badge": "Muestra"
 }
