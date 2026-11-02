@@ -393,7 +393,9 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
                         "is_local": False,
                         "source": "spotify",
                         "preview": item.get("preview_url"),
-                        "reason": f"Because you listen to {spotify_search_term}" if top_artists_list else "Curated from top hits",
+                        "reason": f"Because you listen to {spotify_search_term}"
+                        if top_artists_list
+                        else "Curated from top hits",
                         "category": "for_you",
                         "badge": "For You",
                         # Keep the raw Spotify track id so we can backfill
@@ -442,7 +444,9 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
                     "thumbnail": item.get("image", "/static/img/default_cover.png"),
                     "is_local": False,
                     "source": "youtube",
-                    "reason": f"Similar to {yt_search_term}" if (top_artists and yt_search_term) else "Trending music audition",
+                    "reason": f"Similar to {yt_search_term}"
+                    if (top_artists and yt_search_term)
+                    else "Trending music audition",
                     "category": "for_you" if (top_artists and yt_search_term) else "trending",
                     "badge": "Taste Match" if (top_artists and yt_search_term) else "Trending",
                 }
@@ -586,7 +590,7 @@ def discovery_feed(
     os.makedirs(RECS_CACHE_DIR, exist_ok=True)
     cache_file = os.path.join(RECS_CACHE_DIR, f"recs_{user.username}.json")
     items: list[dict] = []
-    
+
     local_section_titles = (
         "Recently Added",
         "Recently played",
@@ -633,10 +637,12 @@ def discovery_feed(
     if len(items) < 6:
         try:
             import anyio
+
             try:
                 recs_resp = anyio.from_thread.run(get_recommendations, request, db)
             except RuntimeError:
                 import asyncio
+
                 recs_resp = asyncio.run(get_recommendations(request, db))
             if hasattr(recs_resp, "body"):
                 data = json.loads(recs_resp.body.decode("utf-8"))
@@ -661,8 +667,8 @@ def discovery_feed(
     if len(items) < 6:
         try:
             fav_track_ids = {
-                f.track_id for f in db.query(database.UserFavorite.track_id)
-                .filter(database.UserFavorite.user_id == user.id).all()
+                f.track_id
+                for f in db.query(database.UserFavorite.track_id).filter(database.UserFavorite.user_id == user.id).all()
                 if f.track_id
             }
             local_raw = (
@@ -673,20 +679,22 @@ def discovery_feed(
                 .all()
             )
             for t in local_raw:
-                items.append({
-                    "id": t.source_id or f"local:{t.id}",
-                    "db_id": t.id,
-                    "title": t.title,
-                    "artist": t.artist,
-                    "album": t.album,
-                    "thumbnail": f"/api/cover/{t.id}",
-                    "stream_url": f"/api/stream/{t.id}",
-                    "is_local": True,
-                    "source": "local",
-                    "reason": "Hidden gem in your library",
-                    "category": "gems",
-                    "badge": "Library Gem",
-                })
+                items.append(
+                    {
+                        "id": t.source_id or f"local:{t.id}",
+                        "db_id": t.id,
+                        "title": t.title,
+                        "artist": t.artist,
+                        "album": t.album,
+                        "thumbnail": f"/api/cover/{t.id}",
+                        "stream_url": f"/api/stream/{t.id}",
+                        "is_local": True,
+                        "source": "local",
+                        "reason": "Hidden gem in your library",
+                        "category": "gems",
+                        "badge": "Library Gem",
+                    }
+                )
         except Exception as e:
             logger.warning("Discovery local fallback error: %s", e)
 

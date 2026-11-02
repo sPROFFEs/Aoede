@@ -176,9 +176,7 @@ def _get_local_lyrics(track_id: Optional[int], db: Optional[Session] = None) -> 
     return None
 
 
-async def _fetch_netease_lyrics(
-    title: str, artist: str, duration: Optional[float] = None
-) -> Optional[dict]:
+async def _fetch_netease_lyrics(title: str, artist: str, duration: Optional[float] = None) -> Optional[dict]:
     query = f"{title} {artist}".strip()
     if not query:
         return None
@@ -311,9 +309,7 @@ async def get_lyrics(
         params["duration"] = duration
 
     try:
-        resp = await http_client.get(
-            f"{LRCLIB_BASE}/get", params=params, headers=headers, timeout=PER_CALL_TIMEOUT
-        )
+        resp = await http_client.get(f"{LRCLIB_BASE}/get", params=params, headers=headers, timeout=PER_CALL_TIMEOUT)
         if resp.status_code == 200:
             data = resp.json()
             synced = data.get("syncedLyrics") or ""
@@ -421,9 +417,7 @@ async def get_lyrics(
         try:
             netease_res = await _fetch_netease_lyrics(clean_title, clean_artist, duration)
             if netease_res and (
-                netease_res.get("synced")
-                or netease_res.get("plain")
-                or netease_res.get("instrumental")
+                netease_res.get("synced") or netease_res.get("plain") or netease_res.get("instrumental")
             ):
                 payload = {
                     "cached_at": time.time(),
