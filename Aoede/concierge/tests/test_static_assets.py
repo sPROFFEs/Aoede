@@ -82,7 +82,8 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes the administrator's metadata similarity explanations and comparison filter.
     # Includes mobile transport gestures shared by the compact and fullscreen players.
     # Includes accessible collection menus and one shared focus trap for legacy dialogs.
-    assert sum(path.stat().st_size for path in javascript if path != appearance) < 638_000
+    # Includes rich discovery category filtering, reason badges, and multi-tier lyrics.
+    assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 642_000
     # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
     assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 348_000
     assert (assets_root / "js/ui_icons.js").stat().st_size < 32_000

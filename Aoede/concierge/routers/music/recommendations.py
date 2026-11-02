@@ -570,7 +570,7 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/api/discovery/feed")
-async def discovery_feed(
+def discovery_feed(
     request: Request,
     db: Session = Depends(get_db),
     limit: int = 20,
@@ -632,7 +632,12 @@ async def discovery_feed(
     # If cache is missing, empty, or has fewer than 6 items, generate fresh recommendations dynamically!
     if len(items) < 6:
         try:
-            recs_resp = await get_recommendations(request, db)
+            import anyio
+            try:
+                recs_resp = anyio.from_thread.run(get_recommendations, request, db)
+            except RuntimeError:
+                import asyncio
+                recs_resp = asyncio.run(get_recommendations(request, db))
             if hasattr(recs_resp, "body"):
                 data = json.loads(recs_resp.body.decode("utf-8"))
                 if isinstance(data, list):
