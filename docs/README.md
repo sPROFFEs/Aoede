@@ -14,6 +14,7 @@ Guides for installing, using and administering Aoede.
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |
 | Import an existing music collection | [Importing Music](IMPORTING-MUSIC.md) |
 | Install the Android client | [Android](ANDROID.md) |
+| Install the iOS client (IPA) | [iOS](IOS.md) |
 | Install a Windows, macOS or Linux wrapper | [Desktop](DESKTOP.md) |
 | Connect a Subsonic app | [Subsonic](SUBSONIC.md) |
 | Operate the server as an admin | [Administration](ADMINISTRATION.md) |
