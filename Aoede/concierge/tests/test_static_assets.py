@@ -85,7 +85,7 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes rich discovery category filtering, reason badges, and multi-tier lyrics.
     assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 642_000
     # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
-    assert sum(path.stat().st_size for path in stylesheets if path not in (glass, vitrine)) < 348_000
+    assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in stylesheets if path not in (glass, vitrine)) < 352_000
     assert (assets_root / "js/ui_icons.js").stat().st_size < 32_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.

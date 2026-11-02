@@ -91,7 +91,7 @@ struct ContentView: View {
             ServerSetupView(
                 currentServerURL: Binding(
                     get: { serverURL },
-                    set: { serverURL = $0 }
+                    set: { serverURL = $0 ?? "" }
                 ),
                 onSaved: { newURL in
                     serverURL = newURL
