@@ -42,6 +42,13 @@ export let originalContextQueue = []; // Backup for un-shuffle
 // === UI STATE ===
 export let currentViewName = 'home'; // Track active view for UI logic
 export let currentViewParam = null; // Track current view parameter (playlist id, mix key, etc.)
+let viewRevision = 0;
+
+// Capture at the start of a render, before its first asynchronous read.
+export function viewGuard() {
+  const revision = viewRevision;
+  return () => revision === viewRevision;
+}
 export let isSidebarOpen = false;
 export let isFullscreenPlayerOpen = false;
 export let lastPrevClickTime = 0; // For double-click back button logic
@@ -125,6 +132,7 @@ export function setOriginalContextQueue(val) {
   originalContextQueue = val;
 }
 export function setCurrentViewName(val) {
+  viewRevision++;
   currentViewName = val;
 }
 export function setCurrentViewParam(val) {

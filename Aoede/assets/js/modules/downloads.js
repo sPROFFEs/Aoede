@@ -154,7 +154,11 @@ function buildDownloadResolutionLines(job) {
 
 export function ensureDownloadPolling() {
   if (!state.downloadPolling) {
-    state.setDownloadPolling(setInterval(refreshJobs, 3000));
+    state.setDownloadPolling(
+      setInterval(() => {
+        if (!state.jobsRefreshController) refreshJobs();
+      }, 3000)
+    );
   }
 }
 
@@ -302,12 +306,7 @@ export async function refreshDeleteResponses() {
 // === REFRESH JOBS LIST ===
 
 export async function refreshJobs() {
-  // Abort any in-flight /api/jobs refresh so a slow earlier response
-  // cannot land after a faster newer one and overwrite the panel.
-  // This is the root cause of the "modal goes empty when triggering
-  // downloads" bug — without the abort, the polling tick that fired
-  // just before a new job was committed comes back later with an
-  // empty/stale list and wipes the freshly-rendered pending job.
+  // Explicit refreshes replace stale requests; scheduled polling waits for completion.
   if (state.jobsRefreshController) {
     try {
       state.jobsRefreshController.abort();
@@ -317,6 +316,7 @@ export async function refreshJobs() {
   }
   const controller = new AbortController();
   state.setJobsRefreshController(controller);
+  const timeout = setTimeout(() => controller.abort(), 20000);
 
   try {
     refreshDeleteResponsesBadge();
@@ -454,6 +454,7 @@ export async function refreshJobs() {
       container.innerHTML = `<p role="status" class="modal-subtitle">${ui.escHtml(e.message || 'Could not connect to downloads. Retrying…')}</p>`;
     }
   } finally {
+    clearTimeout(timeout);
     if (state.jobsRefreshController === controller) {
       state.setJobsRefreshController(null);
     }

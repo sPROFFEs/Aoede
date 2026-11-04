@@ -147,7 +147,7 @@ export async function toggleFavorite(trackId, btn) {
 //     the sidebar uses, so the visual identity is consistent everywhere.
 //   - No rename / delete / publish / share controls — favorites are managed
 //     per-track via the heart icon, never as a whole playlist.
-export async function renderFavorites(container) {
+export async function renderFavorites(container, isCurrent = state.viewGuard()) {
   let favs = null;
   try {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
@@ -168,6 +168,7 @@ export async function renderFavorites(container) {
     favs = await offlineStore.getLibrarySnapshot('favorites');
   }
 
+  if (!isCurrent()) return;
   favs = Array.isArray(favs) ? favs : [];
   state.setCurrentViewList(favs);
 

@@ -2,6 +2,7 @@ package com.aoede.twa
 
 import android.graphics.Bitmap
 import android.os.Looper
+import java.io.File
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.util.concurrent.atomic.AtomicInteger
@@ -44,6 +45,7 @@ class NativeArtworkTest {
 
     @Test
     fun coversShareRequestsFollowOnlyLocalRedirectsAndNeverLeakAcrossAccounts() {
+        org.robolectric.shadows.ShadowBitmapFactory.setAllowInvalidImageData(false)
         val hits = AtomicInteger()
         val wrongAccept = AtomicInteger()
         val server = ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"))
@@ -161,6 +163,36 @@ class NativeArtworkTest {
             } finally {
                 release.countDown()
             }
+
+            fun loadFromDisk(): Bitmap? {
+                var finished = false
+                var cover: Bitmap? = null
+                NativeArtwork(app.nativeApi).load("/disk-cover", 128) {
+                    cover = it
+                    finished = true
+                }
+                settle { finished }
+                return cover
+            }
+            assertNotNull(loadFromDisk())
+            val initialHits = hits.get()
+            assertNotNull(loadFromDisk())
+            assertEquals("A fresh artwork loader must reuse disk bytes", initialHits, hits.get())
+            val file =
+                File(
+                    app.cacheDir,
+                    "artwork/" +
+                        NativeApi.digest(
+                            "${app.nativeApi.origin?.rule}:${app.nativeApi.scope}:/disk-cover"
+                        ) +
+                        ".bin",
+                )
+            file.writeText("interrupted image write")
+            assertNotNull("Corrupt disk bytes must be replaced from the server", loadFromDisk())
+            assertEquals(initialHits + 1, hits.get())
+            assertTrue(file.setLastModified(System.currentTimeMillis() - 86400001L))
+            assertNotNull("Expired covers must be refreshed", loadFromDisk())
+            assertEquals(initialHits + 2, hits.get())
         } finally {
             server.close()
             thread.join(1000)

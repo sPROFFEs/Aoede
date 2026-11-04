@@ -74,6 +74,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         get() = generation
 
     @Volatile private var alive = true
+    private var foreground = true
     private var renderedPath: String? = null
     private var renderedSignature: String? = null
     private var renderedStableKey: String? = null
@@ -215,7 +216,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     private val uiProgressTicker = object : Runnable {
         override fun run() {
-            if (!alive) return
+            if (!alive || !foreground) return
             if (player.playing) {
                 updateMiniProgress()
                 if (fullscreen != null) updateFull?.invoke()
@@ -225,7 +226,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     private val playbackChanged: () -> Unit = {
-        if (alive) {
+        if (player.playing && discoveryPreviewPlayer != null) stopDiscoveryPreview()
+        if (alive && foreground) {
             renderMini()
             updateMiniProgress()
             updateFull?.invoke()
@@ -1060,7 +1062,6 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 requestedPx,
                 image.width,
                 image.height,
-                (image.parent as? View)?.width ?: 0,
                 image.layoutParams?.width ?: 0,
             ).takeIf { it > 0 }?.coerceIn(64, 512) ?: pixels
             val current = java.util.concurrent.atomic.AtomicBoolean(true)
@@ -6655,6 +6656,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     fun pause() {
+        foreground = false
         stopDiscoveryPreview()
         root.removeCallbacks(uiProgressTicker)
         (fullscreen as? NativeWrappedStory)?.foreground(false)
@@ -6662,9 +6664,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     fun resume() {
-        if (alive && player.playing) {
-            root.post(uiProgressTicker)
-        }
+        foreground = true
+        root.removeCallbacks(uiProgressTicker)
+        playbackChanged()
         (fullscreen as? NativeWrappedStory)?.foreground(true)
         tools.resume()
     }

@@ -10,32 +10,35 @@ import java.io.IOException
 /** Decoded, account-bound covers shared by lists, heroes and the player. */
 class NativeArtwork(private val api: NativeApi) {
     private val maxCacheSize =
-        (Runtime.getRuntime().maxMemory() / 8).toInt().coerceIn(24 * 1024 * 1024, 64 * 1024 * 1024)
+        (Runtime.getRuntime().maxMemory() / 8).coerceIn(4L * 1024 * 1024, 64L * 1024 * 1024).toInt()
     private val cache =
         object : LruCache<String, Bitmap>(maxCacheSize) {
             override fun sizeOf(key: String, value: Bitmap) = value.byteCount
         }
-    private val diskCacheDir by lazy {
-        File(api.app.cacheDir, "artwork").apply { mkdirs() }
-    }
+    private val diskCacheDir by lazy { File(api.app.cacheDir, "artwork").apply { mkdirs() } }
 
-    private fun diskKey(path: String): String =
-        NativeApi.digest("${api.origin?.rule}:${api.scope}:$path")
+    private val diskLock = Any()
+    private var lastPruned = -60000L
+    private var bytesSincePrune = 0L
 
-    private fun diskFile(path: String): File =
-        File(diskCacheDir, diskKey(path) + ".bin")
-
-    private fun pruneDiskCache() {
+    private fun pruneDiskCache(written: Int) {
+        bytesSincePrune += written
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastPruned < 60000L && bytesSincePrune < 4L * 1024 * 1024) return
+        lastPruned = now
+        bytesSincePrune = 0
         val files = diskCacheDir.listFiles() ?: return
         var totalSize = files.sumOf { it.length() }
         val maxDiskSize = 60L * 1024 * 1024
         if (totalSize > maxDiskSize) {
-            files.sortedBy { it.lastModified() }.forEach { file ->
-                if (totalSize > maxDiskSize * 0.75) {
-                    val len = file.length()
-                    if (file.delete()) totalSize -= len
+            files
+                .sortedBy { it.lastModified() }
+                .forEach { file ->
+                    if (totalSize > maxDiskSize * 0.75) {
+                        val len = file.length()
+                        if (file.delete()) totalSize -= len
+                    }
                 }
-            }
         }
     }
 
@@ -57,10 +60,12 @@ class NativeArtwork(private val api: NativeApi) {
     fun peek(path: String, pixels: Int): Bitmap? = cache.get(key(path, pixels))
 
     fun clear() {
-        epoch++
+        synchronized(diskLock) {
+            epoch++
+            diskCacheDir.listFiles()?.forEach { it.delete() }
+        }
         cache.evictAll()
         pending.clear()
-        diskCacheDir.listFiles()?.forEach { it.delete() }
     }
 
     fun load(
@@ -92,26 +97,53 @@ class NativeArtwork(private val api: NativeApi) {
         waiting.add(Request(current, done))
         pending[key] = waiting
         val ticket = epoch
+        // Bind the file to the requesting account, before work enters the image queue.
+        val file =
+            if (path.startsWith("data:image/")) null
+            else
+                File(
+                    diskCacheDir,
+                    NativeApi.digest("${api.origin?.rule}:${api.scope}:$path") + ".bin",
+                )
         api.image(
             {
                 if (ticket != epoch || waiting.none { it.current() }) return@image null
+                if (file != null) {
+                    val stored =
+                        synchronized(diskLock) {
+                            if (
+                                file.isFile &&
+                                    file.length() in 1..(2 * 1024 * 1024) &&
+                                    System.currentTimeMillis() - file.lastModified() in 0..86400000L
+                            )
+                                runCatching { file.readBytes() }.getOrNull()
+                            else null
+                        }
+                    if (stored != null)
+                        decode(stored, size)?.let {
+                            return@image it
+                        }
+                }
                 val bytes =
                     if (path.startsWith("data:image/")) {
                         Base64.decode(path.substringAfter(','), Base64.DEFAULT)
-                    } else {
-                        val file = diskFile(path)
-                        if (file.isFile && file.length() in 1..(2 * 1024 * 1024)) {
-                            file.setLastModified(System.currentTimeMillis())
-                            runCatching { file.readBytes() }.getOrNull() ?: read(path).also {
-                                runCatching { file.writeBytes(it); pruneDiskCache() }
+                    } else read(path)
+                if (ticket != epoch || waiting.none { it.current() }) return@image null
+                val bitmap = decode(bytes, size)
+                if (file != null && bitmap != null)
+                    synchronized(diskLock) {
+                        if (ticket == epoch)
+                            runCatching {
+                                val temporary = File.createTempFile("cover-", ".tmp", diskCacheDir)
+                                try {
+                                    temporary.writeBytes(bytes)
+                                    if (temporary.renameTo(file)) pruneDiskCache(bytes.size)
+                                } finally {
+                                    temporary.delete()
+                                }
                             }
-                        } else {
-                            val networkBytes = read(path)
-                            runCatching { file.writeBytes(networkBytes); pruneDiskCache() }
-                            networkBytes
-                        }
                     }
-                if (ticket == epoch && waiting.any { it.current() }) decode(bytes, size) else null
+                bitmap
             },
             current = { ticket == epoch && waiting.any { it.current() } },
         ) { value, _ ->
@@ -171,10 +203,11 @@ class NativeArtwork(private val api: NativeApi) {
             var sample =
                 MediaController.artworkSampleSize(bounds.outWidth, bounds.outHeight) ?: return null
             while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= pixels) sample *= 2
-            val options = BitmapFactory.Options().apply {
-                inSampleSize = sample
-                inTempStorage = ByteArray(16 * 1024)
-            }
+            val options =
+                BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inTempStorage = ByteArray(16 * 1024)
+                }
             return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, options)
         }
     }

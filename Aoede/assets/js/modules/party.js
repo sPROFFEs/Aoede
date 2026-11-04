@@ -117,8 +117,9 @@ export function renderHomeShelf(rooms) {
     </section>`;
 }
 
-export async function renderPartyList(container) {
+export async function renderPartyList(container, isCurrent = state.viewGuard()) {
   const rooms = await fetchRooms();
+  if (!isCurrent()) return;
   const ownedLocal = rooms.find((room) => room.is_owner && !room.is_federated);
   const ownedFederated = rooms.find((room) => room.is_owner && room.is_federated);
   const canCreate = !ownedLocal || !ownedFederated;
@@ -315,8 +316,9 @@ function connect(roomId) {
   };
 }
 
-export async function renderPartyRoom(container, roomId) {
+export async function renderPartyRoom(container, roomId, isCurrent = state.viewGuard()) {
   const data = await request(`/rooms/${roomId}/join`, { method: 'POST', body: '{}' });
+  if (!isCurrent()) return;
   if (!activeRoom) {
     personalPlayback = {
       track: state.currentTrack,

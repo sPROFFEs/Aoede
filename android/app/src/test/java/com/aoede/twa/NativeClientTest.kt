@@ -90,6 +90,106 @@ class NativeClientTest {
     }
 
     @Test
+    fun thumbnailArtworkDoesNotDecodeAtTheWidthOfItsContainingRow() {
+        val life = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(life.get(), app)
+        ui.screen("Covers")
+        val row = android.widget.LinearLayout(life.get())
+        ui.content.addView(row, android.widget.LinearLayout.LayoutParams(-1, 80))
+        val image = android.widget.ImageView(life.get())
+        row.addView(image, android.widget.LinearLayout.LayoutParams(48, 48))
+        val root =
+            org.robolectric.util.ReflectionHelpers.getField<android.widget.FrameLayout>(ui, "root")
+        life.get().setContentView(root)
+        root.measure(
+            View.MeasureSpec.makeMeasureSpec(1280, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(850, View.MeasureSpec.EXACTLY),
+        )
+        root.layout(0, 0, 1280, 850)
+        assertTrue(row.width > 512)
+        assertTrue(image.isAttachedToWindow)
+        val path =
+            "data:image/png;base64," +
+                android.util.Base64.encodeToString(
+                    app.assets.open("web/assets/img/default_cover.png").use { it.readBytes() },
+                    android.util.Base64.NO_WRAP,
+                )
+        var loaded = false
+        ui.artwork(image, path) { loaded = true }
+        val end = System.nanoTime() + 5_000_000_000L
+        while (!loaded && System.nanoTime() < end) {
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            Thread.sleep(5)
+        }
+        assertTrue("Thumbnail must load", loaded)
+        assertNotNull(app.nativeApi.artwork.peek(path, 48))
+        assertNull(
+            "The row width must not allocate a full-player cover",
+            app.nativeApi.artwork.peek(path, 512),
+        )
+        ui.close()
+        life.pause().stop().destroy()
+    }
+
+    @Test
+    fun replayGainUsesCachedTrackValuesResetsForUnknownTracksAndClearsOnRelease() {
+        context()
+        val player = app.nativePlayback
+        fun song(id: Int) = JSONObject().put("id", id).put("db_id", id).put("title", "Song $id")
+        player.play(listOf(song(7)), autoplay = false)
+        val cache =
+            org.robolectric.util.ReflectionHelpers.getField<android.util.LruCache<Long, Float>>(
+                player,
+                "trackGainCache",
+            )
+        val processor =
+            org.robolectric.util.ReflectionHelpers.getField<NativeAudioProcessor>(
+                player,
+                "processor",
+            )
+        app.getSharedPreferences(MainActivity.PREFS, 0)
+            .edit()
+            .putBoolean("native_replaygain", true)
+            .commit()
+        cache.put(7L, .5f)
+        player.refreshAudioPreferences()
+        assertEquals(.5f, processor.gain)
+        player.play(listOf(song(8)), autoplay = false)
+        assertEquals("An uncached song must not inherit the previous gain", 1f, processor.gain)
+        player.release()
+        assertEquals(0, cache.size())
+    }
+
+    @Test
+    fun backgroundPlaybackDoesNotRenderHiddenUiAndResumeRefreshesOnce() {
+        val life = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(life.get(), app)
+        ui.screen("Start")
+        var renders = 0
+        org.robolectric.util.ReflectionHelpers.setField(
+            ui,
+            "updateFull",
+            {
+                renders++
+                Unit
+            },
+        )
+        val changed =
+            org.robolectric.util.ReflectionHelpers.getField<() -> Unit>(ui, "playbackChanged")
+        changed()
+        assertEquals(1, renders)
+        ui.pause()
+        repeat(10) { changed() }
+        assertEquals("Hidden activities must not render on playback events", 1, renders)
+        ui.resume()
+        assertEquals(2, renders)
+        ui.close()
+        life.pause().stop().destroy()
+    }
+
+    @Test
     fun fullscreenArtistOpensItsNativePageInEveryThemeWithoutStoppingPlayback() {
         val life = Robolectric.buildActivity(MainActivity::class.java).setup()
         context()

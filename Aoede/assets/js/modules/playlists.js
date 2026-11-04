@@ -215,13 +215,14 @@ export async function leaveCollaborativePlaylist(playlistId) {
 
 // === RENDER PLAYLIST VIEW ===
 
-export async function renderPlaylist(container, playlistId) {
+export async function renderPlaylist(container, playlistId, isCurrent = state.viewGuard()) {
   let data = null;
   const numId = /^fed_\d+_\d+$/.test(String(playlistId)) ? String(playlistId) : Number(playlistId);
 
   try {
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       const res = await fetch(api.playlistPath(numId));
+      if (!isCurrent()) return;
       if ([401, 403, 404].includes(res.status)) {
         container.innerHTML = '<div class="empty-state"><p>This playlist is no longer available to you.</p></div>';
         return;
@@ -264,6 +265,7 @@ export async function renderPlaylist(container, playlistId) {
     }
   }
 
+  if (!isCurrent()) return;
   if (!data || (data.error && (!data.tracks || !data.tracks.length))) {
     container.innerHTML = `<div class="empty-state glass-panel"><i data-lucide="list-music" class="empty-icon"></i><p>${ui.escHtml(data?.error || 'Playlist not available offline. Download it while connected to play offline.')}</p></div>`;
     ui.refreshIcons(container);
@@ -748,7 +750,7 @@ export async function resetPlaylistCover(playlistId) {
   }
 }
 
-export async function renderPublicPlaylists(container) {
+export async function renderPublicPlaylists(container, isCurrent = state.viewGuard()) {
   let publicPlaylists = [];
   let fetchError = false;
   try {
@@ -759,6 +761,7 @@ export async function renderPublicPlaylists(container) {
     fetchError = true;
   }
 
+  if (!isCurrent()) return;
   container.innerHTML = `
         <section class="home-overview public-theme">
             ${ui.homeTabsBar('public')}

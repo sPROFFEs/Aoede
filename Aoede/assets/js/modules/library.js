@@ -174,6 +174,7 @@ function savedLibraryContent(playlists) {
 
 export async function renderLibrary(container, kind = null) {
   const request = ++libraryRequest;
+  const isCurrent = state.viewGuard();
   const validKinds = ['all', 'playlists', 'songs', 'artists', 'albums', 'genres'];
   if (kind === 'offline') {
     window.loadView('offline');
@@ -195,22 +196,22 @@ export async function renderLibrary(container, kind = null) {
       let playlists = [];
       if (navigator.onLine) {
         playlists = await api.fetchPlaylists();
-        if (request !== libraryRequest) return;
+        if (!isCurrent() || request !== libraryRequest) return;
         state.setUserPlaylists(playlists);
         await offlineStore.saveLibrarySnapshot('playlists', playlists);
       } else {
         playlists = (await offlineStore.getLibrarySnapshot('playlists')) || [];
       }
-      if (request !== libraryRequest) return;
+      if (!isCurrent() || request !== libraryRequest) return;
       container.innerHTML = savedLibraryContent(playlists);
       window.renderSidebarPlaylists?.();
     } else if (activeKind === 'songs') {
       const page = navigator.onLine
         ? await api.fetchLibraryTracks({ q: facetQuery, sort: facetSort, limit: facetLimit, offset: facetOffset })
         : (await offlineStore.getLibrarySnapshot(snapshot)) || { items: [], total: 0 };
-      if (request !== libraryRequest) return;
+      if (!isCurrent() || request !== libraryRequest) return;
       if (navigator.onLine) await offlineStore.saveLibrarySnapshot(snapshot, page);
-      if (request !== libraryRequest) return;
+      if (!isCurrent() || request !== libraryRequest) return;
       state.setCurrentViewList(page.items || []);
       container.innerHTML = shell(
         page.items?.length
@@ -229,7 +230,7 @@ export async function renderLibrary(container, kind = null) {
           limit: facetLimit,
           offset: facetOffset
         });
-        if (request !== libraryRequest) return;
+        if (!isCurrent() || request !== libraryRequest) return;
         await offlineStore.saveLibrarySnapshot(snapshot, page);
       } else {
         page = (await offlineStore.getLibrarySnapshot(snapshot)) || {
@@ -238,7 +239,7 @@ export async function renderLibrary(container, kind = null) {
           has_more: false
         };
       }
-      if (request !== libraryRequest) return;
+      if (!isCurrent() || request !== libraryRequest) return;
       const facets = page.items || [];
       container.innerHTML = shell(
         (activeKind === 'albums'
@@ -254,9 +255,9 @@ export async function renderLibrary(container, kind = null) {
     }
     ui.refreshIcons(container);
   } catch (error) {
-    if (request !== libraryRequest) return;
+    if (!isCurrent() || request !== libraryRequest) return;
     const cached = await offlineStore.getLibrarySnapshot('playlists');
-    if (request !== libraryRequest) return;
+    if (!isCurrent() || request !== libraryRequest) return;
     if (browsingCollections && cached?.length) {
       container.innerHTML =
         `<p role="status">${ui.t('library.cached', 'Showing saved collections. The server could not be reached.')}</p>` +
@@ -318,11 +319,12 @@ export async function openLibraryFacet(key, value, albumArtist = '', offset = 0)
   const container = document.getElementById('view-container');
   if (!container) return;
   const request = ++libraryRequest;
+  const isCurrent = state.viewGuard();
   try {
     const filters = { [key]: value, limit: facetLimit, offset, sort: key === 'album' ? 'album' : 'artist' };
     if (key === 'album' && albumArtist) filters.artist = albumArtist;
     const page = await api.fetchLibraryTracks(filters);
-    if (request !== libraryRequest) return;
+    if (!isCurrent() || request !== libraryRequest) return;
     const tracks = page.items || [];
     state.setCurrentViewList(tracks);
     const facetAction = `openLibraryFacet('${ui.escJs(key)}', '${ui.escJs(value)}', '${ui.escJs(albumArtist)}',`;
@@ -337,7 +339,7 @@ export async function openLibraryFacet(key, value, albumArtist = '', offset = 0)
       </section>`;
     ui.refreshIcons(container);
   } catch (error) {
-    if (request !== libraryRequest) return;
+    if (!isCurrent() || request !== libraryRequest) return;
     ui.showToast(error.message, 'error');
   }
 }

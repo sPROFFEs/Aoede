@@ -226,6 +226,11 @@ export async function loadView(view, param = null, options = {}) {
   // bottom of the same view). Old bookmarks / sidebar entries keep
   // working without 404s.
   if (view === 'radio' || view === 'your_radios') view = 'discover_radios';
+  if (view !== 'discovery' && window.__discoveryPreviewAudio) {
+    window.__discoveryPreviewAudio.pause();
+    window.__discoveryPreviewAudio.removeAttribute('src');
+    window.__discoveryPreviewAudio.load();
+  }
   if (view !== 'home' || !container.querySelector('[data-home-root]')) shelfResizeObserver?.disconnect();
   const { pushHistory = true, replaceHistory = false } = options;
   const refreshing =
@@ -268,7 +273,7 @@ export async function loadView(view, param = null, options = {}) {
     else if (view === 'library') await library.renderLibrary(container, param);
     else if (view === 'mix') {
       await renderMix(container, param);
-      await trackRecentMix(param);
+      if (isCurrent()) await trackRecentMix(param);
     } else if (view === 'wrapped') await renderWrapped(container, param);
     else if (view === 'search') renderSearch(container);
     else if (view === 'public') await playlists.renderPublicPlaylists(container);
@@ -278,7 +283,7 @@ export async function loadView(view, param = null, options = {}) {
     else if (view === 'favorites') await favorites.renderFavorites(container);
     else if (view === 'playlist') {
       await playlists.renderPlaylist(container, param);
-      await trackRecentPlaylist(param);
+      if (isCurrent()) await trackRecentPlaylist(param);
     } else if (view === 'system_monitor') await renderExternalView(container, '/admin/system', isCurrent);
     else if (view === 'admin_downloads') await renderExternalView(container, '/admin/downloads', isCurrent);
     else if (view === 'admin_delete_requests')
@@ -710,9 +715,10 @@ function renderWrappedParty(party) {
         </div>`;
 }
 
-export async function renderWrapped(container, yearParam = null) {
+export async function renderWrapped(container, yearParam = null, isCurrent = state.viewGuard()) {
   const year = Number(yearParam || new Date().getFullYear());
   const [wrapped, party] = await Promise.all([api.fetchWrapped(year), api.fetchWrappedParty(year).catch(() => null)]);
+  if (!isCurrent()) return;
   if (!wrapped || wrapped.enabled === false || wrapped.visible === false || wrapped.error) {
     container.innerHTML = `<div class="empty-state glass-panel"><p>Wrapped is not available right now.</p></div>`;
     return;
@@ -839,8 +845,9 @@ export function renderSearch(container) {
   search.executeSearch(seedQuery);
 }
 
-export async function renderMix(container, mixKey) {
+export async function renderMix(container, mixKey, isCurrent = state.viewGuard()) {
   const mix = await api.fetchMixDetail(mixKey);
+  if (!isCurrent()) return;
   if (!mix || mix.error) {
     container.innerHTML = `<div class="empty-state glass-panel"><p>Mix not available.</p></div>`;
     return;
@@ -1922,8 +1929,9 @@ function _discoveryCard(item) {
     </article>`;
 }
 
-export async function renderDiscovery(container) {
+export async function renderDiscovery(container, isCurrent = state.viewGuard()) {
   const data = await api.fetchDiscoveryFeed(30);
+  if (!isCurrent()) return;
   const items = data.items || [];
 
   if (!items.length) {
@@ -2148,13 +2156,14 @@ function _artistSimilarCard(sim) {
     </button>`;
 }
 
-export async function renderArtist(container, name) {
+export async function renderArtist(container, name, isCurrent = state.viewGuard()) {
   if (!name) {
     container.innerHTML = `<div class="empty-state">No artist specified.</div>`;
     return;
   }
 
   const data = await api.fetchArtist(name);
+  if (!isCurrent()) return;
   if (!data) {
     container.innerHTML = `
       <div class="empty-state">
@@ -2364,7 +2373,7 @@ export async function startSmartRadio(artist, title) {
 
 // === OFFLINE DOWNLOADS VIEW =================================================
 
-export async function renderOfflineDownloads(container, activeTab = 'all') {
+export async function renderOfflineDownloads(container, activeTab = 'all', isCurrent = state.viewGuard()) {
   let allTracks = [];
   let offlinePlaylists = [];
   let offlineSingles = [];
@@ -2381,6 +2390,7 @@ export async function renderOfflineDownloads(container, activeTab = 'all') {
     console.error('[OFFLINE] Load error:', e);
   }
 
+  if (!isCurrent()) return;
   let displayTracks = allTracks;
   if (activeTab === 'singles') displayTracks = offlineSingles;
   state.setCurrentViewList(displayTracks);
@@ -2658,12 +2668,13 @@ export async function checkOfflineReadinessAction() {
 
 // === PUBLIC USER PROFILE VIEW ===============================================
 
-export async function renderProfile(container, username) {
+export async function renderProfile(container, username, isCurrent = state.viewGuard()) {
   if (!username) {
     username = window.USER_DATA?.username || 'User';
   }
 
   const profile = await api.fetchUserProfile(username);
+  if (!isCurrent()) return;
   if (!profile || profile.error) {
     container.innerHTML = `
       <div class="empty-state glass-panel">
@@ -2786,13 +2797,15 @@ export async function renderProfile(container, username) {
 
 // === SERVER COMMUNITY / USERS VIEW ==========================================
 
-export async function renderCommunity(container) {
+export async function renderCommunity(container, isCurrent = state.viewGuard()) {
   let users = [];
   try {
     users = await api.fetchUsersList();
   } catch (e) {
     console.error('[COMMUNITY] Error fetching users:', e);
   }
+
+  if (!isCurrent()) return;
 
   function renderUserCard(u) {
     return `

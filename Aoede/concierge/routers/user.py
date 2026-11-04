@@ -798,11 +798,18 @@ def serialize_public_profile(db, target_user, current_user):
 
     # Top artists from activity and favorites
     artist_counts: dict[str, int] = {}
+    track_ids = list({int(r.get("track_id") or 0) for r in rows} - {0})
+    track_artists = {}
+    for offset in range(0, len(track_ids), 500):
+        track_artists.update(
+            db.query(database.Track.id, database.Track.artist)
+            .filter(database.Track.id.in_(track_ids[offset : offset + 500]))
+            .all()
+        )
     for r in rows:
-        track_id = int(r.get("track_id") or 0)
-        track = db.query(database.Track).filter(database.Track.id == track_id).first()
-        if track and track.artist:
-            artist_counts[track.artist] = artist_counts.get(track.artist, 0) + int(r.get("qualified_listens") or 1)
+        artist = track_artists.get(int(r.get("track_id") or 0))
+        if artist:
+            artist_counts[artist] = artist_counts.get(artist, 0) + int(r.get("qualified_listens") or 1)
 
     for _, track in fav_rows:
         if track.artist and track.artist not in artist_counts:

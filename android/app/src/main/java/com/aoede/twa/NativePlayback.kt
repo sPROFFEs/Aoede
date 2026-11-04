@@ -152,6 +152,7 @@ class NativePlayback(private val app: AoedeApp) {
     private val saveRemote = Runnable { syncQueue() }
     var sleepTimerMinutes: Int = 0
         private set
+
     private val sleep = Runnable {
         sleepTimerMinutes = 0
         app.mediaController.pauseLocal()
@@ -295,7 +296,9 @@ class NativePlayback(private val app: AoedeApp) {
                             if (isNavigatingHistory || isNavigatingForward) {
                                 lastPlayedIndex = newIndex
                             } else {
-                                if (lastPlayedIndex in tracks.indices && lastPlayedIndex != newIndex) {
+                                if (
+                                    lastPlayedIndex in tracks.indices && lastPlayedIndex != newIndex
+                                ) {
                                     playbackHistory.addLast(lastPlayedIndex)
                                     if (playbackHistory.size > 200) playbackHistory.removeFirst()
                                 }
@@ -585,12 +588,10 @@ class NativePlayback(private val app: AoedeApp) {
                 persist()
             }
             "nexttrack" -> {
-                if (party != null) party?.control("next")
-                else nextTrack()
+                if (party != null) party?.control("next") else nextTrack()
             }
             "previousgesture" -> {
-                if (party != null) party?.control("previous")
-                else previousTrack(fromGesture = true)
+                if (party != null) party?.control("previous") else previousTrack(fromGesture = true)
             }
             "previoustrack" -> {
                 if (party != null) party?.control("previous")
@@ -743,15 +744,15 @@ class NativePlayback(private val app: AoedeApp) {
 
     private fun prefetchNextTrackGain() {
         if (!preferences.getBoolean("native_replaygain", false)) return
+        val stamp = gainGeneration
         val nextIdx = index + 1
         if (nextIdx !in tracks.indices) return
         val nextTrack = tracks[nextIdx]
         val nextId = NativeTrack.localId(nextTrack)
         if (nextId <= 0 || trackGainCache.get(nextId) != null) return
-        app.nativeApi.execute({
-            app.nativeApi.request("/api/track/$nextId/gain")
-        }) { value, error ->
-            if (error == null && value is JSONObject) {
+        app.nativeApi.execute({ app.nativeApi.request("/api/track/$nextId/gain") }) { value, error
+            ->
+            if (error == null && value is JSONObject && stamp == gainGeneration && ownsAccount()) {
                 val computed =
                     NativeAudioProcessor.replayGain(
                         value.optDouble("gain_db", 0.0),
@@ -767,22 +768,17 @@ class NativePlayback(private val app: AoedeApp) {
         val t = current ?: return
         val trackId = NativeTrack.localId(t)
         val rgEnabled = preferences.getBoolean("native_replaygain", false)
-        if (rgEnabled && trackId > 0) {
-            val cached = trackGainCache.get(trackId)
-            if (cached != null) {
-                processor.gain = cached
-            }
-        } else {
-            processor.gain = 1f
-        }
+        val cached = if (rgEnabled && trackId > 0) trackGainCache.get(trackId) else null
+        processor.gain = cached ?: 1f
         val stamp = ++gainGeneration
-        if (preferences.getBoolean("native_replaygain", false) && NativeTrack.localId(t) > 0) {
+        if (rgEnabled && trackId > 0 && cached == null) {
             app.nativeApi.execute({
                 app.nativeApi.request("/api/track/${NativeTrack.localId(t)}/gain")
             }) { value, error ->
                 if (
                     error == null &&
                         stamp == gainGeneration &&
+                        ownsAccount() &&
                         preferences.getBoolean("native_replaygain", false) &&
                         value is JSONObject
                 ) {
@@ -794,9 +790,9 @@ class NativePlayback(private val app: AoedeApp) {
                     trackGainCache.put(trackId, computed)
                     processor.gain = computed
                 }
-                prefetchNextTrackGain()
             }
         }
+        prefetchNextTrackGain()
         val stored =
             runCatching { app.nativeLibrary.get("track", NativeTrack.reference(t)) }.getOrNull()
         val raw =
@@ -1011,6 +1007,8 @@ class NativePlayback(private val app: AoedeApp) {
     }
 
     fun stop() {
+        gainGeneration++
+        trackGainCache.evictAll()
         presentation?.invoke("stop", 0)
         presentation = null
         listen(if (engine?.playbackState == Player.STATE_ENDED) "play_complete" else "skip")

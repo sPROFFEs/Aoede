@@ -16,6 +16,7 @@ from routers.user import (
     upload_avatar,
     validate_image_file,
 )
+from sqlalchemy import event
 from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
@@ -297,9 +298,28 @@ async def test_get_public_profile(db_session, monkeypatch):
     db_session.commit()
 
     monkeypatch.setattr("routers.user.get_current_user", lambda req, db: user_a)
+    monkeypatch.setattr(
+        "admin_statistics_service._read_user_activity",
+        lambda *_: (
+            [{"track_id": 200, "qualified_listens": 3}]
+            + [{"track_id": i, "qualified_listens": 1} for i in range(1000, 2000)],
+            "fixture",
+        ),
+    )
     request = Request({"type": "http", "method": "GET", "path": "/user/profile/user_b", "headers": []})
 
-    profile = await get_public_profile("user_b", request, db_session)
+    track_queries = []
+
+    def count_tracks(conn, cursor, statement, parameters, context, executemany):
+        if statement.lstrip().upper().startswith("SELECT") and "FROM tracks" in statement:
+            track_queries.append(statement)
+
+    engine = db_session.get_bind()
+    event.listen(engine, "before_cursor_execute", count_tracks)
+    try:
+        profile = await get_public_profile("user_b", request, db_session)
+    finally:
+        event.remove(engine, "before_cursor_execute", count_tracks)
     assert profile["username"] == "user_b"
     assert profile["is_self"] is False
     assert len(profile["public_playlists"]) == 1
@@ -307,6 +327,8 @@ async def test_get_public_profile(db_session, monkeypatch):
     assert len(profile["favorites"]) == 1
     assert profile["favorites"][0]["title"] == "Song 1"
     assert profile["stats"]["favorites_count"] == 1
+    assert profile["stats"]["top_artists"] == [{"artist": "Artist 1", "count": 3}]
+    assert len(track_queries) == 3  # 1001 history entries, bounded below SQLite's parameter limit.
 
 
 @pytest.mark.anyio

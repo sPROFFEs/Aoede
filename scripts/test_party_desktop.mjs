@@ -147,7 +147,7 @@ const room = { id: 2, owner_id: 1, name: 'Party', current_item_id: 9, current_in
   current_track: { id: 1, db_id: 1, title: 'Remote song', artist: 'Artist' }, queue: [] };
 const container = { innerHTML: '', classList: { toggle() {} } };
 const state = { audio: { currentTime: 0, pause() {}, removeAttribute() {}, load() {} }, userQueue: [], contextQueue: [], originalContextQueue: [],
-  currentViewName: 'party_room', currentViewParam: 'fed_7_2' };
+  currentViewName: 'party_room', currentViewParam: 'fed_7_2', viewGuard: () => () => true };
 for (const name of ['setUserQueue', 'setContextQueue', 'setOriginalContextQueue', 'setContextIndex', 'setShuffleMode', 'setRepeatMode', 'setCurrentTrack']) state[name] = () => {};
 class EventSource {
   constructor(path) { paths.push(path); source = this; this.listeners = {}; }

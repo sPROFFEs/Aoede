@@ -9,6 +9,7 @@ import * as offlineStore from './offline_store.js';
 import * as appearance from './appearance.js';
 
 const HEARTBEAT_MS = 30000;
+let syncController = null;
 let handlers = {
   renderSidebarPlaylists: null,
   refreshRecentActivity: null
@@ -31,6 +32,7 @@ export function startHeartbeatSync() {
 }
 
 export function stopHeartbeatSync() {
+  syncController?.abort();
   if (!state.heartbeatInterval) return;
   clearInterval(state.heartbeatInterval);
   state.setHeartbeatInterval(null);
@@ -66,12 +68,22 @@ export async function requestSyncRefresh() {
 }
 
 export async function checkSyncState() {
-  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  if (
+    syncController ||
+    document.visibilityState === 'hidden' ||
+    (typeof navigator !== 'undefined' && !navigator.onLine)
+  )
+    return;
+  const controller = new AbortController();
+  syncController = controller;
+  const isCurrent = state.viewGuard();
+  const timeout = setTimeout(() => controller.abort(), 20000);
   try {
     await offlineStore.flushPendingActions();
+    if (controller.signal.aborted) return;
 
     const appearanceGeneration = appearance.requestGeneration;
-    const res = await fetch(`${state.API}/sync-state`);
+    const res = await fetch(`${state.API}/sync-state`, { signal: controller.signal });
     if (!res.ok) return;
 
     const syncState = await res.json();
@@ -84,7 +96,7 @@ export async function checkSyncState() {
 
       state.setUserFavorites(new Set(syncState.fav_ids));
 
-      const plsRes = await fetch(`${state.API}/playlists`);
+      const plsRes = await fetch(`${state.API}/playlists`, { signal: controller.signal });
       if (plsRes.ok) {
         const playlists = await plsRes.json();
         state.setUserPlaylists(playlists);
@@ -104,31 +116,39 @@ export async function checkSyncState() {
         }
       });
       if (window.lucide) lucide.createIcons();
-      if (['library', 'playlist'].includes(state.currentViewName) && window.loadView) {
+      if (isCurrent() && ['library', 'playlist'].includes(state.currentViewName) && window.loadView) {
         const container = document.getElementById('view-container');
         const scrollTop = container?.scrollTop || 0;
-        await window.loadView(state.currentViewName, state.currentViewParam, { pushHistory: false });
-        if (container) container.scrollTop = scrollTop;
+        const refresh = window.loadView(state.currentViewName, state.currentViewParam, { pushHistory: false });
+        const stillCurrent = state.viewGuard();
+        await refresh;
+        if (stillCurrent() && container) container.scrollTop = scrollTop;
       }
     }
 
     state.setLastSyncVersion(syncState.version);
     if (
       state.currentViewName === 'playlist' &&
+      isCurrent() &&
       /^fed_\d+_\d+$/.test(String(state.currentViewParam)) &&
       !document.querySelector('#modal-container .modal, .track-row.dragging')
     ) {
       const title = document.getElementById(`playlist-title-${state.currentViewParam}`);
-      const res = await fetch(api.playlistPath(state.currentViewParam));
+      const res = await fetch(api.playlistPath(state.currentViewParam), { signal: controller.signal });
+      if (!isCurrent()) return;
       if ([403, 404].includes(res.status))
         await window.loadView('playlist', state.currentViewParam, { pushHistory: false });
       else if (res.ok && title) {
         const data = await res.json();
+        if (!isCurrent()) return;
         if (Number(data.revision) !== Number(title.dataset.revision))
           await window.loadView('playlist', state.currentViewParam, { pushHistory: false });
       }
     }
   } catch (e) {
     // Heartbeat is non-critical.
+  } finally {
+    clearTimeout(timeout);
+    syncController = null;
   }
 }

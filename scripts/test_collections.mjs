@@ -8,7 +8,7 @@ async function load(file, globals, dependencies) {
   const imports = {};
   const module = new vm.SourceTextModule(await readFile(new URL(`../Aoede/assets/js/modules/${file}`, import.meta.url), 'utf8'), { context });
   await module.link(name => {
-    const values = dependencies[name];
+    const values = name === './state.js' ? { viewGuard: () => () => true, ...dependencies[name] } : dependencies[name];
     imports[name] = new vm.SyntheticModule(Object.keys(values), function () {
       for (const [key, value] of Object.entries(values)) this.setExport(key, value);
     }, { context });
@@ -159,6 +159,7 @@ assert.equal(modal.html, ''); // A cancelled preview cannot reopen a modal after
 const downloadCalls = [];
 const intervalClears = [];
 let downloadState;
+let downloadPoll;
 let running = true;
 const downloadValues = { API: '/api', jobsRefreshController: null, downloadPolling: null,
   setJobsRefreshController(value) { downloadState.setExport('jobsRefreshController', value); },
@@ -172,7 +173,7 @@ const collectionToggle = { checked: false };
 const downloadButton = { dataset: { downloadLabel: 'Download' }, textContent: 'Download' };
 const urlPreviews = [];
 const downloader = await load('downloads.js', { window: {}, document: { getElementById: id => ({ 'downloads-modal': modalElement, 'jobs-list': jobList, 'download-badge': badge, 'dl-modal-url': downloadInput, 'dl-modal-collection': collectionToggle, 'dl-modal-submit': downloadButton })[id] }, AbortController, console,
-  setInterval: () => 7, clearInterval: id => intervalClears.push(id),
+  setInterval: callback => { downloadPoll = callback; return 7; }, clearInterval: id => intervalClears.push(id), setTimeout, clearTimeout,
   fetch: async url => {
     downloadCalls.push(url);
     return { ok: true, json: async () => url.includes('/jobs') ? [{ id: 1, status: running ? 'pending' : 'completed', progress: 0, requested_title: 'Song', target_playlist_id: 5 }] : {} };
@@ -181,6 +182,13 @@ const downloader = await load('downloads.js', { window: {}, document: { getEleme
 downloadState = downloader.imports['./state.js'];
 await downloader.api.openDownloadsModal(5);
 assert.ok(downloadCalls.includes('/api/jobs?playlist_id=5'));
+const pendingJobs = new AbortController();
+downloadState.setExport('jobsRefreshController', pendingJobs);
+const beforeTick = downloadCalls.length;
+downloadPoll();
+assert.equal(pendingJobs.signal.aborted, false); // A slow server response must survive the next polling tick.
+assert.equal(downloadCalls.length, beforeTick);
+downloadState.setExport('jobsRefreshController', null);
 downloader.api.closeDownloadsModal();
 assert.deepEqual(intervalClears, []); // Closing the modal must keep active downloads updating.
 running = false;

@@ -101,6 +101,8 @@ let settingsMounts = 0;
 let navigation;
 let homeWrapped = { year: 2026, enabled: true, visible: true };
 let pendingRooms = null;
+let pendingDiscovery, pendingArtist, pendingProfile;
+let navigationRevision = 0;
 let sidebarCloses = 0;
 let fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
 const homeCalls = [];
@@ -142,9 +144,9 @@ const context = vm.createContext({ window, document, console, URL, AbortControll
   fetch: (...args) => fetchView(...args) });
 const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/views.js', import.meta.url), 'utf8'), { context });
 await module.link(name => {
-  const values = name === './state.js' ? { isSidebarOpen: true, toggleSidebar() { sidebarCloses++; }, setCurrentViewName() {}, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
+  const values = name === './state.js' ? { isSidebarOpen: true, toggleSidebar() { sidebarCloses++; }, setCurrentViewName() { navigationRevision++; }, viewGuard() { const revision = navigationRevision; return () => revision === navigationRevision; }, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
     : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; }, escHtml: String, t: (_, fallback) => fallback, getGreeting: () => 'Hello', homeTabsBar: () => '', refreshIcons() {} }
-    : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; } }
+    : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; }, fetchDiscoveryFeed: () => pendingDiscovery, fetchArtist: () => pendingArtist, fetchUserProfile: () => pendingProfile }
     : name === './party.js' ? { fetchRooms: () => pendingRooms || Promise.resolve([]), renderHomeShelf: () => '<section>Parties</section>' }
     : name === './offline_store.js' ? { saveLibrarySnapshot() {}, getLibrarySnapshot: async () => ({ wrapped: { year: 2025 } }) }
     : name === './appearance.js' ? { syncThemeControls() {} }
@@ -237,6 +239,61 @@ container.replaceChildren = (...nodes) => { container.innerHTML = nodes.join('')
 fetchView = async () => ({ ok: true, text: async () => '<html>Old server page with CDN scripts</html>' });
 await module.namespace.loadView('help');
 assert.equal(container.innerHTML, 'Help content'); // Imported HTML must not load any scripts from the old server's head.
+
+for (const view of ['discovery', 'artist', 'profile']) {
+  let finish;
+  const response = new Promise(resolve => { finish = resolve; });
+  if (view === 'discovery') pendingDiscovery = response;
+  if (view === 'artist') pendingArtist = response;
+  if (view === 'profile') pendingProfile = response;
+  const pendingView = module.namespace.loadView(view, 'Test');
+  await module.namespace.loadView('help');
+  const latestHtml = container.innerHTML;
+  finish(null); // Even an empty/error response must not replace the next destination.
+  await pendingView;
+  assert.equal(container.innerHTML, latestHtml, `Stale ${view} must not overwrite navigation`);
+}
+
+const stateModule = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/state.js', import.meta.url), 'utf8'), { context });
+await stateModule.link(() => { throw Error('State must remain dependency free'); });
+await stateModule.evaluate();
+const stillCurrent = stateModule.namespace.viewGuard();
+assert.equal(stillCurrent(), true);
+stateModule.namespace.setCurrentViewName('home');
+assert.equal(stillCurrent(), false); // Includes two successive visits to the same route.
+console.log('PASS: shared navigation guards discard late feeds, artists and profiles.');
+
+let syncFetches = 0, finishSync;
+context.fetch = () => {
+  syncFetches++;
+  return new Promise(resolve => { finishSync = resolve; });
+};
+const syncModule = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/sync.js', import.meta.url), 'utf8'), { context });
+await syncModule.link(name => {
+  if (name === './state.js') return stateModule;
+  const values = name === './offline_store.js' ? { flushPendingActions: async () => {} }
+    : name === './appearance.js' ? { syncTheme() {} } : {};
+  return new vm.SyntheticModule(Object.keys(values), function () {
+    for (const [key, value] of Object.entries(values)) this.setExport(key, value);
+  }, { context });
+});
+await syncModule.evaluate();
+const firstSync = syncModule.namespace.checkSyncState();
+await new Promise(setImmediate);
+await syncModule.namespace.checkSyncState();
+assert.equal(syncFetches, 1); // pageshow, visibilitychange and polling share the pending request.
+finishSync({ ok: true, json: async () => ({ version: 1 }) });
+await firstSync;
+document.visibilityState = 'hidden';
+await syncModule.namespace.checkSyncState();
+assert.equal(syncFetches, 1);
+document.visibilityState = 'visible';
+const nextSync = syncModule.namespace.checkSyncState();
+await new Promise(setImmediate);
+assert.equal(syncFetches, 2); // Completion releases the guard for the next scheduled refresh.
+finishSync({ ok: true, json: async () => ({ version: 1 }) });
+await nextSync;
+console.log('PASS: sync never overlaps or starts while hidden.');
 
 // Deferred actions keep their account and order; a 401/503 cannot discard changes.
 const actions = [

@@ -68,16 +68,19 @@ export async function renderRadio(container) {
  * Discover Radios surface so radio management lives in one place.
  */
 export async function renderSavedRadios(container) {
+  const isCurrent = state.viewGuard();
   let radios = [];
   try {
     const res = await fetch(`${state.API}/radio/list`);
     radios = await res.json();
     if (!res.ok) throw new Error(radios.error || `HTTP ${res.status}`);
   } catch (e) {
+    if (!isCurrent()) return;
     container.innerHTML = `<div class="empty-state glass-panel"><p>Failed to load your radios.</p></div>`;
     return;
   }
 
+  if (!isCurrent()) return;
   container.innerHTML =
     radios.length > 0
       ? `<div class="saved-radio-list">

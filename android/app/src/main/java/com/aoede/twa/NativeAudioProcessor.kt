@@ -78,9 +78,9 @@ class NativeAudioProcessor : BaseAudioProcessor() {
             output.flip()
             return
         }
+        val rampStep = (1f / (rate * channels.coerceAtLeast(1) * .15f)).coerceIn(0.00001f, 1f)
         while (input.remaining() >= 2) {
             val value = input.short
-            val rampStep = (1f / (rate * channels.coerceAtLeast(1) * .15f)).coerceIn(0.00001f, 1f)
             multiplier += (target - multiplier) * rampStep
             output.putShort(
                 (value * multiplier)
