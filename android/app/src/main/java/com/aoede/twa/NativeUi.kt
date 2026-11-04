@@ -2766,7 +2766,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             }
             shown = end
             if (shown < items.size) {
-                val more = button("Show more (${items.size-shown})", parent) {}
+                val more = button("${text("common.show_more", "Show more")} (${items.size-shown})", parent) {}
                 more.setOnClickListener {
                     parent.removeView(more)
                     append()
@@ -5528,9 +5528,31 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             key = "offline",
             restore = { offlineDownloads(kind, query) },
         )
-        val saved = runCatching { library.list("track") }.getOrDefault(emptyList())
-        val collections = runCatching { library.list("collection") }.getOrDefault(emptyList())
-        val downloaded = runCatching { library.audioFiles() }.getOrDefault(emptyMap())
+        val scope = runCatching { library.scope() }.getOrElse {
+            label("Sign in before using device downloads")
+            return
+        }
+        val stamp = generation
+        musicLoader()
+        api.execute({
+            Triple(library.list("track", scope), library.list("collection", scope), library.audioFiles(scope = scope))
+        }) { result, error ->
+            if (!alive || stamp != generation || runCatching { library.scope() != scope }.getOrDefault(true)) return@execute
+            content.removeAllViews()
+            if (error != null) {
+                label(error.message ?: "Could not load device downloads")
+                button(text("common.retry", "Retry")) { offlineDownloads(kind, query) }
+            } else {
+                @Suppress("UNCHECKED_CAST")
+                val data = result as Triple<List<JSONObject>, List<JSONObject>, Map<String, java.io.File>>
+                renderOfflineDownloads(kind, query, data.first, data.second, data.third)
+            }
+        }
+    }
+
+    private fun renderOfflineDownloads(
+        kind: String, query: String, saved: List<JSONObject>, collections: List<JSONObject>, downloaded: Map<String, java.io.File>
+    ) {
         val covered =
             collections.flatMap { NativeTrack.items(it).map(NativeTrack::reference) }.toSet()
         val singles =

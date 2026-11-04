@@ -48,11 +48,14 @@ def user_summary(instance, user):
     remote_id = int(user["id"])
     if remote_id <= 0 or not isinstance(user.get("username"), str):
         raise ValueError("Invalid remote user")
+    # Only a bounded hash crosses the image proxy, never a peer-supplied image URL.
+    avatar_version = re.search(r"[?&]v=([a-f0-9]{12})(?:&|$)", str(user.get("avatar_url", ""))[:4096])
     return {
         "id": remote_id,
         "username": user["username"][:200],
         "profile_key": f"fed:{instance.id}:{remote_id}",
-        "avatar_url": f"/api/federation/proxy/{instance.id}/images/avatar/{remote_id}",
+        "avatar_url": f"/api/federation/proxy/{instance.id}/images/avatar/{remote_id}"
+        + (f"?v={avatar_version[1]}" if avatar_version else ""),
         "is_admin": bool(user.get("is_admin")),
         "is_self": False,
         "is_federated": True,

@@ -90,6 +90,131 @@ class NativeClientTest {
     }
 
     @Test
+    fun pausedPlaybackUsesOneSecondTicksAndCancelsThemOnRelease() {
+        context()
+        val player = app.nativePlayback
+        player.play(listOf(JSONObject().put("id", 7).put("db_id", 7)), autoplay = false)
+        val handler =
+            org.robolectric.util.ReflectionHelpers.getField<android.os.Handler>(player, "handler")
+        val tick = org.robolectric.util.ReflectionHelpers.getField<Runnable>(player, "tick")
+        val queue =
+            org.robolectric.util.ReflectionHelpers.getField<android.os.MessageQueue>(
+                android.os.Looper.getMainLooper(),
+                "mQueue",
+            )
+        fun scheduled(): Long? {
+            var message =
+                org.robolectric.util.ReflectionHelpers.getField<android.os.Message?>(
+                    queue,
+                    "mMessages",
+                )
+            while (message != null) {
+                if (message.target === handler && message.callback === tick)
+                    return message.getWhen()
+                message = org.robolectric.util.ReflectionHelpers.getField(message, "next")
+            }
+            return null
+        }
+        handler.removeCallbacks(tick)
+        tick.run()
+        assertEquals(android.os.SystemClock.uptimeMillis() + 1000L, scheduled())
+        assertEquals(0L, org.robolectric.util.ReflectionHelpers.getField<Long>(player, "lastTick"))
+        player.release()
+        assertNull(scheduled())
+    }
+
+    @Test
+    fun largeManualQueuesRenderInPagesWithoutTruncatingPlayback() {
+        val life = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(life.get(), app)
+        ui.screen("Queue")
+        val tracks =
+            (0..120).map {
+                JSONObject().put("id", it + 1).put("title", "Queued $it").put("_manual", it > 0)
+            }
+        app.nativePlayback.play(tracks, autoplay = false)
+        ui.showPlayer("queue")
+        val panel = ui.fullscreen as NativePlayerView
+        val stage =
+            org.robolectric.util.ReflectionHelpers.getField<android.widget.FrameLayout>(
+                panel,
+                "stage",
+            )
+        fun descendants(view: View): List<View> =
+            listOf(view) +
+                if (view is ViewGroup)
+                    (0 until view.childCount).flatMap { descendants(view.getChildAt(it)) }
+                else emptyList()
+        fun titles() =
+            descendants(stage).filterIsInstance<android.widget.TextView>().count {
+                it.text.startsWith("Queued ")
+            }
+        assertEquals(40, titles())
+        descendants(stage)
+            .filterIsInstance<android.widget.Button>()
+            .first { it.text.startsWith("Show more") }
+            .performClick()
+        assertEquals(80, titles())
+        descendants(stage)
+            .filterIsInstance<android.widget.Button>()
+            .first { it.text.startsWith("Show more") }
+            .performClick()
+        assertEquals(120, titles())
+        assertEquals(121, app.nativePlayback.queue.size)
+        assertEquals(0, app.nativePlayback.index)
+        ui.close()
+        life.pause().stop().destroy()
+    }
+
+    @Test
+    fun offlineIndexLoadsOffTheUiThreadAndDiscardsObsoleteNavigation() {
+        val life = Robolectric.buildActivity(MainActivity::class.java).setup()
+        context()
+        val ui = NativeUi(life.get(), app)
+        val entered = java.util.concurrent.CountDownLatch(3)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val workers =
+            org.robolectric.util.ReflectionHelpers.getField<
+                java.util.concurrent.ThreadPoolExecutor
+            >(
+                app.nativeApi,
+                "workers",
+            )
+        val before = workers.completedTaskCount
+        try {
+            repeat(3) {
+                app.nativeApi.execute({
+                    entered.countDown()
+                    check(release.await(5, java.util.concurrent.TimeUnit.SECONDS))
+                }) { _, _ ->
+                }
+            }
+            assertTrue(entered.await(5, java.util.concurrent.TimeUnit.SECONDS))
+            ui.offlineDownloads()
+            assertEquals("Offline data must be queued in the API executor", 1, workers.queue.size)
+            ui.screen("Next page")
+            val kept = ui.label("Keep this page")
+            release.countDown()
+            val deadline = System.nanoTime() + 5_000_000_000L
+            while (workers.completedTaskCount < before + 4 && System.nanoTime() < deadline) Thread
+                .sleep(5)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertSame(kept, ui.content.getChildAt(0))
+            app.nativeApi.clearSession()
+            ui.offlineDownloads()
+            assertEquals(
+                "Sign in before using device downloads",
+                (ui.content.getChildAt(0) as android.widget.TextView).text.toString(),
+            )
+        } finally {
+            release.countDown()
+            ui.close()
+            life.pause().stop().destroy()
+        }
+    }
+
+    @Test
     fun thumbnailArtworkDoesNotDecodeAtTheWidthOfItsContainingRow() {
         val life = Robolectric.buildActivity(MainActivity::class.java).setup()
         context()

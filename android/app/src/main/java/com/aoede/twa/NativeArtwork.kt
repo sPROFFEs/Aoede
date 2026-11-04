@@ -59,6 +59,8 @@ class NativeArtwork(private val api: NativeApi) {
 
     fun peek(path: String, pixels: Int): Bitmap? = cache.get(key(path, pixels))
 
+    fun trimMemory() = cache.evictAll()
+
     fun clear() {
         synchronized(diskLock) {
             epoch++

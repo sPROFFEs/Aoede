@@ -83,7 +83,8 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes mobile transport gestures shared by the compact and fullscreen players.
     # Includes accessible collection menus and one shared focus trap for legacy dialogs.
     # Includes rich discovery category filtering, reason badges, and multi-tier lyrics.
-    assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 642_000
+    # Includes bounded queue rendering and account-scoped request coalescing.
+    assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 644_000
     # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
     assert (
         sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in stylesheets if path not in (glass, vitrine))

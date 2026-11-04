@@ -193,6 +193,18 @@ class NativeArtworkTest {
             assertTrue(file.setLastModified(System.currentTimeMillis() - 86400001L))
             assertNotNull("Expired covers must be refreshed", loadFromDisk())
             assertEquals(initialHits + 2, hits.get())
+            val visible = app.nativeApi.artwork.peek("/replacement", 100)!!
+            app.onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN)
+            assertSame(visible, app.nativeApi.artwork.peek("/replacement", 100))
+            app.onTrimMemory(android.content.ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW)
+            assertNull(app.nativeApi.artwork.peek("/replacement", 100))
+            assertFalse("Displayed bitmaps must never be recycled", visible.isRecycled)
+            val beforeReload = hits.get()
+            val count = results.size
+            app.nativeApi.artwork.load("/replacement", 100) { results.add(it) }
+            settle { results.size == count + 1 }
+            assertNotNull(results.last())
+            assertEquals("Memory pressure must preserve the disk cache", beforeReload, hits.get())
         } finally {
             server.close()
             thread.join(1000)

@@ -2690,9 +2690,7 @@ export async function renderProfile(container, username, isCurrent = state.viewG
   const playlists = profile.public_playlists || [];
   const favorites = profile.favorites || [];
   const topArtists = stats.top_artists || [];
-  const avatarUrl = profile.avatar_url
-    ? `${profile.avatar_url}?t=${Date.now()}`
-    : `/user/avatar/${encodeURIComponent(username)}`;
+  const avatarUrl = profile.avatar_url ? profile.avatar_url : `/user/avatar/${encodeURIComponent(username)}`;
 
   let playlistsHtml = '';
   if (playlists.length > 0) {
@@ -2800,7 +2798,7 @@ export async function renderProfile(container, username, isCurrent = state.viewG
 export async function renderCommunity(container, isCurrent = state.viewGuard()) {
   let users = [];
   try {
-    users = await api.fetchUsersList();
+    users = await api.fetchUsersList({ refresh: true });
   } catch (e) {
     console.error('[COMMUNITY] Error fetching users:', e);
   }
@@ -2811,7 +2809,7 @@ export async function renderCommunity(container, isCurrent = state.viewGuard()) 
     return `
       <div class="user-profile-card" onclick="loadView('profile', '${ui.escJs(u.profile_key || u.username)}')">
         <div class="user-profile-card-avatar">
-          <img src="${ui.escHtml(u.avatar_url)}?t=${Date.now()}" alt="${ui.escHtml(u.username)}" onerror="this.src='/static/img/default_cover.png'">
+          <img src="${ui.escHtml(u.avatar_url)}" alt="${ui.escHtml(u.username)}" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">
         </div>
         <div class="user-profile-card-name">
           <span>${ui.escHtml(u.username)}${u.is_federated ? ` @ ${ui.escHtml(u.fed_instance_name)}` : ''}</span>

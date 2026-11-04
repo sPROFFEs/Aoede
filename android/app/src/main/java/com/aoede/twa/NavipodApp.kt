@@ -37,7 +37,8 @@ class AoedeApp : Application() {
     var player: WebView? = null
         private set
     val musicIsland by lazy { MusicIsland(this) }
-    val nativeApi by lazy { NativeApi(this) }
+    private val nativeApiDelegate = lazy { NativeApi(this) }
+    val nativeApi by nativeApiDelegate
     val nativeLibrary by lazy { NativeLibrary(this) }
     val nativeSync by lazy { NativeSync(this) }
     private val nativePlaybackDelegate = lazy { NativePlayback(this) }
@@ -82,6 +83,18 @@ class AoedeApp : Application() {
         private set
     private val mobileRuntime by lazy { assets.open("mobile/runtime.js").bufferedReader().use { it.readText() } }
     private var activity = WeakReference<MainActivity>(null)
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level == TRIM_MEMORY_RUNNING_LOW || level == TRIM_MEMORY_RUNNING_CRITICAL || level >= TRIM_MEMORY_BACKGROUND) {
+            if (nativeApiDelegate.isInitialized()) nativeApi.artwork.trimMemory()
+        }
+    }
+
+    override fun onLowMemory() {
+        super.onLowMemory()
+        if (nativeApiDelegate.isInitialized()) nativeApi.artwork.trimMemory()
+    }
 
     override fun onCreate() {
         super.onCreate()

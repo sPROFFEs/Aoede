@@ -753,6 +753,11 @@ async def get_public_profile(username: str, request: Request, db: Session = Depe
     return serialize_public_profile(db, target_user, current_user)
 
 
+def _avatar_url(user):
+    version = hashlib.sha256(os.path.basename(user.avatar_path or "default").encode()).hexdigest()[:12]
+    return f"/user/avatar/{user.username}?v={version}"
+
+
 def serialize_public_profile(db, target_user, current_user):
     from routers.music.playlists import fetch_playlist_summaries
 
@@ -825,7 +830,7 @@ def serialize_public_profile(db, target_user, current_user):
         "username": target_user.username,
         "is_admin": bool(target_user.is_admin),
         "is_self": bool(target_user.id == current_user.id),
-        "avatar_url": f"/user/avatar/{target_user.username}",
+        "avatar_url": _avatar_url(target_user),
         "stats": {
             "total_listens": total_listens,
             "listening_minutes": round(total_listening_seconds / 60),
@@ -876,7 +881,7 @@ def list_local_users(db, current_user):
             {
                 "id": u.id,
                 "username": u.username,
-                "avatar_url": f"/user/avatar/{u.username}",
+                "avatar_url": _avatar_url(u),
                 "is_admin": bool(u.is_admin),
                 "is_self": bool(u.id == current_user.id),
                 "public_playlists_count": len(public_playlists),

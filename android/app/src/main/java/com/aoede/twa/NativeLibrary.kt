@@ -102,8 +102,7 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
     }
 
     @Synchronized
-    fun audioFiles(ids: Collection<String>? = null): Map<String, File> {
-        val scope = scope()
+    fun audioFiles(ids: Collection<String>? = null, scope: String = scope()): Map<String, File> {
         val wanted = ids?.toHashSet()
         if (wanted?.isEmpty() == true) return emptyMap()
         var selection = "scope=? AND kind=?"

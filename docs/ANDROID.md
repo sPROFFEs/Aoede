@@ -1,6 +1,8 @@
 # Android App
 
-**Android 1.2.6 (36)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.7 (37)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+
+Large manual queues show 40 recordings at a time; tap **Show more** to display the next group. The complete queue remains available for playback. Device downloads display a loading indicator while their local index is read.
 
 ## Install and update
 
@@ -74,7 +76,7 @@ Administrators can open a private verification browser from Download Manager. Wa
 
 | File | Purpose |
 |---|---|
-| `aoede-android.apk` | Current signed native client, Android 1.2.6/code 36. |
+| `aoede-android.apk` | Current signed native client, Android 1.2.7/code 37. |
 | `aoede-android-source.zip` | Complete Android project, tests, editable compatibility frontend and compiler. |
 | `aoede-android-webview-1.1.22.apk` / `-source.zip` | Previous installed web client backup. |
 | `aoede-android-wrapper-1.0.5.apk` / `-source.zip` | Original remote-wrapper backup. |

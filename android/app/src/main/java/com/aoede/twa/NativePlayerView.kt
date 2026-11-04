@@ -117,6 +117,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private var lyricActive = -2
     private var modeStamp = 0
     private var queueSignature = ""
+    private var queueShown = 40
 
     init {
         clipChildren = false
@@ -552,73 +553,89 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                     setPadding(0, dp(12), 0, dp(12))
                 }
             )
-        for ((position, item) in manual) {
-            val row =
-                ui.row(
-                    item.optString("title"),
-                    item.optString("artist") +
-                        if (position == manual.first().index) " · Next" else "",
-                    ui.artworkPath(item),
-                    body,
-                    40,
-                ) {
-                    player.selectQueue(position)
-                }
-            (row.getChildAt(1) as LinearLayout).let { copy ->
-                (copy.getChildAt(0) as TextView).setTextColor(Color.WHITE)
-                if (copy.childCount > 1)
-                    (copy.getChildAt(1) as TextView).setTextColor(0xffc5c7d1.toInt())
-            }
-            val grip =
-                NativeIconButton(context, 0xffc5c7d1.toInt(), design.theme).apply {
-                    text = "grip-vertical"
-                    contentDescription = "Reorder queued track"
-                    setPadding(dp(4), dp(14), dp(4), dp(14))
-                    background = null
-                    setOnLongClickListener { view ->
-                        val clip =
-                            android.content.ClipData.newPlainText(
-                                "Aoede queued track",
-                                position.toString(),
-                            )
-                        if (android.os.Build.VERSION.SDK_INT >= 24)
-                            view.startDragAndDrop(clip, View.DragShadowBuilder(row), position, 0)
-                        else
-                            @Suppress("DEPRECATION")
-                            view.startDrag(clip, View.DragShadowBuilder(row), position, 0)
+        val manualBody = LinearLayout(context).apply { orientation = LinearLayout.VERTICAL }
+        body.addView(manualBody, LinearLayout.LayoutParams(-1, -2))
+        var shown = 0
+        fun append(count: Int) {
+            val end = (shown + count).coerceAtMost(manual.size)
+            for ((position, item) in manual.subList(shown, end)) {
+                val row =
+                    ui.row(
+                        item.optString("title"),
+                        item.optString("artist") +
+                            if (position == manual.first().index) " · Next" else "",
+                        ui.artworkPath(item),
+                        manualBody,
+                        40,
+                    ) {
+                        player.selectQueue(position)
                     }
-                    setOnClickListener {
-                        ui.choose("Reorder queued track", listOf("Move up", "Move down")) {
-                            direction ->
-                            val adjacent =
-                                manual.indexOfFirst { it.index == position } +
-                                    if (direction == 0) -1 else 1
-                            manual.getOrNull(adjacent)?.let {
-                                player.moveQueued(position, it.index)
+                (row.getChildAt(1) as LinearLayout).let { copy ->
+                    (copy.getChildAt(0) as TextView).setTextColor(Color.WHITE)
+                    if (copy.childCount > 1)
+                        (copy.getChildAt(1) as TextView).setTextColor(0xffc5c7d1.toInt())
+                }
+                val grip =
+                    NativeIconButton(context, 0xffc5c7d1.toInt(), design.theme).apply {
+                        text = "grip-vertical"
+                        contentDescription = "Reorder queued track"
+                        setPadding(dp(4), dp(14), dp(4), dp(14))
+                        background = null
+                        setOnLongClickListener { view ->
+                            val clip =
+                                android.content.ClipData.newPlainText(
+                                    "Aoede queued track",
+                                    position.toString(),
+                                )
+                            if (android.os.Build.VERSION.SDK_INT >= 24)
+                                view.startDragAndDrop(clip, View.DragShadowBuilder(row), position, 0)
+                            else
+                                @Suppress("DEPRECATION")
+                                view.startDrag(clip, View.DragShadowBuilder(row), position, 0)
+                        }
+                        setOnClickListener {
+                            ui.choose("Reorder queued track", listOf("Move up", "Move down")) {
+                                direction ->
+                                val adjacent =
+                                    manual.indexOfFirst { it.index == position } +
+                                        if (direction == 0) -1 else 1
+                                manual.getOrNull(adjacent)?.let {
+                                    player.moveQueued(position, it.index)
+                                }
                             }
                         }
                     }
+                row.addView(
+                    grip,
+                    0,
+                    LinearLayout.LayoutParams(dp(20), dp(44)).apply { marginEnd = dp(8) },
+                )
+                row.setOnDragListener { _, event ->
+                    val from = event.localState as? Int
+                    when (event.action) {
+                        android.view.DragEvent.ACTION_DRAG_STARTED ->
+                            from != null &&
+                                from in player.queue.indices &&
+                                player.queue[from].optBoolean("_manual")
+                        android.view.DragEvent.ACTION_DROP ->
+                            from != null && player.moveQueued(from, position)
+                        else -> true
+                    }
                 }
-            row.addView(
-                grip,
-                0,
-                LinearLayout.LayoutParams(dp(20), dp(44)).apply { marginEnd = dp(8) },
-            )
-            row.setOnDragListener { _, event ->
-                val from = event.localState as? Int
-                when (event.action) {
-                    android.view.DragEvent.ACTION_DRAG_STARTED ->
-                        from != null &&
-                            from in player.queue.indices &&
-                            player.queue[from].optBoolean("_manual")
-                    android.view.DragEvent.ACTION_DROP ->
-                        from != null && player.moveQueued(from, position)
-                    else -> true
+                ui.iconButton(row, "x", "Remove queued track") { player.removeQueued(position) }
+                    .color(Color.WHITE)
+            }
+            shown = end
+            if (shown < manual.size) {
+                val more = ui.button("${ui.text("common.show_more", "Show more")} (${manual.size - shown})", manualBody) {}
+                more.setOnClickListener {
+                    manualBody.removeView(more)
+                    queueShown += 40
+                    append(40)
                 }
             }
-            ui.iconButton(row, "x", "Remove queued track") { player.removeQueued(position) }
-                .color(Color.WHITE)
         }
+        append(queueShown)
         heading("Playback Context")
         val contextTracks = player.queue.filterNot { it.optBoolean("_manual") }
         val currentPosition =

@@ -64,11 +64,7 @@ export function toggleShuffle() {
 
 // === REPEAT MODE ===
 
-// Render BOTH the footer and fullscreen repeat buttons in lockstep.
-// Previously the footer was updated inline here, lucide was invoked over
-// the whole document, and only then was the FS button updated by a second
-// pass — leaving the FS button visually out of sync on iOS Safari, where
-// the user reported repeat-one / repeat-all "not working" from fullscreen.
+// Keep footer and fullscreen repeat controls in sync.
 function _renderRepeatButton(btn, mode) {
   if (!btn) return;
   const icon = mode === 'one' ? 'repeat-1' : 'repeat';
@@ -125,10 +121,12 @@ export function removeFromQueue(index) {
 }
 
 const _gripSvg = `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="5" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="15" cy="19" r="1.5"/></svg>`;
+const queueBindings = new WeakSet();
 
 export function renderQueue() {
   const container = document.getElementById('queue-list');
   if (!container) return;
+  const limit = Number(container.dataset.queueLimit) || 40;
 
   const contextCount = state.contextQueue.length;
   const contextPosition = state.contextIndex >= 0 ? state.contextIndex + 1 : 0;
@@ -143,11 +141,12 @@ export function renderQueue() {
   const manualQueueHtml =
     state.userQueue.length > 0
       ? state.userQueue
+          .slice(0, limit)
           .map(
             (t, i) => `
             <div class="queue-item" draggable="true" data-qi="${i}">
                 <span class="queue-drag-handle" title="Drag to reorder">${_gripSvg}</span>
-                <img src="${t.thumbnail || '/static/img/default_cover.png'}" class="queue-img" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">
+                <img src="${ui.escHtml(t.thumbnail || '/static/img/default_cover.png')}" class="queue-img" loading="lazy" decoding="async" onerror="this.src='/static/img/default_cover.png'">
                 <div class="queue-info">
                     <div class="queue-title">${ui.escHtml(t.title || 'Unknown')}</div>
                     <div class="queue-artist">${ui.escHtml(t.artist || 'Unknown')}${i === 0 ? ' · Next' : ''}</div>
@@ -163,6 +162,7 @@ export function renderQueue() {
   container.innerHTML = `
         <div class="queue-section-title">Manual Queue</div>
         ${manualQueueHtml}
+        ${state.userQueue.length > limit ? `<button type="button" class="btn-secondary" data-queue-more>${ui.t('common.show_more', 'Show more')} (${state.userQueue.length - limit})</button>` : ''}
         <div class="queue-context-card">
             <div class="queue-section-title">Playback Context</div>
             <div class="queue-context-row">
@@ -176,7 +176,12 @@ export function renderQueue() {
         </div>
         <div class="queue-footnote">Manual queue plays before context and is restored after refresh.</div>`;
 
-  if (state.userQueue.length > 0) {
+  container.querySelector('[data-queue-more]')?.addEventListener('click', () => {
+    container.dataset.queueLimit = String(limit + 40);
+    renderQueue();
+  });
+  if (state.userQueue.length > 0 && !queueBindings.has(container)) {
+    queueBindings.add(container);
     _initQueueDragDrop(container);
   }
 }
@@ -220,7 +225,7 @@ function _initQueueDragDrop(container) {
     const allItems = Array.from(container.querySelectorAll('.queue-item'));
     const fromIdx = allItems.indexOf(dragSrc);
     const toIdx = allItems.indexOf(targetItem);
-    if (fromIdx === toIdx) return;
+    if (fromIdx < 0 || toIdx < 0 || fromIdx === toIdx) return;
 
     const newQueue = [...state.userQueue];
     const [moved] = newQueue.splice(fromIdx, 1);

@@ -227,12 +227,13 @@ class NativePlayback(private val app: AoedeApp) {
                 }
                 if (presentation != null) {
                     lastTick = 0
-                    handler.postDelayed(this, 100)
+                    handler.postDelayed(this, 1000)
                     return
                 }
                 val now = android.os.SystemClock.elapsedRealtime()
-                if (playing && lastTick > 0) listened += (now - lastTick).coerceIn(0, 1500)
-                lastTick = now
+                val active = playing
+                if (active && lastTick > 0) listened += (now - lastTick).coerceIn(0, 1500)
+                lastTick = if (active) now else 0
                 if (!reported30 && listened >= 30000) {
                     reported30 = true
                     listen("play_30s")
@@ -248,11 +249,11 @@ class NativePlayback(private val app: AoedeApp) {
                     publish()
                     onChanged?.invoke()
                 }
-                if (now - lastSaved >= 10000) {
+                if (active && now - lastSaved >= 10000) {
                     lastSaved = now
                     persist()
                 }
-                handler.postDelayed(this, 100)
+                handler.postDelayed(this, if (active) 100 else 1000)
             }
         }
 
@@ -291,6 +292,12 @@ class NativePlayback(private val app: AoedeApp) {
                 p.setWakeMode(C.WAKE_MODE_NETWORK)
                 p.addListener(
                     object : Player.Listener {
+                        override fun onIsPlayingChanged(isPlaying: Boolean) {
+                            lastTick = 0
+                            handler.removeCallbacks(tick)
+                            handler.post(tick)
+                        }
+
                         override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
                             val newIndex = p.currentMediaItemIndex
                             if (isNavigatingHistory || isNavigatingForward) {

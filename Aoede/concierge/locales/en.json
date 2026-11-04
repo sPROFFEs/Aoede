@@ -480,6 +480,7 @@
     "common.preview": "Preview",
     "common.previous": "Previous",
     "common.next": "Next",
+    "common.show_more": "Show more",
     "common.pagination": "Showing {start}–{end} of {total}",
     "party.room_name_example": "Party with {user}",
     "admin.library_search_placeholder": "Search tracks by title or artist...",

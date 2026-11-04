@@ -853,10 +853,20 @@ class NativeDesignTest {
                 (0 until view.childCount).flatMap { texts(view.getChildAt(it)) }
             else emptyList()
         ui.offlineDownloads("singles")
+        fun waitFor(title: String) {
+            val deadline = System.nanoTime() + 5_000_000_000L
+            while (texts(ui.content).none { it.contains(title) } && System.nanoTime() < deadline) {
+                org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+                Thread.sleep(5)
+            }
+            assertTrue(texts(ui.content).any { it.contains(title) })
+        }
+        waitFor("Standalone recording")
         val individual = texts(ui.content)
         assertTrue(individual.any { it.contains("Standalone recording") })
         assertFalse(individual.any { it.contains("Collection recording") })
         ui.offlineDownloads()
+        waitFor("Collection recording")
         assertTrue(texts(ui.content).any { it.contains("Collection recording") })
         ui.close()
         lifecycle.pause().stop().destroy()

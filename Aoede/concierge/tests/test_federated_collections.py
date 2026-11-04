@@ -1,10 +1,12 @@
 """Real publisher/consumer routes against isolated nodes, without external services."""
 
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import auth
 import database
+import federated_collections
 import httpx
 import pytest
 from fastapi import FastAPI, Request, Response
@@ -16,6 +18,18 @@ with patch("docker.from_env", return_value=MagicMock()):
     from routers import federation
     from routers import user as user_routes
     from routers.music import playlists, streaming
+
+
+def test_remote_avatar_versions_only_extend_the_authenticated_image_proxy():
+    instance = SimpleNamespace(id=3, name="peer")
+    user = {"id": 7, "username": "listener", "avatar_url": "https://untrusted/image?v=abcdef123456"}
+    assert federated_collections.user_summary(instance, user)["avatar_url"] == (
+        "/api/federation/proxy/3/images/avatar/7?v=abcdef123456"
+    )
+    user["avatar_url"] = "https://untrusted/?v=abcdef1234567890&other=private"
+    assert federated_collections.user_summary(instance, user)["avatar_url"] == (
+        "/api/federation/proxy/3/images/avatar/7"
+    )
 
 
 @pytest.fixture

@@ -324,7 +324,45 @@ assert.equal(audio.src, '/api/proxy/radio?url=station');
 assert.equal(playback.isPlaying, true);
 
 
-const socialApi = (await load('api.js', {}, { './state.js': { API: '/api' }, './offline_store.js': {}, './sync.js': {} })).api;
+const directoryWindow = { USER_DATA: { username: 'alice' } };
+let directoryTime = 1000, directoryCalls = 0;
+let directoryReply = async () => Response.json([{ username: 'listener' }]);
+const socialApi = (await load('api.js', { window: directoryWindow, AbortController, setTimeout, clearTimeout,
+  Date: { now: () => directoryTime }, fetch: () => { directoryCalls++; return directoryReply(); }
+}, { './state.js': { API: '/api' }, './offline_store.js': {}, './sync.js': {} })).api;
+let finishDirectory;
+directoryReply = () => new Promise(resolve => { finishDirectory = resolve; });
+const firstDirectory = socialApi.fetchUsersList();
+assert.equal(socialApi.fetchUsersList(), firstDirectory);
+finishDirectory(Response.json([{ username: 'listener' }]));
+await firstDirectory;
+await socialApi.fetchUsersList();
+assert.equal(directoryCalls, 1);
+directoryTime += 31000;
+directoryReply = async () => Response.json([]);
+await socialApi.fetchUsersList();
+assert.equal(directoryCalls, 2);
+await socialApi.fetchUsersList({ refresh: true });
+assert.equal(directoryCalls, 3);
+directoryReply = () => { throw Error('offline'); };
+await socialApi.fetchUsersList({ refresh: true });
+directoryReply = async () => Response.json([{ username: 'recovered' }]);
+assert.equal((await socialApi.fetchUsersList())[0].username, 'recovered');
+directoryReply = () => new Promise(resolve => { finishDirectory = resolve; });
+const staleDirectory = socialApi.fetchUsersList({ refresh: true });
+directoryWindow.USER_DATA = { username: 'bob' };
+directoryReply = async () => Response.json([{ username: 'bob-only' }]);
+await socialApi.fetchUsersList();
+finishDirectory(Response.json([{ username: 'alice-only' }]));
+assert.equal((await staleDirectory).length, 0);
+assert.equal((await socialApi.fetchUsersList())[0].username, 'bob-only');
+directoryWindow.USER_DATA = null;
+assert.equal((await socialApi.fetchUsersList()).length, 0);
+directoryWindow.USER_DATA = { username: 'bob' };
+const beforeRelogin = directoryCalls;
+await socialApi.fetchUsersList();
+assert.equal(directoryCalls, beforeRelogin + 1);
+console.log('PASS: directory requests coalesce, expire, refresh, recover and remain account bound.');
 const playlistPath = socialApi.playlistPath;
 assert.equal(playlistPath(5, '/add'), '/api/playlists/5/add');
 assert.equal(playlistPath('fed_2_3', '/reorder'), '/api/federation/proxy/2/collections/3/reorder');
@@ -702,3 +740,42 @@ assert.match(coverPickerContainer.innerHTML, /&lt;Song&gt;/);
 assert.equal(coverPickerContainer.innerHTML.includes('unsafe'), false);
 assert.equal(coverPickerContainer.innerHTML.includes('Remote preview'), false);
 console.log('PASS: cover selection loads canonical local artwork and escapes labels.');
+
+// Queue redraws retain one delegated drag handler and only build visible batches.
+let queueSource, queueSaves = 0;
+const queueState = { userQueue: Array.from({ length: 1000 }, (_, id) => ({ title: `Track ${id}` })), contextQueue: [], contextIndex: -1,
+  setUserQueue(value) { queueState.userQueue = value; queueSource.setExport('userQueue', value); } };
+const queueListeners = new Map();
+const queueContainer = { dataset: {}, rows: [], more: null,
+  set innerHTML(html) {
+    this.rows = [...html.matchAll(/data-qi="(\d+)"/g)].map(match => ({ index: Number(match[1]), classList: { add() {}, remove() {} }, closest() { return this; } }));
+    this.more = html.includes('data-queue-more') ? { addEventListener(_event, callback) { this.click = callback; } } : null;
+  },
+  querySelector() { return this.more; },
+  querySelectorAll(selector) { return selector === '.queue-item' ? this.rows : []; },
+  addEventListener(event, listener) {
+    queueListeners.set(event, [...(queueListeners.get(event) || []), listener]);
+  }
+};
+const queueModule = await load('queue.js', { document: { getElementById: id => id === 'queue-list' ? queueContainer : null } }, {
+  './state.js': queueState, './ui.js': { ...ui, refreshIcons() {} }, './player.js': { persistPlaybackSession() { queueSaves++; } }
+});
+queueSource = queueModule.imports['./state.js'];
+for (let i = 0; i < 100; i++) queueModule.api.renderQueue();
+assert.equal(queueContainer.rows.length, 40);
+assert.equal(queueState.userQueue.length, 1000);
+for (const listeners of queueListeners.values()) assert.equal(listeners.length, 1);
+queueContainer.more.click();
+assert.equal(queueContainer.rows.length, 80);
+const drag = queueListeners.get('dragstart')[0], drop = queueListeners.get('drop')[0];
+drag({ target: queueContainer.rows[0], dataTransfer: {} });
+queueModule.api.renderQueue();
+drop({ target: queueContainer.rows[1], preventDefault() {} });
+assert.equal(queueSaves, 0); // A detached drag source cannot accidentally move the final queueModule track.
+drag({ target: queueContainer.rows[0], dataTransfer: {} });
+drop({ target: queueContainer.rows[1], preventDefault() {} });
+assert.equal(queueSaves, 1);
+assert.equal(queueState.userQueue[1].title, 'Track 0');
+assert.equal(queueState.userQueue[999].title, 'Track 999');
+assert.equal(queueListeners.get('drop').length, 1);
+console.log('PASS: large queues render incrementally, preserve every track and never accumulate drag listeners.');

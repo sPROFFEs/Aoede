@@ -9,6 +9,7 @@ from routers.user import (
     ALLOWED_IMAGE_EXTENSIONS,
     ALLOWED_IMAGE_TYPES,
     AVATAR_OUTPUT_SIZE,
+    _avatar_url,
     detect_image_format,
     get_avatar,
     get_public_profile,
@@ -24,6 +25,18 @@ from starlette.requests import Request
 @pytest.fixture
 def anyio_backend():
     return "asyncio"
+
+
+def test_avatar_version_is_stable_until_the_uploaded_file_changes():
+    user = database.User(username="visual", avatar_path="/private/avatar_1_first.webp")
+    first = _avatar_url(user)
+    assert first == _avatar_url(user)
+    assert first.startswith("/user/avatar/visual?v=")
+    assert "private" not in first and "first" not in first
+    user.avatar_path = "/private/avatar_1_second.webp"
+    assert _avatar_url(user) != first
+    user.avatar_path = None
+    assert _avatar_url(user) == _avatar_url(user)
 
 
 def create_test_image(format_name: str, size=(100, 100), mode="RGB", color=(120, 150, 200)):

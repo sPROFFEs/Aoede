@@ -553,14 +553,37 @@ export async function fetchUserProfile(username) {
   return null;
 }
 
-export async function fetchUsersList() {
-  try {
-    const res = await fetch(`/user/list`);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    console.error('[USERS] Fetch error:', e);
+let usersCache = null;
+export function fetchUsersList({ refresh = false } = {}) {
+  const owner = window.USER_DATA?.username;
+  if (!owner) {
+    usersCache = null;
+    return Promise.resolve([]);
   }
-  return [];
+  if (usersCache?.owner === owner && (usersCache.pending || (!refresh && usersCache.until > Date.now())))
+    return usersCache.pending || Promise.resolve(usersCache.items);
+  const entry = { owner, until: 0, items: [], pending: null };
+  usersCache = entry;
+  entry.pending = (async () => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    try {
+      const res = await fetch('/user/list', { signal: controller.signal });
+      if (!res.ok) return [];
+      const items = await res.json();
+      if (usersCache !== entry || window.USER_DATA?.username !== owner || !Array.isArray(items)) return [];
+      entry.items = items;
+      entry.until = Date.now() + 30000;
+      return items;
+    } catch (_) {
+      return [];
+    } finally {
+      clearTimeout(timeout);
+    }
+  })().finally(() => {
+    entry.pending = null;
+  });
+  return entry.pending;
 }
 
 export async function fetchRandomTrack() {
