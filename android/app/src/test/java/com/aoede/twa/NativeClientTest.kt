@@ -119,6 +119,10 @@ class NativeClientTest {
         tick.run()
         assertEquals(android.os.SystemClock.uptimeMillis() + 1000L, scheduled())
         assertEquals(0L, org.robolectric.util.ReflectionHelpers.getField<Long>(player, "lastTick"))
+        player.setVolume(.4f)
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+            .idleFor(java.time.Duration.ofSeconds(11))
+        assertEquals(.4, app.nativeLibrary.get("snapshot", "queue")!!.getDouble("volume"), .001)
         player.release()
         assertNull(scheduled())
     }

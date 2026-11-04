@@ -249,7 +249,7 @@ class NativePlayback(private val app: AoedeApp) {
                     publish()
                     onChanged?.invoke()
                 }
-                if (active && now - lastSaved >= 10000) {
+                if (now - lastSaved >= 10000) {
                     lastSaved = now
                     persist()
                 }
