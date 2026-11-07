@@ -2278,6 +2278,8 @@
     background: var(--surface-3, #333);
     border-radius: var(--radius-sm, 4px);
     flex-shrink: 0;
+    box-sizing: border-box;
+    min-width: 0;
 }
 .atp-search i, .atp-search svg {
     width: 16px;
@@ -2287,6 +2289,9 @@
 }
 .atp-search input {
     flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 0;
     background: transparent;
     border: 0;
     outline: none;

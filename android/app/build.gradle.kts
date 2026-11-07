@@ -16,8 +16,8 @@ android {
         applicationId = "com.aoede.twa"
         minSdk = 21
         targetSdk = 35
-        versionCode = 37
-        versionName = "1.2.7"
+        versionCode = 38
+        versionName = "1.2.8"
     }
 
     buildTypes {

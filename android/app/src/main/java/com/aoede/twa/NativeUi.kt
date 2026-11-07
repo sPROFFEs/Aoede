@@ -3654,45 +3654,6 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     )
                 }
             else actions
-        if (id != null && !offline && !liked && list.any { NativeTrack.localId(it) > 0 }) {
-            val hit = FrameLayout(activity)
-            secondary.addView(
-                hit,
-                LinearLayout.LayoutParams(-2, dp(44)).apply { marginEnd = dp(8) },
-            )
-            val download =
-                Button(activity).apply {
-                    text = text("common.download", "Download")
-                    isAllCaps = false
-                    design.typography(this, 13f, 600)
-                    setTextColor(ink)
-                    minHeight = dp(32)
-                    minimumHeight = dp(32)
-                    minimumWidth = 0
-                    setPadding(dp(16), 0, dp(16), 0)
-                    background = design.touch(design.wash, if (apple) 8 else 999, true)
-                    setCompoundDrawablesRelative(
-                        NativeIcon("circle-arrow-down", ink, theme).apply {
-                            setBounds(0, 0, dp(14), dp(14))
-                        },
-                        null,
-                        null,
-                        null,
-                    )
-                    compoundDrawablePadding = dp(6)
-                    setOnClickListener {
-                        library.put("collection", requireNotNull(id), data)
-                        download(list.filter { NativeTrack.localId(it) > 0 }, single = false)
-                    }
-                }
-            hit.addView(
-                download,
-                FrameLayout.LayoutParams(-2, dp(if (apple) 44 else 32), Gravity.CENTER),
-            )
-            hit.contentDescription = download.text
-            hit.isFocusable = true
-            hit.setOnClickListener { download.performClick() }
-        }
         if (mix.isNotBlank()) {
             fun save() {
                 prompt(
@@ -3708,7 +3669,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             }
             if (apple)
                 button(text("player.save_as_playlist", "Save as playlist"), secondary) { save() }
-                    .layoutParams = LinearLayout.LayoutParams(-1, dp(44))
+                    .layoutParams = LinearLayout.LayoutParams(0, dp(44), 1f).apply { marginEnd = dp(8) }
             else
                 iconButton(secondary, "save", text("player.save_as_playlist", "Save as playlist")) {
                     save()
@@ -3730,6 +3691,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun collectionMenu(id: String, p: JSONObject) {
         val owner = p.optBoolean("is_owner")
+        val tracks = NativeTrack.items(p)
+        val downloadable = !offline && tracks.any { NativeTrack.localId(it) > 0 }
         val source =
             if (p.optLong("source_instance_id") > 0 && p.optLong("source_remote_playlist_id") > 0)
                 "fed_${p.optLong("source_instance_id")}_${p.optLong("source_remote_playlist_id")}"
@@ -3741,173 +3704,175 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             p.optBoolean("source_playlist_public")
                     }
                     ?.toString()
-        val ownerCodes =
-            (0..6)
-                .filter { it != 1 || p.optBoolean("is_editable") }
-                .toMutableList()
-                .apply {
-                    if (p.optBoolean("is_smart")) addAll(listOf(7, 8))
-                    if (source != null) add(9)
+
+        val items = mutableListOf<Triple<String, String, () -> Unit>>()
+        if (downloadable) {
+            items.add(
+                Triple(text("common.download", "Download"), "download-cloud") {
+                    library.put("collection", id, p)
+                    download(tracks.filter { NativeTrack.localId(it) > 0 }, single = false)
                 }
-        val ownerLabels =
-            listOf(
-                "Rename",
-                "Collaborators",
-                "Sharing",
-                "Upload cover",
-                "Reset cover",
-                "Delete",
-                "Choose cover from songs",
-                "Edit smart rules",
-                "Refresh matches",
-                "Sync from source",
             )
-        val ownerIcons =
-            listOf(
-                "pencil",
-                "users",
-                "globe",
-                "image",
-                "rotate-ccw",
-                "trash-2",
-                "music-2",
-                "sparkles",
-                "refresh-cw",
-                "refresh-cw",
-            )
-        val options =
-            if (owner) ownerCodes.map { ownerLabels[it] }
-            else if (p.optBoolean("is_editable"))
-                listOf("Copy / sync", "Collaborators", "Leave playlist")
-            else listOf("Copy / sync")
-        choose(
-            p.optString("name"),
-            options,
-            if (owner) ownerCodes.map { ownerIcons[it] }
-            else if (p.optBoolean("is_editable")) listOf("copy", "users", "log-out")
-            else listOf("copy"),
-        ) { index ->
-            if (owner)
-                when (ownerCodes[index]) {
-                    0 ->
-                        prompt("Rename collection", initial = p.optString("name")) {
-                            request(
-                                NativeTrack.collectionPath(id),
-                                "PUT",
-                                JSONObject().put("name", it),
-                                done = { collection(id) },
-                            )
-                        }
-                    1 -> collaborators(id)
-                    2 ->
-                        choose("Visibility", listOf("Private", "Public across connected nodes")) {
-                            request(
-                                NativeTrack.collectionPath(id) + "/public",
-                                body = JSONObject().put("is_public", it == 1),
-                                done = { collection(id) },
-                            )
-                        }
-                    3 ->
-                        activity.pickNativeFile("image/*") { uri ->
-                            tools.upload(
-                                NativeTrack.collectionPath(id) + "/cover/upload",
-                                "cover_file",
-                                uri,
-                            ) {
-                                collection(id)
-                            }
-                        }
-                    4 ->
+        }
+        if (owner) {
+            items.add(
+                Triple("Rename", "pencil") {
+                    prompt("Rename collection", initial = p.optString("name")) {
                         request(
-                            NativeTrack.collectionPath(id) + "/cover",
-                            "DELETE",
+                            NativeTrack.collectionPath(id),
+                            "PUT",
+                            JSONObject().put("name", it),
                             done = { collection(id) },
                         )
-                    5 ->
-                        confirm(
-                            "Delete collection",
-                            "Permanently delete this collection? Downloaded device copies are managed separately.",
-                        ) {
-                            request(
-                                NativeTrack.collectionPath(id),
-                                "DELETE",
-                                done = { collections() },
-                            )
-                        }
-                    6 -> {
-                        val tracks =
-                            NativeTrack.items(p.optJSONArray("tracks")).filter {
-                                NativeTrack.localId(it) > 0
-                            }
-                        if (tracks.isEmpty()) toast("Add songs before choosing a cover")
-                        else
-                            sheet("Choose cover") { body, dialog ->
-                                for (track in tracks) row(
-                                    track.optString("title"),
-                                    track.optString("artist"),
-                                    "/api/cover/${NativeTrack.localId(track)}",
-                                    body,
-                                ) {
-                                    dialog.dismiss()
-                                    request(
-                                        NativeTrack.collectionPath(id) + "/cover/track",
-                                        body =
-                                            JSONObject()
-                                                .put("track_id", NativeTrack.localId(track)),
-                                        done = {
-                                            api.artwork.clear()
-                                            collection(id)
-                                        },
-                                    )
-                                }
-                            }
                     }
-                    7 -> tools.smartPlaylist(p)
-                    8 -> request("/api/smart-playlists/$id/refresh", done = { collection(id) })
-                    9 ->
-                        source?.let {
-                            request(
-                                NativeTrack.collectionPath(it) + "/copy",
-                                done = { collection(id) },
-                            )
-                        }
                 }
-            else if (index == 0)
-                request(
-                    NativeTrack.collectionPath(id) + "/copy",
-                    done = { value ->
-                        val copy = (value as? JSONObject)?.optString("id").orEmpty()
-                        if (Regex("[1-9][0-9]*").matches(copy)) collection(copy) else collections()
-                    },
-                )
-            else if (index == 1) collaborators(id)
-            else
-                request(
-                    NativeTrack.collectionPath(id) + "/collaborators",
-                    "GET",
-                    done = { value ->
-                        val data = value as JSONObject
-                        val member =
-                            NativeTrack.items(data.optJSONArray("members")).firstOrNull {
-                                (!data.isNull("viewer_member_id") &&
-                                    it.opt("id")?.toString() ==
-                                        data.opt("viewer_member_id")?.toString()) ||
-                                    (!it.optBoolean("is_federated") &&
-                                        !id.startsWith("fed_") &&
-                                        it.optString("username") == api.username)
-                            }
-                        if (member != null)
-                            confirm("Leave playlist", "Leave this collaborative playlist?") {
+            )
+            if (p.optBoolean("is_editable")) {
+                items.add(Triple("Collaborators", "users") { collaborators(id) })
+            }
+            items.add(
+                Triple("Sharing", "globe") {
+                    choose("Visibility", listOf("Private", "Public across connected nodes")) {
+                        request(
+                            NativeTrack.collectionPath(id) + "/public",
+                            body = JSONObject().put("is_public", it == 1),
+                            done = { collection(id) },
+                        )
+                    }
+                }
+            )
+            items.add(
+                Triple("Upload cover", "image") {
+                    activity.pickNativeFile("image/*") { uri ->
+                        tools.upload(
+                            NativeTrack.collectionPath(id) + "/cover/upload",
+                            "cover_file",
+                            uri,
+                        ) {
+                            collection(id)
+                        }
+                    }
+                }
+            )
+            items.add(
+                Triple("Reset cover", "rotate-ccw") {
+                    request(
+                        NativeTrack.collectionPath(id) + "/cover",
+                        "DELETE",
+                        done = { collection(id) },
+                    )
+                }
+            )
+            items.add(
+                Triple("Delete", "trash-2") {
+                    confirm(
+                        "Delete collection",
+                        "Permanently delete this collection? Downloaded device copies are managed separately.",
+                    ) {
+                        request(
+                            NativeTrack.collectionPath(id),
+                            "DELETE",
+                            done = { collections() },
+                        )
+                    }
+                }
+            )
+            items.add(
+                Triple("Choose cover from songs", "music-2") {
+                    val candidateTracks = tracks.filter { NativeTrack.localId(it) > 0 }
+                    if (candidateTracks.isEmpty()) toast("Add songs before choosing a cover")
+                    else
+                        sheet("Choose cover") { body, dialog ->
+                            for (track in candidateTracks) row(
+                                track.optString("title"),
+                                track.optString("artist"),
+                                "/api/cover/${NativeTrack.localId(track)}",
+                                body,
+                            ) {
+                                dialog.dismiss()
                                 request(
-                                    NativeTrack.collectionPath(id) +
-                                        "/collaborators/" +
-                                        NativeApi.encode(member.get("id").toString()),
-                                    "DELETE",
-                                    done = { collections() },
+                                    NativeTrack.collectionPath(id) + "/cover/track",
+                                    body = JSONObject().put("track_id", NativeTrack.localId(track)),
+                                    done = {
+                                        api.artwork.clear()
+                                        collection(id)
+                                    },
                                 )
                             }
-                    },
+                        }
+                }
+            )
+            if (p.optBoolean("is_smart")) {
+                items.add(Triple("Edit smart rules", "sparkles") { tools.smartPlaylist(p) })
+                items.add(
+                    Triple("Refresh matches", "refresh-cw") {
+                        request("/api/smart-playlists/$id/refresh", done = { collection(id) })
+                    }
                 )
+            }
+            if (source != null) {
+                items.add(
+                    Triple("Sync from source", "refresh-cw") {
+                        request(
+                            NativeTrack.collectionPath(source) + "/copy",
+                            done = { collection(id) },
+                        )
+                    }
+                )
+            }
+        } else {
+            items.add(
+                Triple("Copy / sync", "copy") {
+                    request(
+                        NativeTrack.collectionPath(id) + "/copy",
+                        done = { value ->
+                            val copy = (value as? JSONObject)?.optString("id").orEmpty()
+                            if (Regex("[1-9][0-9]*").matches(copy)) collection(copy) else collections()
+                        },
+                    )
+                }
+            )
+            if (p.optBoolean("is_editable")) {
+                items.add(Triple("Collaborators", "users") { collaborators(id) })
+                items.add(
+                    Triple("Leave playlist", "log-out") {
+                        request(
+                            NativeTrack.collectionPath(id) + "/collaborators",
+                            "GET",
+                            done = { value ->
+                                val data = value as JSONObject
+                                val member =
+                                    NativeTrack.items(data.optJSONArray("members")).firstOrNull {
+                                        (!data.isNull("viewer_member_id") &&
+                                            it.opt("id")?.toString() ==
+                                                data.opt("viewer_member_id")?.toString()) ||
+                                            (!it.optBoolean("is_federated") &&
+                                                !id.startsWith("fed_") &&
+                                                it.optString("username") == api.username)
+                                    }
+                                if (member != null)
+                                    confirm("Leave playlist", "Leave this collaborative playlist?") {
+                                        request(
+                                            NativeTrack.collectionPath(id) +
+                                                "/collaborators/" +
+                                                NativeApi.encode(member.get("id").toString()),
+                                            "DELETE",
+                                            done = { collections() },
+                                        )
+                                    }
+                            },
+                        )
+                    }
+                )
+            }
+        }
+
+        choose(
+            p.optString("name"),
+            items.map { it.first },
+            items.map { it.second },
+        ) { index ->
+            items.getOrNull(index)?.third?.invoke()
         }
     }
 
