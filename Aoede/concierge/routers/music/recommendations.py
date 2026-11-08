@@ -2,6 +2,7 @@
 Recommendations engine: Spotify, YouTube, Last.fm, MusicBrainz, and local.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -18,6 +19,7 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from http_client import http_client
 from lastfm_service import lastfm_service
+from limiter import limiter
 from musicbrainz_service import musicbrainz_service
 from sqlalchemy.orm import Session
 
@@ -573,7 +575,40 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
     return JSONResponse(sections)
 
 
+def _discovery_sections(sections):
+    items = []
+    for section in sections:
+        title = (section.get("title") or "").lower()
+        if title.startswith(("recently added", "recently played", "on repeat", "rediscover", "from artists you used")):
+            continue
+        inferred = (
+            "trending"
+            if "trending" in title
+            else "gems"
+            if any(word in title for word in ("discover", "explore"))
+            else "for_you"
+        )
+        for item in section.get("items", []):
+            if item.get("is_local"):
+                continue
+            copy = dict(item)
+            category = copy.get("category")
+            if category not in {"for_you", "trending", "gems"}:
+                category = inferred
+            copy["category"] = category
+            reason, badge = {
+                "for_you": ("Curated for you based on your taste", "For You"),
+                "trending": ("Trending release right now", "Trending"),
+                "gems": ("Deep cut discovery for your style", "Deep Cut"),
+            }[category]
+            copy["reason"] = copy.get("reason") or reason
+            copy["badge"] = copy.get("badge") or badge
+            items.append(copy)
+    return items
+
+
 @router.get("/api/discovery/feed")
+@limiter.limit("30/minute")
 def discovery_feed(
     request: Request,
     db: Session = Depends(get_db),
@@ -587,84 +622,75 @@ def discovery_feed(
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
 
+    if category not in {None, "all", "for_you", "trending", "gems"}:
+        return JSONResponse({"error": "Invalid discovery category"}, status_code=400)
+
     os.makedirs(RECS_CACHE_DIR, exist_ok=True)
     cache_file = os.path.join(RECS_CACHE_DIR, f"recs_{user.username}.json")
     items: list[dict] = []
-
-    local_section_titles = (
-        "Recently Added",
-        "Recently played",
-        "On repeat",
-        "Rediscover",
-        "From artists you used",
-    )
 
     try:
         if os.path.exists(cache_file):
             with open(cache_file, "r") as f:
                 cached = json.load(f)
-            for section in cached.get("sections", []):
-                title = section.get("title", "") or ""
-                if any(title.startswith(prefix) for prefix in local_section_titles):
-                    continue
-                for item in section.get("items", []):
-                    if item.get("is_local"):
-                        continue
-                    item_copy = dict(item)
-                    if not item_copy.get("reason"):
-                        t_low = title.lower()
-                        if "for you" in t_low or "taste" in t_low:
-                            item_copy["reason"] = "Curated for you based on your taste"
-                            item_copy["category"] = "for_you"
-                            item_copy["badge"] = "For You"
-                        elif "trending" in t_low:
-                            item_copy["reason"] = "Trending release right now"
-                            item_copy["category"] = "trending"
-                            item_copy["badge"] = "Trending"
-                        elif "discover" in t_low or "explore" in t_low:
-                            item_copy["reason"] = "Deep cut discovery for your style"
-                            item_copy["category"] = "gems"
-                            item_copy["badge"] = "Deep Cut"
-                        else:
-                            item_copy["reason"] = "Recommended for you"
-                            item_copy["category"] = "for_you"
-                            item_copy["badge"] = "Discovery"
-                    items.append(item_copy)
+            items.extend(_discovery_sections(cached.get("sections", [])))
     except Exception as e:
         logger.warning("Discovery feed cache read error: %s", e)
 
     # If cache is missing, empty, or has fewer than 6 items, generate fresh recommendations dynamically!
-    if len(items) < 6:
+    if len(items) < 6 and category != "trending":
         try:
             import anyio
 
             try:
                 recs_resp = anyio.from_thread.run(get_recommendations, request, db)
             except RuntimeError:
-                import asyncio
-
                 recs_resp = asyncio.run(get_recommendations(request, db))
             if hasattr(recs_resp, "body"):
                 data = json.loads(recs_resp.body.decode("utf-8"))
                 if isinstance(data, list):
-                    for section in data:
-                        title = section.get("title", "") or ""
-                        if any(title.startswith(prefix) for prefix in local_section_titles):
-                            continue
-                        for item in section.get("items", []):
-                            if item.get("is_local"):
-                                continue
-                            item_copy = dict(item)
-                            if not item_copy.get("reason"):
-                                item_copy["reason"] = "Curated for you based on your taste"
-                                item_copy["category"] = "for_you"
-                                item_copy["badge"] = "For You"
-                            items.append(item_copy)
+                    items.extend(_discovery_sections(data))
         except Exception as e:
             logger.warning("Dynamic recommendations generation for discovery failed: %s", e)
 
+    # Personalised feeds may have no trending entries. Fetch the genuine public feed on demand.
+    if category == "trending" and not any(item.get("category") == "trending" for item in items):
+        import anyio
+
+        async def trending():
+            country = get_user_country(request)
+            if len(country) != 2 or not country.isalpha():
+                country = "US"
+            async with asyncio.timeout(12):
+                return await youtube_service.youtube_service.get_trending_music(country=country.upper(), limit=30)
+
+        try:
+            raw = anyio.from_thread.run(trending)
+            items.extend(
+                _discovery_sections(
+                    [
+                        {
+                            "title": "Trending",
+                            "items": [
+                                {
+                                    **item,
+                                    "id": item.get("url") or item.get("id"),
+                                    "source": "youtube",
+                                    "thumbnail": item.get("image")
+                                    or item.get("thumbnail")
+                                    or "/static/img/default_cover.png",
+                                }
+                                for item in raw
+                            ],
+                        }
+                    ]
+                )
+            )
+        except Exception:
+            logger.warning("Discovery trending is temporarily unavailable")
+
     # Fallback to unplayed / unfavorited local tracks if remote services gave few items
-    if len(items) < 6:
+    if len(items) < 6 and category != "trending":
         try:
             fav_track_ids = {
                 f.track_id

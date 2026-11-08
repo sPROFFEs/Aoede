@@ -102,6 +102,7 @@ let navigation;
 let homeWrapped = { year: 2026, enabled: true, visible: true };
 let pendingRooms = null;
 let pendingDiscovery, pendingArtist, pendingProfile;
+const discoveryCalls = [];
 let navigationRevision = 0;
 let sidebarCloses = 0;
 let fetchView = async () => ({ redirected: true, url: 'https://aoede.test/login' });
@@ -146,7 +147,7 @@ const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/j
 await module.link(name => {
   const values = name === './state.js' ? { isSidebarOpen: true, toggleSidebar() { sidebarCloses++; }, setCurrentViewName() { navigationRevision++; }, viewGuard() { const revision = navigationRevision; return () => revision === navigationRevision; }, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
     : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; }, escHtml: String, t: (_, fallback) => fallback, getGreeting: () => 'Hello', homeTabsBar: () => '', refreshIcons() {} }
-    : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; }, fetchDiscoveryFeed: () => pendingDiscovery, fetchArtist: () => pendingArtist, fetchUserProfile: () => pendingProfile }
+    : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; }, fetchDiscoveryFeed: (...args) => { discoveryCalls.push(args); return pendingDiscovery; }, fetchArtist: () => pendingArtist, fetchUserProfile: () => pendingProfile }
     : name === './party.js' ? { fetchRooms: () => pendingRooms || Promise.resolve([]), renderHomeShelf: () => '<section>Parties</section>' }
     : name === './offline_store.js' ? { saveLibrarySnapshot() {}, getLibrarySnapshot: async () => ({ wrapped: { year: 2025 } }) }
     : name === './appearance.js' ? { syncThemeControls() {} }
@@ -262,6 +263,40 @@ assert.equal(stillCurrent(), true);
 stateModule.namespace.setCurrentViewName('home');
 assert.equal(stillCurrent(), false); // Includes two successive visits to the same route.
 console.log('PASS: shared navigation guards discard late feeds, artists and profiles.');
+
+// Categories must fetch beyond the initial All page and ignore out-of-order replies.
+const feed = new ViewContainer();
+const caption = {};
+const chips = ['all', 'trending', 'gems'].map(() => ({
+  classList: { toggle() {} }, attributes: new Map(),
+  setAttribute(name, value) { this.attributes.set(name, value); }
+}));
+document.querySelector = selector => selector === '.discovery-feed' ? feed : caption;
+document.querySelectorAll = selector => selector.includes('filter-chips') ? chips : [];
+context.btoa = value => Buffer.from(value).toString('base64');
+let finishTrending;
+pendingDiscovery = new Promise(resolve => { finishTrending = resolve; });
+const oldTrending = module.namespace.discoveryFilterCategory('trending', chips[1]);
+assert.deepEqual(discoveryCalls.at(-1), [30, 'trending']);
+assert.equal(feed.attributes.get('aria-busy'), 'true');
+pendingDiscovery = Promise.resolve({ items: [] });
+await module.namespace.discoveryFilterCategory('gems', chips[2]);
+assert.match(feed.innerHTML, /No recommendations in this category/);
+assert.equal(chips[2].attributes.get('aria-pressed'), 'true');
+assert.equal(chips[1].attributes.get('aria-pressed'), 'false');
+assert.equal(feed.attributes.has('aria-busy'), false);
+finishTrending({ items: [{ title: 'Late hit' }] });
+await oldTrending;
+assert.doesNotMatch(feed.innerHTML, /Late hit/);
+pendingDiscovery = Promise.resolve({ items: [{ title: 'Current hit', reason: 'Taste match' }] });
+await module.namespace.discoveryFilterCategory('trending', chips[1]);
+assert.match(feed.innerHTML, /Current hit/);
+assert.match(feed.innerHTML, /Taste match/);
+pendingDiscovery = Promise.reject(Error('Unavailable'));
+await module.namespace.discoveryFilterCategory('gems', chips[2]);
+assert.match(feed.innerHTML, /role="alert"/);
+assert.equal(feed.attributes.has('aria-busy'), false);
+console.log('PASS: Discovery fetches each category, preserves explanations, reports errors and ignores stale replies.');
 
 let syncFetches = 0, finishSync;
 context.fetch = () => {

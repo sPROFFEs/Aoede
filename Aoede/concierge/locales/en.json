@@ -547,5 +547,8 @@
     "discover.refresh": "Refresh feed",
     "discover.play_full": "Play full",
     "discover.saved": "Saved to library",
+    "discover.reason_fallback": "Recommended for you",
+    "discover.empty_category": "No recommendations in this category right now. Try another category or refresh the feed.",
+    "discover.load_failed": "Could not load recommendations. Try again.",
     "discover.preview_badge": "Preview"
 }

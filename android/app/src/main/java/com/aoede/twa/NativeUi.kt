@@ -4649,7 +4649,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun discover() {
         destination = "discovery"
-        load(text("tabs.discover", "Discover"), "/api/discovery/feed?limit=30") { value ->
+        val feedPath =
+            "/api/discovery/feed?limit=30" +
+                if (activeFilterCategory == "all") ""
+                else "&category=${NativeApi.encode(activeFilterCategory)}"
+        load(text("tabs.discover", "Discover"), feedPath) { value ->
             overviewTabs("discovery")
             val allItems = NativeTrack.items(value)
 
@@ -4692,7 +4696,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             iconButton(headerRow, "refresh-cw", text("discover.refresh", "Refresh feed")) {
                 stopDiscoveryPreview()
                 synchronized(pageCache) {
-                    pageCache.remove("${api.scope}:/api/discovery/feed?limit=30")
+                    pageCache.remove("${api.scope}:$feedPath")
                 }
                 discover()
             }.apply {
@@ -4764,8 +4768,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         TextView(activity).apply {
                             text =
                                 text(
-                                    "discover.empty",
-                                    "No discovery items right now. Explore music in Search to build recommendations, then come back.",
+                                    if (activeFilterCategory == "all") "discover.empty" else "discover.empty_category",
+                                    "No recommendations in this category right now. Try another category or refresh the feed.",
                                 )
                             design.typography(this, 14f, 500)
                             setTextColor(muted)
@@ -4780,7 +4784,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     button(text("discover.refresh", "Refresh feed"), emptyCard, primary = true) {
                         stopDiscoveryPreview()
                         synchronized(pageCache) {
-                            pageCache.remove("${api.scope}:/api/discovery/feed?limit=30")
+                            pageCache.remove("${api.scope}:$feedPath")
                         }
                         discover()
                     }
@@ -4831,7 +4835,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                                     999,
                                 )
                         }
-                    topBar.addView(reasonRow, LinearLayout.LayoutParams(-2, -2))
+                    topBar.addView(
+                        reasonRow,
+                        LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) },
+                    )
 
                     val reasonIcon =
                         ImageView(activity).apply {
@@ -4856,19 +4863,18 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     val reasonText =
                         TextView(activity).apply {
                             text =
-                                item.optString(
-                                    "reason",
-                                    item.optString("badge", "Curated for you"),
-                                )
+                                item.optString("reason").ifBlank {
+                                    item.optString("badge").ifBlank {
+                                        text("discover.reason_fallback", "Curated for you")
+                                    }
+                                }
                             design.typography(this, 12f, 600)
                             setTextColor(if (theme == "classic") 0xff1db954.toInt() else accent)
-                            maxLines = 1
+                            maxLines = 3
                             ellipsize = android.text.TextUtils.TruncateAt.END
+                            contentDescription = text
                         }
-                    reasonRow.addView(reasonText, LinearLayout.LayoutParams(-2, -2))
-
-                    val topSpace = View(activity)
-                    topBar.addView(topSpace, LinearLayout.LayoutParams(0, dp(1), 1f))
+                    reasonRow.addView(reasonText, LinearLayout.LayoutParams(0, -2, 1f))
 
                     val dismissBtn =
                         NativeIconButton(activity, muted, theme).apply {
@@ -4900,7 +4906,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                                 }
                             }
                         }
-                    topBar.addView(dismissBtn, LinearLayout.LayoutParams(dp(28), dp(28)))
+                    topBar.addView(dismissBtn, LinearLayout.LayoutParams(dp(44), dp(44)))
 
                     val coverFrame =
                         FrameLayout(activity).apply {
@@ -5155,7 +5161,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             )
                         }
                     playFullBtn.addView(playFullText, LinearLayout.LayoutParams(-2, -2))
-                    actionsRow.addView(playFullBtn, LinearLayout.LayoutParams(-2, dp(40)))
+                    actionsRow.addView(playFullBtn, LinearLayout.LayoutParams(-2, dp(44)))
                 }
             }
 
@@ -5166,8 +5172,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         catLabel to
                             {
                                 activeFilterCategory = catKey
-                                updateChips()
-                                renderCards()
+                                stopDiscoveryPreview()
+                                discover()
                             }
                     },
                     active = filterCategories.indexOfFirst { it.first == activeFilterCategory },

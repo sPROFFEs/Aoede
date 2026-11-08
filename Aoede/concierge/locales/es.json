@@ -547,5 +547,8 @@
     "discover.refresh": "Actualizar feed",
     "discover.play_full": "Reproducir completa",
     "discover.saved": "Guardado en la biblioteca",
+    "discover.reason_fallback": "Recomendado para ti",
+    "discover.empty_category": "No hay recomendaciones en esta categoría ahora. Prueba otra categoría o actualiza el feed.",
+    "discover.load_failed": "No se han podido cargar las recomendaciones. Inténtalo de nuevo.",
     "discover.preview_badge": "Muestra"
 }

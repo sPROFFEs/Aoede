@@ -547,5 +547,8 @@
     "discover.refresh": "Feed aktualisieren",
     "discover.play_full": "Ganz abspielen",
     "discover.saved": "In Bibliothek gespeichert",
+    "discover.reason_fallback": "Für dich empfohlen",
+    "discover.empty_category": "In dieser Kategorie gibt es derzeit keine Empfehlungen. Wähle eine andere Kategorie oder aktualisiere den Feed.",
+    "discover.load_failed": "Empfehlungen konnten nicht geladen werden. Versuche es erneut.",
     "discover.preview_badge": "Hörprobe"
 }

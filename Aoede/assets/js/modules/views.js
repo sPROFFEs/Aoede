@@ -1839,21 +1839,7 @@ export const startHeartbeatSync = sync.startHeartbeatSync;
 export const stopHeartbeatSync = sync.stopHeartbeatSync;
 export const checkSyncState = sync.checkSyncState;
 
-// ─── DISCOVERY FEED ─────────────────────────────────────────────────
-//
-// Vertical card stack of recommended remote tracks the user doesn't
-// already own. Each card has a 30-second preview (HTML5 audio) and
-// three action buttons:
-//   ✕ Dismiss — fades the card out and remembers in localStorage so
-//               it doesn't reappear in future feeds.
-//   ⬇ Download — sends the track through the existing triggerDownload
-//               pipeline so it lands in the local library.
-//   ❤ Like — same as Download (the track has to be local first to
-//             be properly favorited).
-//
-// On mobile this is a dedicated bottom-nav tab; on desktop reachable
-// via loadView('discovery').
-
+// Discovery recommendations and locally dismissed items.
 const DISCOVERY_DISMISSED_KEY = 'aoede_discovery_dismissed';
 const DISCOVERY_DISMISSED_CAP = 200;
 
@@ -1879,7 +1865,7 @@ function _saveDiscoveryDismissed(set) {
 
 function _discoveryCard(item) {
   const data = btoa(encodeURIComponent(JSON.stringify(item)));
-  const cover = item.thumbnail || '/static/img/default_cover.png';
+  const cover = ui.escHtml(item.thumbnail || '/static/img/default_cover.png');
   const title = ui.escHtml(item.title || 'Unknown');
   const artist = ui.escHtml(item.artist || 'Unknown');
   const album = ui.escHtml(item.album || '');
@@ -1887,7 +1873,7 @@ function _discoveryCard(item) {
   const srcMeta = TRACK_SOURCE_ICONS[src] || TRACK_SOURCE_ICONS.local;
   const preview = item.preview || '';
   const key = ui.escHtml(_discoveryKey(item));
-  const reason = ui.escHtml(item.reason || '');
+  const reason = ui.escHtml(item.reason || item.badge || ui.t('discover.reason_fallback', 'Recommended for you'));
   const category = ui.escHtml(item.category || 'for_you');
   const glyph = category === 'trending' ? 'flame' : category === 'gems' ? 'compass' : 'sparkles';
 
@@ -1929,30 +1915,19 @@ function _discoveryCard(item) {
     </article>`;
 }
 
+let discoveryFilterVersion = 0;
+
+function discoveryFeedHtml(items, category = 'all') {
+  return items.length
+    ? items.map(_discoveryCard).join('')
+    : `<div class="empty-state glass-panel"><i data-lucide="compass" class="empty-icon"></i><p>${category === 'all' ? ui.t('discover.empty', 'No discovery items right now. Explore music in Search to build recommendations, then come back.') : ui.t('discover.empty_category', 'No recommendations in this category right now. Try another category or refresh the feed.')}</p></div>`;
+}
+
 export async function renderDiscovery(container, isCurrent = state.viewGuard()) {
+  discoveryFilterVersion++;
   const data = await api.fetchDiscoveryFeed(30);
   if (!isCurrent()) return;
   const items = data.items || [];
-
-  if (!items.length) {
-    container.innerHTML = `
-        <section class="home-overview discovery-theme">
-            ${ui.homeTabsBar('discovery')}
-            <div class="hero-section">
-                <div class="hero-kicker">${ui.t('discover.hero_kicker', 'New Music Audition')}</div>
-                <h1 class="hero-greeting">${ui.t('discover.title', 'Discover Feed')}</h1>
-                <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('discover.subtitle', 'Tracks recommended for you with instant 30-second previews.')}</p>
-            </div>
-        </section>
-        <div class="discovery-shell">
-            <div class="empty-state glass-panel">
-                <i data-lucide="compass" class="empty-icon"></i>
-                <p>${ui.t('discover.empty', 'No discovery items right now. Explore music in Search to build recommendations, then come back.')}</p>
-            </div>
-        </div>`;
-    ui.refreshIcons(container);
-    return;
-  }
 
   const dismissed = _loadDiscoveryDismissed();
   const visible = items.filter((it) => !dismissed.has(_discoveryKey(it)));
@@ -1964,32 +1939,58 @@ export async function renderDiscovery(container, isCurrent = state.viewGuard()) 
                 <div class="hero-kicker">${ui.t('discover.hero_kicker', 'New Music Audition')}</div>
                 <h1 class="hero-greeting">${ui.t('discover.title', 'Discover Feed')}</h1>
                 <p class="hero-sub" style="color:var(--text-sub); margin:6px 0 0 0;">${ui.t('discover.count_preview', '{count} tracks · tap a cover to preview', { count: visible.length })}</p>
-                <div class="discovery-filter-chips" style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;">
-                    <button class="chip active" onclick="discoveryFilterCategory('all', this)">${ui.t('discover.filter_all', 'All')}</button>
-                    <button class="chip" onclick="discoveryFilterCategory('for_you', this)">${ui.t('discover.filter_for_you', 'For You')}</button>
-                    <button class="chip" onclick="discoveryFilterCategory('trending', this)">${ui.t('discover.filter_trending', 'Trending')}</button>
-                    <button class="chip" onclick="discoveryFilterCategory('gems', this)">${ui.t('discover.filter_gems', 'Deep Cuts')}</button>
+                <div class="discovery-filter-chips" role="group" aria-label="${ui.escHtml(ui.t('discover.title', 'Discover Feed'))}">
+                    <button class="chip active" type="button" aria-pressed="true" onclick="discoveryFilterCategory('all', this)">${ui.t('discover.filter_all', 'All')}</button>
+                    <button class="chip" type="button" aria-pressed="false" onclick="discoveryFilterCategory('for_you', this)">${ui.t('discover.filter_for_you', 'For You')}</button>
+                    <button class="chip" type="button" aria-pressed="false" onclick="discoveryFilterCategory('trending', this)">${ui.t('discover.filter_trending', 'Trending')}</button>
+                    <button class="chip" type="button" aria-pressed="false" onclick="discoveryFilterCategory('gems', this)">${ui.t('discover.filter_gems', 'Deep Cuts')}</button>
                 </div>
             </div>
         </section>
         <div class="discovery-shell">
             <div class="discovery-feed">
-                ${visible.map(_discoveryCard).join('')}
+                ${discoveryFeedHtml(visible)}
             </div>
         </div>`;
   ui.refreshIcons(container);
 }
 
-export function discoveryFilterCategory(category, btn) {
-  document.querySelectorAll('.discovery-filter-chips .chip').forEach((c) => c.classList.remove('active'));
-  btn.classList.add('active');
-  document.querySelectorAll('.discovery-feed .discovery-card').forEach((card) => {
-    if (category === 'all' || card.dataset.category === category) {
-      card.style.display = '';
-    } else {
-      card.style.display = 'none';
-    }
+export async function discoveryFilterCategory(category, btn) {
+  const feed = document.querySelector('.discovery-feed');
+  if (!feed || !['all', 'for_you', 'trending', 'gems'].includes(category)) return;
+  const ticket = ++discoveryFilterVersion;
+  const isCurrent = state.viewGuard();
+  const current = () =>
+    isCurrent() && ticket === discoveryFilterVersion && document.querySelector('.discovery-feed') === feed;
+  const caption = document.querySelector('.discovery-theme .hero-sub');
+  document.querySelectorAll('.discovery-filter-chips .chip').forEach((button) => {
+    const active = button === btn;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
   });
+  window.__discoveryPreviewAudio?.pause();
+  _discoveryResetAllPlayIcons();
+  feed.setAttribute('aria-busy', 'true');
+  if (caption) caption.textContent = ui.t('common.loading', 'Loading…');
+  try {
+    const data = await api.fetchDiscoveryFeed(30, category);
+    if (!current()) return;
+    const dismissed = _loadDiscoveryDismissed();
+    const visible = (data.items || []).filter((item) => !dismissed.has(_discoveryKey(item)));
+    feed.innerHTML = discoveryFeedHtml(visible, category);
+    if (caption)
+      caption.textContent = ui.t('discover.count_preview', '{count} tracks · tap a cover to preview', {
+        count: visible.length
+      });
+    ui.refreshIcons(feed);
+  } catch (_) {
+    if (!current()) return;
+    const message = ui.t('discover.load_failed', 'Could not load recommendations. Try again.');
+    feed.innerHTML = `<div class="empty-state" role="alert">${ui.escHtml(message)}</div>`;
+    if (caption) caption.textContent = message;
+  } finally {
+    if (current()) feed.removeAttribute('aria-busy');
+  }
 }
 
 // ── Discovery handlers (window-exposed via main.js) ─────────────────

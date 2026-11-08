@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.8 (38)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.9 (39)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 Large manual queues show 40 recordings at a time; tap **Show more** to display the next group. The complete queue remains available for playback. Device downloads display a loading indicator while their local index is read.
 

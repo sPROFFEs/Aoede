@@ -426,14 +426,17 @@ export async function fetchMixes(options = {}) {
   return [];
 }
 
-export async function fetchDiscoveryFeed(limit = 20) {
+export async function fetchDiscoveryFeed(limit = 20, category = 'all') {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 20000);
   try {
-    const res = await fetch(`${state.API}/discovery/feed?limit=${limit}`);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    console.error('[DISCOVERY] Fetch error:', e);
+    const suffix = category === 'all' ? '' : `&category=${encodeURIComponent(category)}`;
+    const res = await fetch(`${state.API}/discovery/feed?limit=${limit}${suffix}`, { signal: controller.signal });
+    if (!res.ok) throw new Error(`Discovery unavailable (HTTP ${res.status})`);
+    return await res.json();
+  } finally {
+    clearTimeout(timeout);
   }
-  return { items: [], total: 0 };
 }
 
 export async function fetchArtist(name) {
