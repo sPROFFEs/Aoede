@@ -10,6 +10,8 @@ Choose **Settings → Appearance → Classic, Glass or Vitrine**. Classic is the
 
 Glass and Vitrine follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content.
 
+[See desktop, mobile web and native Android screenshots in every theme.](SCREENSHOTS.md)
+
 ## Browsing
 
 Home, Search and Discover remain in the desktop sidebar. Library opens saved collections, with adjacent creation and collapse controls. Favorites, offline downloads, recent activity and saved collections scroll together, with the visual sidebar scrollbar hidden. Search and type filters apply to the sidebar; new browsers start with it expanded while existing preferences are preserved.

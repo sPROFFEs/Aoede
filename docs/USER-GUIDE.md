@@ -39,6 +39,8 @@ The **Discover** tab shows remote recommendations that are not already owned by 
 - download it into the shared pool;
 - dismiss it from your feed.
 
+Use **All**, **For You**, **Trending** and **Deep Cuts** to request a focused feed. Trending can retrieve the public YouTube recommendations when the personalized feed has none. Results depend on provider availability; an empty category is shown explicitly.
+
 Dismissed recommendations are remembered by that browser. Downloaded music becomes available after the download and import job completes.
 
 ## Search and download music

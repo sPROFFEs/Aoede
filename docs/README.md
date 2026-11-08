@@ -9,6 +9,7 @@ Guides for installing, using and administering Aoede.
 | Install Aoede for the first time | [Installation](INSTALLATION.md) |
 | Decide how to expose it | [Deployment](DEPLOYMENT.md) |
 | Configure environment variables and providers | [Configuration](CONFIGURATION.md) |
+| See the interfaces and features | [Screenshot gallery](SCREENSHOTS.md) |
 | Learn the interface | [User Guide](USER-GUIDE.md) |
 | Choose Classic, Glass or Vitrine | [Themes](THEMES.md) |
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |

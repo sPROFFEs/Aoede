@@ -20,22 +20,23 @@
 <p align="center">
   <a href="#why-aoede">Features</a> ·
   <a href="#screenshots">Screenshots</a> ·
+  <a href="docs/SCREENSHOTS.md">Full gallery</a> ·
   <a href="#clients">Get the app</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="docs/README.md">Documentation</a>
 </p>
 
 <p align="center">
-  <a href="docs/images/screenshots/desktop-vitrine.webp"><img src="docs/images/screenshots/desktop-vitrine.webp" alt="Aoede Home in the Vitrine theme, with personal mixes, a library sidebar and the music player" width="100%"></a>
+  <a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Aoede Home in the Vitrine theme, with personal mixes, a library sidebar and the music player" width="100%"></a>
 </p>
 
-<p align="center"><sub>Vitrine on desktop. Real frontend captures with a local demo library; mobile images below show the responsive web interface.</sub></p>
+<p align="center"><sub>Vitrine on desktop. Captured from the current frontend with a local demonstration library. Separate web and native Android galleries below.</sub></p>
 
 ## Why Aoede?
 
-**Aoede 1.3.1** adds native Android playback and refreshes Classic and Vitrine with a cleaner music interface across web and Android. See the [theme guide](docs/THEMES.md) for layouts and controls.
+**Aoede 1.3.1** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass or Vitrine without changing how you organize your music.
 
-Bring your library, discovery and shared listening into one place. Keep the audio on your own server, build collections that feel personal, and make listening a shared experience when you want it to be.
+Keep audio on your own server, build collections that feel personal, and invite others to listen with you.
 
 | | What you can do |
 |---|---|
@@ -51,39 +52,80 @@ Each regular account gets its own Navidrome instance, while the shared music poo
 
 ## Screenshots
 
-### A player that fits your screen
+Click any image for its full resolution. All images come from the real interfaces using fictional accounts, sample library metadata and demonstration artwork. Native Android images render the APK's actual Android views; mobile web images render the responsive website.
+
+### Three themes, one account
+
+**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-home.webp"><img src="docs/images/screenshots/mobile-home.webp" alt="Aoede mobile Home with personal mixes and compact playback controls" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-library.webp"><img src="docs/images/screenshots/mobile-library.webp" alt="Aoede mobile library with playlists, curated albums and collection filters" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-player.webp"><img src="docs/images/screenshots/mobile-player.webp" alt="Aoede fullscreen mobile player with artwork, progress and transport controls" width="100%"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Your daily listening</strong></td>
-    <td align="center"><strong>Your collections</strong></td>
-    <td align="center"><strong>Just the music</strong></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/desktop-classic-home.webp"><img src="docs/images/screenshots/desktop-classic-home.webp" alt="Classic · desktop Home" width="100%"></a></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/desktop-glass-home.webp"><img src="docs/images/screenshots/desktop-glass-home.webp" alt="Glass · desktop Home" width="100%"></a></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Vitrine · desktop Home" width="100%"></a></td>
   </tr>
 </table>
 
-Browse your library on a phone, keep the compact player with you, or open the fullscreen player for artwork, lyrics and the queue.
+### Discover, import and organize
 
-### Three themes, one library
-
-Choose **Classic**, **Glass** or **Vitrine** in your account settings. Your preference follows your account across devices. Classic keeps the dark, focused interface; Glass adds translucent surfaces; Vitrine brings an Apple Music inspired layout and rose accents. [Explore the themes →](docs/THEMES.md)
+Explore recommendations with explanations and category filters, audition a track, or preview a supported Spotify/YouTube collection before importing its ordered songs. Keep playlists, curated albums, favorites and smart playlists in your library. Artist pages connect local recordings with supported discovery sources.
 
 <table>
   <tr>
-    <td width="50%"><a href="docs/images/screenshots/desktop-classic.webp"><img src="docs/images/screenshots/desktop-classic.webp" alt="Aoede desktop Home in the dark Classic theme" width="100%"></a></td>
-    <td width="50%"><a href="docs/images/screenshots/desktop-glass.webp"><img src="docs/images/screenshots/desktop-glass.webp" alt="Aoede desktop library in the translucent Glass theme" width="100%"></a></td>
-  </tr>
-  <tr>
-    <td align="center"><strong>Classic</strong> · Familiar, dark and focused</td>
-    <td align="center"><strong>Glass</strong> · Translucent and artwork-aware</td>
+    <td width="50%" align="center"><a href="docs/images/screenshots/desktop-glass-discovery.webp"><img src="docs/images/screenshots/desktop-glass-discovery.webp" alt="Glass Discovery with recommendation reasons and preview actions" width="100%"></a></td>
+    <td width="50%" align="center"><a href="docs/images/screenshots/desktop-vitrine-import.webp"><img src="docs/images/screenshots/desktop-vitrine-import.webp" alt="Vitrine album and playlist import preview with ordered songs" width="100%"></a></td>
   </tr>
 </table>
 
-Screenshots show the responsive web interface with fictional accounts and sample music data.
+### Listen together
+
+Public profiles bring collections and listening activity together. Invite playlist collaborators, join a Party Room, or connect compatible servers through optional federation. Shared queues and remote collections retain the source of each recording. [Party Rooms](docs/PARTY-ROOMS.md) · [Community and collaboration](docs/USER-GUIDE.md#collaborative-playlists)
+
+<table>
+  <tr>
+    <td width="50%" align="center"><a href="docs/images/screenshots/desktop-vitrine-profile.webp"><img src="docs/images/screenshots/desktop-vitrine-profile.webp" alt="Public profile with compact playlists and albums in Vitrine" width="100%"></a></td>
+    <td width="50%" align="center"><a href="docs/images/screenshots/desktop-classic-party.webp"><img src="docs/images/screenshots/desktop-classic-party.webp" alt="Party Rooms and room creation in Classic" width="100%"></a></td>
+  </tr>
+</table>
+
+### Web on your phone
+
+The responsive web/PWA interface keeps browsing, downloads and playback within reach. Open the fullscreen player for artwork and lyrics, or keep the compact player visible while exploring. Supported local tracks and collections can be saved for offline use; browser capabilities and storage limits vary by device.
+
+<table>
+  <tr>
+    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-classic-library.webp"><img src="docs/images/screenshots/mobile-classic-library.webp" alt="Mobile web · Classic library" width="100%"></a></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-glass-discovery.webp"><img src="docs/images/screenshots/mobile-glass-discovery.webp" alt="Mobile web · Glass Discovery" width="100%"></a></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-vitrine-player.webp"><img src="docs/images/screenshots/mobile-vitrine-player.webp" alt="Mobile web · Vitrine fullscreen player" width="100%"></a></td>
+  </tr>
+</table>
+
+### Native Android
+
+The Android APK has native browsing and playback, background media controls, account-bound device downloads, home-screen widgets and an optional music island. Enter your server URL at first launch, then use the same account and theme. The installed web client and original wrapper remain available as compatibility options. [Android guide](docs/ANDROID.md)
+
+<table>
+  <tr>
+    <td width="33%" align="center"><a href="docs/images/screenshots/android-classic-home.webp"><img src="docs/images/screenshots/android-classic-home.webp" alt="Native Android · Classic Home" width="100%"></a></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/android-glass-discovery.webp"><img src="docs/images/screenshots/android-glass-discovery.webp" alt="Native Android · Glass Discovery" width="100%"></a></td>
+    <td width="33%" align="center"><a href="docs/images/screenshots/android-vitrine-player.webp"><img src="docs/images/screenshots/android-vitrine-player.webp" alt="Native Android · Vitrine fullscreen player" width="100%"></a></td>
+  </tr>
+</table>
+
+### Your server, under control
+
+Administration separates users, the library explorer, duplicate review and federation. System Monitor groups host status, statistics, updates, backups and Wrapped controls. Download Manager shows the isolated worker and provider-session status. These pages require an administrator account. [Administration guide](docs/ADMINISTRATION.md)
+
+<table>
+  <tr>
+    <td width="50%" align="center"><a href="docs/images/screenshots/desktop-classic-monitor.webp"><img src="docs/images/screenshots/desktop-classic-monitor.webp" alt="Classic System Monitor with host usage and build details" width="100%"></a></td>
+    <td width="50%" align="center"><a href="docs/images/screenshots/desktop-vitrine-providers.webp"><img src="docs/images/screenshots/desktop-vitrine-providers.webp" alt="Vitrine Download Manager provider sessions" width="100%"></a></td>
+  </tr>
+</table>
+
+**[Open the complete screenshot gallery →](docs/SCREENSHOTS.md)**
+
+The gallery covers all three themes on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. Component previews show the actual native controls, without inventing a phone home or lock screen.
 
 ## Clients
 
@@ -92,11 +134,12 @@ Start in your browser or choose a client for your device. Every client connects 
 | Platform | Experience | Get started |
 |---|---|---|
 | **Web / PWA** | Responsive desktop and mobile interface, with browser installation where supported. | [User guide](docs/USER-GUIDE.md) |
-| **Android** | Native Android interface, background controls, widgets, device downloads and verified updates; installed web client retained as a compatibility option. | [Download APK](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android.apk) · [Android guide](docs/ANDROID.md) |
+| **Android APK** | Native interface and playback, background controls, widgets, optional music island, device downloads and verified update installation. | [Download APK](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android.apk) · [Android guide](docs/ANDROID.md) |
+| **iPhone / iPad** | Web/PWA or the iOS WebKit wrapper with background audio and system media controls; IPA installation requires signing/sideloading. | [Download IPA](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-ios.ipa) · [iOS guide](docs/IOS.md) |
 | **Windows, macOS, Linux** | Desktop wrappers that open your server's web interface in an application window. | [Downloads](https://github.com/sPROFFEs/Aoede/releases/latest) · [Desktop guide](docs/DESKTOP.md) |
 | **Subsonic clients** | Connect a compatible client to your account's Navidrome endpoint. | [Connection guide](docs/SUBSONIC.md) |
 
-The releases page includes complete Android source, the previous installed web client and the original Android remote wrapper as backups. Browser offline storage and background behavior depend on the device; federation streaming and collaborative edits require a connection. [Client details and limits →](docs/ANDROID.md)
+The releases page includes [complete Android source](https://github.com/sPROFFEs/Aoede/releases/latest/download/aoede-android-source.zip), the previous installed web client and the original Android remote wrapper as compatibility backups. Server, native APK and wrapper versions are independent; use the stable download links above to get the current artifacts. Browser offline storage and background behavior depend on the device; federation streaming and collaborative edits require a connection. [Client details and limits →](docs/ANDROID.md)
 
 ## Quick start
 
@@ -125,6 +168,7 @@ The README is the overview. The guides cover setup, everyday use and server oper
 |---|---|
 | [Installation](docs/INSTALLATION.md) | Host requirements, first launch and initial setup. |
 | [User guide](docs/USER-GUIDE.md) | Library, discovery, playlists, player, offline listening and community features. |
+| [Screenshot gallery](docs/SCREENSHOTS.md) | Desktop, mobile web and native Android in every theme. |
 | [Party Rooms](docs/PARTY-ROOMS.md) | Synchronized listening, host controls and federated rooms. |
 | [Administration](docs/ADMINISTRATION.md) | Accounts, downloads, library tools, monitoring and updates. |
 | [Backup & restore](docs/BACKUP-RESTORE.md) | Application backups and recovery. |
