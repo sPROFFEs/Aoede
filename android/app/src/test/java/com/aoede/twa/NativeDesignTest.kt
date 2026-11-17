@@ -645,6 +645,88 @@ class NativeDesignTest {
     }
 
     @Test
+    fun fullscreenBlocksBackgroundTouchesThroughoutItsLifetimeInEveryTheme() {
+        val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
+        val activity = lifecycle.get()
+        val ui = NativeUi(activity, app)
+        ui.create()
+        val clock = org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper())
+        android.provider.Settings.Global.putFloat(
+            app.contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        )
+        NativePlayback::class.java.getDeclaredField("tracks").apply { isAccessible = true }
+            .set(app.nativePlayback, listOf(org.json.JSONObject().put("id", 1).put("title", "Sample")))
+        val root = activity.findViewById<android.widget.FrameLayout>(R.id.main_root)
+        fun layout() {
+            root.measure(
+                View.MeasureSpec.makeMeasureSpec(400, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(850, View.MeasureSpec.EXACTLY),
+            )
+            root.layout(0, 0, 400, 850)
+        }
+        fun tap(x: Float, y: Float) {
+            val now = android.os.SystemClock.uptimeMillis()
+            for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+                android.view.MotionEvent.obtain(now, now + 16, action, x, y, 0).also {
+                    root.dispatchTouchEvent(it)
+                    it.recycle()
+                }
+            }
+            clock.idle()
+        }
+        try {
+            for (name in listOf("classic", "glass", "vitrine")) {
+                theme(name)
+                ui.screen("Playback")
+                var backgroundClicks = 0
+                ui.button("Background action") { backgroundClicks++ }.layoutParams =
+                    android.widget.LinearLayout.LayoutParams(-1, ui.dp(1500))
+                layout()
+                tap(200f, 200f)
+                assertEquals("$name: background probe must be reachable", 1, backgroundClicks)
+                for (mode in listOf("cover", "lyrics", "queue")) {
+                    ui.showPlayer(mode)
+                    layout()
+                    tap(200f, 200f) // The opening animation initially exposes the entire page.
+                    assertEquals("$name/$mode: opening", 1, backgroundClicks)
+                    clock.idleFor(java.time.Duration.ofMillis(450))
+                    layout()
+                    val panel = ui.fullscreen as NativePlayerView
+                    val progress = panel.findViewWithTag<View>("native-fs-progress")
+                    val point = IntArray(2)
+                    progress.getLocationOnScreen(point)
+                    tap(point[0] + progress.width / 4f, point[1] + progress.height - 4f)
+                    assertEquals("$name/$mode: gaps must not pass taps through", 1, backgroundClicks)
+                    panel.translationY = 300f
+                    panel.scaleX = .94f
+                    tap(200f, 200f)
+                    assertEquals("$name/$mode: displaced player", 1, backgroundClicks)
+                    panel.translationY = 0f
+                    panel.scaleX = 1f
+                    val minimize = (panel.findViewWithTag<View>("native-fs-header") as android.view.ViewGroup).getChildAt(0)
+                    minimize.getLocationOnScreen(point)
+                    tap(point[0] + minimize.width / 2f, point[1] + minimize.height / 2f)
+                    assertNull("$name/$mode: player buttons must remain usable", ui.fullscreen)
+                    val visibleWhileClosing = panel.parent === root
+                    tap(200f, 200f)
+                    assertEquals("$name/$mode: closing", if (visibleWhileClosing) 1 else 2, backgroundClicks)
+                    val beforeReturn = backgroundClicks
+                    clock.idleFor(java.time.Duration.ofMillis(450))
+                    layout()
+                    tap(200f, 200f)
+                    assertEquals("$name/$mode: page must become usable again", beforeReturn + 1, backgroundClicks)
+                    backgroundClicks = 1
+                }
+            }
+        } finally {
+            ui.close()
+            lifecycle.pause().stop().destroy()
+        }
+    }
+
+    @Test
     fun dismissGestureMovesTheWholePlayerAndCanSettleOrFinishWithoutChangingTracks() {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val ui = NativeUi(lifecycle.get(), app)

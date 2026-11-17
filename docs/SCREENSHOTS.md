@@ -2,7 +2,7 @@
 
 [Project overview](../README.md) · [User guide](USER-GUIDE.md) · [Themes](THEMES.md) · [Android](ANDROID.md) · [Downloads](https://github.com/sPROFFEs/Aoede/releases/latest)
 
-Explore the current **Aoede 1.3.1** web interface and **Android 1.2.9** native client. Expand a feature group and click any image to open it at full resolution.
+Explore the **Aoede 1.3.1** web interface and native Android client. The native captures below were taken with **Android 1.2.9**. Expand a feature group and click any image to open it at full resolution.
 
 These are captures of the real application interfaces, with fictional accounts, demonstration artwork, sample track metadata and synthetic service responses. They are not design mockups or screenshots of a production server. Example provider connections, listening totals and host metrics illustrate their screens; they do not describe a live deployment.
 

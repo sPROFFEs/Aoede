@@ -125,10 +125,7 @@ export function escJs(value) {
   );
 }
 
-// Scoped lucide icon refresh. lucide.createIcons() with no args walks the
-// WHOLE document — on a freshly-rendered home page (hundreds of cards) that
-// triggers a layout/reflow Safari iOS can't keep up with → the freeze.
-// Pass an Element to scope the work to its subtree.
+// Refresh only the changed subtree to avoid whole-page icon layout work on mobile.
 export function refreshIcons(scope) {
   const root = scope?.querySelectorAll ? scope : document;
   root
@@ -181,11 +178,6 @@ export function homeTabsBar(activeTab) {
 }
 
 // === TOAST NOTIFICATIONS ===
-//
-// Spotify-aligned: flat charcoal surface, no blur, green accent for
-// success/error color-coding via left border. Supports an optional
-// action button (e.g. "Undo") rendered inline to the right of the
-// message — matches Spotify's "Added to X" pattern.
 
 let _toastTimer = null;
 
@@ -730,6 +722,8 @@ export function setupTrackSwipe(element, navigate, { artwork = null, dismiss = n
 // === FULLSCREEN PLAYER ===
 
 let fullscreenReturnFocus = null;
+const fullscreenBackground = new Map();
+let fullscreenRevision = 0;
 
 /** Reuse the same controls and panels without changing playback state. */
 export function syncFullscreenPlayerLayout() {
@@ -848,15 +842,21 @@ export function toggleFullscreenPlayer() {
   const panel = document.getElementById('fullscreen-player');
   if (!panel) return;
   state.setIsFullscreenPlayerOpen(!state.isFullscreenPlayerOpen);
+  const revision = ++fullscreenRevision;
   panel.setAttribute('aria-hidden', String(!state.isFullscreenPlayerOpen));
 
   if (state.isFullscreenPlayerOpen) {
-    fullscreenReturnFocus = document.activeElement;
+    fullscreenReturnFocus ||= document.activeElement;
     panel.classList.add('open');
     syncFullscreenPlayerLayout();
     updateFullscreenPlayButton();
     refreshIcons(panel);
     panel.querySelector('.fs-minimize')?.focus();
+    for (const sibling of panel.parentElement.children) {
+      if (sibling === panel) continue;
+      if (!fullscreenBackground.has(sibling)) fullscreenBackground.set(sibling, sibling.hasAttribute('inert'));
+      sibling.setAttribute('inert', '');
+    }
   } else {
     showFullscreenCover();
     panel.classList.remove('open');
@@ -865,8 +865,19 @@ export function toggleFullscreenPlayer() {
     const more = panel.querySelector('.fs-more');
     if (more) more.open = false;
     syncFullscreenPlayerLayout();
-    (fullscreenReturnFocus?.isConnected ? fullscreenReturnFocus : document.getElementById('player-cover'))?.focus();
-    fullscreenReturnFocus = null;
+    // Keep the page inert through the exit animation.
+    const finished = panel.getAnimations
+      ? Promise.allSettled(panel.getAnimations().map((animation) => animation.finished))
+      : new Promise((resolve) => setTimeout(resolve, 450));
+    finished.then(() => {
+      if (revision !== fullscreenRevision) return;
+      fullscreenBackground.forEach((inert, element) => {
+        element.toggleAttribute('inert', inert);
+      });
+      fullscreenBackground.clear();
+      (fullscreenReturnFocus?.isConnected ? fullscreenReturnFocus : document.getElementById('player-cover'))?.focus();
+      fullscreenReturnFocus = null;
+    });
   }
 }
 

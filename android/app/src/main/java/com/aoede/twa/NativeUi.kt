@@ -68,6 +68,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private var restoringRoute = false
     var fullscreen: View? = null
         internal set
+    private val fullscreenTouchBlocker =
+        View(activity).apply {
+            isClickable = true
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+        }
     private var updateFull: (() -> Unit)? = null
     @Volatile private var generation = 0
     internal val pageRevision
@@ -1327,12 +1332,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 navigation.addView(item, LinearLayout.LayoutParams(0, -1, 1f))
             }
         }
-        fullscreen?.let(root::removeView)
+        fullscreen?.let(::removeFullscreen)
         fullscreen = null
         updateFull = null
         dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
-        shell.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
-        chromeHeader.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
         headerTitle.text = title
         scroll.removeAllViews()
         content = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
@@ -6177,6 +6180,34 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         activity.currentFocus?.clearFocus()
     }
 
+    private fun mountFullscreen(panel: View) {
+        // Stay stationary while the panel moves, so exposed page areas cannot receive input.
+        if (fullscreenTouchBlocker.parent !== root)
+            root.addView(fullscreenTouchBlocker, FrameLayout.LayoutParams(-1, -1))
+        else fullscreenTouchBlocker.bringToFront()
+        root.addView(panel, FrameLayout.LayoutParams(-1, -1))
+        for (view in listOf(shell, chromeHeader, dock)) {
+            view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
+            view.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        }
+        panel.isFocusableInTouchMode = true
+        panel.requestFocus()
+    }
+
+    private fun removeFullscreen(panel: View) {
+        root.removeView(panel)
+        if (
+            (0 until root.childCount).any {
+                root.getChildAt(it) is NativePlayerView || root.getChildAt(it) is NativeWrappedStory
+            }
+        ) return
+        root.removeView(fullscreenTouchBlocker)
+        for (view in listOf(shell, chromeHeader, dock)) {
+            view.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
+            view.descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
+        }
+    }
+
     fun showPlayer(mode: String = "cover") {
         if (connecting) {
             requestedPlayerMode = mode
@@ -6190,16 +6221,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             it.setMode(mode)
             return
         }
-        fullscreen?.let(root::removeView)
+        fullscreen?.let(::removeFullscreen)
         hideKeyboard()
         val panel = NativePlayerView(this)
         fullscreen = panel
-        root.addView(panel, FrameLayout.LayoutParams(-1, -1))
+        mountFullscreen(panel)
         placePlayer(panel)
         dock.visibility = View.INVISIBLE
-        shell.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        chromeHeader.importantForAccessibility =
-            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         activity.applyAppearance(true)
         updateFull = { if (player.current == null) hidePlayer() else panel.render() }
         panel.setMode(mode)
@@ -6235,16 +6263,13 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
             return
         }
         hideKeyboard()
-        fullscreen?.let(root::removeView)
+        fullscreen?.let(::removeFullscreen)
         val panel = NativeWrappedStory(this, data, progress)
         fullscreen = panel
         updateFull = null
-        root.addView(panel, FrameLayout.LayoutParams(-1, -1))
+        mountFullscreen(panel)
         placeStory(panel)
         dock.visibility = View.INVISIBLE
-        shell.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-        chromeHeader.importantForAccessibility =
-            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
         activity.applyAppearance(true)
     }
 
@@ -6252,13 +6277,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         val panel = fullscreen ?: return
         fullscreen = null
         updateFull = null
-        shell.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
-        chromeHeader.importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_AUTO
         activity.applyAppearance(!design.light)
         dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
         renderMini()
         val remove = {
-            root.removeView(panel)
+            removeFullscreen(panel)
             if (fullscreen == null) dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
             renderMini()
         }

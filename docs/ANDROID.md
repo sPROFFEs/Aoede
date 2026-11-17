@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.9 (39)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.10 (40)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 Large manual queues show 40 recordings at a time; tap **Show more** to display the next group. The complete queue remains available for playback. Device downloads display a loading indicator while their local index is read.
 
@@ -31,6 +31,8 @@ The compact and fullscreen players, notification, optional island and home-scree
 The library remembers list/cover layout per account and backend on this device. Public profiles use compact 56 dp collection covers. Home keeps its content visible while refreshing. Fullscreen gestures follow the finger, settle back on cancellation and use shared carousel/dismissal transitions; Reduce effects and the system animator setting remain respected.
 
 Returning to the app restores your current page and fullscreen player for the same account.
+
+The fullscreen player blocks interaction with the page underneath, including during opening, swipe-down and closing transitions. Its controls, lyrics and queue remain usable; minimizing restores page interaction.
 
 Tap the artist name in the fullscreen player to open the native artist page without interrupting playback.
 

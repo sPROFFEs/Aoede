@@ -150,6 +150,7 @@
 
 /* Both themes share the player layout; Glass only changes its material. */
 .fullscreen-player { height: 100dvh; padding-inline: var(--safe-area-left, 0px) var(--safe-area-right, 0px); }
+.app-layout > [inert], .app-layout > [inert] * { pointer-events: none !important; }
 .fullscreen-player .fs-content {
     display: grid;
     align-items: stretch;

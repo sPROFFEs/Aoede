@@ -141,6 +141,8 @@ With shuffle and queue repeat off and no manually queued song, **Next** on the l
 
 **Classic** and **Glass** use a lower selector that switches between cover, lyrics and queue while transport controls remain visible. Favorite and playlist actions sit beside the title; volume opens from the upper corner in Classic and Glass. Vitrine places the volume slider below the transport, with lyrics, volume and queue actions along the bottom and additional controls in the upper-right menu. The compact mobile player offers Next and Play/Pause. The player adapts to portrait, landscape and wide desktop screens, with Classic's opaque dark surfaces, Glass's translucent appearance, or Vitrine's complete artwork, unboxed transport and thumbnail while reading lyrics. Lyrics follow the playing recording and respect manual scrolling; use **Follow current line** to resume automatic following immediately. Use arrow keys on a focused seek/volume slider for 5% steps, Home/End for its limits, and Escape to collapse the fullscreen player without stopping audio.
 
+The fullscreen player blocks interaction with the page behind it while it is open and during its exit animation. Minimize it to return to browsing.
+
 ### Queue and playback state
 
 Open the queue to drag tracks into a new order or remove them. Manually queued tracks play before the remaining album, playlist or other playback context.

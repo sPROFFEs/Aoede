@@ -11,13 +11,20 @@ function element(id) {
     appendChild(child) { child.parentElement?.children.splice(child.parentElement.children.indexOf(child), 1); child.parentElement = el; el.children.push(child); },
     insertBefore(child, target) { if (child === target) return; child.parentElement?.children.splice(child.parentElement.children.indexOf(child), 1); child.parentElement = el; el.children.splice(target ? el.children.indexOf(target) : el.children.length, 0, child); },
     removeAttribute: name => attributes.delete(name), setAttribute: (name, value) => attributes.set(name, value), getAttribute: name => attributes.get(name),
+    hasAttribute: name => attributes.has(name), toggleAttribute(name, enabled) { enabled ? attributes.set(name, '') : attributes.delete(name); },
     addEventListener: (name, callback) => events.set(name, callback), querySelector: selector => el.queries[selector] || null,
     querySelectorAll: selector => el.queries[selector] || [], contains(child) { return Boolean(child && (child === el || el.children.some(node => node.contains(child)))); },
     closest: () => null, focus() { document.activeElement = el; }, getBoundingClientRect: () => ({ left: 0, top: 0, width: 100 }), scrollTo() {} };
   Object.defineProperty(el, 'firstChild', { get: () => el.children[0] || null });
+  Object.defineProperty(el, 'inert', { get: () => attributes.has('inert'), set(value) { el.toggleAttribute('inert', value); } });
   fields.set(id, el); return el;
 }
 const body = element('body'), full = element('fullscreen-player'), stage = element('fs-stage'), actions = element('actions'), songActions = element('fs-track-actions');
+const background = element('background'), alreadyInert = element('already-inert');
+alreadyInert.inert = true;
+body.appendChild(background); body.appendChild(alreadyInert);
+let fullscreenAnimations = [];
+full.getAnimations = () => fullscreenAnimations;
 const favorite = element('fs-btn-favorite'), add = element('fs-btn-add'), lyrics = element('lyrics-panel'), queue = element('queue-panel'), lyricsBody = element('lyrics-body');
 const viewButtons = ['cover', 'lyrics', 'queue'].map(value => { const button = element(`view-${value}`); button.dataset.fsView = value; return button; });
 element('queue-list'); element('fs-view-label'); const minimize = element('minimize'); element('player-cover');
@@ -195,6 +202,9 @@ ui.toggleFullscreenPlayer();
 assert.equal(lyrics.parentElement, stage); assert.equal(queue.parentElement, stage);
 assert.equal(full.getAttribute('aria-hidden'), 'false');
 assert.equal(document.activeElement, minimize);
+assert.equal(background.inert, true);
+assert.equal(alreadyInert.inert, true);
+assert.notEqual(full.inert, true);
 
 // A response whose JSON decoding finishes after a new track must not replace it.
 let finishOld;
@@ -243,6 +253,28 @@ for (const theme of ['classic', 'glass', 'vitrine']) {
   assert.equal(lyrics.parentElement, body); assert.equal(queue.parentElement, body);
   assert.equal(values.isQueueOpen, false); assert.equal(lyricsApi.isLyricsPanelOpen(), false);
 }
+await new Promise(setImmediate);
+assert.notEqual(background.inert, true);
+assert.equal(alreadyInert.inert, true); // Preserve restrictions owned by another surface.
+for (const theme of ['classic', 'glass', 'vitrine']) {
+  document.documentElement.dataset.theme = theme;
+  fields.get('player-cover').focus();
+  ui.toggleFullscreenPlayer();
+  let finishExit;
+  fullscreenAnimations = [{ finished: new Promise(resolve => { finishExit = resolve; }) }];
+  ui.toggleFullscreenPlayer();
+  assert.equal(background.inert, true); // Closing panels still cover/intersect the page.
+  ui.toggleFullscreenPlayer();
+  finishExit();
+  await new Promise(setImmediate);
+  assert.equal(background.inert, true); // An old close cannot unlock a newly reopened player.
+  fullscreenAnimations = [];
+  ui.toggleFullscreenPlayer();
+  await new Promise(setImmediate);
+  assert.notEqual(background.inert, true);
+  assert.equal(document.activeElement, fields.get('player-cover'));
+}
+console.log('PASS: player backgrounds stay inert through closing/reopening and restore prior focus and inert state.');
 respond = async () => ({ ok: true, json: async () => ({ liked: false }) });
 await favoritesApi.toggleFavorite(1, favorite);
 assert.equal(favorite.classList.contains('active'), false); assert.equal(favorite.getAttribute('aria-pressed'), 'false');
