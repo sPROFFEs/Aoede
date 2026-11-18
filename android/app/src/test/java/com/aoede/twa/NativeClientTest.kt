@@ -333,7 +333,7 @@ class NativeClientTest {
             ),
             autoplay = false,
         )
-        for (theme in listOf("classic", "glass", "vitrine")) {
+        for (theme in listOf("classic", "glass", "vitrine", "vice")) {
             context(theme = theme)
             ui.screen("Start")
             ui.showPlayer()

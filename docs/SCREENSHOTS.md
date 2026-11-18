@@ -2,18 +2,83 @@
 
 [Project overview](../README.md) · [User guide](USER-GUIDE.md) · [Themes](THEMES.md) · [Android](ANDROID.md) · [Downloads](https://github.com/sPROFFEs/Aoede/releases/latest)
 
-Explore the **Aoede 1.3.1** web interface and native Android client. The native captures below were taken with **Android 1.2.9**. Expand a feature group and click any image to open it at full resolution.
+Explore the **Aoede 1.3.1** web interface and native Android client. The original native captures use **Android 1.2.9**; the Vice gallery uses **Android 1.2.11**. Expand a feature group and click any image to open it at full resolution.
 
 These are captures of the real application interfaces, with fictional accounts, demonstration artwork, sample track metadata and synthetic service responses. They are not design mockups or screenshots of a production server. Example provider connections, listening totals and host metrics illustrate their screens; they do not describe a live deployment.
 
 | Gallery | What is captured |
 |---|---|
+| [Vice](#vice-sunset-and-night) | The new sunset/palm theme on desktop, mobile web and native Android, in light and dark. |
 | [Desktop web](#desktop-web) | The actual frontend at 1440 × 960. Desktop wrappers use this frontend inside their application window. |
 | [Mobile web / PWA](#mobile-web-and-pwa) | The responsive frontend at 400 × 850, also used by web-based compatibility clients. |
 | [Native Android APK](#native-android-apk) | The actual Android views at a 400 × 850 viewport in Android's local test runtime; dialog captures use their own bounds. |
 | [Android widgets and music island](#android-widgets-and-music-island) | The actual native components rendered independently of a launcher or lock screen. |
 
-Each themed comparison runs left to right: **Classic (dark)**, **Glass (dark)**, **Vitrine (light)**. Glass and Vitrine also follow the device's light/dark preference. Captures show paused playback where controls need a stable frame; animations and background audio cannot be demonstrated by a still image.
+The original three-theme comparisons run left to right: **Classic (dark)**, **Glass (dark)**, **Vitrine (light)**. Glass, Vitrine and Vice follow the device's light/dark preference. Captures show paused playback where controls need a stable frame; animations and background audio cannot be demonstrated by a still image.
+
+## Vice: sunset and night
+
+Vice is the fourth account theme, inspired by the [official GTA VI visual direction](https://www.rockstargames.com/VI). These captures show its real web and native views, with local palm decoration, condensed headings, accessible controls and the same music features as the existing themes. Both device appearances keep a nighttime fullscreen player.
+
+<details>
+<summary><strong>Desktop · night and day</strong></summary>
+
+<table><tr>
+  <td width="50%"><a href="images/screenshots/desktop-vice-dark-home.webp"><img src="images/screenshots/desktop-vice-dark-home.webp" alt="desktop · vice · dark · home" width="100%"></a></td>
+  <td width="50%"><a href="images/screenshots/desktop-vice-light-home.webp"><img src="images/screenshots/desktop-vice-light-home.webp" alt="desktop · vice · light · home" width="100%"></a></td>
+</tr></table>
+
+</details>
+
+<details>
+<summary><strong>Mobile web · night and day</strong></summary>
+
+<table><tr>
+  <td width="50%"><a href="images/screenshots/mobile-vice-dark-home.webp"><img src="images/screenshots/mobile-vice-dark-home.webp" alt="mobile · vice · dark · home" width="100%"></a></td>
+  <td width="50%"><a href="images/screenshots/mobile-vice-light-home.webp"><img src="images/screenshots/mobile-vice-light-home.webp" alt="mobile · vice · light · home" width="100%"></a></td>
+</tr></table>
+
+</details>
+
+<details>
+<summary><strong>Native Android · night and day</strong></summary>
+
+<table><tr>
+  <td width="50%"><a href="images/screenshots/native-vice-dark-home.webp"><img src="images/screenshots/native-vice-dark-home.webp" alt="native · vice · dark · home" width="100%"></a></td>
+  <td width="50%"><a href="images/screenshots/native-vice-light-home.webp"><img src="images/screenshots/native-vice-light-home.webp" alt="native · vice · light · home" width="100%"></a></td>
+</tr></table>
+
+</details>
+
+<details>
+<summary><strong>Fullscreen player · web and native</strong></summary>
+
+<table><tr>
+  <td width="50%"><a href="images/screenshots/mobile-vice-dark-player.webp"><img src="images/screenshots/mobile-vice-dark-player.webp" alt="mobile · vice · dark · player" width="100%"></a></td>
+  <td width="50%"><a href="images/screenshots/native-vice-dark-player.webp"><img src="images/screenshots/native-vice-dark-player.webp" alt="native · vice · dark · player" width="100%"></a></td>
+</tr></table>
+
+</details>
+
+<details>
+<summary><strong>Discovery · web and native</strong></summary>
+
+<table><tr>
+  <td width="50%"><a href="images/screenshots/desktop-vice-dark-discovery.webp"><img src="images/screenshots/desktop-vice-dark-discovery.webp" alt="desktop · vice · dark · discovery" width="100%"></a></td>
+  <td width="50%"><a href="images/screenshots/native-vice-dark-discovery.webp"><img src="images/screenshots/native-vice-dark-discovery.webp" alt="native · vice · dark · discovery" width="100%"></a></td>
+</tr></table>
+
+</details>
+
+<details>
+<summary><strong>Appearance · web and native</strong></summary>
+
+<table><tr>
+  <td width="50%"><a href="images/screenshots/desktop-vice-light-appearance.webp"><img src="images/screenshots/desktop-vice-light-appearance.webp" alt="desktop · vice · light · appearance" width="100%"></a></td>
+  <td width="50%"><a href="images/screenshots/native-vice-light-appearance.webp"><img src="images/screenshots/native-vice-light-appearance.webp" alt="native · vice · light · appearance" width="100%"></a></td>
+</tr></table>
+
+</details>
 
 ## Desktop web
 

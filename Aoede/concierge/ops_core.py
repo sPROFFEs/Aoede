@@ -1654,6 +1654,22 @@ def _migration_037_native_account_identity(conn):
     conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_users_native_account_id ON users(native_account_id)"))
 
 
+def _migration_038_vice_theme(conn):
+    # Preserve users, foreign keys and indexes while extending the checked preference.
+    columns = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
+    if "theme_next" not in columns:
+        conn.execute(
+            text(
+                "ALTER TABLE users ADD COLUMN theme_next TEXT NOT NULL DEFAULT 'classic' "
+                "CHECK(theme_next IN ('classic', 'glass', 'vitrine', 'vice'))"
+            )
+        )
+    if "theme" in columns:
+        conn.execute(text("UPDATE users SET theme_next = theme"))
+        conn.execute(text("ALTER TABLE users DROP COLUMN theme"))
+    conn.execute(text("ALTER TABLE users RENAME COLUMN theme_next TO theme"))
+
+
 MIGRATIONS = [
     ("000_base_schema", _migration_000_base_schema),
     ("001_tracks_library_columns", _migration_001_tracks_library_columns),
@@ -1693,6 +1709,7 @@ MIGRATIONS = [
     ("035_vitrine_theme", _migration_035_vitrine_theme),
     ("036_native_collection_operations", _migration_036_native_collection_operations),
     ("037_native_account_identity", _migration_037_native_account_identity),
+    ("038_vice_theme", _migration_038_vice_theme),
 ]
 
 

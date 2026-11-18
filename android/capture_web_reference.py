@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright
 
 def check_sidebar(browser, output):
     measurements = []
-    for theme in ("classic", "glass", "vitrine"):
+    for theme in ("classic", "glass", "vitrine", "vice"):
         for width in (900, 1280):
             page = browser.new_page(viewport={"width": width, "height": 850}, color_scheme="dark")
             page.route(
@@ -56,7 +56,7 @@ def check_sidebar(browser, output):
 
 def check_collection_titles(browser, output):
     measurements = []
-    for theme in ("classic", "glass", "vitrine"):
+    for theme in ("classic", "glass", "vitrine", "vice"):
         for scheme in ("dark", "light"):
             for width in (320, 400, 1280):
                 page = browser.new_page(viewport={"width": width, "height": 850}, color_scheme=scheme)
@@ -118,11 +118,11 @@ def capture():
             check_sidebar(browser, args.output)
         if args.sidebar_only:
             browser.close()
-            print("Verified centred covers and hidden, working scrolling across three desktop themes and two widths.")
+            print("Verified centred covers and hidden, working scrolling across four desktop themes and two widths.")
             return
         if not args.tokens_only:
             check_collection_titles(browser, args.output)
-        for theme in ("classic", "glass", "vitrine"):
+        for theme in ("classic", "glass", "vitrine", "vice"):
             tokens[theme] = {}
             for scheme in ("dark", "light"):
                 page = browser.new_page(
@@ -263,9 +263,9 @@ def capture():
     if failures:
         raise RuntimeError("Reference frontend errors: " + "; ".join(sorted(set(failures))))
     print(
-        "Read CSS tokens for three themes in dark/light mode."
+        "Read CSS tokens for every theme in dark/light mode."
         if args.tokens_only
-        else "Captured three themes in dark/light mode against the loopback fixture."
+        else "Captured four themes in dark/light mode against the loopback fixture."
     )
 
 

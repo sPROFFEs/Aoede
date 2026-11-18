@@ -46,7 +46,7 @@ class MobileFrontend(private val context: Context, private val origin: ServerOri
             val username = data?.optString("username").orEmpty()
             val theme = data?.optString("theme") ?: "classic"
             if (!login && (data?.optInt("protocol") != 1 || !username.matches(Regex("[A-Za-z0-9][A-Za-z0-9_-]{1,31}")) ||
-                data.opt("is_admin") !is Boolean || theme !in setOf("classic", "glass", "vitrine"))) return null
+                data.opt("is_admin") !is Boolean || theme !in setOf("classic", "glass", "vitrine", "vice"))) return null
             val language = payload.optString("language").takeIf { it in setOf("en", "es", "de") } ?: "en"
             val role = if (login) "login" else if (data!!.getBoolean("is_admin")) "admin" else "user"
             val pool = data?.optJSONObject("pool")

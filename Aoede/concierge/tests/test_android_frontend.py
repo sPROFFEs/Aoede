@@ -101,6 +101,14 @@ def test_mobile_bootstrap_is_authenticated_private_revocable_and_uses_request_la
             assert response.headers["x-content-type-options"] == "nosniff"
             assert "hashed_password" not in response.text and "access_token" not in response.text
             assert set(response.json()) == {"protocol", "username", "is_admin", "theme", "language", "pool"}
+            alice.theme = "vice"
+            db_session.commit()
+            assert (await client.get("/api/mobile/bootstrap")).json()["theme"] == "classic"
+            modern = await client.get("/api/mobile/bootstrap", headers={"X-Aoede-Theme-Support": "vice"})
+            assert modern.json()["theme"] == "vice"
+            assert db_session.get(database.User, alice.id).theme == "vice"
+            alice.theme = "vitrine"
+            db_session.commit()
             with patch.object(auth, "get_current_user", side_effect=RuntimeError("private database error")):
                 failure = await client.get("/api/mobile/bootstrap")
                 assert failure.status_code == 503 and "private database error" not in failure.text
@@ -194,7 +202,7 @@ def test_android_compiler_bundles_canonical_modules_themes_translations_and_no_s
                 self.text.append(data)
 
     assert (bundle / "assets/js/main.js").read_bytes() == (ROOT / "Aoede/assets/js/main.js").read_bytes()
-    for theme in ("theme_glass.css", "theme_vitrine.css", "style.css"):
+    for theme in ("theme_glass.css", "theme_vitrine.css", "theme_vice.css", "style.css"):
         assert f"assets/css/{theme}" in manifest["files"]
     for lang in ("en", "es", "de"):
         for role in ("user", "admin", "login"):

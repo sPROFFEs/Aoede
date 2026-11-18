@@ -73,6 +73,7 @@ def test_first_party_frontend_stays_inside_download_budgets():
     appearance = assets_root / "js/modules/appearance.js"
     glass = assets_root / "css/theme_glass.css"
     vitrine = assets_root / "css/theme_vitrine.css"
+    vice = assets_root / "css/theme_vice.css"
 
     # These are uncompressed upper bounds. Nginx serves them compressed, so a
     # regression here catches accidental large bundles before transfer cost is
@@ -87,13 +88,17 @@ def test_first_party_frontend_stays_inside_download_budgets():
     assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 644_000
     # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
     assert (
-        sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in stylesheets if path not in (glass, vitrine))
+        sum(
+            len(path.read_bytes().replace(b"\r\n", b"\n")) for path in stylesheets if path not in (glass, vitrine, vice)
+        )
         < 352_000
     )
     assert (assets_root / "js/ui_icons.js").stat().st_size < 32_000
     # Bound the account theme, including form states and accessibility fallbacks,
     # separately from the rest of the interface.
     assert appearance.stat().st_size < 8_000
-    assert glass.stat().st_size < 60_000
+    # Shared form, admin and menu coverage now also serves Vice.
+    assert glass.stat().st_size < 65_000
     # Vitrine includes toolbar layering, responsive player geometry, contextual actions and native input fallbacks.
     assert vitrine.stat().st_size < 48_000
+    assert vice.stat().st_size < 20_000

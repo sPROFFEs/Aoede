@@ -615,7 +615,7 @@ async def about_info(request: Request, db: Session = Depends(get_db)):
 @app.get("/api/mobile/bootstrap")
 def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
     """Private context for the frontend installed inside the Android APK."""
-    headers = {"Cache-Control": "private, no-store", "Vary": "Cookie, Accept-Language"}
+    headers = {"Cache-Control": "private, no-store", "Vary": "Cookie, Accept-Language, X-Aoede-Theme-Support"}
     try:
         user = auth.get_current_user(request, db)
     except HTTPException:
@@ -624,12 +624,15 @@ def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
         logger.warning("Mobile bootstrap session verification unavailable")
         return JSONResponse({"error": "Session verification unavailable"}, status_code=503, headers=headers)
     used, limit, percent = manager.get_pool_status(db, cached_only=True)
+    theme = user.theme or "classic"
+    if theme == "vice" and request.headers.get("x-aoede-theme-support") != "vice":
+        theme = "classic"  # Older installed web clients reject unknown theme names.
     return JSONResponse(
         {
             "protocol": 1,
             "username": user.username,
             "is_admin": bool(user.is_admin),
-            "theme": user.theme or "classic",
+            "theme": theme,
             "language": current_lang.get(),
             "pool": {"used": used, "limit": limit, "percent": percent},
         },

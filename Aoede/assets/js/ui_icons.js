@@ -513,7 +513,7 @@
       const variant = `${theme}:${name}:${requestedFill || ''}`;
       if (node.localName === 'svg' && node.dataset.aoedeGlyph === variant) continue;
       const key = name.replace(/(^|[-_\s]+)(\w)/g, (_, _prefix, char) => char.toUpperCase());
-      const geometry = recovered[theme]?.[filled ? 'heart-filled' : name];
+      const geometry = recovered[theme === 'vice' ? 'classic' : theme]?.[filled ? 'heart-filled' : name];
       const definition = icons[key];
       if (!geometry && !definition) continue;
       const attributes = Object.fromEntries(

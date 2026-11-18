@@ -230,7 +230,7 @@ ui.showFullscreenCover(); assert.equal(full.dataset.view, 'cover');
 ui.toggleFullscreenPlayer(); assert.equal(lyrics.parentElement, body); assert.equal(queue.parentElement, body);
 assert.equal(full.getAttribute('aria-hidden'), 'true');
 // All themes embed the same panels and retain the selected view on a theme change.
-for (const theme of ['classic', 'glass', 'vitrine']) {
+for (const theme of ['classic', 'glass', 'vitrine', 'vice']) {
   document.documentElement.dataset.theme = theme;
   for (const playing of [false, true, false]) {
     stateModule.setExport('isPlaying', playing);
@@ -256,7 +256,7 @@ for (const theme of ['classic', 'glass', 'vitrine']) {
 await new Promise(setImmediate);
 assert.notEqual(background.inert, true);
 assert.equal(alreadyInert.inert, true); // Preserve restrictions owned by another surface.
-for (const theme of ['classic', 'glass', 'vitrine']) {
+for (const theme of ['classic', 'glass', 'vitrine', 'vice']) {
   document.documentElement.dataset.theme = theme;
   fields.get('player-cover').focus();
   ui.toggleFullscreenPlayer();

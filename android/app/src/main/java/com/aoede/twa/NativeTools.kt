@@ -256,7 +256,7 @@ class NativeTools(private val ui: NativeUi) {
                 )
             val choices = mutableListOf<android.view.View>()
             var saving = false
-            for (key in listOf("classic", "glass", "vitrine")) {
+            for (key in listOf("classic", "glass", "vitrine", "vice")) {
                 val selected = data.optString("theme") == key
                 val card =
                     object : LinearLayout(ui.activity) {

@@ -510,6 +510,11 @@
                         <span class="theme-preview theme-preview-vitrine" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
                         <strong>{{ _('appearance.vitrine') }}</strong><span>{{ _('appearance.vitrine_description') }}</span>
                     </label>
+                    <label class="theme-option">
+                        <input type="radio" name="user-theme" value="vice" data-user-theme onchange="saveUserTheme(this.value)"{% if user_theme == 'vice' %} checked{% endif %}>
+                        <span class="theme-preview theme-preview-vice" aria-hidden="true"><span class="theme-preview-sidebar"></span><span class="theme-preview-cards"><i></i><i></i><i></i></span><span class="theme-preview-player"></span></span>
+                        <strong>{{ _('appearance.vice') }}</strong><span>{{ _('appearance.vice_description') }}</span>
+                    </label>
                 </fieldset>
                 <p class="user-settings-help" role="status">{{ _('appearance.sync_description') }}</p>
             </div>

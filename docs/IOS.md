@@ -49,7 +49,7 @@ Because iOS requires applications outside the App Store to be signed, you can in
 - **Lock Screen & Control Center Controls**: Supports system media controls (`MPRemoteCommandCenter`) for Play, Pause, Next Track, Previous Track, and scrubbing.
 - **Audio Routing & Interruption Handling**: Pauses smoothly when receiving a phone call or when Bluetooth/AirPods disconnect (`oldDeviceUnavailable`), preventing unwanted audio blasting.
 - **Pull to Refresh**: Pull down from the top to reload the page state.
-- **Themes & Responsive UI**: Native support for Aoede's Classic, Glass, and Vitrine themes with safe-area notch and Dynamic Island spacing.
+- **Themes & Responsive UI**: Native support for Aoede's Classic, Glass, Vitrine and Vice themes with safe-area notch and Dynamic Island spacing.
 
 ---
 

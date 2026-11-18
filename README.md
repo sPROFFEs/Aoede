@@ -34,7 +34,7 @@
 
 ## Why Aoede?
 
-**Aoede 1.3.1** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass or Vitrine without changing how you organize your music.
+**Aoede 1.3.1** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass, Vitrine or Vice without changing how you organize your music.
 
 Keep audio on your own server, build collections that feel personal, and invite others to listen with you.
 
@@ -54,15 +54,16 @@ Each regular account gets its own Navidrome instance, while the shared music poo
 
 Click any image for its full resolution. All images come from the real interfaces using fictional accounts, sample library metadata and demonstration artwork. Native Android images render the APK's actual Android views; mobile web images render the responsive website.
 
-### Three themes, one account
+### Four themes, one account
 
-**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
+**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
 
 <table>
   <tr>
-    <td width="33%" align="center"><a href="docs/images/screenshots/desktop-classic-home.webp"><img src="docs/images/screenshots/desktop-classic-home.webp" alt="Classic · desktop Home" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/desktop-glass-home.webp"><img src="docs/images/screenshots/desktop-glass-home.webp" alt="Glass · desktop Home" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Vitrine · desktop Home" width="100%"></a></td>
+    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-classic-home.webp"><img src="docs/images/screenshots/desktop-classic-home.webp" alt="Classic · desktop Home" width="100%"></a></td>
+    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-glass-home.webp"><img src="docs/images/screenshots/desktop-glass-home.webp" alt="Glass · desktop Home" width="100%"></a></td>
+    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Vitrine · desktop Home" width="100%"></a></td>
+    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-vice-dark-home.webp"><img src="docs/images/screenshots/desktop-vice-dark-home.webp" alt="Vice · desktop Home" width="100%"></a></td>
   </tr>
 </table>
 
@@ -125,7 +126,7 @@ Administration separates users, the library explorer, duplicate review and feder
 
 **[Open the complete screenshot gallery →](docs/SCREENSHOTS.md)**
 
-The gallery covers all three themes on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. Component previews show the actual native controls, without inventing a phone home or lock screen.
+The gallery covers all four themes on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. Component previews show the actual native controls, without inventing a phone home or lock screen.
 
 ## Clients
 

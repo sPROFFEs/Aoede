@@ -402,6 +402,8 @@
     "appearance.classic_description": "Navegación compacta inspirada en Spotify, superficies oscuras y controles claros.",
     "appearance.glass": "Glass",
     "appearance.glass_description": "Superficies translúcidas, bordes luminosos y color de la carátula, inspirado en Square.",
+    "appearance.vice": "Vice",
+    "appearance.vice_description": "Atardeceres, neón y siluetas tropicales inspirados en GTA VI.",
     "appearance.vitrine": "Vitrine",
     "appearance.vitrine_description": "Biblioteca inspirada en Apple Music, secciones editoriales y un reproductor amplio con cristal sutil.",
     "appearance.sync_description": "Se guarda entre dispositivos. Glass y Vitrine siguen el modo claro/oscuro del dispositivo; sin conexión se usa tu última elección guardada.",

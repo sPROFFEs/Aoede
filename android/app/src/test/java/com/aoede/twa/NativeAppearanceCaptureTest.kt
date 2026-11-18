@@ -235,7 +235,7 @@ class NativeAppearanceCaptureTest {
             return null
         }
         try {
-            for (theme in listOf("classic", "glass", "vitrine")) for (scheme in
+            for (theme in listOf("classic", "glass", "vitrine", "vice")) for (scheme in
                 listOf("dark", "light")) {
                 RuntimeEnvironment.setQualifiers(
                     "w400dp-h850dp-" + (if (scheme == "dark") "night" else "notnight") + "-mdpi"

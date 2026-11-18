@@ -87,14 +87,19 @@ const names = new Set([
   'trash-2'
 ]);
 const result = {};
-for (const theme of ['classic', 'glass', 'vitrine']) {
+for (const theme of ['classic', 'glass', 'vitrine', 'vice']) {
   result[theme] = {};
   for (const name of names) {
-    const recovered = context.geometry[theme]?.[name];
+    const recovered = context.geometry[theme === 'vice' ? 'classic' : theme]?.[name];
     const key = name.replace(/(^|[-_\s]+)(\w)/g, (_, _prefix, char) => char.toUpperCase());
     const definition = lucide[key];
     if (recovered) result[theme][name] = { viewBox: recovered[0], fill: true, nodes: recovered[1] };
     else if (definition) result[theme][name] = { viewBox: '0 0 24 24', fill: false, nodes: definition[2] };
+  }
+  if (theme === 'vice') {
+    const palms = fs.readFileSync(path.join(frontend, 'assets/img/vice-palms.svg'), 'utf8');
+    result.vice['vice-palms'] = { viewBox: '0 0 1000 700', fill: true,
+      nodes: [['path', { d: palms.match(/<path d="([^"]+)"/)[1] }]] };
   }
 }
 const output = JSON.stringify(result) + '\n';
@@ -102,7 +107,7 @@ const destination = path.join(project, 'app/src/main/assets/native/icons.json');
 if (process.argv.includes('--check')) {
   if (fs.readFileSync(destination, 'utf8') !== output)
     throw new Error('Run node android/build_icons.mjs after changing web icons');
-  console.log('Native icon geometry matches all three web themes.');
+  console.log('Native icon geometry matches every web theme.');
 } else {
   fs.mkdirSync(path.dirname(destination), { recursive: true });
   fs.writeFileSync(destination, output);

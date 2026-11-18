@@ -1,6 +1,6 @@
 # Android App
 
-**Android 1.2.10 (40)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
+**Android 1.2.11 (41)** connects to **Aoede 1.3.1+** with a native interface and background playback. Enter the backend root URL on first launch, then sign in with your Aoede account. The Android version is independent of the server release number.
 
 Large manual queues show 40 recordings at a time; tap **Show more** to display the next group. The complete queue remains available for playback. Device downloads display a loading indicator while their local index is read.
 
@@ -24,7 +24,7 @@ A failed Compose build can leave new bind-mounted source files with the previous
 
 ## Native interface and playback
 
-Browse Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, downloads, settings and administration directly in the app. Choose Classic, Glass or Vitrine in Appearance & settings, with the same account preference used on the web. The web/PWA and desktop interfaces remain available independently.
+Browse Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, downloads, settings and administration directly in the app. Choose Classic, Glass, Vitrine or Vice in Appearance & settings, with the same account preference used on the web. The web/PWA and desktop interfaces remain available independently.
 
 The compact and fullscreen players, notification, optional island and home-screen widget control the same playback session. Music pauses on audio interruptions or headphone disconnection. A paused party listener stays locally paused until an explicit play action. Closing Wrapped returns to your personal queue, paused.
 

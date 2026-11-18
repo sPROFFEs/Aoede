@@ -79,7 +79,7 @@ function reset(queue = [first, last], index = queue.length - 1) {
   navigator.mediaSession.playbackState = 'playing';
   player.syncPlayerShellVisibility();
 }
-for (const theme of ['classic', 'glass', 'vitrine']) {
+for (const theme of ['classic', 'glass', 'vitrine', 'vice']) {
   document.documentElement.dataset.theme = theme;
   for (const queue of [[first, last], [last], []]) {
     for (const paused of [false, true]) {

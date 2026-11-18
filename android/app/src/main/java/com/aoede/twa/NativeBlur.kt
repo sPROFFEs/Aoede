@@ -325,6 +325,53 @@ internal class NativeGpuBackdrop(radius: Float, filter: ColorFilter) {
     fun release() = node.discardDisplayList()
 }
 
+/** Static original skyline shared with the web theme; no artwork sampling or animation. */
+class NativeViceBackground(context: android.content.Context, light: Boolean) : Drawable() {
+    private val sky =
+        android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            if (light) intArrayOf(0xfffff1df.toInt(), 0xfff7d6cc.toInt(), 0xfffff1df.toInt())
+            else intArrayOf(0xff160f29.toInt(), 0xff372049.toInt(), 0xff160f29.toInt()),
+        )
+    private val palms: NativeIcon
+
+    init {
+        NativeIcon.install(context)
+        palms = NativeIcon("vice-palms", 0x21ff90b5, "vice", true)
+    }
+
+    override fun onBoundsChange(bounds: android.graphics.Rect) {
+        sky.bounds = bounds
+        val scale = maxOf(bounds.width() / 1000f, bounds.height() / 700f)
+        palms.setBounds(
+            bounds.right - (1000 * scale).toInt(),
+            bounds.bottom - (700 * scale).toInt(),
+            bounds.right,
+            bounds.bottom,
+        )
+    }
+
+    override fun draw(canvas: Canvas) {
+        canvas.save()
+        canvas.clipRect(bounds)
+        sky.draw(canvas)
+        palms.draw(canvas)
+        canvas.restore()
+    }
+
+    override fun setAlpha(alpha: Int) {
+        sky.alpha = alpha
+        palms.alpha = alpha * 33 / 255
+    }
+
+    override fun setColorFilter(filter: ColorFilter?) {
+        sky.colorFilter = filter
+        palms.colorFilter = filter
+    }
+
+    @Deprecated("Deprecated in Java") override fun getOpacity() = PixelFormat.OPAQUE
+}
+
 /** The one Glass body artwork layer; individual materials crop this same scene. */
 class NativeArtworkBackground(private val base: Int) : Drawable() {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)

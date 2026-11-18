@@ -11,7 +11,7 @@ Guides for installing, using and administering Aoede.
 | Configure environment variables and providers | [Configuration](CONFIGURATION.md) |
 | See the interfaces and features | [Screenshot gallery](SCREENSHOTS.md) |
 | Learn the interface | [User Guide](USER-GUIDE.md) |
-| Choose Classic, Glass or Vitrine | [Themes](THEMES.md) |
+| Choose Classic, Glass, Vitrine or Vice | [Themes](THEMES.md) |
 | Run or join synchronized rooms | [Party Rooms](PARTY-ROOMS.md) |
 | Import an existing music collection | [Importing Music](IMPORTING-MUSIC.md) |
 | Install the Android client | [Android](ANDROID.md) |

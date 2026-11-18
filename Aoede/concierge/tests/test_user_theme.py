@@ -18,7 +18,7 @@ with patch("docker.from_env", return_value=MagicMock()):
     from routers.music import sync
 
 
-@pytest.mark.parametrize("theme", ["glass", "vitrine"])
+@pytest.mark.parametrize("theme", ["glass", "vitrine", "vice"])
 def test_theme_is_private_persisted_across_devices_and_in_heartbeat(db_session, theme):
     alice = database.User(username="theme-alice", hashed_password="unused")
     bob = database.User(username="theme-bob", hashed_password="unused")
@@ -70,7 +70,7 @@ def test_theme_is_private_persisted_across_devices_and_in_heartbeat(db_session, 
     assert db_session.get(database.User, bob.id).theme == "classic"
 
 
-@pytest.mark.parametrize("theme", ["classic", "glass", "vitrine"])
+@pytest.mark.parametrize("theme", ["classic", "glass", "vitrine", "vice"])
 def test_theme_migration_preserves_users_and_rendering_starts_with_saved_theme(db_session, theme):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
@@ -111,11 +111,12 @@ def test_theme_migration_preserves_users_and_rendering_starts_with_saved_theme(d
     assert f'data-theme="{theme}"' in response.body.decode()
     assert "/assets/css/theme_vitrine.css" in response.body.decode()
     assert "/assets/css/theme_glass.css" in response.body.decode()
+    assert "/assets/css/theme_vice.css" in response.body.decode()
     settings = templates.get_template("user_settings.html").render(
         request=request, user=viewer, user_theme=theme, dl_settings=None
     )
     radios = re.findall(r'<input type="radio" name="user-theme"[^>]+>', settings)
-    assert len(radios) == 3
+    assert len(radios) == 4
     assert len([radio for radio in radios if " checked" in radio]) == 1
     assert " checked" in next(radio for radio in radios if f'value="{theme}"' in radio)
     for page in ("base.html", "login.html", "wrapped_story.html"):
@@ -163,15 +164,45 @@ def test_vitrine_migration_keeps_preferences_foreign_keys_and_indexes():
     engine.dispose()
 
 
+def test_vice_upgrade_preserves_accounts_preferences_and_foreign_keys():
+    engine = create_engine("sqlite://")
+    with engine.begin() as conn:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+        conn.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT UNIQUE)"))
+        conn.execute(text("CREATE TABLE favorites (user_id INTEGER REFERENCES users(id) ON DELETE CASCADE)"))
+        conn.execute(text("INSERT INTO users VALUES (1, 'classic'), (2, 'glass'), (3, 'vitrine')"))
+        conn.execute(text("INSERT INTO favorites VALUES (1), (2), (3)"))
+        ops_core._migration_034_user_theme(conn)
+        ops_core._migration_035_vitrine_theme(conn)
+        conn.execute(text("UPDATE users SET theme=username"))
+        ops_core._migration_038_vice_theme(conn)
+        assert conn.execute(text("SELECT theme FROM users ORDER BY id")).scalars().all() == [
+            "classic",
+            "glass",
+            "vitrine",
+        ]
+        conn.execute(text("UPDATE users SET theme='vice' WHERE id=3"))
+        ops_core._migration_038_vice_theme(conn)
+        assert conn.execute(text("SELECT theme FROM users ORDER BY id")).scalars().all() == ["classic", "glass", "vice"]
+        assert conn.execute(text("SELECT user_id FROM favorites ORDER BY user_id")).scalars().all() == [1, 2, 3]
+        assert conn.execute(text("PRAGMA foreign_key_check")).all() == []
+        with pytest.raises(IntegrityError):
+            conn.execute(text("UPDATE users SET theme='invalid'"))
+        with pytest.raises(IntegrityError):
+            conn.execute(text("INSERT INTO users VALUES (4, 'glass', 'classic')"))
+    engine.dispose()
+
+
 @pytest.mark.parametrize("old_column_present", [False, True])
-def test_vitrine_migration_can_resume_after_interrupted_column_change(old_column_present):
+@pytest.mark.parametrize("migration", [ops_core._migration_035_vitrine_theme, ops_core._migration_038_vice_theme])
+def test_theme_migration_can_resume_after_interrupted_column_change(old_column_present, migration):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
         conn.execute(text("CREATE TABLE users (id INTEGER PRIMARY KEY, theme_next TEXT NOT NULL DEFAULT 'classic')"))
         conn.execute(text("INSERT INTO users VALUES (1, 'glass')"))
         if old_column_present:
             conn.execute(text("ALTER TABLE users ADD COLUMN theme TEXT NOT NULL DEFAULT 'classic'"))
-        ops_core._migration_035_vitrine_theme(conn)
+        migration(conn)
         assert conn.execute(text("SELECT theme FROM users")).scalar() == ("classic" if old_column_present else "glass")
         assert "theme_next" not in {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
     engine.dispose()

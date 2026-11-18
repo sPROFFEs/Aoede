@@ -278,6 +278,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     private fun sceneArtwork(bitmap: android.graphics.Bitmap? = null) {
+        if (theme == "vice") {
+            if (root.background !is NativeViceBackground)
+                root.background = NativeViceBackground(activity, design.light)
+            return
+        }
         if (theme != "glass" || reduced()) return
         val image =
             if (loginVisible) null
@@ -340,7 +345,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         val prefs = activity.getSharedPreferences(MainActivity.PREFS, 0)
         theme =
             (api.account?.optString("theme") ?: prefs.getString("native_last_theme", "classic"))
-                ?.takeIf { it in setOf("classic", "glass", "vitrine") } ?: "classic"
+                ?.takeIf { it in setOf("classic", "glass", "vitrine", "vice") } ?: "classic"
         val language =
             (api.account?.optString("language") ?: prefs.getString("native_last_language", "en"))
                 ?.takeIf { it in setOf("en", "es", "de") } ?: "en"
@@ -1281,7 +1286,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     if (theme == "glass") setMargins(dp(12), 0, dp(12), dp(8))
                 },
             )
-            if (theme != "classic" && !reduced())
+            if (theme in setOf("glass", "vitrine") && !reduced())
                 navigation.background =
                     NativeBackdrop(
                         shell,
@@ -1659,7 +1664,10 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                     dp(if (menu) 20 else padding),
                 )
             }
-        if (theme != "classic" && !reduced() && ::shell.isInitialized && shell.parent === root)
+        if (
+            theme in setOf("glass", "vitrine") && !reduced() &&
+                ::shell.isInitialized && shell.parent === root
+        )
             panel.background =
                 NativeBackdrop(
                     fullscreen ?: shell,
@@ -2366,9 +2374,12 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         isFocusable = true
                         background =
                             design.touch(
-                                if (theme == "classic") 0x12ffffff
+                                if (theme == "vice") surface
+                                else if (theme == "classic") 0x12ffffff
                                 else if (theme == "glass") 0x09ffffff else Color.TRANSPARENT,
-                                if (theme == "classic") 4 else if (theme == "glass") 24 else 10,
+                                if (theme == "vice") 14
+                                else if (theme == "classic") 4 else if (theme == "glass") 24 else 10,
+                                theme == "vice",
                             )
                         clipToOutline = true
                         outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
@@ -2379,7 +2390,12 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 if (item.optBoolean("liked")) {
                     art.background = design.likedCover(if (theme == "vitrine") 9 else 0)
                     art.setImageDrawable(
-                        NativeIcon("heart", Color.WHITE, theme, theme != "classic")
+                        NativeIcon(
+                            "heart",
+                            if (theme == "vice") 0xff251329.toInt() else Color.WHITE,
+                            theme,
+                            theme !in setOf("classic", "vice"),
+                        )
                     )
                     art.setPadding(
                         dp(if (theme == "vitrine") 12 else 16),
@@ -5960,7 +5976,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 gravity = Gravity.CENTER_VERTICAL
                 background =
                     if (theme == "classic") shape(0xff292929.toInt(), design.miniRadius)
-                    else if (reduced()) shape(surface, design.miniRadius)
+                    else if (reduced() || theme == "vice")
+                        design.shape(surface, design.miniRadius, theme == "vice")
                     else
                         NativeBackdrop(
                             shell,

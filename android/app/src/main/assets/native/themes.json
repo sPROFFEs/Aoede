@@ -1372,5 +1372,463 @@
         }
       }
     }
+  },
+  "vice": {
+    "dark": {
+      "colors": {
+        "background": "#ff160f29",
+        "surface-0": "#ff251832",
+        "surface-1": "#ff30203f",
+        "surface-2": "#ff3d294b",
+        "surface-3": "#ff694261",
+        "text-main": "#fffff1dc",
+        "text-sub": "#ffdfc2d9",
+        "text-faint": "#ffbb9fba",
+        "primary": "#ffff8cb4",
+        "border-subtle": "#ff694261",
+        "border-strong": "#ff694261",
+        "square-content": "#ff251832",
+        "square-rim": "#ff694261",
+        "square-wash": "#ff3d294b",
+        "square-film": "#ff251832",
+        "square-film-strong": "#ff30203f",
+        "square-glint": "#18ffd4ea",
+        "square-line": "#ff694261",
+        "modal-background": "#ff30203f",
+        "modal-border": "#ff694261",
+        "modal-scrim": "#c90b081b",
+        "modal-header-line": "#0fffffff"
+      },
+      "nav": [
+        "home",
+        "search",
+        "discovery",
+        "library"
+      ],
+      "modal": {
+        "padding": 20,
+        "margin": 12,
+        "border": 1,
+        "radii": [
+          20,
+          20,
+          0,
+          0
+        ],
+        "headerPadding": 14,
+        "headerGap": 18,
+        "titleSize": 17.6,
+        "generalTitleSize": 17.6
+      },
+      "material": {
+        "blur": 0,
+        "saturation": 1
+      },
+      "header": "4px 10px",
+      "radius": "999px",
+      "components": {
+        "tabs": {
+          "bar": {
+            "background": "#00000000",
+            "border": "#ff694261",
+            "borderWidth": 0,
+            "radius": 10,
+            "paddingX": 4,
+            "paddingY": 4,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "active": {
+            "background": "#ff30203f",
+            "border": "#ff694261",
+            "borderWidth": 1,
+            "radius": 10,
+            "paddingX": 14,
+            "paddingY": 8,
+            "font": 13,
+            "weight": 600,
+            "ink": "#ffff8cb4"
+          },
+          "inactive": {
+            "background": "#ff3d294b",
+            "border": "#00000000",
+            "borderWidth": 1,
+            "radius": 10,
+            "paddingX": 14,
+            "paddingY": 8,
+            "font": 13,
+            "weight": 600,
+            "ink": "#fffff1dc"
+          },
+          "gap": 4,
+          "height": 53
+        },
+        "settingsPanel": {
+          "surface": {
+            "background": "#ff251832",
+            "border": "#ff694261",
+            "borderWidth": 1,
+            "radius": 26,
+            "paddingX": 18,
+            "paddingY": 18,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "header": {
+            "background": "#00000000",
+            "border": "#ff694261",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "body": {
+            "background": "#00000000",
+            "border": "#ff694261",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "title": {
+            "background": "#00000000",
+            "border": "#fffff1dc",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 22.4,
+            "weight": 700,
+            "ink": "#fffff1dc"
+          },
+          "description": {
+            "background": "#00000000",
+            "border": "#ffdfc2d9",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 14.72,
+            "weight": 400,
+            "ink": "#ffdfc2d9"
+          }
+        },
+        "adminPanel": {
+          "surface": {
+            "background": "#ff251832",
+            "border": "#ff694261",
+            "borderWidth": 1,
+            "radius": 26,
+            "paddingX": 18,
+            "paddingY": 18,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "header": {
+            "background": "#00000000",
+            "border": "#ff694261",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 16,
+            "paddingY": 16,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "body": {
+            "background": "#00000000",
+            "border": "#ff694261",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 16,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "title": {
+            "background": "#00000000",
+            "border": "#fffff1dc",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 23.2,
+            "weight": 700,
+            "ink": "#fffff1dc"
+          },
+          "description": {
+            "background": "#00000000",
+            "border": "#ffdfc2d9",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 14.4,
+            "weight": 400,
+            "ink": "#ffdfc2d9"
+          },
+          "input": {
+            "background": "#ff3d294b",
+            "border": "#ff694261",
+            "borderWidth": 1,
+            "radius": 14,
+            "paddingX": 12,
+            "paddingY": 0,
+            "font": 13.3333,
+            "weight": 400,
+            "ink": "#fffff1dc"
+          },
+          "button": {
+            "background": "#ffff8cb4",
+            "border": "#00000000",
+            "borderWidth": 1,
+            "radius": 999,
+            "paddingX": 14,
+            "paddingY": 0,
+            "font": 13.3333,
+            "weight": 600,
+            "ink": "#ff251329"
+          }
+        }
+      }
+    },
+    "light": {
+      "colors": {
+        "background": "#fffff1df",
+        "surface-0": "#fffff7ed",
+        "surface-1": "#fffff9f3",
+        "surface-2": "#fff3dedb",
+        "surface-3": "#ffd9b9c8",
+        "text-main": "#ff34203e",
+        "text-sub": "#ff6d4b68",
+        "text-faint": "#ff7b5c72",
+        "primary": "#ffa52d65",
+        "border-subtle": "#ffd9b9c8",
+        "border-strong": "#ffd9b9c8",
+        "square-content": "#fffff7ed",
+        "square-rim": "#ffd9b9c8",
+        "square-wash": "#fff3dedb",
+        "square-film": "#fffff7ed",
+        "square-film-strong": "#fffff9f3",
+        "square-glint": "#30ffffff",
+        "square-line": "#ffd9b9c8",
+        "modal-background": "#fffff9f3",
+        "modal-border": "#ffd9b9c8",
+        "modal-scrim": "#b31c1035",
+        "modal-header-line": "#0fffffff"
+      },
+      "nav": [
+        "home",
+        "search",
+        "discovery",
+        "library"
+      ],
+      "modal": {
+        "padding": 20,
+        "margin": 12,
+        "border": 1,
+        "radii": [
+          20,
+          20,
+          0,
+          0
+        ],
+        "headerPadding": 14,
+        "headerGap": 18,
+        "titleSize": 17.6,
+        "generalTitleSize": 17.6
+      },
+      "material": {
+        "blur": 0,
+        "saturation": 1
+      },
+      "header": "4px 10px",
+      "radius": "999px",
+      "components": {
+        "tabs": {
+          "bar": {
+            "background": "#00000000",
+            "border": "#ffd9b9c8",
+            "borderWidth": 0,
+            "radius": 10,
+            "paddingX": 4,
+            "paddingY": 4,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "active": {
+            "background": "#fffff9f3",
+            "border": "#ffd9b9c8",
+            "borderWidth": 1,
+            "radius": 10,
+            "paddingX": 14,
+            "paddingY": 8,
+            "font": 13,
+            "weight": 600,
+            "ink": "#ffa52d65"
+          },
+          "inactive": {
+            "background": "#fff3dedb",
+            "border": "#00000000",
+            "borderWidth": 1,
+            "radius": 10,
+            "paddingX": 14,
+            "paddingY": 8,
+            "font": 13,
+            "weight": 600,
+            "ink": "#ff34203e"
+          },
+          "gap": 4,
+          "height": 53
+        },
+        "settingsPanel": {
+          "surface": {
+            "background": "#fffff7ed",
+            "border": "#ffd9b9c8",
+            "borderWidth": 1,
+            "radius": 26,
+            "paddingX": 18,
+            "paddingY": 18,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "header": {
+            "background": "#00000000",
+            "border": "#ffd9b9c8",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "body": {
+            "background": "#00000000",
+            "border": "#ffd9b9c8",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "title": {
+            "background": "#00000000",
+            "border": "#ff34203e",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 22.4,
+            "weight": 700,
+            "ink": "#ff34203e"
+          },
+          "description": {
+            "background": "#00000000",
+            "border": "#ff6d4b68",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 14.72,
+            "weight": 400,
+            "ink": "#ff6d4b68"
+          }
+        },
+        "adminPanel": {
+          "surface": {
+            "background": "#fffff7ed",
+            "border": "#ffd9b9c8",
+            "borderWidth": 1,
+            "radius": 26,
+            "paddingX": 18,
+            "paddingY": 18,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "header": {
+            "background": "#00000000",
+            "border": "#ffd9b9c8",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 16,
+            "paddingY": 16,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "body": {
+            "background": "#00000000",
+            "border": "#ffd9b9c8",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 16,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "title": {
+            "background": "#00000000",
+            "border": "#ff34203e",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 23.2,
+            "weight": 700,
+            "ink": "#ff34203e"
+          },
+          "description": {
+            "background": "#00000000",
+            "border": "#ff6d4b68",
+            "borderWidth": 0,
+            "radius": 0,
+            "paddingX": 0,
+            "paddingY": 0,
+            "font": 14.4,
+            "weight": 400,
+            "ink": "#ff6d4b68"
+          },
+          "input": {
+            "background": "#fff3dedb",
+            "border": "#ffd9b9c8",
+            "borderWidth": 1,
+            "radius": 14,
+            "paddingX": 12,
+            "paddingY": 0,
+            "font": 13.3333,
+            "weight": 400,
+            "ink": "#ff34203e"
+          },
+          "button": {
+            "background": "#ffa52d65",
+            "border": "#00000000",
+            "borderWidth": 1,
+            "radius": 999,
+            "paddingX": 14,
+            "paddingY": 0,
+            "font": 13.3333,
+            "weight": 600,
+            "ink": "#fffff9ed"
+          }
+        }
+      }
+    }
   }
 }

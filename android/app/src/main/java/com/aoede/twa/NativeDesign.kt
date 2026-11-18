@@ -69,9 +69,16 @@ class NativeDesign(
 ) {
     companion object {
         private var themes: JSONObject? = null
+        private var viceTypeface: Typeface? = null
     }
 
     private val density = context.resources.displayMetrics.density
+    private val displayTypeface =
+        if (theme == "vice")
+            viceTypeface
+                ?: Typeface.createFromAsset(context.assets, "web/assets/fonts/vice-display.ttf")
+                    .also { viceTypeface = it }
+        else null
     private val values =
         (themes
                 ?: JSONObject(
@@ -85,7 +92,7 @@ class NativeDesign(
     private val colors = values.getJSONObject("colors")
 
     fun color(name: String): Int {
-        if (effectsReduced && theme != "classic")
+        if (effectsReduced && theme in setOf("glass", "vitrine"))
             when (name) {
                 "surface-0",
                 "square-film",
@@ -128,14 +135,16 @@ class NativeDesign(
         get() = values.getJSONObject("material").optDouble("saturation", 1.0).toFloat()
 
     val onAccent =
-        if (theme == "classic" || (theme == "glass" && !light)) Color.BLACK else Color.WHITE
+        if (theme == "vice" && !light) 0xff251329.toInt()
+        else if (theme == "classic" || (theme == "glass" && !light)) Color.BLACK else Color.WHITE
     val nav = values.getJSONArray("nav").let { a -> (0 until a.length()).map(a::getString) }
     val gutter = if (context.resources.configuration.screenWidthDp < 360) 16 else 20
-    val chipRadius = if (theme == "vitrine") 8 else 999
+    val chipRadius = if (theme == "vice") 10 else if (theme == "vitrine") 8 else 999
     val cardRadius =
         when (theme) {
             "classic" -> 4
             "glass" -> 24
+            "vice" -> 14
             else -> 10
         }
     val miniRadius =
@@ -149,7 +158,9 @@ class NativeDesign(
     fun likedCover(radius: Int) =
         GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                if (theme == "vitrine") intArrayOf(0xfff97f9f.toInt(), 0xffbd2547.toInt())
+                if (theme == "vice")
+                    intArrayOf(0xfff9c780.toInt(), 0xffef75ac.toInt(), 0xff6f52ad.toInt())
+                else if (theme == "vitrine") intArrayOf(0xfff97f9f.toInt(), 0xffbd2547.toInt())
                 else intArrayOf(0xff4f46e5.toInt(), 0xffec4899.toInt()),
             )
             .apply { cornerRadius = dp(radius).toFloat() }
@@ -174,7 +185,8 @@ class NativeDesign(
         view.textSize = size
         view.includeFontPadding = false
         view.typeface =
-            if (android.os.Build.VERSION.SDK_INT >= 28)
+            if (displayTypeface != null && size >= 20) displayTypeface
+            else if (android.os.Build.VERSION.SDK_INT >= 28)
                 Typeface.create(Typeface.create("sans-serif", Typeface.NORMAL), weight, false)
             else
                 Typeface.create(
@@ -182,8 +194,10 @@ class NativeDesign(
                     if (weight >= 700) Typeface.BOLD else Typeface.NORMAL,
                 )
         view.setTextColor(ink)
+        view.setAllCaps(theme == "vice" && size >= 20)
         lines(view, 1.25f)
-        view.letterSpacing = if (size >= 20) -.025f else 0f
+        view.letterSpacing =
+            if (theme == "vice" && size >= 20) .015f else if (size >= 20) -.025f else 0f
     }
 
     fun lines(view: TextView, multiplier: Float) {
@@ -227,6 +241,7 @@ class NativeDesign(
 /** Same sidebar/cards/player miniature used by .theme-preview in the web chooser. */
 class NativeThemePreview(context: Context, private val theme: String) : View(context) {
     private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
+    private val skyline = if (theme == "vice") NativeViceBackground(context, false) else null
 
     override fun onDraw(canvas: android.graphics.Canvas) {
         val w = width.toFloat()
@@ -259,7 +274,11 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             else if (glass) 0xffe8e5f0.toInt() else 0xffe1e4f1.toInt(),
             0f,
         )
-        if (!classic) {
+        skyline?.apply {
+            setBounds(0, 0, width, height)
+            draw(canvas)
+        }
+        if (!classic && theme != "vice") {
             for ((x, y, color) in
                 listOf(
                     Triple(
@@ -302,7 +321,8 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             10 * d,
             10 * d + w * .22f,
             h - 30 * d,
-            if (classic) 0xff242424.toInt() else if (glass) 0x8cffffff.toInt() else 0x36ffffff,
+            if (theme == "vice") 0xff251832.toInt()
+            else if (classic) 0xff242424.toInt() else if (glass) 0x8cffffff.toInt() else 0x36ffffff,
             if (glass) h else if (classic) 8 * d else 12 * d,
         )
         val left = w * .38f
@@ -356,7 +376,8 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             h - (if (classic || glass) 24 else 32) * d,
             w - 10 * d,
             h - 10 * d,
-            if (classic) 0xff1ed760.toInt() else if (glass) 0x8cffffff.toInt() else 0x45ffffff,
+            if (theme == "vice") 0xffff8cb4.toInt()
+            else if (classic) 0xff1ed760.toInt() else if (glass) 0x8cffffff.toInt() else 0x45ffffff,
             if (classic) 3 * d else h,
         )
         canvas.restore()

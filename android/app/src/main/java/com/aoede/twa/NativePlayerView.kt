@@ -15,11 +15,13 @@ import org.json.JSONObject
 
 /** Native translation of .fs-content's mobile grid and the Vitrine arrangement. */
 class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
+    private val viceDesign =
+        if (ui.design.theme == "vice") NativeDesign(context, "vice", false, ui.reduced()) else null
     private val player
         get() = ui.player
 
     private val design
-        get() = ui.design
+        get() = viceDesign ?: ui.design
 
     private val apple
         get() = design.theme == "vitrine"
@@ -312,6 +314,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 else ui.app.mediaController.command("play")
             }
         if (design.theme == "classic") toggle.background = design.touch(Color.WHITE, 999)
+        if (design.theme == "vice") toggle.background = design.touch(design.accent, 999)
         spacer()
         control(
                 controls,
@@ -467,7 +470,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                         paint.color = 0x44ffffff
                         canvas.drawRoundRect(line, height / 2, height / 2, paint)
                         line.right = line.left + line.width() * level / 10000f
-                        paint.color = Color.WHITE
+                        paint.color = if (design.theme == "vice") 0xff84e2cc.toInt() else Color.WHITE
                         canvas.drawRoundRect(line, height / 2, height / 2, paint)
                     }
 
@@ -979,9 +982,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         if (mode == "cover") copy(viewLabel, t.optString("artist"))
         toggle.text = if (player.playing) "pause" else "play"
         toggle.contentDescription = if (player.playing) "Pause" else "Play"
-        toggle.color(if (design.theme == "classic") Color.BLACK else Color.WHITE)
+        toggle.color(if (design.theme == "vice") design.onAccent else if (design.theme == "classic") Color.BLACK else Color.WHITE)
         favorite.color(
-            if (design.theme == "classic" && ui.app.mediaController.favorite) ui.accent
+            if (design.theme in setOf("classic", "vice") && ui.app.mediaController.favorite) design.accent
             else Color.WHITE,
             ui.app.mediaController.favorite,
         )
@@ -995,10 +998,10 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             it.isEnabled = ui.app.mediaController.canRepeat
             it.alpha = if (it.isEnabled) 1f else .35f
         }
-        shuffle?.color(if (ui.app.mediaController.shuffle) ui.accent else 0xffc5c7d1.toInt())
+        shuffle?.color(if (ui.app.mediaController.shuffle) design.accent else 0xffc5c7d1.toInt())
         repeat?.let {
             it.text = if (ui.app.mediaController.repeat == "one") "repeat-1" else "repeat"
-            it.color(if (ui.app.mediaController.repeat != "off") ui.accent else 0xffc5c7d1.toInt())
+            it.color(if (ui.app.mediaController.repeat != "off") design.accent else 0xffc5c7d1.toInt())
         }
         if (!seeking)
             seek.progress =
@@ -1127,6 +1130,12 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     }
 
     private fun background(bitmap: Bitmap) {
+        if (design.theme == "vice") {
+            backdrop.setImageDrawable(null)
+            if (shade.background !is NativeViceBackground)
+                shade.background = NativeViceBackground(context, false)
+            return
+        }
         if (ui.reduced()) {
             backdropBitmap = null
             backdrop.setImageDrawable(null)

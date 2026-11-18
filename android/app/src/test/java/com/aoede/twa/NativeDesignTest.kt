@@ -55,7 +55,8 @@ class NativeDesignTest {
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun themesKeepTheirNavigationAndCanonicalIcons() {
         NativeIcon.install(app)
-        for (name in listOf("classic", "glass", "vitrine")) for (light in listOf(false, true)) {
+        for (name in listOf("classic", "glass", "vitrine", "vice")) for (light in
+            listOf(false, true)) {
             val design = NativeDesign(app, name, light)
             assertEquals(
                 if (name == "vitrine") listOf("library", "home", "discovery", "search")
@@ -87,6 +88,29 @@ class NativeDesignTest {
                 )
                 image.recycle()
             }
+        }
+    }
+
+    @Test
+    fun viceUsesReadableOpaqueSurfacesAndItsBundledDisplayFont() {
+        for (light in listOf(false, true)) {
+            val design = NativeDesign(app, "vice", light)
+            assertEquals(255, Color.alpha(design.surface))
+            for (ink in listOf(design.ink, design.muted)) assertTrue(
+                androidx.core.graphics.ColorUtils.calculateContrast(ink, design.surface) >= 4.5
+            )
+            assertTrue(
+                androidx.core.graphics.ColorUtils.calculateContrast(
+                    design.onAccent,
+                    design.accent,
+                ) >= 4.5
+            )
+            val title = android.widget.TextView(app)
+            design.typography(title, 28f, 700)
+            val display = title.typeface
+            design.typography(title, 14f)
+            assertNotSame(display, title.typeface)
+            assertEquals(0f, design.blurDp)
         }
     }
 
@@ -466,7 +490,7 @@ class NativeDesignTest {
         val ui = NativeUi(lifecycle.get(), app)
         ui.create()
         val root = lifecycle.get().findViewById<android.widget.FrameLayout>(R.id.main_root)
-        for (name in listOf("classic", "glass", "vitrine")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice")) {
             theme(name)
             ui.screen("Library")
             val dock = root.findViewWithTag<android.widget.LinearLayout>("native-bottom-dock")
@@ -567,7 +591,7 @@ class NativeDesignTest {
                 }
             return null
         }
-        for (name in listOf("classic", "glass", "vitrine")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice")) {
             theme(name)
             for (value in
                 listOf(
@@ -608,7 +632,7 @@ class NativeDesignTest {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val ui = NativeUi(lifecycle.get(), app)
         ui.create()
-        for (name in listOf("classic", "glass", "vitrine")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice")) {
             theme(name)
             ui.screen("Playback")
             val player = NativePlayerView(ui)
@@ -656,8 +680,14 @@ class NativeDesignTest {
             android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
             1f,
         )
-        NativePlayback::class.java.getDeclaredField("tracks").apply { isAccessible = true }
-            .set(app.nativePlayback, listOf(org.json.JSONObject().put("id", 1).put("title", "Sample")))
+        NativePlayback::class
+            .java
+            .getDeclaredField("tracks")
+            .apply { isAccessible = true }
+            .set(
+                app.nativePlayback,
+                listOf(org.json.JSONObject().put("id", 1).put("title", "Sample")),
+            )
         val root = activity.findViewById<android.widget.FrameLayout>(R.id.main_root)
         fun layout() {
             root.measure(
@@ -668,7 +698,8 @@ class NativeDesignTest {
         }
         fun tap(x: Float, y: Float) {
             val now = android.os.SystemClock.uptimeMillis()
-            for (action in listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
+            for (action in
+                listOf(android.view.MotionEvent.ACTION_DOWN, android.view.MotionEvent.ACTION_UP)) {
                 android.view.MotionEvent.obtain(now, now + 16, action, x, y, 0).also {
                     root.dispatchTouchEvent(it)
                     it.recycle()
@@ -677,7 +708,7 @@ class NativeDesignTest {
             clock.idle()
         }
         try {
-            for (name in listOf("classic", "glass", "vitrine")) {
+            for (name in listOf("classic", "glass", "vitrine", "vice")) {
                 theme(name)
                 ui.screen("Playback")
                 var backgroundClicks = 0
@@ -698,25 +729,39 @@ class NativeDesignTest {
                     val point = IntArray(2)
                     progress.getLocationOnScreen(point)
                     tap(point[0] + progress.width / 4f, point[1] + progress.height - 4f)
-                    assertEquals("$name/$mode: gaps must not pass taps through", 1, backgroundClicks)
+                    assertEquals(
+                        "$name/$mode: gaps must not pass taps through",
+                        1,
+                        backgroundClicks,
+                    )
                     panel.translationY = 300f
                     panel.scaleX = .94f
                     tap(200f, 200f)
                     assertEquals("$name/$mode: displaced player", 1, backgroundClicks)
                     panel.translationY = 0f
                     panel.scaleX = 1f
-                    val minimize = (panel.findViewWithTag<View>("native-fs-header") as android.view.ViewGroup).getChildAt(0)
+                    val minimize =
+                        (panel.findViewWithTag<View>("native-fs-header") as android.view.ViewGroup)
+                            .getChildAt(0)
                     minimize.getLocationOnScreen(point)
                     tap(point[0] + minimize.width / 2f, point[1] + minimize.height / 2f)
                     assertNull("$name/$mode: player buttons must remain usable", ui.fullscreen)
                     val visibleWhileClosing = panel.parent === root
                     tap(200f, 200f)
-                    assertEquals("$name/$mode: closing", if (visibleWhileClosing) 1 else 2, backgroundClicks)
+                    assertEquals(
+                        "$name/$mode: closing",
+                        if (visibleWhileClosing) 1 else 2,
+                        backgroundClicks,
+                    )
                     val beforeReturn = backgroundClicks
                     clock.idleFor(java.time.Duration.ofMillis(450))
                     layout()
                     tap(200f, 200f)
-                    assertEquals("$name/$mode: page must become usable again", beforeReturn + 1, backgroundClicks)
+                    assertEquals(
+                        "$name/$mode: page must become usable again",
+                        beforeReturn + 1,
+                        backgroundClicks,
+                    )
                     backgroundClicks = 1
                 }
             }
@@ -959,7 +1004,7 @@ class NativeDesignTest {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val ui = NativeUi(lifecycle.get(), app)
         ui.create()
-        for (name in listOf("classic", "glass", "vitrine")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice")) {
             theme(name)
             ui.screen("Player")
             for ((w, h) in listOf(400 to 778, 320 to 568, 850 to 328)) {

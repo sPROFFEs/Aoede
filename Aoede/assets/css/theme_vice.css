@@ -1,0 +1,92 @@
+/* Vice: original sunset/palm styling inspired by Rockstar's GTA VI visual direction.
+   https://www.rockstargames.com/VI — all decoration is local and independent of album art. */
+@font-face { font-family: Vice Display; src: url('../fonts/vice-display.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: swap; }
+html[data-theme="vice"] {
+    color-scheme: light;
+    --square-base: #fff1df; --square-ink: #34203e; --square-muted: #6d4b68; --square-faint: #7b5c72;
+    --square-film: #fff7ed; --square-film-strong: #fff9f3; --square-content: #fff7ed; --square-wash: #f3dedb;
+    --square-rim: #d9b9c8; --square-line: #d9b9c8; --square-glint: #ffffff30; --square-overlay: #1c0f35b3;
+    --square-primary: #a52d65; --square-on-primary: #fff9ed; --square-success: #1c6c61; --square-danger: #a72c4e; --square-warning: #7a4b0d;
+    --square-shadow: 0 8px 28px #32123812; --square-blur: none;
+    --vice-glow: #ffc28d66; --vice-horizon: #f7d6cc; --vice-mint: #236c65;
+    --background: var(--square-base); --surface: var(--square-film); --surface-0: var(--square-film); --surface-1: var(--square-film-strong);
+    --surface-2: var(--square-wash); --surface-3: var(--square-line); --text-main: var(--square-ink); --text-primary: var(--square-ink);
+    --text-sub: var(--square-muted); --text-muted: var(--square-muted); --text-faint: var(--square-faint);
+    --primary: var(--square-primary); --primary-hover: var(--square-primary); --accent: var(--primary); --accent-blue: var(--primary); --accent-rgb: 165, 45, 101;
+    --danger: var(--square-danger); --warning: var(--square-warning); --border: var(--square-line); --border-subtle: var(--square-line); --border-strong: var(--square-line);
+    --glass-bg: var(--square-film); --glass-border: var(--square-rim); --glass-border-highlight: var(--square-rim); --glass-blur: none;
+    --input-bg: var(--square-film-strong); --input-border: var(--square-line);
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 18px; --radius-pill: 999px;
+    --shadow-sm: 0 2px 8px #32123812; --shadow-md: var(--square-shadow); --shadow-lg: var(--square-shadow);
+}
+@media (prefers-color-scheme: dark) {
+    html[data-theme="vice"] {
+        color-scheme: dark;
+        --square-base: #160f29; --square-ink: #fff1dc; --square-muted: #dfc2d9; --square-faint: #bb9fba;
+        --square-film: #251832; --square-film-strong: #30203f; --square-content: #251832; --square-wash: #3d294b;
+        --square-rim: #694261; --square-line: #694261; --square-glint: #ffd8ee18; --square-overlay: #0c071bc9;
+        --square-primary: #ff8cb4; --square-on-primary: #251329; --square-success: #84e2cc; --square-danger: #ffa6b3; --square-warning: #ffd18c;
+        --square-shadow: 0 10px 32px #09041344; --vice-glow: #eb5b9630; --vice-horizon: #372049; --vice-mint: #84e2cc; --accent-rgb: 255, 140, 180;
+    }
+}
+html[data-theme="vice"] body { isolation: isolate; background: linear-gradient(180deg, var(--background), var(--vice-horizon) 65%, var(--background)) !important; }
+html[data-theme="vice"] body::before { content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none; background: url('../img/vice-palms.svg') right bottom / cover no-repeat; filter: none; opacity: .13; }
+html[data-theme="vice"] :is(h1, .hero-greeting, .playlist-title, .fs-title, .shelf-title, .monitor-panel h2, .admin-panel h2, .user-settings-panel h2, .lyric-line) { font-family: Vice Display, var(--font-ui) !important; font-weight: 700; letter-spacing: .015em; text-transform: uppercase; }
+html[data-theme="vice"] :is(h1, .hero-greeting, .playlist-title, .fs-title, .shelf-title) :where(span, strong, b) { font-family: inherit !important; }
+html[data-theme="vice"] .hero-greeting { font-size: clamp(2.1rem, 5vw, 3.8rem); line-height: 1.04; }
+html[data-theme="vice"] .hero-kicker { color: var(--primary); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+html[data-theme="vice"] :is(.card, .library-card, .quick-pick, .party-card, .discovery-card, .radio-card, .offline-playlist-card, .theme-option) { border-radius: 14px !important; }
+html[data-theme="vice"] :is(.sidebar, .player-footer, .app-header, .m-topbar, .m-bottom-nav) { background: var(--square-film) !important; border-color: var(--square-line) !important; border-radius: 16px; box-shadow: var(--square-shadow); }
+html[data-theme="vice"] :is(.sidebar-item.active, .home-tab.active, .m-nav-item.active) { color: var(--primary) !important; background: var(--square-wash) !important; }
+html[data-theme="vice"] :is(.home-tab, .library-filter, .chip, .settings-tabbar button, .source-pill) { min-height: 44px; border-radius: 10px !important; line-height: 1.35; }
+html[data-theme="vice"] :is(button, a, input, select, textarea, summary):focus-visible { outline: 2px solid var(--vice-mint) !important; outline-offset: 3px; }
+html[data-theme="vice"] :is(input, textarea, select) { accent-color: var(--primary); caret-color: var(--primary); }
+html[data-theme="vice"] :is(input[type="checkbox"], input[type="radio"], input[role="switch"]) { flex-shrink: 0; }
+html[data-theme="vice"] :is(.ctx-menu, .user-menu-panel, .collection-more-panel, .modal, .modal-box, .atp-modal, .create-menu-panel, .update-toast-card) { border-radius: 16px !important; background: var(--square-film-strong) !important; color: var(--text-main) !important; }
+html[data-theme="vice"] :is(.modal-close, .create-menu-close, .atp-close, .lyrics-close, .admin-icon-btn, .discovery-action) { min-width: 44px; min-height: 44px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+html[data-theme="vice"] :is(.modal-body, .ctx-item-label, .collection-more-panel button, .user-menu-item, .monitor-kv-value, .job-detail) { min-width: 0; overflow-wrap: anywhere; }
+html[data-theme="vice"] :is(button, input, select, textarea) { max-width: 100%; }
+html[data-theme="vice"] :is(.playlist-cover-large, .card-img-container, .library-card-cover) { border-radius: 10px; }
+html[data-theme="vice"] :is(.quick-pick-cover-favorites, .sidebar-cover-favorites, .playlist-cover-favorites, .library-liked .library-card-cover) { background: linear-gradient(145deg, #f9c780, #ef75ac 48%, #6f52ad) !important; color: #251329 !important; }
+html[data-theme="vice"] :is(.fs-progress-fill, .volume-bar-fill, .job-progress-fill, .offline-storage-bar-fill) { background: var(--vice-mint) !important; }
+html[data-theme="vice"] .discovery-reason-banner { background: var(--square-wash) !important; color: var(--text-main) !important; border: 1px solid var(--square-line); }
+html[data-theme="vice"] :is(.toast-msg, .job-item, .download-runtime-card, .download-provider-card, .monitor-card, .monitor-panel, .admin-panel, .user-settings-panel, .about-panel) { background: var(--square-film) !important; color: var(--text-main) !important; border-color: var(--square-line) !important; box-shadow: none; }
+html[data-theme="vice"] :is(.toast-msg-text, .job-title, .job-detail, .job-track-meta, .job-footer) { background: transparent !important; color: inherit !important; }
+html[data-theme="vice"] :is(.status-badge, .download-provider-state, .admin-badge) { background: var(--square-wash) !important; border-color: var(--square-line) !important; }
+html[data-theme="vice"] .login-card { border-radius: 20px; }
+html[data-theme="vice"] .login-page { background: transparent !important; }
+/* The player has a quiet night palette in both device appearances. */
+html[data-theme="vice"] .fullscreen-player { --text-main: #fff1dc; --text-primary: #fff1dc; --text-sub: #dfc2d9; --text-muted: #dfc2d9; --text-faint: #bb9fba; --primary: #ff8cb4; --primary-hover: #ff8cb4; --square-primary: #ff8cb4; --square-on-primary: #251329; --square-ink: #fff1dc; --square-muted: #dfc2d9; --square-faint: #bb9fba; --square-film: #251832; --square-film-strong: #30203f; --square-content: #251832; --square-wash: #3d294b; --square-line: #694261; --square-rim: #694261; --surface-0: #251832; --surface-1: #30203f; --surface-2: #3d294b; --surface-3: #694261; --danger: #ffa6b3; --vice-mint: #84e2cc; color-scheme: dark; background: #160f29; }
+html[data-theme="vice"] .fullscreen-player .fs-background { background: linear-gradient(180deg, #160f29, #372049 65%, #160f29) !important; filter: none; opacity: 1; }
+html[data-theme="vice"] .fullscreen-player .fs-background::before { content: ''; position: absolute; inset: 0; background: url('../img/vice-palms.svg') right bottom / cover no-repeat; opacity: .13; filter: none; pointer-events: none; }
+html[data-theme="vice"] .fullscreen-player :is(.fs-progress-bar, #fs-volume-bar) { background: transparent !important; }
+html[data-theme="vice"] .fullscreen-player .fs-cover { border-radius: 12px; }
+html[data-theme="vice"] .fullscreen-player :is(.fs-info, .fs-actions, .fs-stage, .fs-detail-stage, .fs-content) { background: transparent !important; border: 0 !important; box-shadow: none; backdrop-filter: none; -webkit-backdrop-filter: none; }
+html[data-theme="vice"] .fullscreen-player :is(.fs-title, .fs-view-label, .fs-artist, .fs-progress-container, .lyrics-panel, .queue-panel) { color: #fff1dc !important; }
+html[data-theme="vice"] .fullscreen-player :is(.fs-volume-panel, .fs-more-menu) { background: #30203f !important; color: #fff1dc !important; border-color: #694261 !important; }
+html[data-theme="vice"] .fullscreen-player :is(.fs-stage, .fs-detail-stage) > :is(#lyrics-panel, #queue-panel) { background: transparent !important; color: #fff1dc !important; }
+html[data-theme="vice"] .fullscreen-player .fs-play-main { background: #ff8cb4 !important; color: #251329 !important; border-color: transparent !important; }
+html[data-theme="vice"] .fullscreen-player .fs-action-btn.active { color: #ff8cb4 !important; }
+html[data-theme="vice"] .fullscreen-player #fs-volume-bar .volume-bar-fill { background: #84e2cc !important; }
+.theme-preview-vice { background: linear-gradient(150deg, #160f29, #8f416c 65%, #f2af80); }
+.theme-preview-vice .theme-preview-sidebar { background: #251832; border: 1px solid #694261; border-radius: 10px; }
+.theme-preview-vice .theme-preview-cards i { background: linear-gradient(160deg, #f9c780, #ed77ab, #6d52a4); border-radius: 8px; }
+.theme-preview-vice .theme-preview-player { background: #ff8cb4; border-radius: 10px; }
+@media (max-width: 768px), (max-height: 500px) and (pointer: coarse) {
+    html[data-theme="vice"] :is(.m-topbar, .m-bottom-nav) { border-radius: 0; }
+    html[data-theme="vice"] .m-topbar { border-bottom: 1px solid var(--square-line); }
+    html[data-theme="vice"] .playlist-title { font-size: clamp(1.8rem, 9vw, 2.8rem); }
+    html[data-theme="vice"] .fullscreen-player .fs-title { font-size: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme="vice"] :is(.card, .quick-pick, .fs-cover, button) { transition: none !important; animation: none !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+    html[data-theme="vice"] body::before { display: none; }
+    html[data-theme="vice"] :is(.sidebar, .player-footer, .m-topbar, .m-bottom-nav, .modal-overlay) { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+}
+@media (forced-colors: active) {
+    html[data-theme="vice"] { --square-base: Canvas; --square-film: Canvas; --square-film-strong: Canvas; --square-content: Canvas; --square-wash: Canvas; --square-line: CanvasText; --square-rim: CanvasText; --square-ink: CanvasText; --square-muted: CanvasText; --square-faint: CanvasText; --square-primary: Highlight; --square-on-primary: HighlightText; --vice-mint: Highlight; }
+    html[data-theme="vice"] :is(body::before, .fs-background) { display: none; }
+    html[data-theme="vice"] :is(body, .fullscreen-player, .fs-volume-panel, .fs-more-menu) { background: Canvas !important; color: CanvasText !important; }
+}

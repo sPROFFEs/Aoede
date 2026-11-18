@@ -1,14 +1,17 @@
 # Appearance themes
 
-Choose **Settings → Appearance → Classic, Glass or Vitrine**. Classic is the default. The selected theme belongs to your account and synchronizes between devices; changing it keeps the current view, queue and playback session.
+Choose **Settings → Appearance → Classic, Glass, Vitrine or Vice**. Classic is the default. The selected theme belongs to your account and synchronizes between devices; changing it keeps the current view, queue and playback session.
 
 | Theme | Appearance |
 |---|---|
 | Classic | Spotify inspired charcoal panes, compact navigation, artwork shelves and filled transport controls. |
 | Glass | Square inspired translucent surfaces, soft rounded controls and an accent sampled from the current artwork. |
 | Vitrine | Apple Music inspired library and collection hierarchy, red accent, clean separators and restrained glass chrome. |
+| Vice | GTA VI inspired palms, sunset pink and purple, warm cream, mint transport accents and poster headings. |
 
-Glass and Vitrine follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content.
+Vice uses GTA VI inspired sunset colors, tropical silhouettes and a bundled condensed display font. Its cream/daytime and purple/nighttime palettes follow the device appearance; the fullscreen player keeps a quiet night palette. Decorative artwork is local and does not replace the Aoede icon.
+
+Glass, Vitrine and Vice follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content.
 
 [See desktop, mobile web and native Android screenshots in every theme.](SCREENSHOTS.md)
 
@@ -28,7 +31,7 @@ Content uses a 20 px phone gutter, reduced to 16 px on the narrowest displays; s
 
 ## Player
 
-All themes reuse the same compact and fullscreen player, queue, lyrics, volume and transport controllers. Vitrine has an open Apple Music style transport and inline volume; Classic uses a filled primary play button. Artwork expands gently during playback and contracts when paused. Reduced motion removes that decorative movement.
+All themes reuse the same compact and fullscreen player, queue, lyrics, volume and transport controllers. Vitrine has an open Apple Music style transport and inline volume; Classic and Vice use a filled primary play button. Artwork expands gently during playback and contracts when paused. Reduced motion removes that decorative movement.
 
 On mobile, swipe left on the compact player for the next track or right for the previous song. The fullscreen player accepts the same gestures on its artwork. Buttons and sliders keep their normal behavior, including the Previous button's restart-before-skip behavior. Vertical scrolling, short drags, long presses and multi-touch do not skip songs. Gestures use the existing queue, repeat and party controls.
 
@@ -43,3 +46,9 @@ The authenticated server preference wins online. Offline, the last confirmed cho
 The web app and URL wrappers load the server frontend. The native Android interface is installed with the APK and receives interface changes through APK updates. Its optional compatibility mode uses the bundled web interface. Android Reduce effects disables costly materials. The application icon, favicons, adaptive icons and desktop installation artwork are independent of the theme and remain Aoede's own design.
 
 English, Spanish and German share the same translated runtime labels and placeholders. Native form controls, focus outlines, named dismissal controls, reduced motion, reduced transparency and forced-color fallbacks remain available.
+
+## Vice references
+
+The [official GTA VI site](https://www.rockstargames.com/VI) informed Vice's colors and poster hierarchy. The palms are original vector decoration; no game artwork is required at runtime. Display headings use Barlow Condensed Bold, bundled under the [SIL Open Font License](../Aoede/assets/fonts/OFL-barlow-condensed.txt). Body text, buttons and input labels keep the familiar system font for legibility.
+
+Choose Vice after updating the server and native Android APK. Older installed-web Android clients display Classic as a compatibility fallback until upgraded; this does not change the account's saved choice. URL wrappers use the server's updated frontend.

@@ -8,7 +8,7 @@ const head = (await readFile(new URL('../Aoede/concierge/templates/appearance_he
 const storage = new Map([['aoede.theme.alice', 'glass'], ['aoede.theme.last', 'glass']]);
 const properties = new Map();
 const root = { dataset: { theme: 'classic', themeUser: 'alice' }, style: { setProperty: (k, v) => properties.set(k, v), removeProperty: k => properties.delete(k) } };
-const options = ['classic', 'glass', 'vitrine'].map(value => ({ value, checked: false, closest: () => ({ classList: { toggle() {} } }) }));
+const options = ['classic', 'glass', 'vitrine', 'vice'].map(value => ({ value, checked: false, closest: () => ({ classList: { toggle() {} } }) }));
 const fieldset = { disabled: false };
 const meta = { setAttribute: (_key, value) => { meta.content = value; } };
 let cover;
@@ -138,3 +138,13 @@ appearance.syncTheme({ username: 'alice', theme: 'vitrine' });
 assert.equal(root.dataset.theme, 'vitrine');
 appearance.applyTheme('classic'); assert.match(properties.get('--square-artwork'), /vitrine.jpg/); // Only its player uses artwork tint.
 console.log('Appearance: account persistence, offline isolation, stale responses, errors and artwork checks passed.');
+
+respond = async () => Response.json({theme: 'vice', username: 'alice'});
+mode.matches = true;
+await appearance.saveUserTheme('vice');
+assert.equal(root.dataset.theme, 'vice');
+assert.equal(meta.content, '#160f29');
+assert.equal(options[3].checked, true);
+mode.matches = false; modeListener();
+assert.equal(meta.content, '#fff1df');
+console.log('PASS: Vice is selectable, synchronized and has matching light/dark browser chrome.');
