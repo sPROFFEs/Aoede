@@ -42,6 +42,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .play-btn-card { box-shadow: 0 5px 18px #0004; }
 .card:focus-within .play-overlay { opacity: 1; visibility: visible; }
 .fullscreen-player { transition: transform var(--dur-panel) var(--ease-out), opacity .2s ease, visibility var(--dur-panel); }
+/* Expose the minimize button to focus immediately on open. Delay hiding only on exit. */
+.fullscreen-player.open { transition-property: transform, opacity; }
 html .fullscreen-player .fs-cover { transition: scale .4s var(--ease-out); }
 .play-main:active { scale: .94; }
 html[data-native-effects="reduced"] .fullscreen-player .fs-cover { scale: 1 !important; transition: none; }
