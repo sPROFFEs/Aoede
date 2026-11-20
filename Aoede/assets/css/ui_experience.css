@@ -16,6 +16,8 @@ button { -webkit-tap-highlight-color: transparent; }
 .sidebar-list { scrollbar-width: none; overscroll-behavior: contain; }
 .sidebar-list::-webkit-scrollbar { display: none; width: 0; height: 0; }
 .view-content { padding: 24px var(--content-gutter) 32px; scrollbar-gutter: stable; }
+html[data-client="android"] .view-content:has(> [data-home-root]) { scrollbar-width: none; scrollbar-gutter: auto; }
+html[data-client="android"] .view-content:has(> [data-home-root])::-webkit-scrollbar { display: none; }
 .home-overview { margin: 0 0 24px; padding: 0 0 24px; }
 .home-overview::before { display: none; }
 .hero-kicker { font-size: .75rem; letter-spacing: .04em; line-height: 1.5; }

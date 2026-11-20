@@ -101,4 +101,4 @@ def test_first_party_frontend_stays_inside_download_budgets():
     assert glass.stat().st_size < 65_000
     # Vitrine includes toolbar layering, responsive player geometry, contextual actions and native input fallbacks.
     assert vitrine.stat().st_size < 48_000
-    assert vice.stat().st_size < 20_000
+    assert vice.stat().st_size < 24_000

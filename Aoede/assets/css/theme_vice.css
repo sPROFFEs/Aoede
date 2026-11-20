@@ -67,6 +67,7 @@ html[data-theme="vice"] .fullscreen-player :is(.fs-volume-panel, .fs-more-menu) 
 html[data-theme="vice"] .fullscreen-player :is(.fs-stage, .fs-detail-stage) > :is(#lyrics-panel, #queue-panel) { background: transparent !important; color: #fff1dc !important; }
 html[data-theme="vice"] .fullscreen-player .fs-play-main { background: #ff8cb4 !important; color: #251329 !important; border-color: transparent !important; }
 html[data-theme="vice"] .fullscreen-player .fs-action-btn.active { color: #ff8cb4 !important; }
+html[data-theme="vice"] .lyrics-toggle-btn.active :is(i, svg) { color: var(--primary) !important; }
 html[data-theme="vice"] .fullscreen-player #fs-volume-bar .volume-bar-fill { background: #84e2cc !important; }
 .theme-preview-vice { background: linear-gradient(150deg, #160f29, #8f416c 65%, #f2af80); }
 .theme-preview-vice .theme-preview-sidebar { background: #251832; border: 1px solid #694261; border-radius: 10px; }
@@ -93,21 +94,48 @@ html[data-theme="vice"] .fullscreen-player #fs-volume-bar .volume-bar-fill { bac
 
 /* The scene moves behind the interface. The rotation never changes layout. */
 @keyframes vice-horizon-drift {
-    from { transform: scale(1.07) rotate(-3deg); }
-    to { transform: scale(1.07) rotate(3deg); }
+    0%, 100% { transform: scale(1.17) rotate(0deg); }
+    25% { transform: translate(-3%, 1%) scale(1.17) rotate(8deg); }
+    75% { transform: translate(3%, -1%) scale(1.17) rotate(-8deg); }
+}
+@keyframes vice-light-drift {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translate(-17%, -7%); }
+    75% { transform: translate(17%, -7%); }
 }
 @keyframes vice-record-spin { to { rotate: 1turn; } }
 
 html[data-theme="vice"] body::before {
-    background-image: url('../img/vice-palms.svg'), radial-gradient(ellipse at 66% 55%, var(--vice-glow), transparent 67%);
     filter: blur(1px);
-    animation: vice-horizon-drift 32s ease-in-out infinite alternate;
+    opacity: .17;
+    animation: vice-horizon-drift 32s linear infinite;
+}
+html[data-theme="vice"] body::after,
+html[data-theme="vice"] .fullscreen-player .fs-background::after {
+    content: '';
+    position: fixed;
+    inset: -12%;
+    z-index: -2;
+    pointer-events: none;
+    background: radial-gradient(ellipse at 72% 48%, var(--vice-glow), transparent 56%),
+        radial-gradient(ellipse at 20% 74%, #856bec43, transparent 55%);
+    animation: vice-light-drift 32s linear infinite;
+}
+html[data-theme="vice"] .fullscreen-player .fs-background::after {
+    position: absolute;
+    z-index: 0;
+    --vice-glow: #eb5b9644;
+    animation-play-state: paused;
+}
+html[data-theme="vice"] .fullscreen-player.open .fs-background::after {
+    animation-play-state: running;
 }
 html[data-theme="vice"] .fullscreen-player.open .fs-background::before {
     filter: blur(1px);
-    animation: vice-horizon-drift 32s ease-in-out infinite alternate;
+    animation: vice-horizon-drift 32s linear infinite;
 }
-html[data-theme="vice"]:has(.fullscreen-player.open) body::before { animation-play-state: paused; }
+html[data-theme="vice"]:has(.fullscreen-player.open) body::before,
+html[data-theme="vice"]:has(.fullscreen-player.open) body::after { animation-play-state: paused; }
 html[data-theme="vice"] :is(.app-header, .player-footer, .m-topbar) {
     background: color-mix(in srgb, var(--square-film) 91%, transparent) !important;
     backdrop-filter: blur(12px);
@@ -132,16 +160,27 @@ html[data-theme="vice"] :is(#player-cover, .fullscreen-player .fs-cover, .fs-cov
     border: solid transparent var(--vice-record-rim, 9px) !important;
     border-radius: 50% !important;
     object-fit: cover;
-    background: conic-gradient(from 30deg, transparent 0 15%, #fff3 22%, transparent 28% 59%, #ff8cb455 70%, transparent 78%) border-box,
-        repeating-radial-gradient(circle closest-side, #211b2c 0 5%, #382c42 5.5% 6.4%, #17121f 7% 8%) border-box;
-    --record-mask: radial-gradient(circle, transparent 1.8%, #000 2.5%);
+    background:
+        radial-gradient(circle closest-side, transparent 55%, #0c0812 57%, #deb0d24a 57.6%, #100914 58.5%, transparent 60%, transparent 96%, #060408 98%, #eac0df65 99%, #0a060f 100%) border-box,
+        conic-gradient(from 24deg, transparent 9%, #b4dbffa6 16%, #ecbaff30 20%, transparent 26% 56%, #ff8cb46b 66%, #ffe1ce24 74%, transparent 83%) border-box,
+        repeating-radial-gradient(circle closest-side, transparent 0, #08050e90 .5%, #cdb3eb44 1%, transparent 1.5% var(--record-groove, 3.1%)) border-box,
+        radial-gradient(circle closest-side, #73436b 0 58%, #282038 59%, #110c19 93%, #31283b 98%) border-box;
+    --record-mask: radial-gradient(circle closest-side, transparent 2.4%, #000 3.1%);
     -webkit-mask-image: var(--record-mask);
     mask-image: var(--record-mask);
     box-shadow: 0 4px 16px #10091744;
 }
 /* Leave the keyboard focus outline outside the disc visible. */
+html[data-theme="vice"] #player-cover { --record-groove: 9%; }
 html[data-theme="vice"] #player-cover:focus-visible { --record-mask: none; }
 html[data-theme="vice"] .fs-stage { container-type: size; display: grid; place-items: center; }
+html[data-theme="vice"] .fullscreen-player[data-view="cover"] .fs-stage {
+    background: radial-gradient(ellipse at 50% 56%, #d27fbc23, transparent 68%) !important;
+}
+html[data-theme="vice"] .fs-stage:has(.fs-cover-ghost) {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
 html[data-theme="vice"] .fullscreen-player .fs-cover {
     --vice-record-rim: 21cqmin;
     width: 100cqmin;
@@ -172,7 +211,9 @@ html[data-theme="vice"] .fullscreen-player.open[data-view="cover"][data-playing=
 }
 @media (prefers-reduced-motion: reduce) {
     html[data-theme="vice"] body::before,
+    html[data-theme="vice"] body::after,
     html[data-theme="vice"] .fullscreen-player .fs-background::before,
+    html[data-theme="vice"] .fullscreen-player .fs-background::after,
     html[data-theme="vice"] :is(#player-cover, .fullscreen-player .fs-cover, .playing-icon) {
         animation: none !important;
     }
@@ -185,7 +226,9 @@ html[data-theme="vice"] .fullscreen-player.open[data-view="cover"][data-playing=
     }
 }
 html[data-theme="vice"][data-native-effects="reduced"] body::before,
+html[data-theme="vice"][data-native-effects="reduced"] body::after,
 html[data-theme="vice"][data-native-effects="reduced"] .fs-background::before,
+html[data-theme="vice"][data-native-effects="reduced"] .fs-background::after,
 html[data-theme="vice"][data-native-effects="reduced"] :is(#player-cover, .fullscreen-player .fs-cover, .playing-icon) {
     animation: none !important;
     filter: none;
@@ -194,4 +237,78 @@ html[data-theme="vice"][data-native-effects="reduced"] :is(.app-header, .player-
     background: var(--square-film) !important;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+}
+
+/* Use the same scroll position as the shelf's previous/next controls. */
+html[data-theme="vice"] .home-rail {
+    --rail-fade-start: 0px;
+    --rail-fade-end: 0px;
+    --rail-fade: linear-gradient(90deg, transparent, #000 var(--rail-fade-start), #000 calc(100% - var(--rail-fade-end)), transparent);
+    -webkit-mask-image: var(--rail-fade);
+    mask-image: var(--rail-fade);
+    scrollbar-width: none;
+    padding-block: 3px 10px;
+}
+html[data-theme="vice"] .home-rail::-webkit-scrollbar { display: none; }
+html[data-theme="vice"] .home-shelf:has(.shelf-nav:first-child:not(:disabled)) > .home-rail { --rail-fade-start: 14px; }
+html[data-theme="vice"] .home-shelf:has(.shelf-nav:last-child:not(:disabled)) > .home-rail { --rail-fade-end: 22px; }
+html[data-theme="vice"] .home-rail:focus-within { --rail-fade: none; }
+
+html[data-theme="vice"] :is(#downloads-modal, #delete-responses-modal) > .modal,
+html[data-theme="vice"] .modal:has(#track-delete-reason),
+html[data-theme="vice"] body > #lyrics-panel {
+    --vice-panel: linear-gradient(150deg, var(--square-glint), transparent 50%), var(--square-film-strong);
+    background: var(--vice-panel) !important;
+    border: 1px solid var(--square-rim) !important;
+    border-radius: 22px !important;
+    box-shadow: inset 0 1px var(--square-glint), 0 24px 56px #0b081147 !important;
+    color: var(--text-main) !important;
+}
+html[data-theme="vice"] :is(#downloads-modal, #delete-responses-modal) .downloads-container {
+    background: transparent !important;
+    padding: 2px 0;
+    gap: 0;
+}
+html[data-theme="vice"] :is(#downloads-modal, #delete-responses-modal) .job-item {
+    background: transparent !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--square-line) !important;
+    padding: 12px 4px !important;
+}
+html[data-theme="vice"] :is(#downloads-modal, #delete-responses-modal) .job-item:last-child { border: 0 !important; }
+html[data-theme="vice"] .modal:has(#track-delete-reason) textarea {
+    width: 100%;
+    min-height: 100px;
+    border-radius: 14px !important;
+    resize: vertical;
+}
+html[data-theme="vice"] body > #lyrics-panel {
+    top: max(12px, var(--safe-area-top, 0px));
+    right: max(12px, var(--safe-area-right, 0px));
+    bottom: calc(var(--player-height, 90px) + 12px);
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+}
+html[data-theme="vice"] .fullscreen-player .fs-stage > #lyrics-panel {
+    border-radius: 0 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+}
+html[data-theme="vice"] .fullscreen-player .lyrics-body:not(:focus-visible) {
+    -webkit-mask-image: linear-gradient(transparent, #000 14px, #000 calc(100% - 18px), transparent);
+    mask-image: linear-gradient(transparent, #000 14px, #000 calc(100% - 18px), transparent);
+}
+@media (forced-colors: active) {
+    html[data-theme="vice"] .home-rail { --rail-fade: none; }
+    html[data-theme="vice"] .fs-stage:has(.fs-cover-ghost),
+    html[data-theme="vice"] .fullscreen-player .lyrics-body:not(:focus-visible) {
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+}
+@media (max-width: 768px) {
+    html[data-theme="vice"] body > #lyrics-panel {
+        bottom: max(12px, var(--safe-area-bottom, 0px));
+        width: calc(100% - max(12px, var(--safe-area-left, 0px)) - max(12px, var(--safe-area-right, 0px)));
+    }
 }

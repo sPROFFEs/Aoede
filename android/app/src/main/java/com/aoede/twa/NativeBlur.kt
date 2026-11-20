@@ -325,7 +325,7 @@ internal class NativeGpuBackdrop(radius: Float, filter: ColorFilter) {
     fun release() = node.discardDisplayList()
 }
 
-/** Static original skyline shared with the web theme; no artwork sampling or animation. */
+/** Vice's skyline and lighting move independently of the content and album artwork. */
 class NativeViceBackground(context: android.content.Context, light: Boolean) : Drawable() {
     private val sky =
         android.graphics.drawable.GradientDrawable(
@@ -333,12 +333,20 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
             if (light) intArrayOf(0xfffff1df.toInt(), 0xfff7d6cc.toInt(), 0xfffff1df.toInt())
             else intArrayOf(0xff160f29.toInt(), 0xff372049.toInt(), 0xff160f29.toInt()),
         )
-    private val lightGlow = if (light) 0x52ffad9b else 0x49a84890
-    private val depth = Paint()
+    private val warmColor = if (light) 0x69ffaf89 else 0x66b45485
+    private val coolColor = if (light) 0x45e990b9 else 0x625646ad
+    private val warm = Paint()
+    private val cool = Paint()
+    private val glowPosition = android.graphics.Matrix()
     private val frame = Runnable { invalidateSelf() }
+    private var driftMillis = 0L
+    private var driftStartedAt = 0L
+
     var moving = false
         set(value) {
             if (field == value) return
+            val now = SystemClock.uptimeMillis()
+            if (value) driftStartedAt = now else driftMillis += now - driftStartedAt
             field = value
             unscheduleSelf(frame)
             invalidateSelf()
@@ -348,17 +356,27 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
 
     init {
         NativeIcon.install(context)
-        palms = NativeIcon("vice-palms", 0x21ff90b5, "vice", true)
+        palms = NativeIcon("vice-palms", 0x2dff90b5, "vice", true)
     }
 
     override fun onBoundsChange(bounds: android.graphics.Rect) {
         sky.bounds = bounds
-        depth.shader =
+        val size = maxOf(1, bounds.width(), bounds.height())
+        warm.shader =
             android.graphics.RadialGradient(
-                bounds.left + bounds.width() * .7f,
-                bounds.top + bounds.height() * .57f,
-                maxOf(1, bounds.width(), bounds.height()) * .67f,
-                lightGlow,
+                bounds.left + bounds.width() * .72f,
+                bounds.top + bounds.height() * .51f,
+                size * .49f,
+                warmColor,
+                Color.TRANSPARENT,
+                android.graphics.Shader.TileMode.CLAMP,
+            )
+        cool.shader =
+            android.graphics.RadialGradient(
+                bounds.left + bounds.width() * .17f,
+                bounds.top + bounds.height() * .71f,
+                size * .40f,
+                coolColor,
                 Color.TRANSPARENT,
                 android.graphics.Shader.TileMode.CLAMP,
             )
@@ -375,27 +393,30 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
         canvas.save()
         canvas.clipRect(bounds)
         sky.draw(canvas)
-        canvas.drawRect(bounds, depth)
-        if (moving) {
-            val phase = android.os.SystemClock.uptimeMillis() % 64000L / 64000.0
-            canvas.rotate(
-                (3 * kotlin.math.sin(phase * 2 * Math.PI)).toFloat(),
-                bounds.exactCenterX(),
-                bounds.exactCenterY(),
-            )
-            canvas.scale(1.07f, 1.07f, bounds.exactCenterX(), bounds.exactCenterY())
-        }
+        val now = SystemClock.uptimeMillis()
+        val elapsed = driftMillis + if (moving) now - driftStartedAt else 0L
+        val phase = elapsed % 32000L / 32000.0 * 2 * Math.PI
+        val drift = kotlin.math.sin(phase).toFloat()
+        val rise = (1 - kotlin.math.cos(phase)).toFloat()
+        glowPosition.setTranslate(-bounds.width() * .35f * drift, bounds.height() * -.105f * rise)
+        warm.shader?.setLocalMatrix(glowPosition)
+        glowPosition.setTranslate(bounds.width() * .29f * drift, bounds.height() * .05f * rise)
+        cool.shader?.setLocalMatrix(glowPosition)
+        canvas.drawRect(bounds, warm)
+        canvas.drawRect(bounds, cool)
+        canvas.rotate(8f * drift, bounds.exactCenterX(), bounds.exactCenterY())
+        canvas.scale(1.17f, 1.17f, bounds.exactCenterX(), bounds.exactCenterY())
         palms.draw(canvas)
         canvas.restore()
         if (moving && isVisible) {
             unscheduleSelf(frame)
-            scheduleSelf(frame, android.os.SystemClock.uptimeMillis() + 66)
+            scheduleSelf(frame, now + 50)
         }
     }
 
     override fun setAlpha(alpha: Int) {
         sky.alpha = alpha
-        palms.alpha = alpha * 33 / 255
+        palms.alpha = alpha * 45 / 255
     }
 
     override fun setColorFilter(filter: ColorFilter?) {
