@@ -52,11 +52,11 @@ Each regular account gets its own Navidrome instance, while the shared music poo
 
 ## Screenshots
 
-Click any image for its full resolution. All images come from the real interfaces using fictional accounts, sample library metadata and demonstration artwork. The mobile web screenshots show the responsive site. The native screenshots come from the Android 1.2.12 views rendered in a local test environment.
+Click any image for its full resolution. All images come from the real interfaces using fictional accounts, sample library metadata and demonstration artwork. The mobile web screenshots show the responsive site. The native screenshots show the Android app and its components rendered in a local test environment.
 
 ### Four themes, one account
 
-**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Vice uses a slowly moving skyline and vinyl artwork in the compact and fullscreen players. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
+**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Vice adds a moving skyline with drifting lights and a vinyl record with fine grooves and reflections in both players. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
 
 <table>
   <tr><th width="25%">Classic</th><th width="25%">Glass</th><th width="25%">Vitrine</th><th width="25%">Vice</th></tr>

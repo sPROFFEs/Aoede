@@ -2,7 +2,7 @@
 
 [Project overview](../README.md) · [User guide](USER-GUIDE.md) · [Themes](THEMES.md) · [Android](ANDROID.md) · [Downloads](https://github.com/sPROFFEs/Aoede/releases/latest)
 
-Explore the **Aoede 1.3.1** web interface and native Android client. The Android captures use **Android 1.2.12 (42)**. Expand a feature group and click any image to open it at full resolution.
+Explore the **Aoede 1.3.1** web interface and native Android client. The Android captures use **Android 1.2.12**. The Vice Home and player previews show the refinements in **Android 1.2.13**. Expand a feature group and click any image to open it at full resolution.
 
 These are captures of the real application interfaces, with fictional accounts, demonstration artwork, sample track metadata and synthetic service responses. They are not design mockups or screenshots of a production server. Example provider connections, listening totals and host metrics illustrate their screens; they do not describe a live deployment.
 
@@ -89,6 +89,23 @@ Vice is the fourth account theme, inspired by the [official GTA VI visual direct
     <td align="center"><a href="images/screenshots/desktop-vice-active-playlist.webp"><img src="images/screenshots/desktop-vice-active-playlist.webp" alt="Vice playlist with Midnight City highlighted and a vinyl record in the desktop player" width="100%"></a></td>
     <td align="center"><a href="images/screenshots/mobile-vice-active-playlist.webp"><img src="images/screenshots/mobile-vice-active-playlist.webp" alt="Vice playlist with active track and vinyl in the mobile player" width="100%"></a></td>
   </tr>
+</table>
+
+</details>
+
+<details>
+<summary><strong>Lyrics, downloads and deletion requests</strong></summary>
+
+The fullscreen lyrics follow the scene behind the player. Download and request rows sit on a shared rounded sheet.
+
+<table>
+<tr><th width="25%">Lyrics</th><th width="25%">Downloads</th><th width="25%">Deletion request</th><th width="25%">Request responses</th></tr>
+<tr>
+  <td><a href="images/screenshots/mobile-vice-lyrics.webp"><img src="images/screenshots/mobile-vice-lyrics.webp" alt="Mobile web · Vice · Lyrics" width="100%"></a></td>
+  <td><a href="images/screenshots/mobile-vice-downloads.webp"><img src="images/screenshots/mobile-vice-downloads.webp" alt="Mobile web · Vice · Downloads" width="100%"></a></td>
+  <td><a href="images/screenshots/mobile-vice-deletion-request.webp"><img src="images/screenshots/mobile-vice-deletion-request.webp" alt="Mobile web · Vice · Deletion request" width="100%"></a></td>
+  <td><a href="images/screenshots/mobile-vice-deletion-responses.webp"><img src="images/screenshots/mobile-vice-deletion-responses.webp" alt="Mobile web · Vice · Request responses" width="100%"></a></td>
+</tr>
 </table>
 
 </details>
