@@ -27,10 +27,10 @@
 </p>
 
 <p align="center">
-  <a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Aoede Home in the Vitrine theme, with personal mixes, a library sidebar and the music player" width="100%"></a>
+  <a href="docs/images/screenshots/desktop-vice-active-playlist.webp"><img src="docs/images/screenshots/desktop-vice-active-playlist.webp" alt="Aoede in Vice, with the current track highlighted in its playlist and a vinyl record in the compact player" width="100%"></a>
 </p>
 
-<p align="center"><sub>Vitrine on desktop. Captured from the current frontend with a local demonstration library. Separate web and native Android galleries below.</sub></p>
+<p align="center"><sub>Vice on desktop. The playlist highlights Midnight City while its artwork spins in the compact player.</sub></p>
 
 ## Why Aoede?
 
@@ -52,18 +52,19 @@ Each regular account gets its own Navidrome instance, while the shared music poo
 
 ## Screenshots
 
-Click any image for its full resolution. All images come from the real interfaces using fictional accounts, sample library metadata and demonstration artwork. Native Android images render the APK's actual Android views; mobile web images render the responsive website.
+Click any image for its full resolution. All images come from the real interfaces using fictional accounts, sample library metadata and demonstration artwork. The mobile web screenshots show the responsive site. The native screenshots come from the Android 1.2.12 views rendered in a local test environment.
 
 ### Four themes, one account
 
-**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
+**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Vice uses a slowly moving skyline and vinyl artwork in the compact and fullscreen players. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
 
 <table>
+  <tr><th width="25%">Classic</th><th width="25%">Glass</th><th width="25%">Vitrine</th><th width="25%">Vice</th></tr>
   <tr>
-    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-classic-home.webp"><img src="docs/images/screenshots/desktop-classic-home.webp" alt="Classic · desktop Home" width="100%"></a></td>
-    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-glass-home.webp"><img src="docs/images/screenshots/desktop-glass-home.webp" alt="Glass · desktop Home" width="100%"></a></td>
-    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Vitrine · desktop Home" width="100%"></a></td>
-    <td width="25%" align="center"><a href="docs/images/screenshots/desktop-vice-dark-home.webp"><img src="docs/images/screenshots/desktop-vice-dark-home.webp" alt="Vice · desktop Home" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/desktop-classic-home.webp"><img src="docs/images/screenshots/desktop-classic-home.webp" alt="Classic desktop Home with the library and personal mixes" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/desktop-glass-home.webp"><img src="docs/images/screenshots/desktop-glass-home.webp" alt="Glass desktop Home with the library and personal mixes" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/desktop-vitrine-home.webp"><img src="docs/images/screenshots/desktop-vitrine-home.webp" alt="Vitrine desktop Home with the library and personal mixes" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/desktop-vice-dark-home.webp"><img src="docs/images/screenshots/desktop-vice-dark-home.webp" alt="Vice desktop Home with the library and personal mixes" width="100%"></a></td>
   </tr>
 </table>
 
@@ -94,10 +95,12 @@ Public profiles bring collections and listening activity together. Invite playli
 The responsive web/PWA interface keeps browsing, downloads and playback within reach. Open the fullscreen player for artwork and lyrics, or keep the compact player visible while exploring. Supported local tracks and collections can be saved for offline use; browser capabilities and storage limits vary by device.
 
 <table>
+  <tr><th width="25%">Classic</th><th width="25%">Glass</th><th width="25%">Vitrine</th><th width="25%">Vice</th></tr>
   <tr>
-    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-classic-library.webp"><img src="docs/images/screenshots/mobile-classic-library.webp" alt="Mobile web · Classic library" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-glass-discovery.webp"><img src="docs/images/screenshots/mobile-glass-discovery.webp" alt="Mobile web · Glass Discovery" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/mobile-vitrine-player.webp"><img src="docs/images/screenshots/mobile-vitrine-player.webp" alt="Mobile web · Vitrine fullscreen player" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/mobile-classic-player.webp"><img src="docs/images/screenshots/mobile-classic-player.webp" alt="Classic fullscreen player on mobile web" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/mobile-glass-player.webp"><img src="docs/images/screenshots/mobile-glass-player.webp" alt="Glass fullscreen player on mobile web" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/mobile-vitrine-player.webp"><img src="docs/images/screenshots/mobile-vitrine-player.webp" alt="Vitrine fullscreen player on mobile web" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/mobile-vice-dark-player.webp"><img src="docs/images/screenshots/mobile-vice-dark-player.webp" alt="Vice fullscreen player on mobile web" width="100%"></a></td>
   </tr>
 </table>
 
@@ -106,10 +109,38 @@ The responsive web/PWA interface keeps browsing, downloads and playback within r
 The Android APK has native browsing and playback, background media controls, account-bound device downloads, home-screen widgets and an optional music island. Enter your server URL at first launch, then use the same account and theme. The installed web client and original wrapper remain available as compatibility options. [Android guide](docs/ANDROID.md)
 
 <table>
+  <tr><th width="25%">Classic</th><th width="25%">Glass</th><th width="25%">Vitrine</th><th width="25%">Vice</th></tr>
   <tr>
-    <td width="33%" align="center"><a href="docs/images/screenshots/android-classic-home.webp"><img src="docs/images/screenshots/android-classic-home.webp" alt="Native Android · Classic Home" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/android-glass-discovery.webp"><img src="docs/images/screenshots/android-glass-discovery.webp" alt="Native Android · Glass Discovery" width="100%"></a></td>
-    <td width="33%" align="center"><a href="docs/images/screenshots/android-vitrine-player.webp"><img src="docs/images/screenshots/android-vitrine-player.webp" alt="Native Android · Vitrine fullscreen player" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-classic-player.webp"><img src="docs/images/screenshots/android-classic-player.webp" alt="Classic fullscreen player on native Android" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-glass-player.webp"><img src="docs/images/screenshots/android-glass-player.webp" alt="Glass fullscreen player on native Android" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-vitrine-player.webp"><img src="docs/images/screenshots/android-vitrine-player.webp" alt="Vitrine fullscreen player on native Android" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/native-vice-dark-player.webp"><img src="docs/images/screenshots/native-vice-dark-player.webp" alt="Vice fullscreen player on native Android" width="100%"></a></td>
+  </tr>
+</table>
+
+### Dynamic Island and widgets
+
+The optional Dynamic Island gives you playback and favorite controls over the current app. Tap the capsule to expand it and see the colors and icons of the active theme.
+
+<p align="center">
+  <a href="docs/images/screenshots/android-island.webp"><img src="docs/images/screenshots/android-island.webp" alt="Compact Aoede Dynamic Island with cover artwork and audio bars" width="156"></a>
+</p>
+
+<table>
+  <tr><th width="25%">Classic</th><th width="25%">Glass</th><th width="25%">Vitrine</th><th width="25%">Vice</th></tr>
+  <tr>
+    <td align="center"><a href="docs/images/screenshots/android-island-classic.webp"><img src="docs/images/screenshots/android-island-classic.webp" alt="Dynamic Island expanded in Classic" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-island-glass.webp"><img src="docs/images/screenshots/android-island-glass.webp" alt="Dynamic Island expanded in Glass" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-island-vitrine.webp"><img src="docs/images/screenshots/android-island-vitrine.webp" alt="Dynamic Island expanded in Vitrine" width="100%"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-island-expanded.webp"><img src="docs/images/screenshots/android-island-expanded.webp" alt="Dynamic Island expanded in Vice" width="100%"></a></td>
+  </tr>
+</table>
+
+<table>
+  <tr><th width="50%">Home-screen widget</th><th width="50%">Expanded widget</th></tr>
+  <tr>
+    <td align="center"><a href="docs/images/screenshots/android-widget.webp"><img src="docs/images/screenshots/android-widget.webp" alt="Aoede widget with artwork and playback controls" width="288"></a></td>
+    <td align="center"><a href="docs/images/screenshots/android-widget-expanded.webp"><img src="docs/images/screenshots/android-widget-expanded.webp" alt="Expanded artwork widget with native playback controls" width="220"></a></td>
   </tr>
 </table>
 
@@ -126,7 +157,7 @@ Administration separates users, the library explorer, duplicate review and feder
 
 **[Open the complete screenshot gallery →](docs/SCREENSHOTS.md)**
 
-The gallery covers all four themes on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. Component previews show the actual native controls, without inventing a phone home or lock screen.
+The gallery covers all four themes on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. The gallery includes separate renders of the native widgets and island controls.
 
 ## Clients
 
