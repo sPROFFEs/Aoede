@@ -950,6 +950,7 @@ export function updateFullscreenPlayButton() {
 // === PLAY BUTTON ===
 
 export function updatePlayButton() {
+  document.documentElement.dataset.playing = String(state.isPlaying);
   const btn = document.getElementById('play-pause-btn');
   if (btn) {
     btn.innerHTML = `<i data-lucide="${state.isPlaying ? 'pause' : 'play'}"></i>`;

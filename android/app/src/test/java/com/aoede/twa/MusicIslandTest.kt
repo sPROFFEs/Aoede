@@ -235,6 +235,29 @@ class MusicIslandTest {
         assertTrue(island.enabled)
     }
 
+    @Test
+    @Config(sdk = [34])
+    fun expandedIslandUsesThemeColorsWithoutRestylingTheCapsule() {
+        island.setEnabled(true)
+        val compact = view().findViewWithTag<View>("capsule")
+        val original = compact.background as android.graphics.drawable.GradientDrawable
+        val originalColor = original.color?.defaultColor
+        app.playerTheme = "vice"
+        island.refresh()
+        assertSame(original, compact.background)
+        island.show(true)
+        val card = view().findViewWithTag<View>("card")
+        val backdrop = card.background as android.graphics.drawable.GradientDrawable
+        assertArrayEquals(intArrayOf(0xff46264c.toInt(), 0xff160f29.toInt()), backdrop.colors)
+        assertTrue(view().findViewWithTag<ImageButton>("toggle").drawable is NativeIcon)
+        app.playerTheme = "vitrine"
+        island.refresh()
+        assertEquals(0xff17171d.toInt(), backdrop.colors?.last())
+        island.collapse()
+        val collapsed = view().findViewWithTag<View>("capsule").background as android.graphics.drawable.GradientDrawable
+        assertEquals(originalColor, collapsed.color?.defaultColor)
+    }
+
     @Test fun cardOpensCurrentPlayerWithoutPlaybackAndHonorsUnavailableActions() {
         island.setEnabled(true); island.show(true)
         assertFalse(view().findViewWithTag<ImageButton>("favorite").isEnabled)

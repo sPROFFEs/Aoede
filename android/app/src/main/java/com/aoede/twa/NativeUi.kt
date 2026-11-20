@@ -230,9 +230,49 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
     }
 
+    private val viceTrackRows = java.util.WeakHashMap<LinearLayout, String>()
+    private var viceTrackState: Pair<String?, Boolean>? = null
+    private var viceMiniRecord: NativeRecordView? = null
+    private var viceMiniKey: String? = null
+
+    private fun styleViceTrack(row: LinearLayout, active: Boolean) {
+        row.background = design.touch(if (active) design.wash else Color.TRANSPARENT, 10, active)
+        val title = row.findViewWithTag<TextView>("vice-track-title")
+        title.setTextColor(if (active) accent else ink)
+        row.findViewWithTag<TextView>("vice-track-number")?.let { number ->
+            val glyph = if (player.playing) "disc-3" else "pause"
+            val indicator = if (active) NativeIcon(glyph, accent, theme).apply {
+                setBounds(0, 0, dp(16), dp(16))
+            } else null
+            number.text = if (active) "" else number.contentDescription
+            number.setCompoundDrawables(null, indicator, null, null)
+            number.gravity = Gravity.CENTER
+        }
+    }
+
+    private fun updateViceTracks() {
+        if (theme != "vice") return
+        val current = player.current?.let(NativeTrack::reference)?.takeIf(String::isNotBlank)
+        val next = current to player.playing
+        if (next == viceTrackState) return
+        val previous = viceTrackState?.first
+        viceTrackState = next
+        for ((row, reference) in viceTrackRows) {
+            if (reference == current || reference == previous) styleViceTrack(row, reference == current)
+        }
+    }
+
+    private fun syncViceMotion() {
+        val visible = foreground && fullscreen == null
+        (root.background as? NativeViceBackground)?.moving = visible && !reducedMotion()
+        viceMiniRecord?.spin(visible && player.playing && !reducedMotion())
+        (fullscreen as? NativePlayerView)?.foreground(foreground)
+    }
+
     private val playbackChanged: () -> Unit = {
         if (player.playing && discoveryPreviewPlayer != null) stopDiscoveryPreview()
         if (alive && foreground) {
+            updateViceTracks()
             renderMini()
             updateMiniProgress()
             updateFull?.invoke()
@@ -281,6 +321,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         if (theme == "vice") {
             if (root.background !is NativeViceBackground)
                 root.background = NativeViceBackground(activity, design.light)
+            syncViceMotion()
             return
         }
         if (theme != "glass" || reduced()) return
@@ -377,6 +418,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         ink = design.ink
         muted = design.muted
         accent = design.accent
+        app.playerTheme = theme
         app.darkAppearance = !light
         activity.applyAppearance(!light)
         if (translationsLanguage != language) {
@@ -1057,7 +1099,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     ) {
         if (path.length > if (path.startsWith("data:image/")) 192 * 1024 else 4096) return
         image.tag = path
-        if (image.drawable == null) image.setImageBitmap(defaultCover)
+        if (image.drawable == null && (image !is NativeRecordView || !image.vinyl))
+            image.setImageBitmap(defaultCover)
         val requestedPx = if (targetDp > 0) dp(targetDp) else 0
         val pixels = maxOf(requestedPx, image.layoutParams?.width ?: 0, image.width).takeIf { it > 0 }?.coerceIn(64, 512) ?: 512
         api.artwork.peek(path, pixels)?.let {
@@ -2774,11 +2817,21 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             design.typography(this, 13f)
                             setTextColor(muted)
                             text = (i + 1).toString()
+                            if (theme == "vice") {
+                                tag = "vice-track-number"
+                                contentDescription = text
+                            }
                             gravity = Gravity.CENTER
                         },
                         0,
                         LinearLayout.LayoutParams(dp(24), dp(44)).apply { marginEnd = dp(12) },
                     )
+                if (theme == "vice") {
+                    copy.getChildAt(0).tag = "vice-track-title"
+                    val reference = NativeTrack.reference(t)
+                    viceTrackRows[r] = reference
+                    styleViceTrack(r, reference.isNotBlank() && reference == player.current?.let(NativeTrack::reference))
+                }
                 iconButton(r, "ellipsis", text("header.more", "Track options")) {
                     trackMenu(t, items, i, collectionId, collection)
                 }
@@ -5963,6 +6016,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         miniSignature = signature
         refreshArtworkAccent(bitmap)
         miniProgress = null
+        val recordKey = player.current?.let(NativeTrack::reference)
+        val savedRecordAngle = viceMiniRecord?.recordAngle?.takeIf { recordKey == viceMiniKey } ?: 0f
+        viceMiniRecord?.spin(false)
+        viceMiniRecord = null
+        viceMiniKey = recordKey
         mini.removeAllViews()
         content.setPadding(
             content.paddingLeft,
@@ -5993,10 +6051,18 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 setPadding(dp(8), dp(6), dp(8), dp(6))
                 setOnClickListener { showPlayer() }
             }
-        val art = ImageView(activity).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-        art.background = shape(design.wash, if (theme == "vitrine") 6 else 4)
-        art.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-        art.clipToOutline = true
+        val art = NativeRecordView(activity, theme == "vice").apply {
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            if (vinyl) {
+                viceMiniRecord = this
+                freeze(savedRecordAngle)
+                spin(this@NativeUi.foreground && player.playing && !reducedMotion())
+            } else {
+                background = shape(design.wash, if (theme == "vitrine") 6 else 4)
+                outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+                clipToOutline = true
+            }
+        }
         val miniArt = if (theme == "vitrine") 44 else 40
         r.addView(
             art,
@@ -6245,6 +6311,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         mountFullscreen(panel)
         placePlayer(panel)
         dock.visibility = View.INVISIBLE
+        syncViceMotion()
         activity.applyAppearance(true)
         updateFull = { if (player.current == null) hidePlayer() else panel.render() }
         panel.setMode(mode)
@@ -6287,13 +6354,16 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         mountFullscreen(panel)
         placeStory(panel)
         dock.visibility = View.INVISIBLE
+        syncViceMotion()
         activity.applyAppearance(true)
     }
 
     fun hidePlayer() {
         val panel = fullscreen ?: return
+        (panel as? NativePlayerView)?.foreground(false)
         fullscreen = null
         updateFull = null
+        syncViceMotion()
         activity.applyAppearance(!design.light)
         dock.visibility = if (keyboardOpen) View.GONE else View.VISIBLE
         renderMini()
@@ -6690,6 +6760,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun pause() {
         foreground = false
+        syncViceMotion()
         stopDiscoveryPreview()
         root.removeCallbacks(uiProgressTicker)
         (fullscreen as? NativeWrappedStory)?.foreground(false)
@@ -6698,6 +6769,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     fun resume() {
         foreground = true
+        syncViceMotion()
         root.removeCallbacks(uiProgressTicker)
         playbackChanged()
         (fullscreen as? NativeWrappedStory)?.foreground(true)

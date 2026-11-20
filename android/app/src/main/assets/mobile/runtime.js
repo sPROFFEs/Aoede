@@ -34,13 +34,15 @@
   const ready = () => {
     const root = document.documentElement;
     root.dataset.client = 'android';
-    let lastDark;
+    let lastDark, lastTheme;
     const appearance = () => {
       const text = getComputedStyle(document.body).color.match(/[\d.]+/g) || [];
       const dark = !!document.querySelector('.fullscreen-player.open') || Number(text[0]) > 128;
-      if (dark === lastDark) return;
+      const theme = root.dataset.theme || 'classic';
+      if (dark === lastDark && theme === lastTheme) return;
       lastDark = dark;
-      window.AoedeHost?.postMessage(JSON.stringify({ type: 'appearance', dark }));
+      lastTheme = theme;
+      window.AoedeHost?.postMessage(JSON.stringify({ type: 'appearance', dark, theme }));
     };
     new MutationObserver(appearance).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
     const fullscreen = document.getElementById('fullscreen-player');

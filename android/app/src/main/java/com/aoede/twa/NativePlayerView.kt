@@ -31,11 +31,12 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
 
     private val backdrop = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
     private val shade = View(context)
+    private var motionAllowed = true
     private val grid = PlayerGrid()
     private val header = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
     private val stage = FrameLayout(context)
     private val cover =
-        object : androidx.appcompat.widget.AppCompatImageView(context) {
+        object : NativeRecordView(context, design.theme == "vice") {
                 private val mask =
                     android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
                         xfermode =
@@ -70,7 +71,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 }
             }
             .apply {
-                scaleType = ImageView.ScaleType.FIT_CENTER
+                scaleType = if (vinyl) ImageView.ScaleType.CENTER_CROP else ImageView.ScaleType.FIT_CENTER
                 contentDescription = "Current artwork"
             }
     private val info = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -131,6 +132,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         setBackgroundColor(0xff202025.toInt())
         addView(backdrop, LayoutParams(-1, -1))
         addView(shade, LayoutParams(-1, -1))
+        if (design.theme == "vice") shade.background = NativeViceBackground(context, false)
         addView(
             grid,
             LayoutParams(-1, -1).apply {
@@ -173,7 +175,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
         stage.addView(cover, LayoutParams(-1, -1, Gravity.CENTER))
         cover.background =
-            if (glass) null else design.shape(Color.TRANSPARENT, if (apple) 18 else 8)
+            if (glass || cover.vinyl) null else design.shape(Color.TRANSPARENT, if (apple) 18 else 8)
         cover.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
         cover.clipToOutline = !glass
         stage.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
@@ -1021,12 +1023,13 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 previous.isNotBlank() &&
                     !ui.reducedMotion() &&
                     mode == "cover" &&
-                    cover.drawable != null
+                    (cover.vinyl || cover.drawable != null)
             ) {
                 val ghost =
-                    ImageView(context).apply {
-                        scaleType = ImageView.ScaleType.FIT_CENTER
+                    NativeRecordView(context, cover.vinyl).apply {
+                        scaleType = cover.scaleType
                         setImageDrawable(cover.drawable)
+                        freeze(cover.recordAngle)
                         scaleX = cover.scaleX
                         scaleY = cover.scaleY
                         translationX = cover.translationX
@@ -1073,6 +1076,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             }
             if (previous.isNotBlank() && mode != "cover") setMode(mode)
         }
+        if (cover.vinyl) foreground(motionAllowed)
         if (lastPlaying != player.playing) {
             lastPlaying = player.playing
             val scale =
@@ -1170,7 +1174,16 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
     }
 
+    fun foreground(visible: Boolean) {
+        motionAllowed = visible
+        if (!cover.vinyl) return
+        val animate = visible && !ui.reducedMotion()
+        (shade.background as? NativeViceBackground)?.moving = animate
+        cover.spin(animate && mode == "cover" && player.playing)
+    }
+
     override fun onDetachedFromWindow() {
+        foreground(false)
         volumePopup?.dismiss()
         volumePopup = null
         modeStamp++

@@ -77,6 +77,16 @@ export let currentRadioHub = RADIO_HUBS[Math.floor(Math.random() * RADIO_HUBS.le
 // === STATE SETTERS ===
 // (Needed because ES6 exports are read-only bindings)
 
+export function trackRowKey(track) {
+  if (!track) return '';
+  if (track.fed_instance_id != null) {
+    const remote = track.fed_remote_id ?? track.remote_id;
+    if (remote != null) return `fed:${track.fed_instance_id}:${remote}`;
+  }
+  const id = track.db_id || track.id;
+  return id ? `${track.is_local || track.db_id ? 'local' : track.source || 'local'}:${id}` : '';
+}
+
 export function setCurrentTrack(track) {
   currentTrack = track;
 }

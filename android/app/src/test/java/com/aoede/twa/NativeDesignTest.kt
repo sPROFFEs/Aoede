@@ -92,6 +92,21 @@ class NativeDesignTest {
     }
 
     @Test
+    fun viceRecordResumesFromThePausedAngle() {
+        val record = NativeRecordView(app, true)
+        record.spin(true)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(3))
+        record.spin(false)
+        val angle = record.recordAngle
+        assertEquals(90f, angle, .1f)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(5))
+        assertEquals(angle, record.recordAngle, .01f)
+        record.spin(true)
+        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(3))
+        assertEquals(180f, record.recordAngle, .1f)
+    }
+
+    @Test
     fun viceUsesReadableOpaqueSurfacesAndItsBundledDisplayFont() {
         for (light in listOf(false, true)) {
             val design = NativeDesign(app, "vice", light)

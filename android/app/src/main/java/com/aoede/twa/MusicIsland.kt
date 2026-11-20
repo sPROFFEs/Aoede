@@ -584,30 +584,60 @@ class MusicIsland(private val app: AoedeApp) {
         else { image.setImageResource(R.drawable.ic_notification); image.imageTintList = ColorStateList.valueOf(0xFFB9B4BF.toInt()) }
         syncSpectrum()
         if (!expanded) return
-        val style = PlaybackWidget.artworkStyle(art)
-        val background = (view.findViewWithTag<View>("card").background as GradientDrawable)
-        background.colors = intArrayOf(ColorUtils.blendARGB(style.accent, Color.BLACK, .88f), 0xFF141316.toInt())
+        val theme = app.playerTheme
+        val artworkAccent = PlaybackWidget.artworkStyle(art).accent
+        val accent = when (theme) {
+            "vice" -> 0xffff8cb4.toInt()
+            "vitrine" -> 0xffff809f.toInt()
+            "glass" -> ColorUtils.blendARGB(artworkAccent, 0xffe6cbff.toInt(), .45f)
+            else -> 0xff65e09b.toInt()
+        }
+        val cardBackground = (view.findViewWithTag<View>("card").background as GradientDrawable)
+        cardBackground.colors = when (theme) {
+            "vice" -> intArrayOf(0xff46264c.toInt(), 0xff160f29.toInt())
+            "vitrine" -> intArrayOf(0xff35212d.toInt(), 0xff17171d.toInt())
+            "glass" -> intArrayOf(ColorUtils.blendARGB(accent, 0xff22212c.toInt(), .8f), 0xff21212d.toInt())
+            else -> intArrayOf(0xff262626.toInt(), 0xff161616.toInt())
+        }
+        cardBackground.setStroke(dp(1), ColorUtils.setAlphaComponent(accent, 75))
         view.findViewWithTag<TextView>("title").text = meta.getString(MediaMetadataCompat.METADATA_KEY_TITLE).orEmpty().ifBlank { app.getString(R.string.app_name) }
         view.findViewWithTag<TextView>("artist").text = meta.getString(MediaMetadataCompat.METADATA_KEY_ARTIST).orEmpty().ifBlank { app.getString(R.string.island_idle) }
-        fun control(tag: String, available: Boolean, active: Boolean = false) {
+        NativeIcon.install(app)
+        fun control(tag: String, glyph: String, available: Boolean, active: Boolean = false) {
             view.findViewWithTag<ImageButton>(tag).apply {
-                isEnabled = available; alpha = if (available) 1f else .3f
-                isSelected = active; imageTintList = ColorStateList.valueOf(if (active) style.accent else Color.WHITE)
+                isEnabled = available
+                alpha = if (available) 1f else .3f
+                isSelected = active
+                val tint = if (tag == "toggle" && theme != "glass") 0xff1a1420.toInt()
+                    else if (active) accent else Color.WHITE
+                imageTintList = null
+                setImageDrawable(NativeIcon(glyph, tint, theme, active && tag == "favorite"))
+                if (tag == "toggle") {
+                    val fill = if (theme == "glass") 0x44ffffff else accent
+                    background = RippleDrawable(
+                        ColorStateList.valueOf(0x33ffffff),
+                        shape(fill, if (theme == "vice") 18f else 32f),
+                        shape(Color.WHITE, if (theme == "vice") 18f else 32f),
+                    )
+                }
             }
         }
-        control("toggle", media.state !in setOf("none", "error"))
-        view.findViewWithTag<ImageButton>("toggle").apply {
-            setImageResource(if (media.needsForeground) R.drawable.ic_pause else R.drawable.ic_play)
-            contentDescription = app.getString(if (media.needsForeground) R.string.playback_action_pause else R.string.playback_action_play)
-        }
-        control("previous", media.supports("previoustrack")); control("next", media.supports("nexttrack"))
-        control("favorite", media.canFavorite, media.favorite)
-        view.findViewWithTag<ImageButton>("favorite").setImageResource(if (media.favorite) R.drawable.ic_island_heart_filled else R.drawable.ic_island_heart)
-        control("shuffle", media.canShuffle, media.shuffle); control("repeat", media.canRepeat, media.repeat != "off")
+        control("toggle", if (media.needsForeground) "pause" else "play", media.state !in setOf("none", "error"))
+        view.findViewWithTag<ImageButton>("toggle").contentDescription =
+            app.getString(if (media.needsForeground) R.string.playback_action_pause else R.string.playback_action_play)
+        control("previous", "skip-back", media.supports("previoustrack"))
+        control("next", "skip-forward", media.supports("nexttrack"))
+        control("favorite", "heart", media.canFavorite, media.favorite)
+        control("shuffle", "shuffle", media.canShuffle, media.shuffle)
+        control("repeat", if (media.repeat == "one") "repeat-1" else "repeat", media.canRepeat, media.repeat != "off")
         view.findViewWithTag<ImageButton>("repeat").contentDescription = app.getString(when (media.repeat) {
             "one" -> R.string.island_repeat_one; "all" -> R.string.island_repeat_all; else -> R.string.island_repeat
         })
-        view.findViewWithTag<ImageButton>("repeat").setImageResource(if (media.repeat == "one") R.drawable.ic_island_repeat_one else R.drawable.ic_island_repeat)
+        val progress = ColorStateList.valueOf(if (theme == "vice") 0xff84e2cc.toInt() else accent)
+        view.findViewWithTag<SeekBar>("seek").apply {
+            progressTintList = progress
+            thumbTintList = progress
+        }
         updateProgress()
     }
 

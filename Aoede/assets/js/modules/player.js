@@ -721,11 +721,18 @@ export function setupYouTubePlayer() {
 
 // === PLAYER UI UPDATE ===
 
+function setPlayerCover(cover, thumbnail) {
+  if (!cover) return;
+  cover.onerror = () => setPlayerCover(cover, null);
+  if (!thumbnail) cover.onerror = null;
+  cover.src = thumbnail || '/static/img/default_cover.png';
+}
+
 export function updatePlayerUI(track) {
   if (!track) return;
   document.getElementById('player-title').textContent = track.title || 'Unknown';
   _setArtistLabel(document.getElementById('player-artist'), track.artist);
-  document.getElementById('player-cover').src = track.thumbnail || '/static/img/default_cover.png';
+  setPlayerCover(document.getElementById('player-cover'), track.thumbnail);
 
   syncPlayerShellVisibility(track);
 
@@ -754,26 +761,18 @@ export function updatePlayerUI(track) {
   const fsCover = document.getElementById('fs-cover');
   if (fsTitle) fsTitle.textContent = track.title || 'Unknown';
   _setArtistLabel(fsArtist, track.artist);
-  if (fsCover) fsCover.src = track.thumbnail || '/static/img/default_cover.png';
+  setPlayerCover(fsCover, track.thumbnail);
 
   ui.refreshIcons();
 }
 
-// Replace the artist label content with a clickable link that routes
-// to the artist view. We rebuild the inner HTML each time the track
-// changes (rather than wrapping once at boot) because the existing
-// code paths may overwrite textContent and we want both to work.
 function _setArtistLabel(el, artist) {
   if (!el) return;
   const name = artist || 'Unknown';
   el.textContent = name;
   el.classList.remove('artist-link-inline');
 
-  // The mini-player (#player-artist) on mobile is part of the
-  // banner-wide tap target to open the fullscreen player. Skip the
-  // artist-navigation onclick there so it doesn't steal the tap and
-  // stopPropagation before the footer handler runs. The fullscreen
-  // player's artist (#fs-artist) is always clickable.
+  // Keep the mobile footer tappable for opening the fullscreen player.
   const isMiniPlayerMobile = el.id === 'player-artist' && window.matchMedia('(max-width: 768px)').matches;
   if (!artist || artist === 'Unknown' || isMiniPlayerMobile) {
     el.style.cursor = isMiniPlayerMobile ? 'pointer' : 'default';
@@ -803,7 +802,7 @@ export function updatePlayerUIForPreview(track) {
 
   document.getElementById('player-title').textContent = track.title || 'Preview';
   _setArtistLabel(document.getElementById('player-artist'), track.artist);
-  document.getElementById('player-cover').src = track.thumbnail || '/static/img/default_cover.png';
+  setPlayerCover(document.getElementById('player-cover'), track.thumbnail);
 
   syncPlayerShellVisibility(track);
 
@@ -826,7 +825,7 @@ export function updatePlayerUIForPreview(track) {
   const fsCover = document.getElementById('fs-cover');
   if (fsTitle) fsTitle.textContent = track.title || 'Preview';
   _setArtistLabel(fsArtist, track.artist);
-  if (fsCover) fsCover.src = track.thumbnail || '/static/img/default_cover.png';
+  setPlayerCover(fsCover, track.thumbnail);
 
   lucide.createIcons();
 }
@@ -863,17 +862,6 @@ export async function playTrack(track, options = {}) {
   // Notify the lyrics panel — it self-skips when closed so this is
   // free when the user isn't looking at lyrics.
   if (window.onLyricsTrackChange) window.onLyricsTrackChange(track);
-
-  // Highlight in lists
-  document.querySelectorAll('.track-row').forEach((row) => row.classList.remove('active-track'));
-  if (state.currentViewList) {
-    state.currentViewList.forEach((t, idx) => {
-      if ((t.id && track.id && t.id === track.id) || (t.db_id && track.db_id && t.db_id === track.db_id)) {
-        const row = document.querySelector(`.track-row[data-idx="${idx}"]`);
-        if (row) row.classList.add('active-track');
-      }
-    });
-  }
 
   if (window.renderQueue) window.renderQueue();
 
@@ -1337,6 +1325,11 @@ export async function fetchRandomTrackAndPlay() {
 export function syncPlayerShellVisibility(track = state.currentTrack) {
   const hasTrack = Boolean(track);
   document.body.classList.toggle('has-player', hasTrack);
+  const key = state.trackRowKey(track);
+  document.querySelectorAll('.track-row[data-track-key]').forEach((row) => {
+    row.classList.toggle('active-track', Boolean(key && row.dataset.trackKey === key));
+  });
+
   const footer = document.querySelector('.player-footer');
   const mainView = document.querySelector('.main-view');
 

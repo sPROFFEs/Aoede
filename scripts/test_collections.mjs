@@ -3,12 +3,13 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import vm from 'node:vm';
 
+let trackRowKey;
 async function load(file, globals, dependencies) {
   const context = vm.createContext(globals);
   const imports = {};
   const module = new vm.SourceTextModule(await readFile(new URL(`../Aoede/assets/js/modules/${file}`, import.meta.url), 'utf8'), { context });
   await module.link(name => {
-    const values = name === './state.js' ? { viewGuard: () => () => true, ...dependencies[name] } : dependencies[name];
+    const values = name === './state.js' ? { viewGuard: () => () => true, trackRowKey, ...dependencies[name] } : dependencies[name];
     imports[name] = new vm.SyntheticModule(Object.keys(values), function () {
       for (const [key, value] of Object.entries(values)) this.setExport(key, value);
     }, { context });
@@ -17,6 +18,7 @@ async function load(file, globals, dependencies) {
   await module.evaluate();
   return { api: module.namespace, imports };
 }
+({ trackRowKey } = (await load('state.js', { document: { getElementById: () => null } }, {})).api);
 const translationWindow = {};
 const ui = (await load('ui.js', { document: { addEventListener() {} }, window: translationWindow }, { './state.js': {}, './audio_engine.js': {} })).api;
 translationWindow.__I18N__ = { count: 'Mostrando {start}–{end} de {total}', greeting: 'Party con {user}' };
@@ -482,13 +484,17 @@ assert.match(federationHtml.innerHTML, /leaveCollaborativePlaylist\('fed_2_3'\)/
 assert.match(federationHtml.innerHTML, /loadView\('profile', 'fed:2:1'\)/);
 assert.equal(federationHtml.innerHTML.includes('togglePlaylistOfflineDownload'), false);
 assert.equal(federationHtml.innerHTML.includes('NaN'), false);
-const rowDeps = { ...viewDependencies, './ui.js': { ...ui, fmtTime: () => '1:30' }, './state.js': { userFavorites: new Set() },
+const rowDeps = { ...viewDependencies, './ui.js': { ...ui, fmtTime: () => '1:30' },
+  './state.js': { userFavorites: new Set(), currentTrack: { ...federatedData.tracks[0], id: 'another-view-id' } },
   './offline_store.js': { isTrackAvailableOfflineSync: () => false } };
 const socialRows = (await load('views.js', { btoa, document: { body: { addEventListener() {} } }, navigator: { onLine: true }, window: {} }, rowDeps)).api;
 const row = socialRows.createPlaylistTrackRow(federatedData.tracks[0], 0, 'fed_2_3');
 assert.match(row, /showRemoveFromPlaylistModal\('fed_2_3', 'fedpl_2_3_17',/);
 assert.match(row, /showAddToPlaylistModal\('fedpl_2_3_17'\)/);
 assert.equal(row.includes('toggleFavorite('), false);
+assert.match(row, /active-track/);
+assert.match(row, /data-track-key="fed:2:17"/);
+assert.doesNotMatch(socialRows.createPlaylistTrackRow({ ...federatedData.tracks[0], fed_instance_id: 3 }, 0, 'fed_3_3'), /active-track/);
 console.log('PASS: federated album playback, owner/profile links, scoped editing controls and unavailable offline actions.');
 
 let clickedSong;

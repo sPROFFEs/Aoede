@@ -333,6 +333,17 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
             if (light) intArrayOf(0xfffff1df.toInt(), 0xfff7d6cc.toInt(), 0xfffff1df.toInt())
             else intArrayOf(0xff160f29.toInt(), 0xff372049.toInt(), 0xff160f29.toInt()),
         )
+    private val lightGlow = if (light) 0x52ffad9b else 0x49a84890
+    private val depth = Paint()
+    private val frame = Runnable { invalidateSelf() }
+    var moving = false
+        set(value) {
+            if (field == value) return
+            field = value
+            unscheduleSelf(frame)
+            invalidateSelf()
+        }
+
     private val palms: NativeIcon
 
     init {
@@ -342,6 +353,15 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
 
     override fun onBoundsChange(bounds: android.graphics.Rect) {
         sky.bounds = bounds
+        depth.shader =
+            android.graphics.RadialGradient(
+                bounds.left + bounds.width() * .7f,
+                bounds.top + bounds.height() * .57f,
+                maxOf(1, bounds.width(), bounds.height()) * .67f,
+                lightGlow,
+                Color.TRANSPARENT,
+                android.graphics.Shader.TileMode.CLAMP,
+            )
         val scale = maxOf(bounds.width() / 1000f, bounds.height() / 700f)
         palms.setBounds(
             bounds.right - (1000 * scale).toInt(),
@@ -355,8 +375,22 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
         canvas.save()
         canvas.clipRect(bounds)
         sky.draw(canvas)
+        canvas.drawRect(bounds, depth)
+        if (moving) {
+            val phase = android.os.SystemClock.uptimeMillis() % 64000L / 64000.0
+            canvas.rotate(
+                (3 * kotlin.math.sin(phase * 2 * Math.PI)).toFloat(),
+                bounds.exactCenterX(),
+                bounds.exactCenterY(),
+            )
+            canvas.scale(1.07f, 1.07f, bounds.exactCenterX(), bounds.exactCenterY())
+        }
         palms.draw(canvas)
         canvas.restore()
+        if (moving && isVisible) {
+            unscheduleSelf(frame)
+            scheduleSelf(frame, android.os.SystemClock.uptimeMillis() + 66)
+        }
     }
 
     override fun setAlpha(alpha: Int) {

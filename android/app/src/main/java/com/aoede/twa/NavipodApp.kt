@@ -78,6 +78,7 @@ class AoedeApp : Application() {
     private var playerUrl: String? = null
     var connectionFailure: Pair<String, String>? = null
         private set
+    internal var playerTheme = "classic"
     internal var darkAppearance = true
     @Volatile var viewport = "{}"
         private set
@@ -184,7 +185,15 @@ class AoedeApp : Application() {
                     else if (message.data.orEmpty().length < 128 && runCatching {
                         val payload = JSONObject(message.data.orEmpty())
                         if (payload.optString("type") != "appearance" || payload.opt("dark") !is Boolean) false
-                        else { darkAppearance = payload.getBoolean("dark"); activity.get()?.applyAppearance(darkAppearance); true }
+                        else {
+                            playerTheme = payload.optString("theme").takeIf {
+                                it in setOf("classic", "glass", "vitrine", "vice")
+                            } ?: "classic"
+                            darkAppearance = payload.getBoolean("dark")
+                            activity.get()?.applyAppearance(darkAppearance)
+                            if (musicIsland.expanded) musicIsland.refresh()
+                            true
+                        }
                     }.getOrDefault(false)) Unit
                     else frontend.prepare(message.data.orEmpty())?.let { target -> view.loadUrl(target) }
                 }
@@ -337,6 +346,7 @@ class AoedeApp : Application() {
         }
         player = null
         playerUrl = null
+        playerTheme = "classic"
         connectionFailure = null
         musicIsland.refresh()
     }

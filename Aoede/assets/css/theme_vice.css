@@ -79,7 +79,7 @@ html[data-theme="vice"] .fullscreen-player #fs-volume-bar .volume-bar-fill { bac
     html[data-theme="vice"] .fullscreen-player .fs-title { font-size: 1.5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
-    html[data-theme="vice"] :is(.card, .quick-pick, .fs-cover, button) { transition: none !important; animation: none !important; }
+    html[data-theme="vice"] :is(.card, .quick-pick, .fs-cover, .track-row, button) { transition: none !important; animation: none !important; }
 }
 @media (prefers-reduced-transparency: reduce) {
     html[data-theme="vice"] body::before { display: none; }
@@ -89,4 +89,109 @@ html[data-theme="vice"] .fullscreen-player #fs-volume-bar .volume-bar-fill { bac
     html[data-theme="vice"] { --square-base: Canvas; --square-film: Canvas; --square-film-strong: Canvas; --square-content: Canvas; --square-wash: Canvas; --square-line: CanvasText; --square-rim: CanvasText; --square-ink: CanvasText; --square-muted: CanvasText; --square-faint: CanvasText; --square-primary: Highlight; --square-on-primary: HighlightText; --vice-mint: Highlight; }
     html[data-theme="vice"] :is(body::before, .fs-background) { display: none; }
     html[data-theme="vice"] :is(body, .fullscreen-player, .fs-volume-panel, .fs-more-menu) { background: Canvas !important; color: CanvasText !important; }
+}
+
+/* The scene moves behind the interface. The rotation never changes layout. */
+@keyframes vice-horizon-drift {
+    from { transform: scale(1.07) rotate(-3deg); }
+    to { transform: scale(1.07) rotate(3deg); }
+}
+@keyframes vice-record-spin { to { rotate: 1turn; } }
+
+html[data-theme="vice"] body::before {
+    background-image: url('../img/vice-palms.svg'), radial-gradient(ellipse at 66% 55%, var(--vice-glow), transparent 67%);
+    filter: blur(1px);
+    animation: vice-horizon-drift 32s ease-in-out infinite alternate;
+}
+html[data-theme="vice"] .fullscreen-player.open .fs-background::before {
+    filter: blur(1px);
+    animation: vice-horizon-drift 32s ease-in-out infinite alternate;
+}
+html[data-theme="vice"]:has(.fullscreen-player.open) body::before { animation-play-state: paused; }
+html[data-theme="vice"] :is(.app-header, .player-footer, .m-topbar) {
+    background: color-mix(in srgb, var(--square-film) 91%, transparent) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: inset 0 1px var(--square-glint), var(--square-shadow);
+}
+
+html[data-theme="vice"] .track-row {
+    border-radius: 10px;
+    transition: background-color .2s ease, box-shadow .2s ease;
+}
+html[data-theme="vice"] .track-row.active-track {
+    background: var(--square-wash) !important;
+    box-shadow: inset 3px 0 var(--primary);
+}
+html[data-theme="vice"] .track-row.active-track .track-name-sm { color: var(--primary) !important; }
+html[data-theme="vice"] .track-row.active-track .playing-icon { animation-play-state: paused; }
+html[data-theme="vice"][data-playing="true"] .track-row.active-track .playing-icon { animation-play-state: running; }
+
+html[data-theme="vice"] :is(#player-cover, .fullscreen-player .fs-cover, .fs-cover-ghost) {
+    box-sizing: border-box;
+    border: solid transparent var(--vice-record-rim, 9px) !important;
+    border-radius: 50% !important;
+    object-fit: cover;
+    background: conic-gradient(from 30deg, transparent 0 15%, #fff3 22%, transparent 28% 59%, #ff8cb455 70%, transparent 78%) border-box,
+        repeating-radial-gradient(circle closest-side, #211b2c 0 5%, #382c42 5.5% 6.4%, #17121f 7% 8%) border-box;
+    --record-mask: radial-gradient(circle, transparent 1.8%, #000 2.5%);
+    -webkit-mask-image: var(--record-mask);
+    mask-image: var(--record-mask);
+    box-shadow: 0 4px 16px #10091744;
+}
+/* Leave the keyboard focus outline outside the disc visible. */
+html[data-theme="vice"] #player-cover:focus-visible { --record-mask: none; }
+html[data-theme="vice"] .fs-stage { container-type: size; display: grid; place-items: center; }
+html[data-theme="vice"] .fullscreen-player .fs-cover {
+    --vice-record-rim: 21cqmin;
+    width: 100cqmin;
+    height: 100cqmin;
+    margin-inline: auto;
+}
+html[data-theme="vice"] .fs-cover-ghost {
+    --vice-record-rim: 21cqmin;
+    width: 100cqmin;
+    height: 100cqmin;
+    margin: auto;
+}
+@supports not (width: 1cqmin) {
+    html[data-theme="vice"] :is(.fullscreen-player .fs-cover, .fs-cover-ghost) {
+        width: min(100%, 42vh);
+        height: auto;
+        aspect-ratio: 1;
+        border-width: clamp(9px, 8vh, 70px) !important;
+    }
+}
+html[data-theme="vice"] #player-cover,
+html[data-theme="vice"] .fullscreen-player.open[data-view="cover"] .fs-cover {
+    animation: vice-record-spin 12s linear infinite paused;
+}
+html[data-theme="vice"][data-playing="true"]:not(:has(.fullscreen-player.open)) #player-cover,
+html[data-theme="vice"] .fullscreen-player.open[data-view="cover"][data-playing="true"] .fs-cover {
+    animation-play-state: running;
+}
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme="vice"] body::before,
+    html[data-theme="vice"] .fullscreen-player .fs-background::before,
+    html[data-theme="vice"] :is(#player-cover, .fullscreen-player .fs-cover, .playing-icon) {
+        animation: none !important;
+    }
+}
+@media (prefers-reduced-transparency: reduce) {
+    html[data-theme="vice"] :is(.app-header, .player-footer, .m-topbar) {
+        background: var(--square-film) !important;
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
+    }
+}
+html[data-theme="vice"][data-native-effects="reduced"] body::before,
+html[data-theme="vice"][data-native-effects="reduced"] .fs-background::before,
+html[data-theme="vice"][data-native-effects="reduced"] :is(#player-cover, .fullscreen-player .fs-cover, .playing-icon) {
+    animation: none !important;
+    filter: none;
+}
+html[data-theme="vice"][data-native-effects="reduced"] :is(.app-header, .player-footer, .m-topbar) {
+    background: var(--square-film) !important;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }

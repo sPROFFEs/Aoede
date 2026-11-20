@@ -9,7 +9,7 @@ Choose **Settings → Appearance → Classic, Glass, Vitrine or Vice**. Classic 
 | Vitrine | Apple Music inspired library and collection hierarchy, red accent, clean separators and restrained glass chrome. |
 | Vice | GTA VI inspired palms, sunset pink and purple, warm cream, mint transport accents and poster headings. |
 
-Vice uses GTA VI inspired sunset colors, tropical silhouettes and a bundled condensed display font. Its cream/daytime and purple/nighttime palettes follow the device appearance; the fullscreen player keeps a quiet night palette. Decorative artwork is local and does not replace the Aoede icon.
+Vice uses GTA VI inspired sunset colors, tropical silhouettes and a bundled condensed display font. Its cream/daytime and purple/nighttime palettes follow the device appearance; the fullscreen player keeps a quiet night palette. Decorative artwork is local and does not replace the Aoede icon. The skyline drifts slowly behind the interface. The compact and fullscreen players display a vinyl record with the track artwork, and the current track is highlighted in the list. The record stops when playback pauses. Reduced motion and Android Reduce effects keep the scene and record still.
 
 Glass, Vitrine and Vice follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content.
 

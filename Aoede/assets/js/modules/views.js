@@ -1038,7 +1038,8 @@ export function createTrackRow(item, idx, playlistId = null) {
   const isLiked = state.userFavorites.has(item.db_id || item.id);
   const canLike = item.is_local && item.db_id;
   const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
-  const isActive = item.id === state.currentTrack?.id;
+  const key = state.trackRowKey(item);
+  const isActive = key && key === state.trackRowKey(state.currentTrack);
   const isOfflineAvailable = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
   const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
   const isUnavailableOffline = isDeviceOffline && !isOfflineAvailable && !item.is_offline;
@@ -1059,7 +1060,7 @@ export function createTrackRow(item, idx, playlistId = null) {
   const _safeTitle = ui.escJs(item.title || 'Unknown');
   const _safeArtist = ui.escJs(item.artist || 'Unknown');
 
-  return `<div class="track-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''} ${isUnavailableOffline ? 'offline-disabled' : ''}" onclick="${rowClickAction}" data-idx="${idx}">
+  return `<div class="track-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''} ${isUnavailableOffline ? 'offline-disabled' : ''}" onclick="${rowClickAction}" data-idx="${idx}" data-track-key="${ui.escHtml(key)}">
         <div class="track-num">
             <span class="num-text">${idx + 1}</span>
             <i data-lucide="play" class="hover-play-icon"></i>
@@ -1139,7 +1140,8 @@ export function createPlaylistTrackRow(item, idx, playlistId = null) {
   const src = item.source || 'local';
   const isLiked = state.userFavorites.has(item.db_id || item.id);
   const canAddToPlaylist = (item.is_local && item.db_id) || item.fed_instance_id != null;
-  const isActive = item.id === state.currentTrack?.id;
+  const key = state.trackRowKey(item);
+  const isActive = key && key === state.trackRowKey(state.currentTrack);
   const isOfflineAvailable = offlineStore.isTrackAvailableOfflineSync(item.db_id || item.id);
   const isDeviceOffline = typeof navigator !== 'undefined' && !navigator.onLine;
   const isUnavailableOffline = isDeviceOffline && !isOfflineAvailable && !item.is_offline;
@@ -1152,7 +1154,7 @@ export function createPlaylistTrackRow(item, idx, playlistId = null) {
     ? `ui.showToast('This track is not downloaded for offline use.', 'error')`
     : `playFromView(${idx})`;
 
-  return `<div class="track-row playlist-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''} ${isUnavailableOffline ? 'offline-disabled' : ''}" onclick="${rowClickAction}" data-idx="${idx}">
+  return `<div class="track-row playlist-row glass-hover ${isLiked ? 'liked-row' : ''} ${isActive ? 'active-track' : ''} ${isUnavailableOffline ? 'offline-disabled' : ''}" onclick="${rowClickAction}" data-idx="${idx}" data-track-key="${ui.escHtml(key)}">
         <div class="track-num">
             <span class="num-text">${idx + 1}</span>
             <i data-lucide="play" class="hover-play-icon"></i>
