@@ -27,10 +27,13 @@ const caches = {
   }
 };
 let fetcher = async () => new Response('online');
+let shellDeadline;
 vm.runInNewContext(await readFile(new URL('../Aoede/assets/sw.js', import.meta.url), 'utf8'), {
   self: { location: { origin: 'https://aoede.test' }, addEventListener: (name, callback) => listeners.set(name, callback),
     skipWaiting() {}, clients: { claim() {} } },
-  caches, fetch: (request) => fetcher(request), URL, Response, Date, Promise
+  caches, fetch: (...args) => fetcher(...args), URL, Response, Date, Promise, AbortController,
+  setTimeout(callback, delay) { if (delay === 6000) shellDeadline = callback; return 1; },
+  clearTimeout() { shellDeadline = null; }
 });
 async function event(name, request) {
   const waits = [];
@@ -96,6 +99,25 @@ assert.equal(await event('fetch', request('/user/settings')), undefined); // HTM
 assert.equal(await event('fetch', request('/user/appearance')), undefined); // Private preference never enters shell caching.
 fetcher = async () => redirected();
 await event('fetch', request('/portal', 'navigate'));
+assert.equal(await caches.match('/portal'), undefined);
+await (await caches.open(current)).put('/portal', new Response('cached user'));
+const manualRedirect = Response.redirect('https://aoede.test/login');
+Object.defineProperty(manualRedirect, 'type', { value: 'opaqueredirect' });
+fetcher = async () => manualRedirect;
+assert.equal(await event('fetch', request('/portal', 'navigate')), manualRedirect);
+assert.equal(await caches.match('/portal'), undefined);
+fetcher = async () => new Response('gateway timeout', { status: 504 });
+assert.equal((await event('fetch', request('/portal', 'navigate'))).status, 504);
+await (await caches.open(current)).put('/portal', new Response('cached user'));
+assert.equal(await (await event('fetch', request('/portal', 'navigate'))).text(), 'cached user');
+assert.equal((await event('fetch', request('/admin/system', 'navigate'))).status, 504);
+fetcher = async (_, { signal }) => new Promise((_resolve, reject) => {
+  signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  queueMicrotask(() => shellDeadline());
+});
+assert.equal(await (await event('fetch', request('/portal', 'navigate'))).text(), 'cached user');
+fetcher = async () => new Response('expired', { status: 401 });
+assert.equal((await event('fetch', request('/portal', 'navigate'))).status, 401);
 assert.equal(await caches.match('/portal'), undefined);
 await (await caches.open(current)).put('/portal', new Response('cached user'));
 await event('fetch', request('/logout', 'navigate'));

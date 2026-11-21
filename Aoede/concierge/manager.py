@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 # Estructura: { "username": ("172.xx.xx.xx", timestamp) }
 ip_cache = {}
 _pool_status_lock = threading.Lock()
+_pool_refresh_lock = threading.Lock()
 _pool_status_cache = {
     "measure_root": None,
     "used_bytes": 0,
@@ -216,6 +217,15 @@ def _measure_pool_bytes(force_refresh: bool = False, cached_only: bool = False):
             }
         )
     return used_bytes
+
+
+def refresh_pool_status_cache():
+    if not _pool_refresh_lock.acquire(blocking=False):
+        return
+    try:
+        _measure_pool_bytes()
+    finally:
+        _pool_refresh_lock.release()
 
 
 def get_pool_status(db, force_refresh: bool = False, cached_only: bool = False):

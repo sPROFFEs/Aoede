@@ -323,6 +323,10 @@ class NativeApi(internal val app: AoedeApp) {
             instanceFollowRedirects = false
             connectTimeout = 12000
             readTimeout = 20000
+            if (path == "/api/mobile/v2/context") {
+                connectTimeout = 5000
+                readTimeout = 6000
+            }
             requestMethod = method
             setRequestProperty("User-Agent", "AoedeAndroid/${BuildConfig.VERSION_NAME} Native/2")
             setRequestProperty("Origin", originHeader(target))
@@ -512,12 +516,9 @@ class NativeApi(internal val app: AoedeApp) {
                     )
                 throw error
             }
-        require(
-            data.optInt("protocol") == 2 &&
-                Regex("[a-f0-9]{64}").matches(data.optString("storage_scope"))
-        ) {
-            "Update your Aoede server to 1.3.1"
-        }
+        if (data.optInt("protocol") != 2 ||
+            !Regex("[a-f0-9]{64}").matches(data.optString("storage_scope"))
+        ) throw Failure(409, "Update your Aoede server to 1.3.1")
         require(data.optJSONObject("account")?.optLong("id", 0)?.let { it > 0 } == true)
         require(
             Regex("[A-Za-z0-9][A-Za-z0-9_-]{1,31}")

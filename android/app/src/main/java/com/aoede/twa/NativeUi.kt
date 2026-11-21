@@ -483,35 +483,54 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         player.onChanged = playbackChanged
         player.onOpenPlayer = openPlayer
         app.nativeChanged = playbackChanged
-        if (api.hasCredentials) {
-            connecting = true
-            palette()
-            screen("Aoede")
-            musicLoader()
-            label("Connecting to your music…", 15, color = muted).apply {
-                gravity = Gravity.CENTER_HORIZONTAL
-            }
-            val waitingGeneration = generation
-            api.execute({ api.refreshContext() }) { _, error ->
-                if (!alive) return@execute
-                connecting = false
-                if (error == null) {
-                    player.restore()
-                    player.refreshPreferences()
-                    if (generation == waitingGeneration) {
-                        if (saved == null || !restoreState(saved)) home()
-                        requestedPlayerMode?.let { showPlayer(it) }
+        if (api.hasCredentials) connect(saved) else login()
+    }
+
+    private fun connect(saved: android.os.Bundle?) {
+        connecting = true
+        palette()
+        screen("Aoede")
+        musicLoader()
+        label("Connecting to your music…", 15, color = muted).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        val waitingGeneration = generation
+        api.execute({ api.refreshContext() }) { _, error ->
+            if (!alive) return@execute
+            connecting = false
+            if (error == null) {
+                player.restore()
+                player.refreshPreferences()
+                if (generation == waitingGeneration) {
+                    if (saved == null || !restoreState(saved)) home()
+                    requestedPlayerMode?.let { showPlayer(it) }
+                }
+                requestedPlayerMode = null
+                app.nativeSync.flush()
+                app.updater.check()
+            } else if (error is NativeApi.Failure && error.code == 401) {
+                player.release()
+                api.clearSession()
+                login()
+            } else if (generation == waitingGeneration) {
+                content.removeAllViews()
+                val message = when (error) {
+                    is java.net.SocketTimeoutException ->
+                        text("native.connection_timeout", "The server took too long to respond.")
+                    is NativeApi.Failure -> error.message
+                    else -> text("native.connection_unavailable", "Could not connect to the server.")
+                }
+                label(message ?: text("native.connection_unavailable", "Could not connect to the server."))
+                button(text("common.retry", "Retry")) { connect(saved) }
+                if (api.account != null)
+                    button(text("offline.title", "Device downloads")) {
+                        offline = true
+                        player.restore()
+                        offlineDownloads()
                     }
-                    requestedPlayerMode = null
-                    app.nativeSync.flush()
-                    app.updater.check()
-                } else if (error is NativeApi.Failure && error.code == 401) {
-                    player.release()
-                    api.clearSession()
-                    login()
-                } else if (generation == waitingGeneration) login(error.message)
+                button(text("native.configure_server", "Configure server")) { activity.openServerSettings() }
             }
-        } else login()
+        }
     }
 
     fun shape(color: Int, radius: Int = 14) = design.shape(color, radius)

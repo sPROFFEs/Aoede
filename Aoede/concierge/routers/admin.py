@@ -191,7 +191,7 @@ def _purge_user_data(username: str, user_data_path) -> None:
 
 # DASHBOARD VIEW
 @router.get("/")
-async def admin_panel(request: Request, db: Session = Depends(get_db)):
+def admin_panel(request: Request, db: Session = Depends(get_db)):
     try:
         admin = get_current_admin(request, db)
     except HTTPException:
@@ -233,7 +233,7 @@ def user_login_lock(user_id: int, db: Session = Depends(get_db), admin: database
 
 
 @router.get("/song-delete-requests")
-async def song_delete_requests_inbox(request: Request, db: Session = Depends(get_db)):
+def song_delete_requests_inbox(request: Request, db: Session = Depends(get_db)):
     admin = get_current_admin(request, db)
     pool_used, pool_limit, pool_pct = manager.get_pool_status(db)
 
@@ -575,7 +575,7 @@ def api_downloader_status(db: Session = Depends(get_db), admin: database.User = 
 @router.get("/downloads")
 async def download_manager(request: Request, db: Session = Depends(get_db)):
     admin = get_current_admin(request, db)
-    pool_used, pool_limit, pool_pct = manager.get_pool_status(db)
+    pool_used, pool_limit, pool_pct = await asyncio.to_thread(manager.get_pool_status, db)
     downloader = await asyncio.to_thread(downloader_worker_client.get_worker_status)
     downloader["mode"] = downloader_worker_client.get_downloader_mode(db)
     try:
@@ -1021,7 +1021,7 @@ async def apply_updates(
 
 
 @router.get("/system/updates/jobs/{job_id}")
-async def update_job_progress_page(
+def update_job_progress_page(
     job_id: int, request: Request, db: Session = Depends(get_db), admin: database.User = Depends(get_current_admin)
 ):
     job = operations_service.get_admin_job(db, job_id)

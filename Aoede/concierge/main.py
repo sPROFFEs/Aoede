@@ -477,7 +477,7 @@ app.include_router(federation_router.router)
 
 
 @app.get("/login")
-async def login_page(request: Request):
+def login_page(request: Request):
     return templates.TemplateResponse(
         request,
         "login.html",
@@ -574,7 +574,7 @@ def _render_app_shell(
     request: Request, user: database.User, db: Session, *, initial_view: str = "home", initial_param=None
 ):
     username = user.username
-    u_gb, l_gb, pct = manager.get_pool_status(db)
+    u_gb, l_gb, pct = manager.get_pool_status(db, cached_only=True)
     return templates.TemplateResponse(
         request,
         "app_shell.html",
@@ -586,16 +586,20 @@ def _render_app_shell(
             "initial_view": initial_view,
             "initial_param": initial_param,
         },
+        background=BackgroundTask(manager.refresh_pool_status_cache),
     )
 
 
 @app.get("/portal")
-async def portal(request: Request, db: Session = Depends(get_db)):
+def portal(request: Request, db: Session = Depends(get_db)):
     # Use robust auth checker that handles blacklist
     try:
         user = auth.get_current_user(request, db)
-    except:
+    except HTTPException:
         return RedirectResponse("/login")
+    except Exception:
+        logger.warning("Portal session verification unavailable")
+        return JSONResponse({"error": "Session verification unavailable"}, status_code=503)
 
     return _render_app_shell(request, user, db)
 
@@ -637,7 +641,7 @@ def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
             "pool": {"used": used, "limit": limit, "percent": percent},
         },
         headers=headers,
-        background=BackgroundTask(manager._measure_pool_bytes),
+        background=BackgroundTask(manager.refresh_pool_status_cache),
     )
 
 
@@ -664,7 +668,7 @@ async def wrapped_story_page(request: Request, year: int | None = None, db: Sess
 @app.get("/wrapped")
 @app.get("/wrapped/")
 @app.get("/wrapped/{year}")
-async def wrapped_page(request: Request, year: int | None = None, db: Session = Depends(get_db)):
+def wrapped_page(request: Request, year: int | None = None, db: Session = Depends(get_db)):
     try:
         user = auth.get_current_user(request, db)
     except Exception:
@@ -691,7 +695,7 @@ def logout(request: Request, db: Session = Depends(get_db)):
 
 
 @app.get("/help")
-async def help_page(request: Request, db: Session = Depends(get_db)):
+def help_page(request: Request, db: Session = Depends(get_db)):
     try:
         user = auth.get_current_user(request, db)
     except HTTPException:

@@ -8,7 +8,7 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v36';
+const CACHE = 'aoede-shell-v37';
 const VICE_VIDEO = '/assets/video/vice-sunset.mp4';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
@@ -203,16 +203,34 @@ self.addEventListener('fetch', (event) => {
   // Only the music shell can fall back to /portal. Never cache admin/login pages.
   if (request.mode === 'navigate') {
     const shellNavigation = ['/', '/portal', '/index.html'].includes(url.pathname);
+    const network = async () => {
+      // Give the origin time to reply when no offline shell is installed yet.
+      if (!shellNavigation || !(await caches.match('/portal'))) return fetch(request);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 6000);
+      try {
+        return await fetch(request, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
+    };
     event.respondWith(
-      fetch(request)
-        .then((response) => {
+      network()
+        .then(async (response) => {
           const target = response.url && new URL(response.url);
           const reachesPortal = target && target.origin === self.location.origin && target.pathname === '/portal';
+          if (shellNavigation && [502, 503, 504, 520, 521, 522, 523, 524, 530].includes(response.status)) {
+            return (await caches.match('/portal')) || response;
+          }
           if (shellNavigation && response.ok && (!response.redirected || reachesPortal)) {
             const copy = response.clone();
             event.waitUntil(caches.open(CACHE).then((cache) => cache.put('/portal', copy)));
-          } else if (shellNavigation && response.redirected) {
-            event.waitUntil(caches.open(CACHE).then((cache) => cache.delete('/portal')));
+          } else if (
+            (url.pathname === '/login' && response.ok) ||
+            (shellNavigation && (response.redirected || response.status === 401 || response.status === 403)) ||
+            (url.pathname === '/portal' && response.type === 'opaqueredirect')
+          ) {
+            await caches.open(CACHE).then((cache) => cache.delete('/portal')).catch(() => {});
           }
           return response;
         })

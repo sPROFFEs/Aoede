@@ -14,6 +14,7 @@ import manager
 import metadata_service
 import source_registry
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Query, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, RedirectResponse
 from limiter import limiter
 from playlist_files import MAX_PLAYLIST_NAME_LENGTH, normalize_playlist_name
@@ -268,7 +269,7 @@ async def import_collection(
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    used, limit, _ = manager.get_pool_status(db)
+    used, limit, _ = await run_in_threadpool(manager.get_pool_status, db)
     if used >= limit:
         return JSONResponse({"error": "Global pool limit reached. Please delete some tracks."}, status_code=403)
     try:
@@ -349,7 +350,7 @@ async def trigger_download(
     _prune_terminal_download_jobs(db, user.id)
 
     # Pre-check global pool quota for immediate feedback
-    pool_usage = manager.get_pool_status(db)
+    pool_usage = await run_in_threadpool(manager.get_pool_status, db)
     if pool_usage[0] >= pool_usage[1]:  # used_gb >= limit_gb
         return JSONResponse(
             {"error": f"Global pool limit reached ({pool_usage[1]}GB). Please delete some tracks."}, status_code=403
@@ -444,7 +445,7 @@ async def retry_download(
         if active_jobs >= collection_service.MAX_COLLECTION_TRACKS:
             return JSONResponse({"error": "Your download queue is full."}, status_code=409)
 
-    pool_usage = manager.get_pool_status(db)
+    pool_usage = await run_in_threadpool(manager.get_pool_status, db)
     if pool_usage[0] >= pool_usage[1]:
         return JSONResponse(
             {"error": f"Global pool limit reached ({pool_usage[1]}GB). Please delete some tracks."}, status_code=403

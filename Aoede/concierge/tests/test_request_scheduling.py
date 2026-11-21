@@ -14,7 +14,10 @@ def _function_kind(relative_path: str, function_name: str):
 
 def test_synchronous_request_handlers_run_in_fastapi_threadpool():
     handlers = {
+        "main.py": ("portal", "wrapped_page", "help_page"),
+        "routers/admin.py": ("admin_panel", "song_delete_requests_inbox", "update_job_progress_page"),
         "routers/music/core.py": ("downloads_page", "library_page", "search_page"),
+        "routers/music/radio.py": ("radio_page",),
         "routers/music/library.py": ("library_facets", "library_tracks"),
         "routers/music/personalization.py": (
             "record_listen_event",

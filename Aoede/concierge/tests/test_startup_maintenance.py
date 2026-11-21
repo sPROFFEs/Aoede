@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import database
@@ -7,6 +8,8 @@ import pytest
 import track_identity
 import yaml
 from sqlalchemy.pool import NullPool
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
@@ -101,6 +104,32 @@ def test_maintenance_schedulers_wait_before_first_work(main_app, monkeypatch):
         with pytest.raises(asyncio.CancelledError):
             asyncio.run(scheduler())
         assert delays[-1] == delay
+
+
+def test_portal_uses_cached_quota_and_refreshes_after_sending_html(main_app, db_session, monkeypatch):
+    request = Request({"type": "http", "path": "/portal", "headers": []})
+    monkeypatch.setattr(main_app.auth, "get_current_user", lambda *_: SimpleNamespace(username="alice", is_admin=False))
+    quota = MagicMock(return_value=(2, 10, 20))
+    measure = MagicMock()
+    monkeypatch.setattr(main_app.manager, "get_pool_status", quota)
+    monkeypatch.setattr(main_app.manager, "refresh_pool_status_cache", measure, raising=False)
+    monkeypatch.setattr(
+        main_app.templates,
+        "TemplateResponse",
+        lambda _request, _template, context, **kwargs: JSONResponse(context["pool"], **kwargs),
+    )
+    response = main_app.portal(request, db_session)
+    quota.assert_called_once_with(db_session, cached_only=True)
+    measure.assert_not_called()
+
+    async def send(_message):
+        measure.assert_not_called()
+
+    asyncio.run(response({"type": "http"}, None, send))
+    measure.assert_called_once()
+
+    monkeypatch.setattr(main_app.auth, "get_current_user", MagicMock(side_effect=RuntimeError("database busy")))
+    assert main_app.portal(request, db_session).status_code == 503
 
 
 def test_sqlite_does_not_cap_concurrent_streaming_requests():

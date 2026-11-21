@@ -50,7 +50,7 @@ def test_mobile_bootstrap_is_authenticated_private_revocable_and_uses_request_la
         JSONResponse=JSONResponse,
         BackgroundTask=BackgroundTask,
         current_lang=language,
-        manager=SimpleNamespace(get_pool_status=quota, _measure_pool_bytes=lambda: None),
+        manager=SimpleNamespace(get_pool_status=quota, refresh_pool_status_cache=lambda: None),
         logger=logging.getLogger(__name__),
     )
     exec(compile(ast.Module(body=[route], type_ignores=[]), "mobile-route", "exec"), context)

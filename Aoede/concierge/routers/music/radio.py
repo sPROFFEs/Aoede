@@ -54,7 +54,7 @@ async def fetch_saved_radios_for_user(user):
 
 
 @router.get("/radio")
-async def radio_page(request: Request, db: Session = Depends(get_db)):
+def radio_page(request: Request, db: Session = Depends(get_db)):
     """Radio browser page"""
     user = get_current_user_safe(db, request)
     if not user:
