@@ -30,7 +30,8 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         get() = design.theme == "glass"
 
     private val backdrop = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
-    private val shade = View(context)
+    private val shade =
+        if (design.theme == "vice") NativeViceWallpaper(context, false) else View(context)
     private var motionAllowed = true
     private val grid = PlayerGrid()
     private val header = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -132,7 +133,6 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         setBackgroundColor(0xff202025.toInt())
         addView(backdrop, LayoutParams(-1, -1))
         addView(shade, LayoutParams(-1, -1))
-        if (design.theme == "vice") shade.background = NativeViceBackground(context, false)
         addView(
             grid,
             LayoutParams(-1, -1).apply {
@@ -1040,6 +1040,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                     .animate()
                     .translationX(-ui.trackSlideDirection * stage.width.toFloat())
                     .rotation(-ui.trackSlideDirection * 2f)
+                    .scaleX(ghost.scaleX * .93f)
+                    .scaleY(ghost.scaleY * .93f)
+                    .alpha(0f)
                     .setDuration(340)
                     .setInterpolator(android.view.animation.PathInterpolator(.18f, .9f, .22f, 1f))
                     .withEndAction { stage.removeView(ghost) }
@@ -1064,7 +1067,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 cover.animate().cancel()
                 cover.translationX = ui.trackSlideDirection * stage.width.toFloat()
                 cover.rotation = ui.trackSlideDirection * 2f
-                cover.alpha = 1f
+                cover.alpha = .74f
                 cover
                     .animate()
                     .translationX(0f)
@@ -1134,12 +1137,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     }
 
     private fun background(bitmap: Bitmap) {
-        if (design.theme == "vice") {
-            backdrop.setImageDrawable(null)
-            if (shade.background !is NativeViceBackground)
-                shade.background = NativeViceBackground(context, false)
-            return
-        }
+        if (design.theme == "vice") return
         if (ui.reduced()) {
             backdropBitmap = null
             backdrop.setImageDrawable(null)
@@ -1178,7 +1176,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         motionAllowed = visible
         if (!cover.vinyl) return
         val animate = visible && !ui.reducedMotion()
-        (shade.background as? NativeViceBackground)?.moving = animate
+        (shade as? NativeViceWallpaper)?.playing = animate
         cover.spin(animate && mode == "cover" && player.playing)
     }
 

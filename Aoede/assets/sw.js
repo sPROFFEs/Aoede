@@ -8,7 +8,8 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v35';
+const CACHE = 'aoede-shell-v36';
+const VICE_VIDEO = '/assets/video/vice-sunset.mp4';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
 
@@ -17,6 +18,7 @@ const PRECACHE_ASSETS = [
   '/assets/css/theme_vitrine.css',
   '/assets/css/theme_vice.css',
   '/assets/img/vice-palms.svg',
+  VICE_VIDEO,
   '/assets/fonts/vice-display.ttf',
   '/assets/css/ui_experience.css',
   '/assets/js/ui_icons.js',
@@ -91,6 +93,28 @@ function _shouldRevalidate(response) {
   return Date.now() - parsed >= REVALIDATE_AFTER_MS;
 }
 
+async function wallpaperRange(request, range) {
+  const cached = await caches.match(VICE_VIDEO);
+  if (!cached) return fetch(request);
+  const bytes = await cached.arrayBuffer();
+  const size = bytes.byteLength;
+  const match = /^bytes=(\d+)-(\d*)$/.exec(range);
+  const start = match ? Number(match[1]) : size;
+  const end = match?.[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+  if (start >= size || end < start) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } });
+  }
+  return new Response(bytes.slice(start, end + 1), {
+    status: 206,
+    headers: {
+      'Content-Type': 'video/mp4',
+      'Accept-Ranges': 'bytes',
+      'Content-Range': `bytes ${start}-${end}/${size}`,
+      'Content-Length': String(end - start + 1)
+    }
+  });
+}
+
 // ── Install ────────────────────────────────────────────────────────────────
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -155,6 +179,12 @@ self.addEventListener('fetch', (event) => {
 
   // Streams and audio downloads should not pollute the shell cache
   if (url.pathname.startsWith('/api/stream/')) return;
+
+  const range = request.headers.get('range');
+  if (url.pathname === VICE_VIDEO && range) {
+    event.respondWith(wallpaperRange(request, range));
+    return;
+  }
 
   // API responses must never be replaced by an HTML shell, including HTMX.
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/api/')) {

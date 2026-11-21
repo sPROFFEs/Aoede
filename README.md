@@ -56,7 +56,7 @@ Click any image for its full resolution. All images come from the real interface
 
 ### Four themes, one account
 
-**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Vice adds a moving skyline with drifting lights and a vinyl record with fine grooves and reflections in both players. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
+**Classic** keeps a focused dark layout. **Glass** adds translucent, artwork-aware surfaces. **Vitrine** pairs an Apple Music inspired layout with rose accents and light/dark appearance. **Vice** adds GTA VI inspired sunset colors, palm silhouettes and condensed poster typography. Vice adds a looping sunset video and a vinyl record with fine grooves and reflections in both players. Your theme preference follows your account between devices. [Theme guide](docs/THEMES.md)
 
 <table>
   <tr><th width="25%">Classic</th><th width="25%">Glass</th><th width="25%">Vitrine</th><th width="25%">Vice</th></tr>

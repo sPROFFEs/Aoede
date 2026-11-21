@@ -107,32 +107,6 @@ class NativeDesignTest {
     }
 
     @Test
-    @Config(sdk = [34])
-    @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
-    fun viceSceneMovesItsLightingAndStopsWhenMotionIsDisabled() {
-        val scene = NativeViceBackground(app, false).apply { setBounds(0, 0, 160, 240) }
-        val bitmap = Bitmap.createBitmap(160, 240, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(bitmap)
-        fun frame() =
-            IntArray(160 * 240).also {
-                scene.draw(canvas)
-                bitmap.getPixels(it, 0, 160, 0, 0, 160, 240)
-            }
-        val start = frame()
-        scene.moving = true
-        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(4))
-        val moving = frame()
-        assertTrue(
-            "The lighting should move across the scene",
-            start.indices.count { start[it] != moving[it] } > start.size / 5,
-        )
-        scene.moving = false
-        org.robolectric.shadows.ShadowSystemClock.advanceBy(java.time.Duration.ofSeconds(4))
-        assertArrayEquals(moving, frame())
-        bitmap.recycle()
-    }
-
-    @Test
     fun viceUsesReadableOpaqueSurfacesAndItsBundledDisplayFont() {
         for (light in listOf(false, true)) {
             val design = NativeDesign(app, "vice", light)

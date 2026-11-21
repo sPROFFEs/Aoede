@@ -325,7 +325,7 @@ internal class NativeGpuBackdrop(radius: Float, filter: ColorFilter) {
     fun release() = node.discardDisplayList()
 }
 
-/** Vice's skyline and lighting move independently of the content and album artwork. */
+/** Local Vice scene for theme previews and the video fallback. */
 class NativeViceBackground(context: android.content.Context, light: Boolean) : Drawable() {
     private val sky =
         android.graphics.drawable.GradientDrawable(
@@ -337,18 +337,10 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
     private val coolColor = if (light) 0x45e990b9 else 0x625646ad
     private val warm = Paint()
     private val cool = Paint()
-    private val glowPosition = android.graphics.Matrix()
-    private val frame = Runnable { invalidateSelf() }
-    private var driftMillis = 0L
-    private var driftStartedAt = 0L
-
-    var moving = false
+    var showPalms = true
         set(value) {
             if (field == value) return
-            val now = SystemClock.uptimeMillis()
-            if (value) driftStartedAt = now else driftMillis += now - driftStartedAt
             field = value
-            unscheduleSelf(frame)
             invalidateSelf()
         }
 
@@ -393,25 +385,10 @@ class NativeViceBackground(context: android.content.Context, light: Boolean) : D
         canvas.save()
         canvas.clipRect(bounds)
         sky.draw(canvas)
-        val now = SystemClock.uptimeMillis()
-        val elapsed = driftMillis + if (moving) now - driftStartedAt else 0L
-        val phase = elapsed % 32000L / 32000.0 * 2 * Math.PI
-        val drift = kotlin.math.sin(phase).toFloat()
-        val rise = (1 - kotlin.math.cos(phase)).toFloat()
-        glowPosition.setTranslate(-bounds.width() * .35f * drift, bounds.height() * -.105f * rise)
-        warm.shader?.setLocalMatrix(glowPosition)
-        glowPosition.setTranslate(bounds.width() * .29f * drift, bounds.height() * .05f * rise)
-        cool.shader?.setLocalMatrix(glowPosition)
         canvas.drawRect(bounds, warm)
         canvas.drawRect(bounds, cool)
-        canvas.rotate(8f * drift, bounds.exactCenterX(), bounds.exactCenterY())
-        canvas.scale(1.17f, 1.17f, bounds.exactCenterX(), bounds.exactCenterY())
-        palms.draw(canvas)
+        if (showPalms) palms.draw(canvas)
         canvas.restore()
-        if (moving && isVisible) {
-            unscheduleSelf(frame)
-            scheduleSelf(frame, now + 50)
-        }
     }
 
     override fun setAlpha(alpha: Int) {

@@ -215,7 +215,8 @@ class AoedeApp : Application() {
         }
         view.webViewClient = object : WebViewClient() {
             override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? =
-                frontend.intercept(request.url, request.method, request.isForMainFrame)
+                frontend.intercept(request.url, request.method, request.isForMainFrame,
+                    request.requestHeaders["Range"] ?: request.requestHeaders["range"])
 
             private fun navigate(uri: Uri, userInitiated: Boolean = true): Boolean {
                 if (ServerOrigin.from(uri) == origin) return false
@@ -313,7 +314,8 @@ class AoedeApp : Application() {
         if (messages && WebViewFeature.isFeatureSupported(WebViewFeature.SERVICE_WORKER_BASIC_USAGE)) {
             ServiceWorkerControllerCompat.getInstance().setServiceWorkerClient(object : ServiceWorkerClientCompat() {
                 override fun shouldInterceptRequest(request: WebResourceRequest): WebResourceResponse? =
-                    frontend.intercept(request.url, request.method, request.isForMainFrame)
+                    frontend.intercept(request.url, request.method, request.isForMainFrame,
+                    request.requestHeaders["Range"] ?: request.requestHeaders["range"])
             })
         }
         view.loadUrl(origin.rule + "/_aoede/start")

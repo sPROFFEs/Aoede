@@ -262,9 +262,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         }
     }
 
+    private var viceWallpaper: NativeViceWallpaper? = null
+
     private fun syncViceMotion() {
         val visible = foreground && fullscreen == null
-        (root.background as? NativeViceBackground)?.moving = visible && !reducedMotion()
+        viceWallpaper?.playing = theme == "vice" && visible && !reducedMotion()
         viceMiniRecord?.spin(visible && player.playing && !reducedMotion())
         (fullscreen as? NativePlayerView)?.foreground(foreground)
     }
@@ -319,8 +321,11 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     private fun sceneArtwork(bitmap: android.graphics.Bitmap? = null) {
         if (theme == "vice") {
-            if (root.background !is NativeViceBackground)
-                root.background = NativeViceBackground(activity, design.light)
+            if (viceWallpaper?.parent !== root) {
+                val scene = NativeViceWallpaper(activity, design.light)
+                root.addView(scene, 0, FrameLayout.LayoutParams(-1, -1))
+                viceWallpaper = scene
+            }
             syncViceMotion()
             return
         }
@@ -2262,6 +2267,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         val scroller =
             HorizontalScrollView(activity).apply {
                 isHorizontalScrollBarEnabled = false
+                isHorizontalFadingEdgeEnabled = true
+                setFadingEdgeLength(dp(20))
                 clipToPadding = false
             }
         val strip = LinearLayout(activity)

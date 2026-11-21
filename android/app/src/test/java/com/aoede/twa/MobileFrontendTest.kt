@@ -30,6 +30,22 @@ class MobileFrontendTest {
 
     @After fun cleanup() { app.destroyPlayer() }
 
+    @Test
+    fun viceWallpaperIsServedFromPackagedAssetsWithByteRanges() {
+        val origin = ServerOrigin.from(Uri.parse("https://music.test"))!!
+        val frontend = MobileFrontend(app, origin)
+        val url = Uri.parse("${origin.rule}${NativeViceWallpaper.PATH}")
+        val full = frontend.intercept(url)!!
+        assertEquals("video/mp4", full.mimeType)
+        val bytes = full.data.use { it.readBytes() }
+        val partial = frontend.intercept(url, range = "bytes=4-7")!!
+        assertEquals(206, partial.statusCode)
+        assertEquals("bytes 4-7/${bytes.size}", partial.responseHeaders["Content-Range"])
+        assertArrayEquals(bytes.copyOfRange(4, 8), partial.data.use { it.readBytes() })
+        assertEquals(416, frontend.intercept(url, range = "bytes=${bytes.size}-")!!.statusCode)
+        assertNull(frontend.intercept(Uri.parse("https://elsewhere.test${NativeViceWallpaper.PATH}"), range = "bytes=0-"))
+    }
+
     @Test fun bundledResourcesAreRestrictedToExactOriginAndNeverReplaceApisOrUploads() {
         val frontend = MobileFrontend(app, origin)
         val response = frontend.intercept(Uri.parse("${origin.rule}/assets/js/main.js?v=anything"))!!

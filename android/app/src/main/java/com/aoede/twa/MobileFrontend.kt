@@ -12,8 +12,9 @@ import java.util.concurrent.atomic.AtomicReference
 /** Local UI at the selected server origin: cookies, uploads and streams keep their normal paths. */
 class MobileFrontend(private val context: Context, private val origin: ServerOrigin) {
     private val nextDocument = AtomicReference<Pair<String, String>?>(null)
+    private val wallpaper by lazy { context.assets.open(NativeViceWallpaper.ASSET).use { it.readBytes() } }
 
-    fun intercept(uri: Uri, method: String = "GET", mainFrame: Boolean = false): WebResourceResponse? {
+    fun intercept(uri: Uri, method: String = "GET", mainFrame: Boolean = false, range: String? = null): WebResourceResponse? {
         if (method != "GET" || ServerOrigin.from(uri) != origin) return null
         val path = uri.path.orEmpty()
         if (path.split('/').any { it == ".." || it == "." } || '\\' in path || '\u0000' in path) {
@@ -28,6 +29,7 @@ class MobileFrontend(private val context: Context, private val origin: ServerOri
         }
         // Match paths after full-origin validation: AndroidX's domain matcher ignores custom-port origins.
         return when {
+            path == NativeViceWallpaper.PATH && range != null -> wallpaperRange(range)
             path.startsWith("/assets/") || path.startsWith("/static/") -> asset("web/assets/" + path.substringAfter('/', "").substringAfter('/'))
             path == "/_aoede/media-session.js" -> asset("media-session.js")
             path in setOf("/_aoede/boot.js", "/_aoede/runtime.js", "/_aoede/mobile.css") -> asset("mobile/" + path.substringAfterLast('/'))
@@ -80,6 +82,24 @@ class MobileFrontend(private val context: Context, private val origin: ServerOri
             "style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; " +
             "connect-src 'self' https:; frame-src 'self' https://www.youtube.com; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
 
+    private fun wallpaperRange(range: String): WebResourceResponse? = try {
+        val size = wallpaper.size
+        val parts = Regex("bytes=([0-9]+)-([0-9]*)").matchEntire(range)?.groupValues
+        val start = parts?.get(1)?.toIntOrNull() ?: size
+        val end = parts?.get(2)?.takeIf { it.isNotEmpty() }?.toLongOrNull()
+            ?.coerceAtMost(size.toLong() - 1)?.toInt() ?: size - 1
+        if (start >= size || end < start)
+            WebResourceResponse("video/mp4", null, 416, "Range Not Satisfiable",
+                headers() + ("Content-Range" to "bytes */$size"), ByteArrayInputStream(byteArrayOf()))
+        else {
+            val length = end - start + 1
+            val responseHeaders = headers() + mapOf("Accept-Ranges" to "bytes",
+                "Content-Range" to "bytes $start-$end/$size", "Content-Length" to length.toString())
+            WebResourceResponse("video/mp4", null, 206, "Partial Content", responseHeaders,
+                ByteArrayInputStream(wallpaper, start, length))
+        }
+    } catch (_: FileNotFoundException) { null }
+
     private fun asset(path: String): WebResourceResponse? = try {
         val mime = when (path.substringAfterLast('.')) {
             "js" -> "application/javascript"
@@ -87,6 +107,7 @@ class MobileFrontend(private val context: Context, private val origin: ServerOri
             "json", "webmanifest" -> "application/json"
             "woff2" -> "font/woff2"
             "svg" -> "image/svg+xml"
+            "mp4" -> "video/mp4"
             else -> URLConnection.guessContentTypeFromName(path) ?: "application/octet-stream"
         }
         WebResourceResponse(mime, if (mime.startsWith("text/") || mime in setOf("application/javascript", "application/json")) "UTF-8" else null,

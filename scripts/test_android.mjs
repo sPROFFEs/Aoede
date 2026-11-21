@@ -58,6 +58,24 @@ function page({ frame = false, early = false, native = true, audioContext = null
 }
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); };
 
+// The known muted Vice video is decorative. An unrelated video is still paused.
+{
+  const p = page();
+  const wallpaper = new p.audio.constructor();
+  Object.assign(wallpaper, {
+    id: 'vice-wallpaper', muted: true,
+    src: 'https://example.com/assets/video/vice-sunset.mp4'
+  });
+  p.document.querySelectorAll = () => [p.audio, p.preview, wallpaper];
+  await wallpaper.play();
+  p.window.AoedeAndroid.pauseLocal();
+  assert.equal(wallpaper.paused, false);
+  await wallpaper.play();
+  await assert.rejects(p.preview.play(), { name: 'NotAllowedError' });
+  wallpaper.src = 'https://other.example/video.mp4';
+  await assert.rejects(wallpaper.play(), { name: 'NotAllowedError' });
+}
+
 // Offline covers use the downloaded blob and bounded inline artwork, without a new HTTP fetch.
 {
   const track = { db_id: 8, title: 'Offline song', thumbnail: 'https://example.com/offline-cover.png' };

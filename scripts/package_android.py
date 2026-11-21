@@ -41,7 +41,7 @@ with zipfile.ZipFile(output / "aoede-android-source.zip", "w", zipfile.ZIP_DEFLA
             continue
         if source.suffix not in {
             ".kt", ".kts", ".js", ".mjs", ".xml", ".png", ".ico", ".jpg", ".jpeg", ".svg", ".webp",
-            ".css", ".html", ".json", ".webmanifest", ".woff", ".woff2", ".ttf", ".otf",
+            ".css", ".html", ".json", ".webmanifest", ".woff", ".woff2", ".ttf", ".otf", ".mp4",
             ".properties", ".jar", ".pro", ".md", ".bat", ".py", ".txt",
         } and source.name != "gradlew":
             continue

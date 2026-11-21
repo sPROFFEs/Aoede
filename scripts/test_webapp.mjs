@@ -71,6 +71,14 @@ assert.equal(await (await event('fetch', request('/', 'navigate'))).text(), 'mus
 for (const path of ['/assets/css/theme_glass.css', '/assets/css/theme_vitrine.css', '/assets/css/theme_vice.css', '/assets/img/vice-palms.svg', '/assets/fonts/vice-display.ttf', '/assets/js/modules/appearance.js']) {
   assert.equal(await (await event('fetch', request(`${path}?v=new-release`))).text(), 'asset');
 }
+const wallpaper = request('/assets/video/vice-sunset.mp4');
+wallpaper.headers.set('range', 'bytes=1-3');
+const partial = await event('fetch', wallpaper);
+assert.equal(partial.status, 206);
+assert.equal(partial.headers.get('content-range'), 'bytes 1-3/5');
+assert.equal(await partial.text(), 'sse');
+wallpaper.headers.set('range', 'bytes=7-');
+assert.equal((await event('fetch', wallpaper)).status, 416);
 await assert.rejects(event('fetch', request('/assets/not-installed.js?v=new-release')), /offline/);
 fetcher = async () => new Response('fresh version');
 assert.equal(await (await event('fetch', request('/assets/css/theme_glass.css?v=online'))).text(), 'fresh version');

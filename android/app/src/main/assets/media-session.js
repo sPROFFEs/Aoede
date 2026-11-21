@@ -174,11 +174,15 @@
     send({ type: 'resume' });
     window.dispatchEvent(new Event('aoede-local-resume'));
   }
+  var viceWallpaperUrl = new URL('/assets/video/vice-sunset.mp4', location.href).href;
+  function isWallpaper(element) {
+    return element.id === 'vice-wallpaper' && element.muted && element.src === viceWallpaperUrl;
+  }
   function pauseLocal() {
     blocked = true;
     requested = 'paused';
     window.dispatchEvent(new Event('aoede-local-pause'));
-    document.querySelectorAll('audio,video').forEach(function (element) { element.pause(); });
+    document.querySelectorAll('audio,video').forEach(function (element) { if (!isWallpaper(element)) element.pause(); });
     audible = false;
     pushState();
   }
@@ -187,7 +191,7 @@
   // Also protects old server versions: party sync cannot undo a hardware/noisy pause.
   var originalPlay = HTMLMediaElement.prototype.play;
   HTMLMediaElement.prototype.play = function () {
-    if (blocked) return Promise.reject(new DOMException('Playback paused on this device', 'NotAllowedError'));
+    if (blocked && !isWallpaper(this)) return Promise.reject(new DOMException('Playback paused on this device', 'NotAllowedError'));
     return originalPlay.apply(this, arguments);
   };
   document.addEventListener('click', function (event) {

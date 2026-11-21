@@ -7,6 +7,7 @@ android {
     namespace = "com.aoede.twa"
     compileSdk = 35
     buildToolsVersion = "35.0.0"
+    androidResources { noCompress += "mp4" }
 
     buildFeatures {
         buildConfig = true   // needed for the BuildConfig.DEBUG gate in MainActivity
@@ -16,8 +17,8 @@ android {
         applicationId = "com.aoede.twa"
         minSdk = 21
         targetSdk = 35
-        versionCode = 43
-        versionName = "1.2.13"
+        versionCode = 44
+        versionName = "1.2.14"
     }
 
     buildTypes {

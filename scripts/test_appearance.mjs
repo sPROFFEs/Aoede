@@ -11,17 +11,29 @@ const root = { dataset: { theme: 'classic', themeUser: 'alice' }, style: { setPr
 const options = ['classic', 'glass', 'vitrine', 'vice'].map(value => ({ value, checked: false, closest: () => ({ classList: { toggle() {} } }) }));
 const fieldset = { disabled: false };
 const meta = { setAttribute: (_key, value) => { meta.content = value; } };
-let cover;
-const document = {
+let cover, video, fullscreen;
+const body = { prepend: child => { child.parentElement = body; } };
+const document = Object.assign(new EventTarget(), {
+  body,
   documentElement: root,
-  querySelector: () => meta,
+  querySelector: selector => selector === '.fullscreen-player.open .fs-background' ? fullscreen : meta,
   querySelectorAll: selector => selector === '[data-user-theme]' ? options : [fieldset],
-  getElementById: () => cover,
-  createElement: () => ({ getContext: () => ({ drawImage() { throw new Error('Cross-origin canvas'); } }) })
-};
-let modeListener;
+  getElementById: id => id === 'player-cover' ? cover : null,
+  createElement: tag => {
+    if (tag !== 'video') return { getContext: () => ({ drawImage() { throw new Error('Cross-origin canvas'); } }) };
+    video = Object.assign(new EventTarget(), {
+      paused: true, setAttribute() {}, removeAttribute() { this.src = ''; }, load() {},
+      remove() { this.parentElement = null; },
+      play() { this.paused = false; return Promise.resolve(); },
+      pause() { this.paused = true; }
+    });
+    return video;
+  }
+});
+let modeListener, motionListener;
 const mode = { matches: false, addEventListener: (_name, fn) => { modeListener = fn; } };
-const window = { USER_DATA: { username: 'alice' }, location: { href: 'https://aoede.test/portal' }, matchMedia: () => mode, localStorage: { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) } };
+const motion = { matches: false, addEventListener: (_name, fn) => { motionListener = fn; } };
+const window = Object.assign(new EventTarget(), { USER_DATA: { username: 'alice' }, location: { href: 'https://aoede.test/portal' }, matchMedia: query => query.includes('reduced-motion') ? motion : mode, localStorage: { getItem: k => storage.get(k), setItem: (k, v) => storage.set(k, v) } });
 const navigator = { onLine: true };
 const messages = [];
 const calls = [];
@@ -148,3 +160,20 @@ assert.equal(options[3].checked, true);
 mode.matches = false; modeListener();
 assert.equal(meta.content, '#fff1df');
 console.log('PASS: Vice is selectable, synchronized and has matching light/dark browser chrome.');
+
+assert.equal(video.src, '/assets/video/vice-sunset.mp4');
+assert.equal(video.muted && video.loop && video.playsInline, true);
+assert.equal(video.parentElement, body);
+document.hidden = true;
+document.dispatchEvent(new Event('visibilitychange'));
+assert.equal(video.paused, true);
+document.hidden = false;
+fullscreen = { prepend: child => { child.parentElement = fullscreen; } };
+document.dispatchEvent(new Event('visibilitychange'));
+assert.equal(video.parentElement, fullscreen);
+assert.equal(video.paused, false);
+motion.matches = true;
+motionListener();
+assert.equal(video.src, '');
+assert.equal(video.parentElement, null);
+console.log('PASS: the Vice video follows visibility and fullscreen, and reduced motion releases it.');

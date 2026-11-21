@@ -6,6 +6,43 @@ let saving = false;
 let initialized = false;
 const themes = new Set(['classic', 'glass', 'vitrine', 'vice']);
 
+const viceVideoUrl = '/assets/video/vice-sunset.mp4';
+let wallpaper;
+let motion;
+
+function syncWallpaper() {
+  const root = document.documentElement;
+  const enabled = root.dataset.theme === 'vice' && root.dataset.nativeEffects !== 'reduced' && !motion?.matches;
+  if (!enabled) {
+    if (wallpaper) {
+      wallpaper.pause();
+      wallpaper.removeAttribute('src');
+      wallpaper.load();
+      wallpaper.remove();
+      wallpaper = undefined;
+    }
+    return;
+  }
+  if (document.hidden) {
+    wallpaper?.pause();
+    return;
+  }
+  const stage = document.querySelector('.fullscreen-player.open .fs-background') || document.body;
+  if (!stage) return;
+  if (!wallpaper) {
+    wallpaper = document.createElement('video');
+    wallpaper.id = 'vice-wallpaper';
+    wallpaper.loop = wallpaper.muted = wallpaper.playsInline = true;
+    wallpaper.disablePictureInPicture = true;
+    wallpaper.setAttribute('aria-hidden', 'true');
+    wallpaper.addEventListener('playing', (event) => event.target.classList.add('ready'));
+    wallpaper.addEventListener('error', (event) => event.target.classList.remove('ready'));
+    wallpaper.src = viceVideoUrl;
+  }
+  if (wallpaper.parentElement !== stage) stage.prepend(wallpaper);
+  if (wallpaper.paused && !wallpaper.error) wallpaper.play().catch(() => {});
+}
+
 function updateBrowserColor() {
   const theme = document.documentElement.dataset.theme;
   const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
@@ -71,6 +108,7 @@ export function applyTheme(theme) {
   }
   updateArtwork();
   updateBrowserColor();
+  if (initialized) syncWallpaper();
   syncThemeControls();
   ui.refreshIcons();
   ui.updateFullscreenPlayButton?.();
@@ -128,6 +166,16 @@ export async function saveUserTheme(theme) {
 export function initAppearance() {
   if (initialized) return;
   initialized = true;
+  motion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  if (motion?.addEventListener) motion.addEventListener('change', syncWallpaper);
+  else motion?.addListener?.(syncWallpaper);
+  document.addEventListener('visibilitychange', syncWallpaper);
+  if (window.MutationObserver) {
+    const observer = new window.MutationObserver(syncWallpaper);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-native-effects'] });
+    const panel = document.getElementById('fullscreen-player');
+    if (panel) observer.observe(panel, { attributes: true, attributeFilter: ['class'] });
+  }
   applyTheme(document.documentElement.dataset.theme || 'classic');
   const mode = window.matchMedia?.('(prefers-color-scheme: dark)');
   if (mode?.addEventListener) mode.addEventListener('change', updateBrowserColor);
