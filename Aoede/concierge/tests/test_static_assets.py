@@ -74,6 +74,7 @@ def test_first_party_frontend_stays_inside_download_budgets():
     glass = assets_root / "css/theme_glass.css"
     vitrine = assets_root / "css/theme_vitrine.css"
     vice = assets_root / "css/theme_vice.css"
+    cyberpunk = assets_root / "css/theme_cyberpunk.css"
 
     # These are uncompressed upper bounds. Nginx serves them compressed, so a
     # regression here catches accidental large bundles before transfer cost is
@@ -89,7 +90,9 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
     assert (
         sum(
-            len(path.read_bytes().replace(b"\r\n", b"\n")) for path in stylesheets if path not in (glass, vitrine, vice)
+            len(path.read_bytes().replace(b"\r\n", b"\n"))
+            for path in stylesheets
+            if path not in (glass, vitrine, vice, cyberpunk)
         )
         < 352_000
     )
@@ -102,3 +105,4 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Vitrine includes toolbar layering, responsive player geometry, contextual actions and native input fallbacks.
     assert vitrine.stat().st_size < 48_000
     assert vice.stat().st_size < 24_000
+    assert cyberpunk.stat().st_size < 12_000

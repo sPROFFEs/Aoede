@@ -55,7 +55,7 @@ class NativeDesignTest {
     @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
     fun themesKeepTheirNavigationAndCanonicalIcons() {
         NativeIcon.install(app)
-        for (name in listOf("classic", "glass", "vitrine", "vice")) for (light in
+        for (name in listOf("classic", "glass", "vitrine", "vice", "cyberpunk")) for (light in
             listOf(false, true)) {
             val design = NativeDesign(app, name, light)
             assertEquals(
@@ -505,7 +505,7 @@ class NativeDesignTest {
         val ui = NativeUi(lifecycle.get(), app)
         ui.create()
         val root = lifecycle.get().findViewById<android.widget.FrameLayout>(R.id.main_root)
-        for (name in listOf("classic", "glass", "vitrine", "vice")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice", "cyberpunk")) {
             theme(name)
             ui.screen("Library")
             val dock = root.findViewWithTag<android.widget.LinearLayout>("native-bottom-dock")
@@ -606,7 +606,7 @@ class NativeDesignTest {
                 }
             return null
         }
-        for (name in listOf("classic", "glass", "vitrine", "vice")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice", "cyberpunk")) {
             theme(name)
             for (value in
                 listOf(
@@ -647,7 +647,7 @@ class NativeDesignTest {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val ui = NativeUi(lifecycle.get(), app)
         ui.create()
-        for (name in listOf("classic", "glass", "vitrine", "vice")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice", "cyberpunk")) {
             theme(name)
             ui.screen("Playback")
             val player = NativePlayerView(ui)
@@ -723,7 +723,7 @@ class NativeDesignTest {
             clock.idle()
         }
         try {
-            for (name in listOf("classic", "glass", "vitrine", "vice")) {
+            for (name in listOf("classic", "glass", "vitrine", "vice", "cyberpunk")) {
                 theme(name)
                 ui.screen("Playback")
                 var backgroundClicks = 0
@@ -1019,7 +1019,7 @@ class NativeDesignTest {
         val lifecycle = Robolectric.buildActivity(MainActivity::class.java).setup()
         val ui = NativeUi(lifecycle.get(), app)
         ui.create()
-        for (name in listOf("classic", "glass", "vitrine", "vice")) {
+        for (name in listOf("classic", "glass", "vitrine", "vice", "cyberpunk")) {
             theme(name)
             ui.screen("Player")
             for ((w, h) in listOf(400 to 778, 320 to 568, 850 to 328)) {

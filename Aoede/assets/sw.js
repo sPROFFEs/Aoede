@@ -8,7 +8,7 @@
  *  - Cleans up stale shell caches on version upgrades.
  */
 
-const CACHE = 'aoede-shell-v37';
+const CACHE = 'aoede-shell-v38';
 const VICE_VIDEO = '/assets/video/vice-sunset.mp4';
 const REVALIDATE_AFTER_MS = 24 * 60 * 60 * 1000; // 24h
 const EVICT_AFTER_MS = 7 * 24 * 60 * 60 * 1000; // 7d
@@ -17,6 +17,7 @@ const PRECACHE_ASSETS = [
   '/assets/css/theme_glass.css',
   '/assets/css/theme_vitrine.css',
   '/assets/css/theme_vice.css',
+  '/assets/css/theme_cyberpunk.css',
   '/assets/img/vice-palms.svg',
   VICE_VIDEO,
   '/assets/fonts/vice-display.ttf',

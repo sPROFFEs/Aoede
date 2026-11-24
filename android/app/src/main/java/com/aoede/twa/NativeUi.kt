@@ -238,9 +238,9 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     private fun styleViceTrack(row: LinearLayout, active: Boolean) {
         row.background = design.touch(if (active) design.wash else Color.TRANSPARENT, 10, active)
         val title = row.findViewWithTag<TextView>("vice-track-title")
-        title.setTextColor(if (active) accent else ink)
+        title.setTextColor(if (!active) ink else if (theme == "cyberpunk") NativeCyberpunkBackground.CYAN else accent)
         row.findViewWithTag<TextView>("vice-track-number")?.let { number ->
-            val glyph = if (player.playing) "disc-3" else "pause"
+            val glyph = if (!player.playing) "pause" else if (theme == "cyberpunk") "activity" else "disc-3"
             val indicator = if (active) NativeIcon(glyph, accent, theme).apply {
                 setBounds(0, 0, dp(16), dp(16))
             } else null
@@ -251,7 +251,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     private fun updateViceTracks() {
-        if (theme != "vice") return
+        if (theme !in setOf("vice", "cyberpunk")) return
         val current = player.current?.let(NativeTrack::reference)?.takeIf(String::isNotBlank)
         val next = current to player.playing
         if (next == viceTrackState) return
@@ -266,6 +266,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
 
     private fun syncViceMotion() {
         val visible = foreground && fullscreen == null
+        (root.background as? NativeCyberpunkBackground)?.moving = visible && !reducedMotion()
         viceWallpaper?.playing = theme == "vice" && visible && !reducedMotion()
         viceMiniRecord?.spin(visible && player.playing && !reducedMotion())
         (fullscreen as? NativePlayerView)?.foreground(foreground)
@@ -320,6 +321,12 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
     }
 
     private fun sceneArtwork(bitmap: android.graphics.Bitmap? = null) {
+        if (theme == "cyberpunk") {
+            if (root.background !is NativeCyberpunkBackground)
+                root.background = NativeCyberpunkBackground(activity)
+            syncViceMotion()
+            return
+        }
         if (theme == "vice") {
             if (viceWallpaper?.parent !== root) {
                 val scene = NativeViceWallpaper(activity, design.light)
@@ -391,7 +398,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         val prefs = activity.getSharedPreferences(MainActivity.PREFS, 0)
         theme =
             (api.account?.optString("theme") ?: prefs.getString("native_last_theme", "classic"))
-                ?.takeIf { it in setOf("classic", "glass", "vitrine", "vice") } ?: "classic"
+                ?.takeIf { it in setOf("classic", "glass", "vitrine", "vice", "cyberpunk") } ?: "classic"
         val language =
             (api.account?.optString("language") ?: prefs.getString("native_last_language", "en"))
                 ?.takeIf { it in setOf("en", "es", "de") } ?: "en"
@@ -402,7 +409,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 .putString("native_last_language", language)
                 .apply()
         val light =
-            theme != "classic" &&
+            theme !in setOf("classic", "cyberpunk") &&
                 (activity.resources.configuration.uiMode and
                     android.content.res.Configuration.UI_MODE_NIGHT_MASK) !=
                     android.content.res.Configuration.UI_MODE_NIGHT_YES
@@ -1226,6 +1233,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                                     )
                                 orientation = GradientDrawable.Orientation.TL_BR
                             }
+                        else if (theme == "cyberpunk") design.shape(surface, 0, true)
                         else shape(this@NativeUi.background, 0)
                 }
             chromeHeader = header
@@ -2032,6 +2040,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(12), dp(28), dp(12), dp(28))
             }
+        if (theme == "cyberpunk") body.background = design.shape(surface, 4, true)
         outer.addView(
             body,
             LinearLayout.LayoutParams(
@@ -2059,6 +2068,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
         label("AOEDE", 13, body, muted).apply {
             gravity = Gravity.CENTER
             letterSpacing = .14f
+            if (theme == "cyberpunk") setTextColor(NativeCyberpunkBackground.CYAN)
         }
         space(12, body)
         label(text("login.headline", "Your music. Your space."), 32, body).apply {
@@ -2843,7 +2853,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                             design.typography(this, 13f)
                             setTextColor(muted)
                             text = (i + 1).toString()
-                            if (theme == "vice") {
+                            if (theme in setOf("vice", "cyberpunk")) {
                                 tag = "vice-track-number"
                                 contentDescription = text
                             }
@@ -2852,7 +2862,7 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                         0,
                         LinearLayout.LayoutParams(dp(24), dp(44)).apply { marginEnd = dp(12) },
                     )
-                if (theme == "vice") {
+                if (theme in setOf("vice", "cyberpunk")) {
                     copy.getChildAt(0).tag = "vice-track-title"
                     val reference = NativeTrack.reference(t)
                     viceTrackRows[r] = reference
@@ -6060,8 +6070,8 @@ class NativeUi(val activity: MainActivity, val app: AoedeApp) {
                 gravity = Gravity.CENTER_VERTICAL
                 background =
                     if (theme == "classic") shape(0xff292929.toInt(), design.miniRadius)
-                    else if (reduced() || theme == "vice")
-                        design.shape(surface, design.miniRadius, theme == "vice")
+                    else if (reduced() || theme in setOf("vice", "cyberpunk"))
+                        design.shape(surface, design.miniRadius, theme in setOf("vice", "cyberpunk"))
                     else
                         NativeBackdrop(
                             shell,

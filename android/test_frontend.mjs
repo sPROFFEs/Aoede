@@ -42,9 +42,11 @@ assert.equal(JSON.parse(result.messages[0]).language, 'es');
 assert.equal(JSON.parse(result.messages[0]).offline, false);
 assert.equal(result.calls[0].options.credentials, 'same-origin');
 assert.equal(result.calls[0].options.cache, 'no-store');
-assert.equal(result.calls[0].options.headers['X-Aoede-Theme-Support'], 'vice');
-const vice = await boot({data: {...alice, theme: 'vice'}});
-assert.equal(JSON.parse(vice.messages[0]).data.theme, 'vice');
+assert.equal(result.calls[0].options.headers['X-Aoede-Theme-Support'], 'cyberpunk');
+for (const theme of ['vice', 'cyberpunk']) {
+  const themed = await boot({data: {...alice, theme}});
+  assert.equal(JSON.parse(themed.messages[0]).data.theme, theme);
+}
 result = await boot({ path: '/portal#home' });
 assert.equal(JSON.parse(result.messages[0]).home, true);
 result = await boot({ path: '/portal#unknown' });

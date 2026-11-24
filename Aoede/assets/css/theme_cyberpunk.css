@@ -1,0 +1,241 @@
+@font-face {
+    font-family: Aoede Condensed;
+    src: url('../fonts/vice-display.ttf') format('truetype');
+    font-weight: 700;
+    font-display: swap;
+}
+
+html[data-theme="cyberpunk"] {
+    color-scheme: dark;
+    --background: #100d15;
+    --surface: #1c1521;
+    --surface-0: var(--surface);
+    --surface-1: #261a29;
+    --surface-2: #362335;
+    --surface-3: #704052;
+    --text-main: #fff1f3;
+    --text-primary: var(--text-main);
+    --text-sub: #d7b8c6;
+    --text-muted: var(--text-sub);
+    --text-faint: #bd9faf;
+    --primary: #ff6177;
+    --primary-hover: #ff8b9b;
+    --accent: var(--primary);
+    --accent-blue: #68f2e4;
+    --accent-rgb: 255, 97, 119;
+    --cyber-signal: #68f2e4;
+    --cyber-ink: #100d15;
+    --danger: #ffa4ac;
+    --warning: #ffd17a;
+    --border: #704052;
+    --border-strong: var(--border);
+    --border-subtle: #563245;
+    --input-bg: #15111b;
+    --input-border: var(--border);
+    --glass-bg: var(--surface);
+    --glass-border: var(--border-subtle);
+    --glass-border-highlight: var(--border);
+    --glass-blur: none;
+    --square-base: var(--background);
+    --square-film: var(--surface);
+    --square-film-strong: var(--surface-1);
+    --square-content: var(--surface);
+    --square-wash: var(--surface-2);
+    --square-rim: var(--border);
+    --square-line: var(--border-subtle);
+    --square-primary: var(--primary);
+    --square-on-primary: var(--cyber-ink);
+    --square-success: var(--cyber-signal);
+    --square-ink: var(--text-main);
+    --square-muted: var(--text-sub);
+    --square-faint: var(--text-faint);
+    --square-overlay: #100d15d9;
+    --square-blur: none;
+    --radius-sm: 2px;
+    --radius-md: 4px;
+    --radius-lg: 6px;
+    --cyber-grid: linear-gradient(#ff617716 1px, transparent 1px), linear-gradient(90deg, #ff617716 1px, transparent 1px);
+    --cyber-scene: radial-gradient(ellipse at 92% 9%, #472236 0%, transparent 57%), radial-gradient(ellipse at 0 95%, #14343c 0%, transparent 50%), var(--background);
+}
+
+html[data-theme="cyberpunk"] body {
+    isolation: isolate;
+    background: var(--cyber-scene) !important;
+}
+
+html[data-theme="cyberpunk"] :is(.main-view, .view-content) { background: transparent !important; }
+
+html[data-theme="cyberpunk"] .fullscreen-player .fs-background {
+    background: var(--cyber-scene) !important;
+    filter: none;
+    opacity: 1;
+    overflow: hidden;
+    inset: 0;
+}
+
+html[data-theme="cyberpunk"] :is(body, .fs-background)::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--cyber-grid);
+    background-size: 36px 36px;
+    mask-image: linear-gradient(155deg, #000 5%, #0004 48%, #000 100%);
+}
+
+html[data-theme="cyberpunk"] :is(body, .fs-background)::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: linear-gradient(180deg, transparent 46%, #ff61770d 49%, #ff617735 50%, transparent 50.5%);
+    animation: aoede-terminal-scan 17s linear infinite;
+    will-change: transform;
+}
+
+html[data-theme="cyberpunk"] .fs-background::before,
+html[data-theme="cyberpunk"] .fs-background::after { position: absolute; z-index: 0; }
+html[data-theme="cyberpunk"] .fullscreen-player:not(.open) .fs-background::after,
+html[data-theme="cyberpunk"]:has(.fullscreen-player.open) body::after { animation-play-state: paused; }
+
+@keyframes aoede-terminal-scan {
+    0% { transform: translateY(-54%); opacity: 0; }
+    9%, 91% { opacity: 1; }
+    100% { transform: translateY(54%); opacity: 0; }
+}
+
+html[data-theme="cyberpunk"] :is(h1, .hero-greeting, .shelf-title, .section-title, .fs-title, .monitor-panel h2, .admin-panel h2, .user-settings-panel h2) {
+    font-family: Aoede Condensed, system-ui, sans-serif;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+html[data-theme="cyberpunk"] :is(.hero-greeting, .app-title) { font-size: clamp(2rem, 6vw, 3.8rem); line-height: 1.02; }
+html[data-theme="cyberpunk"] .hero-greeting { border-inline-start: 3px solid var(--primary); padding-inline-start: 12px; }
+html[data-theme="cyberpunk"] :is(.hero-kicker, .login-wordmark, .fs-view-label, .input-label, .track-num, .fs-progress-container .time-display) {
+    color: var(--cyber-signal);
+    font-family: ui-monospace, monospace;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+}
+
+html[data-theme="cyberpunk"] :is(.sidebar, .app-header, .player-footer, .m-topbar, .m-bottom-nav) {
+    background: var(--surface) !important;
+    border-color: var(--border) !important;
+    border-radius: 0;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+html[data-theme="cyberpunk"] :is(.m-bottom-nav, .player-footer) { border-top: 1px solid var(--border); }
+html[data-theme="cyberpunk"] :is(.app-header, .m-topbar) { border-bottom: 1px solid var(--border); }
+html[data-theme="cyberpunk"] :is(.sidebar-item.active, .m-nav-item.active, .home-tab.active, .settings-tabbar button[aria-selected="true"], .source-pill.active) {
+    color: var(--cyber-signal) !important;
+    background: #173337 !important;
+    border-color: #356a70 !important;
+    box-shadow: inset 0 -2px var(--cyber-signal);
+}
+
+html[data-theme="cyberpunk"] :is(
+    .card, .library-card, .quick-pick, .party-card, .radio-card, .discovery-card, .offline-playlist-card, .theme-option,
+    .glass-panel, .user-settings-panel, .admin-panel, .monitor-card, .monitor-panel, .download-runtime-card,
+    .download-provider-card, .toast-msg, .job-item, .modal, .modal-box, .atp-modal, .about-panel,
+    .ctx-menu, .user-menu-panel, .collection-more-panel, .create-menu-panel, .fs-more-menu, .fs-volume-panel
+) {
+    border-radius: var(--radius-md) !important;
+    border-color: var(--border-subtle) !important;
+    background: var(--surface) !important;
+    color: var(--text-main);
+}
+
+html[data-theme="cyberpunk"] :is(.quick-pick, .party-card, .library-card, .theme-option) { border-inline-start: 1px solid var(--border); }
+html[data-theme="cyberpunk"] :is(.quick-pick-cover-favorites, .sidebar-cover-favorites, .playlist-cover-favorites, .library-liked .library-card-cover) {
+    background: linear-gradient(145deg, #a13a52, #472236) !important;
+    color: var(--cyber-signal) !important;
+}
+html[data-theme="cyberpunk"] :is(.toast-msg-text, .job-title, .job-detail, .job-track-meta) { background: transparent !important; color: inherit; }
+html[data-theme="cyberpunk"] :is(.status-badge, .download-provider-state, .admin-badge, .discovery-reason-banner) {
+    background: var(--surface-2) !important;
+    color: var(--text-main);
+    border-color: var(--border);
+}
+
+html[data-theme="cyberpunk"] :is(.home-tab, .btn-primary-lg, .btn-secondary-lg, .btn-login-pro, .login-input, .library-filter, .source-pill, .settings-tabbar button, .chip, .play-main, .fs-play-main) {
+    border-radius: var(--radius-sm) !important;
+}
+
+html[data-theme="cyberpunk"] :is(.btn-primary-lg, .btn-login-pro, .play-main, .fs-play-main) {
+    color: var(--cyber-ink) !important;
+    background: var(--primary) !important;
+    border-color: var(--primary) !important;
+}
+
+html[data-theme="cyberpunk"] :is(.user-settings-button, .user-settings-button-secondary, .monitor-button, .modal-btn-confirm, .modal-btn-cancel) {
+    border-radius: var(--radius-sm) !important;
+}
+
+html[data-theme="cyberpunk"] .user-settings-panel :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) {
+    border-color: var(--input-border);
+    background: var(--input-bg);
+}
+
+html[data-theme="cyberpunk"] :is(.btn-primary-lg, .btn-login-pro, .fs-play-main):not(:disabled):hover { background: var(--primary-hover) !important; }
+html[data-theme="cyberpunk"] :is(button, a, input, textarea, select, summary):focus-visible { outline: 2px solid var(--cyber-signal); outline-offset: 3px; }
+html[data-theme="cyberpunk"] :is(input, textarea, select) { accent-color: var(--cyber-signal); caret-color: var(--cyber-signal); }
+html[data-theme="cyberpunk"] :is(input, textarea, select, button) { max-inline-size: 100%; }
+
+html[data-theme="cyberpunk"] .track-row.active-track {
+    background: #ff61771d !important;
+    box-shadow: inset 2px 0 var(--primary);
+}
+html[data-theme="cyberpunk"] .track-row.active-track .track-name-sm { color: var(--cyber-signal); }
+html[data-theme="cyberpunk"] :is(.fs-progress-fill, .fs-progress-knob, .volume-bar-fill, .job-progress-fill, .offline-storage-bar-fill) { background: var(--cyber-signal) !important; }
+html[data-theme="cyberpunk"] .fullscreen-player :is(.fs-stage, .fs-info, .fs-actions, .fs-detail-stage) { background: transparent !important; border: 0; }
+html[data-theme="cyberpunk"] .fs-stage { border-radius: 2px; margin-inline: 0; }
+html[data-theme="cyberpunk"] .fullscreen-player :is(.fs-cover, .fs-cover-ghost) {
+    border-radius: 2px;
+    outline: 1px solid var(--border);
+    outline-offset: 3px;
+}
+html[data-theme="cyberpunk"] .fullscreen-player[data-playing="true"] .fs-cover { outline-color: var(--primary); }
+@supports (width: 1cqmin) {
+    html[data-theme="cyberpunk"] .fs-stage { container-type: size; display: grid; place-items: center; }
+    html[data-theme="cyberpunk"] .fullscreen-player :is(.fs-cover, .fs-cover-ghost) {
+        width: max(0px, calc(100cqmin - 12px));
+        height: max(0px, calc(100cqmin - 12px));
+        margin: auto;
+    }
+}
+html[data-theme="cyberpunk"] .fullscreen-player :is(.fs-minimize, .fs-action-btn, .fs-controls .control-btn) { border-radius: 4px; }
+html[data-theme="cyberpunk"] .fullscreen-player :is(.lyric-line.active, .queue-item.current .queue-title, #fs-time-current) { color: var(--cyber-signal); }
+html[data-theme="cyberpunk"] .fullscreen-player .fs-action-btn.active { color: var(--cyber-signal); }
+html[data-theme="cyberpunk"] .fs-volume-panel #fs-volume-bar { flex: 1; min-width: 0; }
+html[data-theme="cyberpunk"] #fs-volume-bar .volume-knob { background: var(--cyber-signal); }
+
+html[data-theme="cyberpunk"] .login-card {
+    background: #1c1521f5 !important;
+    border: 1px solid var(--border) !important;
+    border-top: 3px solid var(--primary) !important;
+    border-radius: 2px !important;
+    box-shadow: 0 18px 50px #07050acc;
+}
+
+.theme-preview-cyberpunk {
+    background: linear-gradient(#ff61771c 1px, transparent 1px), linear-gradient(90deg, #ff61771c 1px, transparent 1px), linear-gradient(145deg, #321b2c, #101922);
+    background-size: 18px 18px, 18px 18px, auto;
+}
+.theme-preview-cyberpunk :is(.theme-preview-sidebar, .theme-preview-cards i) { border: 1px solid #a6475d; border-radius: 2px; background: #261a29; }
+.theme-preview-cyberpunk .theme-preview-player { background: #ff6177; border-radius: 2px; border-inline-end: 12px solid #68f2e4; }
+
+html[data-theme="cyberpunk"][data-native-effects="reduced"] :is(body, .fs-background)::after { display: none; }
+html[data-theme="cyberpunk"][data-native-effects="reduced"] :is(.fullscreen-player, .fs-cover) { transition: none; }
+@media (prefers-reduced-motion: reduce) {
+    html[data-theme="cyberpunk"] :is(body, .fs-background)::after { display: none; }
+}
+@media (forced-colors: active) {
+    html[data-theme="cyberpunk"] :is(body, .fs-background)::before,
+    html[data-theme="cyberpunk"] :is(body, .fs-background)::after { display: none; }
+}

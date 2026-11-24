@@ -36,7 +36,7 @@ import i18n
 
 def appearance_context(request):
     theme = getattr(request.state, "user_theme", None)
-    return {"user_theme": theme if theme in ("classic", "glass", "vitrine", "vice") else "classic"}
+    return {"user_theme": theme if theme in ("classic", "glass", "vitrine", "vice", "cyberpunk") else "classic"}
 
 
 class AccountTemplates(Jinja2Templates):

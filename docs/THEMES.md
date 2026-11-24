@@ -1,6 +1,6 @@
 # Appearance themes
 
-Choose **Settings → Appearance → Classic, Glass, Vitrine or Vice**. Classic is the default. The selected theme belongs to your account and synchronizes between devices; changing it keeps the current view, queue and playback session.
+Choose **Settings → Appearance** to select a theme. Classic is the default. The selected theme belongs to your account and synchronizes between devices. Changing it keeps the current view, queue and playback session.
 
 | Theme | Appearance |
 |---|---|
@@ -8,12 +8,15 @@ Choose **Settings → Appearance → Classic, Glass, Vitrine or Vice**. Classic 
 | Glass | Square inspired translucent surfaces, soft rounded controls and an accent sampled from the current artwork. |
 | Vitrine | Apple Music inspired library and collection hierarchy, red accent, clean separators and restrained glass chrome. |
 | Vice | GTA VI inspired palms, sunset pink and purple, warm cream, mint transport accents and poster headings. |
+| Cyberpunk | Dark terminal grid, crimson outlines, cyan playback indicators and condensed headings. |
 
 Vice uses GTA VI inspired sunset colors, tropical silhouettes and a bundled condensed display font. Its cream/daytime and purple/nighttime palettes follow the device appearance; the fullscreen player keeps a quiet night palette. Vice plays a silent sunset loop behind the interface and fullscreen player. The server and APK both ship the video, and the web app caches it for offline use. The local palm artwork appears with reduced effects or if playback is unavailable. The compact and fullscreen players display a vinyl record with fine grooves, a beveled rim and the track artwork on its label, and the current track is highlighted in the list. The record stops when playback pauses. Reduced motion and Android Reduce effects keep the scene and record still.
 
 Glass, Vitrine and Vice follow the device's light/dark appearance. Their browser materials approximate translucency; native GPU refraction is not run over web content.
 
-[See desktop, mobile web and native Android screenshots in every theme.](SCREENSHOTS.md)
+Cyberpunk keeps a dark palette in both device appearances. The red scan sweeps through the app and fullscreen player, while Reduce Motion and Android Reduce effects keep the grid static. The login uses the last theme selected on the device. Android applies the crimson and cyan palette to the expanded Dynamic Island and home-screen playback widget. The visual direction draws on the in-game interface design work for Cyberpunk 2077. [Michael Rigley’s design portfolio](https://www.michaelrigley.com/work/cyberpunk-2077/)
+
+[See desktop, mobile web and native Android screenshots.](SCREENSHOTS.md)
 
 ## Browsing
 

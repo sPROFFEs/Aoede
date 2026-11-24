@@ -53,6 +53,20 @@ class PlaybackWidgetTest {
         app.mediaController.updateState(state, 0, 90000)
     }
 
+    @Test fun cyberpunkStylesAllWidgetSizesAndRevertsToArtworkStyle() {
+        for (layout in listOf(R.layout.widget_playback_compact, R.layout.widget_playback, R.layout.widget_playback_expanded)) {
+            app.playerTheme = "cyberpunk"
+            val themed = PlaybackWidget.views(app, layout)
+            val view = themed.apply(app, FrameLayout(app))
+            assertEquals(View.GONE, view.findViewById<View>(R.id.widget_surface).visibility)
+            assertEquals(NativeCyberpunkBackground.CYAN, view.findViewById<TextView>(R.id.widget_artist).currentTextColor)
+            app.playerTheme = "classic"
+            PlaybackWidget.views(app, layout).reapply(app, view)
+            assertEquals(View.VISIBLE, view.findViewById<View>(R.id.widget_surface).visibility)
+            assertEquals(0xd9ffffff.toInt(), view.findViewById<TextView>(R.id.widget_artist).currentTextColor)
+        }
+    }
+
     @Test fun resizeKeepsEachWidgetsLayoutIndependentAndUpdatesOnOptionsChanges() {
         assertEquals(R.layout.widget_playback_compact, PlaybackWidget.layoutForSize(200, 72))
         assertEquals(R.layout.widget_playback, PlaybackWidget.layoutForSize(288, 144))

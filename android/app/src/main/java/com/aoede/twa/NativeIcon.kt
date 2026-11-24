@@ -61,7 +61,7 @@ class NativeIcon(
 
     private val name = names[glyph] ?: glyph
     private val definition =
-        definitions.optJSONObject(theme)?.let {
+        definitions.optJSONObject(if (theme == "cyberpunk") "classic" else theme)?.let {
             (if (filled) it.optJSONObject("$name-filled") else null) ?: it.optJSONObject(name)
         }
     private val box =

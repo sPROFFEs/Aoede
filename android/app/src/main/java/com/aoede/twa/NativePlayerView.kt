@@ -29,9 +29,15 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     private val glass
         get() = design.theme == "glass"
 
+    private val cyberpunk
+        get() = design.theme == "cyberpunk"
+
     private val backdrop = ImageView(context).apply { scaleType = ImageView.ScaleType.CENTER_CROP }
     private val shade =
-        if (design.theme == "vice") NativeViceWallpaper(context, false) else View(context)
+        if (design.theme == "vice") NativeViceWallpaper(context, false)
+        else View(context).apply {
+            if (design.theme == "cyberpunk") background = NativeCyberpunkBackground(context)
+        }
     private var motionAllowed = true
     private val grid = PlayerGrid()
     private val header = LinearLayout(context).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -163,6 +169,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             },
         )
         viewLabel.gravity = Gravity.CENTER
+        if (cyberpunk) viewLabel.setTextColor(NativeCyberpunkBackground.CYAN)
         control(
             header,
             if (apple) "ellipsis" else "volume-2",
@@ -179,8 +186,8 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         cover.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
         cover.clipToOutline = !glass
         stage.addOnLayoutChangeListener { _, l, t, r, b, _, _, _, _ ->
-            if (!apple) return@addOnLayoutChangeListener
-            val size = minOf(r - l, b - t).coerceAtLeast(0)
+            if (!apple && !cyberpunk) return@addOnLayoutChangeListener
+            val size = (minOf(r - l, b - t) - if (cyberpunk) dp(12) else 0).coerceAtLeast(0)
             val lp = cover.layoutParams as LayoutParams
             if (lp.width != size || lp.height != size) {
                 lp.width = size
@@ -316,7 +323,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 else ui.app.mediaController.command("play")
             }
         if (design.theme == "classic") toggle.background = design.touch(Color.WHITE, 999)
-        if (design.theme == "vice") toggle.background = design.touch(design.accent, 999)
+        if (design.theme in setOf("vice", "cyberpunk")) toggle.background = design.touch(design.accent, 999)
         spacer()
         control(
                 controls,
@@ -472,7 +479,11 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                         paint.color = 0x44ffffff
                         canvas.drawRoundRect(line, height / 2, height / 2, paint)
                         line.right = line.left + line.width() * level / 10000f
-                        paint.color = if (design.theme == "vice") 0xff84e2cc.toInt() else Color.WHITE
+                        paint.color = when (design.theme) {
+                            "vice" -> 0xff84e2cc.toInt()
+                            "cyberpunk" -> NativeCyberpunkBackground.CYAN
+                            else -> Color.WHITE
+                        }
                         canvas.drawRoundRect(line, height / 2, height / 2, paint)
                     }
 
@@ -490,7 +501,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 }
             progressTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0x44ffffff)
-            thumbTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            thumbTintList = android.content.res.ColorStateList.valueOf(
+                if (cyberpunk) NativeCyberpunkBackground.CYAN else Color.WHITE
+            )
             thumb = design.shape(Color.WHITE, 999).apply { setSize(dp(12), dp(12)) }
             thumbOffset = dp(6)
             if (label == "Track position") thumb.alpha = 0
@@ -531,7 +544,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             }
         scroll.addView(body)
         stage.addView(scroll, LayoutParams(-1, -1))
-        if (!apple) scroll.background = if (glass) film(18) else design.shape(0xdd121212.toInt(), 8)
+        if (!apple) scroll.background = detailPanel()
         fun heading(value: String) {
             body.addView(
                 text(12f, 600).apply {
@@ -730,7 +743,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             false
         }
         lyricScroll = scroll
-        if (!apple) scroll.background = if (glass) film(18) else design.shape(0xdd121212.toInt(), 8)
+        if (!apple) scroll.background = detailPanel()
         val loading = text(20f, 600).apply { text = ui.text("common.loading", "Loading…") }
         body.addView(loading)
 
@@ -877,6 +890,10 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         }
     }
 
+    private fun detailPanel() =
+        if (glass) film(18) else if (cyberpunk) design.shape(design.surface, 4, true)
+        else design.shape(0xdd121212.toInt(), 8)
+
     private fun volumeDialog() {
         if (apple) {
             volume.requestFocus()
@@ -890,7 +907,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
             LinearLayout(context).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(16), dp(12), dp(16), dp(12))
-                background = design.shape(0xf529292b.toInt(), 16, true)
+                background = design.shape(if (cyberpunk) design.strong else 0xf529292b.toInt(), 16, true)
             }
         body.addView(
             text(14f, 600).apply { text = "Playback volume" },
@@ -984,9 +1001,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
         if (mode == "cover") copy(viewLabel, t.optString("artist"))
         toggle.text = if (player.playing) "pause" else "play"
         toggle.contentDescription = if (player.playing) "Pause" else "Play"
-        toggle.color(if (design.theme == "vice") design.onAccent else if (design.theme == "classic") Color.BLACK else Color.WHITE)
+        toggle.color(if (design.theme in setOf("vice", "cyberpunk")) design.onAccent else if (design.theme == "classic") Color.BLACK else Color.WHITE)
         favorite.color(
-            if (design.theme in setOf("classic", "vice") && ui.app.mediaController.favorite) design.accent
+            if (design.theme in setOf("classic", "vice", "cyberpunk") && ui.app.mediaController.favorite) design.accent
             else Color.WHITE,
             ui.app.mediaController.favorite,
         )
@@ -1098,6 +1115,8 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
                 lyricActive = index
                 lyricLines.forEachIndexed { i, line ->
                     line.second.alpha = if (i == index) 1f else .45f
+                    if (cyberpunk)
+                        line.second.setTextColor(if (i == index) NativeCyberpunkBackground.CYAN else design.ink)
                 }
                 if (index >= 0 && !lyricScroll!!.isPressed && !userScrolledLyrics)
                     lyricScroll?.smoothScrollTo(
@@ -1137,7 +1156,7 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
     }
 
     private fun background(bitmap: Bitmap) {
-        if (design.theme == "vice") return
+        if (design.theme in setOf("vice", "cyberpunk")) return
         if (ui.reduced()) {
             backdropBitmap = null
             backdrop.setImageDrawable(null)
@@ -1174,8 +1193,9 @@ class NativePlayerView(private val ui: NativeUi) : FrameLayout(ui.activity) {
 
     fun foreground(visible: Boolean) {
         motionAllowed = visible
-        if (!cover.vinyl) return
         val animate = visible && !ui.reducedMotion()
+        (shade.background as? NativeCyberpunkBackground)?.moving = animate
+        if (!cover.vinyl) return
         (shade as? NativeViceWallpaper)?.playing = animate
         cover.spin(animate && mode == "cover" && player.playing)
     }

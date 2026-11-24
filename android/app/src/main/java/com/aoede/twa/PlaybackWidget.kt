@@ -133,19 +133,27 @@ class PlaybackWidget : AppWidgetProvider() {
             val metrics = context.resources.displayMetrics
             val edge = minOf(metrics.widthPixels, metrics.heightPixels, 480)
             val views = RemoteViews(context.packageName, layout)
+            val cyberpunk = app.playerTheme == "cyberpunk"
+            views.setInt(android.R.id.background, "setBackgroundResource",
+                if (cyberpunk) R.drawable.widget_cyberpunk_background else R.drawable.widget_background)
+            views.setImageViewResource(R.id.widget_toggle_surface,
+                if (cyberpunk) R.drawable.widget_cyberpunk_button else R.drawable.widget_button_solid)
             if (decorated) {
                 val style = artworkStyle(if (active) metadata.getBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART) else null, edge)
-                views.setViewVisibility(R.id.widget_surface, View.VISIBLE)
-                views.setImageViewBitmap(R.id.widget_surface, style.surface)
+                views.setViewVisibility(R.id.widget_surface, if (cyberpunk) View.GONE else View.VISIBLE)
+                if (!cyberpunk) views.setImageViewBitmap(R.id.widget_surface, style.surface)
                 if (style.cover != null) views.setImageViewBitmap(R.id.widget_cover, if (layout == R.layout.widget_playback_expanded) style.cover else style.thumbnail)
                 else views.setImageViewResource(R.id.widget_cover, R.mipmap.ic_launcher_foreground)
                 views.setInt(R.id.widget_cover, "setImageAlpha", if (style.cover == null && layout == R.layout.widget_playback_expanded) 85 else 255)
-                views.setInt(R.id.widget_toggle_surface, "setColorFilter", style.accent)
-                views.setInt(R.id.widget_toggle, "setColorFilter", style.ink)
+                views.setInt(R.id.widget_toggle_surface, "setColorFilter",
+                    if (cyberpunk) NativeCyberpunkBackground.RED else style.accent)
+                views.setInt(R.id.widget_toggle, "setColorFilter",
+                    if (cyberpunk) NativeCyberpunkBackground.BASE else style.ink)
             } else {
                 views.setViewVisibility(R.id.widget_surface, View.GONE)
                 views.setImageViewResource(R.id.widget_cover, R.mipmap.ic_launcher_foreground)
             }
+            views.setTextColor(R.id.widget_artist, if (cyberpunk) NativeCyberpunkBackground.CYAN else 0xd9ffffff.toInt())
             views.setTextViewText(R.id.widget_title, if (active) metadata.getString(MediaMetadataCompat.METADATA_KEY_TITLE).orEmpty()
                 .ifBlank { context.getString(R.string.app_name) } else context.getString(R.string.widget_open))
             views.setTextViewText(R.id.widget_artist, if (active) metadata.getString(MediaMetadataCompat.METADATA_KEY_ARTIST).orEmpty()

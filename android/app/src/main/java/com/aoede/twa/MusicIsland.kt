@@ -587,6 +587,7 @@ class MusicIsland(private val app: AoedeApp) {
         val theme = app.playerTheme
         val artworkAccent = PlaybackWidget.artworkStyle(art).accent
         val accent = when (theme) {
+            "cyberpunk" -> NativeCyberpunkBackground.RED
             "vice" -> 0xffff8cb4.toInt()
             "vitrine" -> 0xffff809f.toInt()
             "glass" -> ColorUtils.blendARGB(artworkAccent, 0xffe6cbff.toInt(), .45f)
@@ -594,12 +595,17 @@ class MusicIsland(private val app: AoedeApp) {
         }
         val cardBackground = (view.findViewWithTag<View>("card").background as GradientDrawable)
         cardBackground.colors = when (theme) {
+            "cyberpunk" -> intArrayOf(0xff382036.toInt(), NativeCyberpunkBackground.BASE)
             "vice" -> intArrayOf(0xff46264c.toInt(), 0xff160f29.toInt())
             "vitrine" -> intArrayOf(0xff35212d.toInt(), 0xff17171d.toInt())
             "glass" -> intArrayOf(ColorUtils.blendARGB(accent, 0xff22212c.toInt(), .8f), 0xff21212d.toInt())
             else -> intArrayOf(0xff262626.toInt(), 0xff161616.toInt())
         }
-        cardBackground.setStroke(dp(1), ColorUtils.setAlphaComponent(accent, 75))
+        cardBackground.cornerRadius = dp(if (theme == "cyberpunk") 8 else 30).toFloat()
+        cardBackground.setStroke(dp(1), ColorUtils.setAlphaComponent(accent, if (theme == "cyberpunk") 150 else 75))
+        view.findViewWithTag<TextView>("artist").setTextColor(
+            if (theme == "cyberpunk") NativeCyberpunkBackground.CYAN else 0xffb9b4bf.toInt()
+        )
         view.findViewWithTag<TextView>("title").text = meta.getString(MediaMetadataCompat.METADATA_KEY_TITLE).orEmpty().ifBlank { app.getString(R.string.app_name) }
         view.findViewWithTag<TextView>("artist").text = meta.getString(MediaMetadataCompat.METADATA_KEY_ARTIST).orEmpty().ifBlank { app.getString(R.string.island_idle) }
         NativeIcon.install(app)
@@ -614,10 +620,11 @@ class MusicIsland(private val app: AoedeApp) {
                 setImageDrawable(NativeIcon(glyph, tint, theme, active && tag == "favorite"))
                 if (tag == "toggle") {
                     val fill = if (theme == "glass") 0x44ffffff else accent
+                    val radius = when (theme) { "cyberpunk" -> 4f; "vice" -> 18f; else -> 32f }
                     background = RippleDrawable(
                         ColorStateList.valueOf(0x33ffffff),
-                        shape(fill, if (theme == "vice") 18f else 32f),
-                        shape(Color.WHITE, if (theme == "vice") 18f else 32f),
+                        shape(fill, radius),
+                        shape(Color.WHITE, radius),
                     )
                 }
             }
@@ -633,7 +640,11 @@ class MusicIsland(private val app: AoedeApp) {
         view.findViewWithTag<ImageButton>("repeat").contentDescription = app.getString(when (media.repeat) {
             "one" -> R.string.island_repeat_one; "all" -> R.string.island_repeat_all; else -> R.string.island_repeat
         })
-        val progress = ColorStateList.valueOf(if (theme == "vice") 0xff84e2cc.toInt() else accent)
+        val progress = ColorStateList.valueOf(when (theme) {
+            "cyberpunk" -> NativeCyberpunkBackground.CYAN
+            "vice" -> 0xff84e2cc.toInt()
+            else -> accent
+        })
         view.findViewWithTag<SeekBar>("seek").apply {
             progressTintList = progress
             thumbTintList = progress

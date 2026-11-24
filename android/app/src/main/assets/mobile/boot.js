@@ -16,7 +16,7 @@
 
   function valid(data) {
     return data?.protocol === 1 && /^[A-Za-z0-9][A-Za-z0-9_-]{1,31}$/.test(data.username) &&
-      typeof data.is_admin === 'boolean' && ['classic', 'glass', 'vitrine', 'vice'].includes(data.theme);
+      typeof data.is_admin === 'boolean' && ['classic', 'glass', 'vitrine', 'vice', 'cyberpunk'].includes(data.theme);
   }
 
   async function start() {
@@ -40,7 +40,7 @@
       let response;
       try {
         if (navigator.onLine === false) throw new TypeError('Offline');
-        response = await fetch('/api/mobile/bootstrap', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal, headers: { 'X-Aoede-Theme-Support': 'vice' } });
+        response = await fetch('/api/mobile/bootstrap', { credentials: 'same-origin', cache: 'no-store', signal: controller.signal, headers: { 'X-Aoede-Theme-Support': 'cyberpunk' } });
         if (response.status === 401 || response.status === 403) {
           localStorage.removeItem(CACHE);
           location.replace('/login');

@@ -24,7 +24,7 @@ PRIVATE = {"Cache-Control": "private, no-store", "Vary": "Cookie, Accept-Languag
 
 class Preferences(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    theme: Literal["classic", "glass", "vitrine", "vice"] | None = None
+    theme: Literal["classic", "glass", "vitrine", "vice", "cyberpunk"] | None = None
     language: Literal["en", "es", "de"] | None = None
     metadata_preferences: list[Literal["spotify", "lastfm", "musicbrainz"]] | None = Field(
         default=None, min_length=1, max_length=3

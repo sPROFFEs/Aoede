@@ -1655,13 +1655,21 @@ def _migration_037_native_account_identity(conn):
 
 
 def _migration_038_vice_theme(conn):
+    _extend_user_theme_choices(conn, "'classic', 'glass', 'vitrine', 'vice'")
+
+
+def _migration_039_cyberpunk_theme(conn):
+    _extend_user_theme_choices(conn, "'classic', 'glass', 'vitrine', 'vice', 'cyberpunk'")
+
+
+def _extend_user_theme_choices(conn, choices: str):
     # Preserve users, foreign keys and indexes while extending the checked preference.
     columns = {row[1] for row in conn.execute(text("PRAGMA table_info(users)"))}
     if "theme_next" not in columns:
         conn.execute(
             text(
                 "ALTER TABLE users ADD COLUMN theme_next TEXT NOT NULL DEFAULT 'classic' "
-                "CHECK(theme_next IN ('classic', 'glass', 'vitrine', 'vice'))"
+                f"CHECK(theme_next IN ({choices}))"
             )
         )
     if "theme" in columns:
@@ -1710,6 +1718,7 @@ MIGRATIONS = [
     ("036_native_collection_operations", _migration_036_native_collection_operations),
     ("037_native_account_identity", _migration_037_native_account_identity),
     ("038_vice_theme", _migration_038_vice_theme),
+    ("039_cyberpunk_theme", _migration_039_cyberpunk_theme),
 ]
 
 

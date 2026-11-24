@@ -24,7 +24,7 @@ A failed Compose build can leave new bind-mounted source files with the previous
 
 ## Native interface and playback
 
-Browse Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, downloads, settings and administration directly in the app. Choose Classic, Glass, Vitrine or Vice in Appearance & settings, with the same account preference used on the web. The web/PWA and desktop interfaces remain available independently.
+Browse Home, discovery, search, collections, profiles, parties, lyrics, radio, Wrapped, downloads, settings and administration directly in the app. Choose Classic, Glass, Vitrine, Vice or Cyberpunk in Appearance & settings, with the same account preference used on the web. The web/PWA and desktop interfaces remain available independently.
 
 The compact and fullscreen players, notification, optional island and home-screen widget control the same playback session. Music pauses on audio interruptions or headphone disconnection. A paused party listener stays locally paused until an explicit play action. Closing Wrapped returns to your personal queue, paused.
 

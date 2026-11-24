@@ -74,7 +74,7 @@ class NativeDesign(
 
     private val density = context.resources.displayMetrics.density
     private val displayTypeface =
-        if (theme == "vice")
+        if (theme in setOf("vice", "cyberpunk"))
             viceTypeface
                 ?: Typeface.createFromAsset(context.assets, "web/assets/fonts/vice-display.ttf")
                     .also { viceTypeface = it }
@@ -88,7 +88,7 @@ class NativeDesign(
                     )
                     .also { themes = it })
             .getJSONObject(theme)
-            .getJSONObject(if (light) "light" else "dark")
+            .getJSONObject(if (light && theme != "cyberpunk") "light" else "dark")
     private val colors = values.getJSONObject("colors")
 
     fun color(name: String): Int {
@@ -135,22 +135,25 @@ class NativeDesign(
         get() = values.getJSONObject("material").optDouble("saturation", 1.0).toFloat()
 
     val onAccent =
-        if (theme == "vice" && !light) 0xff251329.toInt()
+        if (theme == "cyberpunk") NativeCyberpunkBackground.BASE
+        else if (theme == "vice" && !light) 0xff251329.toInt()
         else if (theme == "classic" || (theme == "glass" && !light)) Color.BLACK else Color.WHITE
     val nav = values.getJSONArray("nav").let { a -> (0 until a.length()).map(a::getString) }
     val gutter = if (context.resources.configuration.screenWidthDp < 360) 16 else 20
-    val chipRadius = if (theme == "vice") 10 else if (theme == "vitrine") 8 else 999
+    val chipRadius = if (theme == "cyberpunk") 2 else if (theme == "vice") 10 else if (theme == "vitrine") 8 else 999
     val cardRadius =
         when (theme) {
             "classic" -> 4
             "glass" -> 24
             "vice" -> 14
+            "cyberpunk" -> 4
             else -> 10
         }
     val miniRadius =
         when (theme) {
             "classic" -> 8
             "glass" -> 999
+            "cyberpunk" -> 4
             else -> 12
         }
     val miniHeight = if (theme == "classic") 56 else 64
@@ -160,6 +163,7 @@ class NativeDesign(
                 GradientDrawable.Orientation.TL_BR,
                 if (theme == "vice")
                     intArrayOf(0xfff9c780.toInt(), 0xffef75ac.toInt(), 0xff6f52ad.toInt())
+                else if (theme == "cyberpunk") intArrayOf(0xffa13a52.toInt(), 0xff472236.toInt())
                 else if (theme == "vitrine") intArrayOf(0xfff97f9f.toInt(), 0xffbd2547.toInt())
                 else intArrayOf(0xff4f46e5.toInt(), 0xffec4899.toInt()),
             )
@@ -170,7 +174,7 @@ class NativeDesign(
     fun shape(color: Int, radius: Int, outlined: Boolean = false) =
         GradientDrawable().apply {
             setColor(color)
-            cornerRadius = dp(radius).toFloat()
+            cornerRadius = dp(if (theme == "cyberpunk") minOf(radius, 4) else radius).toFloat()
             if (outlined) setStroke(maxOf(1, dp(1)), border)
         }
 
@@ -194,10 +198,11 @@ class NativeDesign(
                     if (weight >= 700) Typeface.BOLD else Typeface.NORMAL,
                 )
         view.setTextColor(ink)
-        view.setAllCaps(theme == "vice" && size >= 20)
+        view.setAllCaps(displayTypeface != null && size >= 20)
         lines(view, 1.25f)
         view.letterSpacing =
-            if (theme == "vice" && size >= 20) .015f else if (size >= 20) -.025f else 0f
+            if (theme == "cyberpunk" && size >= 20) .05f
+            else if (theme == "vice" && size >= 20) .015f else if (size >= 20) -.025f else 0f
     }
 
     fun lines(view: TextView, multiplier: Float) {
@@ -241,7 +246,11 @@ class NativeDesign(
 /** Same sidebar/cards/player miniature used by .theme-preview in the web chooser. */
 class NativeThemePreview(context: Context, private val theme: String) : View(context) {
     private val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-    private val skyline = if (theme == "vice") NativeViceBackground(context, false) else null
+    private val skyline = when (theme) {
+        "vice" -> NativeViceBackground(context, false)
+        "cyberpunk" -> NativeCyberpunkBackground(context)
+        else -> null
+    }
 
     override fun onDraw(canvas: android.graphics.Canvas) {
         val w = width.toFloat()
@@ -278,7 +287,7 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             setBounds(0, 0, width, height)
             draw(canvas)
         }
-        if (!classic && theme != "vice") {
+        if (!classic && skyline == null) {
             for ((x, y, color) in
                 listOf(
                     Triple(
@@ -321,7 +330,8 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             10 * d,
             10 * d + w * .22f,
             h - 30 * d,
-            if (theme == "vice") 0xff251832.toInt()
+            if (theme == "cyberpunk") 0xff261a29.toInt()
+            else if (theme == "vice") 0xff251832.toInt()
             else if (classic) 0xff242424.toInt() else if (glass) 0x8cffffff.toInt() else 0x36ffffff,
             if (glass) h else if (classic) 8 * d else 12 * d,
         )
@@ -343,7 +353,8 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             else {
                 paint.color = Color.WHITE
                 val colors =
-                    if (classic) intArrayOf(0xff7260bb.toInt(), 0xfff0a97b.toInt())
+                    if (theme == "cyberpunk") intArrayOf(0xffa13a52.toInt(), 0xff472236.toInt())
+                    else if (classic) intArrayOf(0xff7260bb.toInt(), 0xfff0a97b.toInt())
                     else
                         listOf(
                             intArrayOf(0xffeb8f85.toInt(), 0xffa43061.toInt()),
@@ -376,7 +387,8 @@ class NativeThemePreview(context: Context, private val theme: String) : View(con
             h - (if (classic || glass) 24 else 32) * d,
             w - 10 * d,
             h - 10 * d,
-            if (theme == "vice") 0xffff8cb4.toInt()
+            if (theme == "cyberpunk") NativeCyberpunkBackground.RED
+            else if (theme == "vice") 0xffff8cb4.toInt()
             else if (classic) 0xff1ed760.toInt() else if (glass) 0x8cffffff.toInt() else 0x45ffffff,
             if (classic) 3 * d else h,
         )

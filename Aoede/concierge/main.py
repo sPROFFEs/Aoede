@@ -629,7 +629,8 @@ def mobile_bootstrap(request: Request, db: Session = Depends(get_db)):
         return JSONResponse({"error": "Session verification unavailable"}, status_code=503, headers=headers)
     used, limit, percent = manager.get_pool_status(db, cached_only=True)
     theme = user.theme or "classic"
-    if theme == "vice" and request.headers.get("x-aoede-theme-support") != "vice":
+    support = request.headers.get("x-aoede-theme-support")
+    if (theme == "vice" and support not in {"vice", "cyberpunk"}) or (theme == "cyberpunk" and support != "cyberpunk"):
         theme = "classic"  # Older installed web clients reject unknown theme names.
     return JSONResponse(
         {

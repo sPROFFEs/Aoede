@@ -160,7 +160,7 @@ class Reference(BaseHTTPRequestHandler):
             )
         if path in {"/", "/login"}:
             theme = query.get("theme", [Reference.theme])[0]
-            if theme not in {"classic", "glass", "vitrine", "vice"}:
+            if theme not in {"classic", "glass", "vitrine", "vice", "cyberpunk"}:
                 return self.send({}, code=400)
             Reference.theme = theme
             html = TEMPLATES.get_template("login.html" if path == "/login" else "app_shell.html").render(
@@ -500,7 +500,7 @@ class Reference(BaseHTTPRequestHandler):
     def do_PATCH(self):
         body = json.loads(self.rfile.read(min(int(self.headers.get("Content-Length", "0")), 4096)))
         theme = body.get("theme")
-        if theme in {"classic", "glass", "vitrine", "vice"}:
+        if theme in {"classic", "glass", "vitrine", "vice", "cyberpunk"}:
             Reference.theme = theme
         self.send({"ok": True})
 

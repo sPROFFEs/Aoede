@@ -4,7 +4,7 @@ import * as ui from './ui.js';
 export let requestGeneration = 0;
 let saving = false;
 let initialized = false;
-const themes = new Set(['classic', 'glass', 'vitrine', 'vice']);
+const themes = new Set(['classic', 'glass', 'vitrine', 'vice', 'cyberpunk']);
 
 const viceVideoUrl = '/assets/video/vice-sunset.mp4';
 let wallpaper;
@@ -48,6 +48,7 @@ function updateBrowserColor() {
   const dark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
   let color = '#121212';
   if (theme === 'glass') color = dark ? '#0d0e11' : '#f1f2f6';
+  if (theme === 'cyberpunk') color = '#100d15';
   if (theme === 'vice') color = dark ? '#160f29' : '#fff1df';
   if (theme === 'vitrine') color = dark ? '#111216' : '#f5f5f8';
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', color);

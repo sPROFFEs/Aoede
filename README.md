@@ -34,7 +34,7 @@
 
 ## Why Aoede?
 
-**Aoede 1.3.1** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass, Vitrine or Vice without changing how you organize your music.
+**Aoede 1.3.1** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass, Vitrine, Vice or Cyberpunk without changing how you organize your music.
 
 Keep audio on your own server, build collections that feel personal, and invite others to listen with you.
 
@@ -157,7 +157,7 @@ Administration separates users, the library explorer, duplicate review and feder
 
 **[Open the complete screenshot gallery →](docs/SCREENSHOTS.md)**
 
-The gallery covers all four themes on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. The gallery includes separate renders of the native widgets and island controls.
+The gallery shows Aoede on desktop, mobile web and native Android, including playlists and albums, artists, public profiles, collaboration, imports, offline music, lyrics, queues, Wrapped, settings, administration, widgets and the music island. It includes separate renders of the native widgets and island controls.
 
 ## Clients
 

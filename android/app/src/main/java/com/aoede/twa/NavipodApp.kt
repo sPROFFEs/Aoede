@@ -79,6 +79,13 @@ class AoedeApp : Application() {
     var connectionFailure: Pair<String, String>? = null
         private set
     internal var playerTheme = "classic"
+        set(value) {
+            if (field == value) return
+            field = value
+            getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE).edit().putString("widget_theme", value).apply()
+            PlaybackWidget.update(this)
+            if (musicIsland.expanded) musicIsland.refresh()
+        }
     internal var darkAppearance = true
     @Volatile var viewport = "{}"
         private set
@@ -100,6 +107,8 @@ class AoedeApp : Application() {
     override fun onCreate() {
         super.onCreate()
         mediaController = MediaController(this)
+        playerTheme = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE)
+            .getString("widget_theme", "classic").orEmpty().ifBlank { "classic" }
         registerActivityLifecycleCallbacks(object : ActivityLifecycleCallbacks {
             private val started = mutableSetOf<Activity>()
             private val handler = Handler(Looper.getMainLooper())
@@ -187,11 +196,10 @@ class AoedeApp : Application() {
                         if (payload.optString("type") != "appearance" || payload.opt("dark") !is Boolean) false
                         else {
                             playerTheme = payload.optString("theme").takeIf {
-                                it in setOf("classic", "glass", "vitrine", "vice")
+                                it in setOf("classic", "glass", "vitrine", "vice", "cyberpunk")
                             } ?: "classic"
                             darkAppearance = payload.getBoolean("dark")
                             activity.get()?.applyAppearance(darkAppearance)
-                            if (musicIsland.expanded) musicIsland.refresh()
                             true
                         }
                     }.getOrDefault(false)) Unit
@@ -348,7 +356,6 @@ class AoedeApp : Application() {
         }
         player = null
         playerUrl = null
-        playerTheme = "classic"
         connectionFailure = null
         musicIsland.refresh()
     }

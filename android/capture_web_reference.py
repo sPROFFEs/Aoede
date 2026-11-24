@@ -15,7 +15,7 @@ from playwright.sync_api import sync_playwright
 
 def check_sidebar(browser, output):
     measurements = []
-    for theme in ("classic", "glass", "vitrine", "vice"):
+    for theme in ("classic", "glass", "vitrine", "vice", "cyberpunk"):
         for width in (900, 1280):
             page = browser.new_page(viewport={"width": width, "height": 850}, color_scheme="dark")
             page.route(
@@ -56,7 +56,7 @@ def check_sidebar(browser, output):
 
 def check_collection_titles(browser, output):
     measurements = []
-    for theme in ("classic", "glass", "vitrine", "vice"):
+    for theme in ("classic", "glass", "vitrine", "vice", "cyberpunk"):
         for scheme in ("dark", "light"):
             for width in (320, 400, 1280):
                 page = browser.new_page(viewport={"width": width, "height": 850}, color_scheme=scheme)
@@ -122,7 +122,7 @@ def capture():
             return
         if not args.tokens_only:
             check_collection_titles(browser, args.output)
-        for theme in ("classic", "glass", "vitrine", "vice"):
+        for theme in ("classic", "glass", "vitrine", "vice", "cyberpunk"):
             tokens[theme] = {}
             for scheme in ("dark", "light"):
                 page = browser.new_page(

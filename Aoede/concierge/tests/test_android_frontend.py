@@ -107,6 +107,14 @@ def test_mobile_bootstrap_is_authenticated_private_revocable_and_uses_request_la
             modern = await client.get("/api/mobile/bootstrap", headers={"X-Aoede-Theme-Support": "vice"})
             assert modern.json()["theme"] == "vice"
             assert db_session.get(database.User, alice.id).theme == "vice"
+            alice.theme = "cyberpunk"
+            db_session.commit()
+            assert (await client.get("/api/mobile/bootstrap", headers={"X-Aoede-Theme-Support": "vice"})).json()[
+                "theme"
+            ] == "classic"
+            modern = await client.get("/api/mobile/bootstrap", headers={"X-Aoede-Theme-Support": "cyberpunk"})
+            assert modern.json()["theme"] == "cyberpunk"
+            assert db_session.get(database.User, alice.id).theme == "cyberpunk"
             alice.theme = "vitrine"
             db_session.commit()
             with patch.object(auth, "get_current_user", side_effect=RuntimeError("private database error")):

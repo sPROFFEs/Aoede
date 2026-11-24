@@ -27,7 +27,7 @@ MAX_COOKIE_FILE_BYTES = 1024 * 1024
 
 
 class AppearanceRequest(BaseModel):
-    theme: Literal["classic", "glass", "vitrine", "vice"]
+    theme: Literal["classic", "glass", "vitrine", "vice", "cyberpunk"]
 
 
 def get_db():

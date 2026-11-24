@@ -253,6 +253,9 @@ class MusicIslandTest {
         app.playerTheme = "vitrine"
         island.refresh()
         assertEquals(0xff17171d.toInt(), backdrop.colors?.last())
+        app.playerTheme = "cyberpunk"
+        assertEquals(NativeCyberpunkBackground.BASE, backdrop.colors?.last())
+        assertEquals(NativeCyberpunkBackground.CYAN, view().findViewWithTag<android.widget.SeekBar>("seek").progressTintList?.defaultColor)
         island.collapse()
         val collapsed = view().findViewWithTag<View>("capsule").background as android.graphics.drawable.GradientDrawable
         assertEquals(originalColor, collapsed.color?.defaultColor)

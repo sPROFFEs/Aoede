@@ -18,7 +18,7 @@ with patch("docker.from_env", return_value=MagicMock()):
     from routers.music import sync
 
 
-@pytest.mark.parametrize("theme", ["glass", "vitrine", "vice"])
+@pytest.mark.parametrize("theme", ["glass", "vitrine", "vice", "cyberpunk"])
 def test_theme_is_private_persisted_across_devices_and_in_heartbeat(db_session, theme):
     alice = database.User(username="theme-alice", hashed_password="unused")
     bob = database.User(username="theme-bob", hashed_password="unused")
@@ -70,7 +70,7 @@ def test_theme_is_private_persisted_across_devices_and_in_heartbeat(db_session, 
     assert db_session.get(database.User, bob.id).theme == "classic"
 
 
-@pytest.mark.parametrize("theme", ["classic", "glass", "vitrine", "vice"])
+@pytest.mark.parametrize("theme", ["classic", "glass", "vitrine", "vice", "cyberpunk"])
 def test_theme_migration_preserves_users_and_rendering_starts_with_saved_theme(db_session, theme):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
@@ -112,11 +112,12 @@ def test_theme_migration_preserves_users_and_rendering_starts_with_saved_theme(d
     assert "/assets/css/theme_vitrine.css" in response.body.decode()
     assert "/assets/css/theme_glass.css" in response.body.decode()
     assert "/assets/css/theme_vice.css" in response.body.decode()
+    assert "/assets/css/theme_cyberpunk.css" in response.body.decode()
     settings = templates.get_template("user_settings.html").render(
         request=request, user=viewer, user_theme=theme, dl_settings=None
     )
     radios = re.findall(r'<input type="radio" name="user-theme"[^>]+>', settings)
-    assert len(radios) == 4
+    assert len(radios) == 5
     assert len([radio for radio in radios if " checked" in radio]) == 1
     assert " checked" in next(radio for radio in radios if f'value="{theme}"' in radio)
     for page in ("base.html", "login.html", "wrapped_story.html"):
@@ -184,6 +185,15 @@ def test_vice_upgrade_preserves_accounts_preferences_and_foreign_keys():
         conn.execute(text("UPDATE users SET theme='vice' WHERE id=3"))
         ops_core._migration_038_vice_theme(conn)
         assert conn.execute(text("SELECT theme FROM users ORDER BY id")).scalars().all() == ["classic", "glass", "vice"]
+        ops_core._migration_039_cyberpunk_theme(conn)
+        assert conn.execute(text("SELECT theme FROM users ORDER BY id")).scalars().all() == ["classic", "glass", "vice"]
+        conn.execute(text("UPDATE users SET theme='cyberpunk' WHERE id=3"))
+        ops_core._migration_039_cyberpunk_theme(conn)
+        assert conn.execute(text("SELECT theme FROM users ORDER BY id")).scalars().all() == [
+            "classic",
+            "glass",
+            "cyberpunk",
+        ]
         assert conn.execute(text("SELECT user_id FROM favorites ORDER BY user_id")).scalars().all() == [1, 2, 3]
         assert conn.execute(text("PRAGMA foreign_key_check")).all() == []
         with pytest.raises(IntegrityError):
@@ -194,7 +204,14 @@ def test_vice_upgrade_preserves_accounts_preferences_and_foreign_keys():
 
 
 @pytest.mark.parametrize("old_column_present", [False, True])
-@pytest.mark.parametrize("migration", [ops_core._migration_035_vitrine_theme, ops_core._migration_038_vice_theme])
+@pytest.mark.parametrize(
+    "migration",
+    [
+        ops_core._migration_035_vitrine_theme,
+        ops_core._migration_038_vice_theme,
+        ops_core._migration_039_cyberpunk_theme,
+    ],
+)
 def test_theme_migration_can_resume_after_interrupted_column_change(old_column_present, migration):
     engine = create_engine("sqlite://")
     with engine.begin() as conn:
