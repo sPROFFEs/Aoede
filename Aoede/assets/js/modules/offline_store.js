@@ -62,8 +62,23 @@ export function getDB() {
       }
     };
 
+    let blocked = false;
+    request.onblocked = () => {
+      blocked = true;
+      reject(new Error('Offline storage is waiting for another tab.'));
+    };
+
     request.onsuccess = () => {
-      resolve(request.result);
+      const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+        _dbPromise = null;
+      };
+      if (blocked) {
+        db.onversionchange();
+        return;
+      }
+      resolve(db);
     };
 
     request.onerror = () => {
@@ -683,6 +698,15 @@ export async function removePendingAction(actionId) {
 export async function flushPendingActions() {
   if (!navigator.onLine || _isFlushing || !window.USER_DATA?.username) return;
   _isFlushing = true;
+  const send = async (path, options) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+    try {
+      return await fetch(path, { ...options, signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+  };
   try {
     const actions = await getPendingActions();
     if (!actions.length) return;
@@ -697,13 +721,13 @@ export async function flushPendingActions() {
 
         if (action.type === 'toggle_favorite') {
           const { trackId, liked } = action.payload;
-          const res = await fetch(`/api/favorites/${trackId}`, {
+          const res = await send(`/api/favorites/${trackId}`, {
             method: liked ? 'POST' : 'DELETE',
             headers: { 'X-Idempotency-Key': action.idempotency_key }
           });
           success = res.ok || (res.status === 404 && !liked);
         } else if (action.type === 'listen_progress' || action.type === 'track_completed') {
-          const res = await fetch('/api/activity/listen', {
+          const res = await send('/api/activity/listen', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -713,7 +737,7 @@ export async function flushPendingActions() {
           });
           success = res.ok;
         } else if (action.type === 'create_playlist') {
-          const res = await fetch('/api/playlists', {
+          const res = await send('/api/playlists', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -724,7 +748,7 @@ export async function flushPendingActions() {
           success = res.ok;
         } else if (action.type === 'add_to_playlist') {
           const { playlistId, trackId } = action.payload;
-          const res = await fetch(`/api/playlists/${playlistId}/add`, {
+          const res = await send(`/api/playlists/${playlistId}/add`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -735,7 +759,7 @@ export async function flushPendingActions() {
           success = res.ok;
         } else if (action.type === 'remove_from_playlist') {
           const { playlistId, trackId, itemId } = action.payload;
-          const res = await fetch(
+          const res = await send(
             `/api/playlists/${playlistId}/remove/${trackId}${itemId ? `?item_id=${Number(itemId)}` : ''}`,
             {
               method: 'DELETE',
@@ -745,7 +769,7 @@ export async function flushPendingActions() {
           success = res.ok || res.status === 404;
         } else if (action.type === 'edit_playlist') {
           const { playlistId, name } = action.payload;
-          const res = await fetch(`/api/playlists/${playlistId}`, {
+          const res = await send(`/api/playlists/${playlistId}`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
@@ -756,7 +780,7 @@ export async function flushPendingActions() {
           success = res.ok;
         } else if (action.type === 'delete_playlist') {
           const { playlistId } = action.payload;
-          const res = await fetch(`/api/playlists/${playlistId}`, {
+          const res = await send(`/api/playlists/${playlistId}`, {
             method: 'DELETE',
             headers: { 'X-Idempotency-Key': action.idempotency_key }
           });

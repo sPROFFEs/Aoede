@@ -16,6 +16,7 @@ let _mediaSessionInitialised = false;
 let _activeListenSession = null;
 let _sessionPersistInterval = null;
 let _remoteQueueSaveTimer = null;
+let _playbackRevision = 0;
 let _trackTransitionInFlight = false;
 let _currentBlobUrl = null; // Stored object URL for offline Blob playback
 // Stall recovery: tracks how many times we've reloaded the stream
@@ -301,11 +302,10 @@ function applyQueueSnapshot(snapshot) {
   state.setContextIndex(Number.isInteger(snapshot.contextIndex) ? snapshot.contextIndex : -1);
   state.setRepeatMode(snapshot.repeatMode || 'off');
   state.setShuffleMode(Boolean(snapshot.shuffleMode));
-  state.setCurrentViewName(snapshot.currentViewName || 'home');
-  state.setCurrentViewParam(snapshot.currentViewParam ?? null);
 }
 
 export function persistPlaybackSession({ syncRemote = true } = {}) {
+  _playbackRevision++;
   // A party room owns its own persistent queue and playback clock. Saving it
   // into the listener's personal queue would make the party reappear as their
   // private session after a reload.
@@ -325,6 +325,7 @@ export function persistPlaybackSession({ syncRemote = true } = {}) {
 }
 
 function clearPersistedPlaybackSession() {
+  _playbackRevision++;
   try {
     localStorage.removeItem(PLAYBACK_SESSION_KEY);
     scheduleRemoteQueueStateSave(null);
@@ -554,8 +555,26 @@ function clampResumeTime(timeSeconds, durationSeconds) {
   return Math.min(current, Math.max(0, duration - 1));
 }
 
-export async function restorePlaybackSession() {
+function readLocalPlaybackSnapshot() {
   try {
+    return JSON.parse(localStorage.getItem(PLAYBACK_SESSION_KEY));
+  } catch {
+    return null;
+  }
+}
+
+export function getSavedPlaybackView() {
+  const snapshot = readLocalPlaybackSnapshot();
+  const ageMs = Date.now() - Number(snapshot?.savedAt);
+  if (!snapshot?.currentTrack?.db_id || !(ageMs >= 0 && ageMs <= PLAYBACK_SESSION_MAX_AGE_MS)) return null;
+  return { view: snapshot.currentViewName || 'home', param: snapshot.currentViewParam ?? null };
+}
+
+export async function restorePlaybackSession() {
+  const revision = _playbackRevision;
+  const canRestore = () => revision === _playbackRevision && !state.currentTrack && !_partyController?.isActive?.();
+  try {
+    const localSnapshot = readLocalPlaybackSnapshot();
     let serverSnapshot = null;
     try {
       serverSnapshot = remotePayloadToSnapshot(await api.fetchPlaybackQueueState());
@@ -563,32 +582,31 @@ export async function restorePlaybackSession() {
       console.warn('[BG-PLAY] Failed to fetch remote playback queue state:', e);
     }
 
-    const raw = localStorage.getItem(PLAYBACK_SESSION_KEY);
-    let localSnapshot = null;
-    if (raw) {
-      try {
-        localSnapshot = JSON.parse(raw);
-      } catch (e) {
-        localStorage.removeItem(PLAYBACK_SESSION_KEY);
-      }
-    }
     const snapshot = serverSnapshot || localSnapshot;
-    if (!snapshot) return null;
-
-    applyQueueSnapshot(snapshot);
+    if (!canRestore() || !snapshot) return;
 
     if (!snapshot?.currentTrack?.db_id) {
+      applyQueueSnapshot(snapshot);
       syncTransportControlButtons();
       if (window.renderQueue) window.renderQueue();
-      return null;
+      return;
     }
 
     const ageMs = Date.now() - Number(snapshot.savedAt || 0);
     if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > PLAYBACK_SESSION_MAX_AGE_MS) {
-      clearPersistedPlaybackSession();
-      return null;
+      return;
     }
 
+    let blob = null;
+    try {
+      if (await offlineStore.isTrackAvailableOffline(snapshot.currentTrack.db_id))
+        blob = await offlineStore.getOfflineAudioBlob(snapshot.currentTrack.db_id);
+    } catch (e) {
+      console.warn('[BG-PLAY] Could not read downloaded track:', e);
+    }
+    if (!canRestore()) return;
+
+    applyQueueSnapshot(snapshot);
     state.setCurrentTrack(snapshot.currentTrack);
     state.setIsPlaying(false);
 
@@ -598,30 +616,26 @@ export async function restorePlaybackSession() {
     document.title = `${snapshot.currentTrack.title || 'Aoede'} - Aoede`;
 
     const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    const hasOffline = await offlineStore.isTrackAvailableOffline(snapshot.currentTrack.db_id);
-
-    if (hasOffline) {
-      try {
-        const blob = await offlineStore.getOfflineAudioBlob(snapshot.currentTrack.db_id);
-        if (blob) {
-          if (_currentBlobUrl) URL.revokeObjectURL(_currentBlobUrl);
-          _currentBlobUrl = URL.createObjectURL(blob);
-          state.audio.src = _currentBlobUrl;
-        } else {
-          state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
-        }
-      } catch {
-        state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
-      }
+    if (blob) {
+      if (_currentBlobUrl) URL.revokeObjectURL(_currentBlobUrl);
+      _currentBlobUrl = URL.createObjectURL(blob);
+      state.audio.src = _currentBlobUrl;
     } else if (!isOffline) {
       state.audio.src = `/api/stream/${snapshot.currentTrack.db_id}`;
     }
+    const restoredSource = state.audio.src;
     state.audio.load();
 
     const resumeTime = clampResumeTime(snapshot.currentTime, snapshot.duration);
     const shouldAttemptResume = Boolean(snapshot.wasPlaying) && ageMs <= PLAYBACK_AUTO_RESUME_MAX_AGE_MS;
 
     const restorePosition = () => {
+      if (
+        state.currentTrack !== snapshot.currentTrack ||
+        state.audio.src !== restoredSource ||
+        _partyController?.isActive?.()
+      )
+        return;
       if (resumeTime > 0) {
         try {
           state.audio.currentTime = resumeTime;
@@ -630,16 +644,18 @@ export async function restorePlaybackSession() {
         }
       }
 
-      if (shouldAttemptResume) {
+      if (shouldAttemptResume && revision === _playbackRevision) {
         state.audio
           .play()
           .then(() => {
+            if (state.currentTrack !== snapshot.currentTrack || state.audio.src !== restoredSource) return;
             state.setIsPlaying(true);
             ui.updatePlayButton();
             startPlaybackSessionPersistence();
             acquirePlaybackLock();
           })
           .catch(() => {
+            if (state.currentTrack !== snapshot.currentTrack || state.audio.src !== restoredSource) return;
             state.setIsPlaying(false);
             ui.updatePlayButton();
             persistPlaybackSession();
@@ -659,15 +675,8 @@ export async function restorePlaybackSession() {
       state.audio.addEventListener('loadedmetadata', restorePosition, { once: true });
     }
     if (window.renderQueue) window.renderQueue();
-
-    return {
-      view: snapshot.currentViewName || 'home',
-      param: snapshot.currentViewParam ?? null
-    };
   } catch (e) {
     console.warn('[BG-PLAY] Failed to restore playback session:', e);
-    clearPersistedPlaybackSession();
-    return null;
   }
 }
 

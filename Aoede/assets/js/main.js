@@ -430,7 +430,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   console.log('[MAIN] Aoede ES6 Modules Initialized');
   appearance.initAppearance();
 
-  await offlineStore.initOfflineStore();
+  void offlineStore.initOfflineStore();
 
   initUserMenu();
   initKeyboardShortcuts();
@@ -470,22 +470,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Keep heartbeat quiet while backgrounded
   views.initHeartbeatLifecycle();
 
-  const restoredSession = await player.restorePlaybackSession();
-
-  // Explicit destinations win over a restored view; initialize the SPA once.
+  // Render using the local route; restoring the audio queue can take a network round trip.
   const isDeviceOffline = window.AOEDE_NATIVE_OFFLINE || (typeof navigator !== 'undefined' && !navigator.onLine);
   const _serverView = isDeviceOffline ? 'offline' : (window.AOEDE_INITIAL_VIEW ?? 'home');
   const _serverParam = isDeviceOffline ? null : (window.AOEDE_INITIAL_PARAM ?? null);
 
   const homeExit = window.location.hash === '#home';
   const hasInitialView = homeExit || (window.AOEDE_INITIAL_VIEW && window.AOEDE_INITIAL_VIEW !== 'home');
+  const restoredSession =
+    !isDeviceOffline && !hasInitialView && !window.AOEDE_ANDROID ? player.getSavedPlaybackView() : null;
   if (
     !views.navigationVersion &&
     (hasInitialView || ['/', '/index.html', '/portal'].includes(window.location.pathname))
   ) {
     if (isDeviceOffline) {
       views.loadView('offline', null, { replaceHistory: true });
-    } else if (!hasInitialView && !window.AOEDE_ANDROID && restoredSession?.view && restoredSession.view !== 'home') {
+    } else if (restoredSession?.view && restoredSession.view !== 'home') {
       views.loadView(restoredSession.view, restoredSession.param ?? null, { replaceHistory: true });
     } else {
       views.loadView(_serverView, _serverParam, { replaceHistory: true });
@@ -499,6 +499,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   if (homeExit)
     window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+
+  void player.restorePlaybackSession();
 
   // Initialize Lucide icons
   if (window.lucide) {

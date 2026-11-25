@@ -528,10 +528,6 @@ function refreshHomeQuickPicks() {
 
 export async function renderHome(container, isCurrent = () => true) {
   if (!isCurrent()) return;
-  let sections = [];
-  let mixes = [];
-  let wrapped = null;
-  let partyRooms = [];
   state.setCurrentViewList([]);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -555,33 +551,59 @@ export async function renderHome(container, isCurrent = () => true) {
   container.setAttribute('aria-busy', 'true');
 
   try {
+    const cachedHome = offlineStore.getLibrarySnapshot('home_feed').catch(() => null);
     if (!window.AOEDE_NATIVE_OFFLINE && typeof navigator !== 'undefined' && navigator.onLine) {
       const currentYear = new Date().getFullYear();
+      const fresh = {};
+      const options = { signal: controller.signal };
+      const renderSections = (sections) =>
+        paint(
+          'recommendations',
+          sections.map((section) => homeShelf(section.title, section.items.map(createCard).join(''))).join('')
+        );
+      const renderMixes = (mixes) =>
+        paint(
+          'mixes',
+          mixes.length ? homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join('')) : ''
+        );
+      const saveShelf = async (key, request, render) => {
+        try {
+          const items = await request;
+          if (!Array.isArray(items)) throw new Error('Invalid home shelf');
+          render(items);
+          fresh[key] = items;
+        } catch {
+          const cached = await cachedHome;
+          if (Array.isArray(cached?.[key])) render(cached[key]);
+        }
+      };
       await Promise.allSettled([
-        api.fetchRecommendations({ signal: controller.signal }).then((value) => {
-          sections = value || [];
-          paint('recommendations', sections.map((s) => homeShelf(s.title, s.items.map(createCard).join(''))).join(''));
-        }),
-        api.fetchMixes({ signal: controller.signal }).then((value) => {
-          mixes = value || [];
-          paint(
-            'mixes',
-            mixes.length ? homeShelf(ui.t('home.your_mixes', 'Your Mixes'), mixes.map(createMixCard).join('')) : ''
-          );
-        }),
-        api.fetchWrapped(currentYear, { summary: false, signal: controller.signal }).then((value) => {
-          wrapped = value && !value.error && value.visible !== false && value.enabled !== false ? value : null;
-          paint('wrapped', wrapped ? createWrappedHomeCard(wrapped) : '');
-        }),
-        party.fetchRooms({ signal: controller.signal }).then((value) => {
-          partyRooms = value || [];
-          paint('parties', party.renderHomeShelf(partyRooms));
-        })
+        saveShelf('sections', api.fetchRecommendations(options), renderSections),
+        saveShelf('mixes', api.fetchMixes(options), renderMixes),
+        api.fetchWrapped(currentYear, { ...options, summary: false, strict: true }).then(
+          (value) => {
+            const wrapped = value && !value.error && value.visible !== false && value.enabled !== false ? value : null;
+            fresh.wrapped = wrapped;
+            paint('wrapped', wrapped ? createWrappedHomeCard(wrapped) : '');
+          },
+          () => {
+            paint('wrapped', '');
+          }
+        ),
+        party.fetchRooms(options).then(
+          (value) => {
+            paint('parties', party.renderHomeShelf(value || []));
+          },
+          () => {
+            paint('parties', '');
+          }
+        )
       ]);
-      if (isCurrent()) offlineStore.saveLibrarySnapshot('home_feed', { sections, mixes, wrapped, partyRooms });
+      const cached = await cachedHome;
+      if (isCurrent() && Object.keys(fresh).length)
+        offlineStore.saveLibrarySnapshot('home_feed', { ...cached, ...fresh });
     } else {
-      const cached = await offlineStore.getLibrarySnapshot('home_feed');
-      paintCached(cached);
+      paintCached(await cachedHome);
     }
   } catch (e) {
     console.error('Recs error:', e);
@@ -1644,9 +1666,9 @@ export function filterSidebarLibrary() {
   });
 }
 
-export async function refreshRecentActivity() {
+export async function refreshRecentActivity(options = {}) {
   try {
-    const res = await fetch(`${state.API}/recent-activity`);
+    const res = await fetch(`${state.API}/recent-activity`, options);
     if (!res.ok) return;
     const data = await res.json();
     state.setRecentPlaylists(Array.isArray(data.playlists) ? data.playlists : []);

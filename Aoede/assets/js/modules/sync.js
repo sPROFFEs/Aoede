@@ -79,8 +79,7 @@ export async function checkSyncState() {
   const isCurrent = state.viewGuard();
   const timeout = setTimeout(() => controller.abort(), 20000);
   try {
-    await offlineStore.flushPendingActions();
-    if (controller.signal.aborted) return;
+    void offlineStore.flushPendingActions().catch(() => {});
 
     const appearanceGeneration = appearance.requestGeneration;
     const res = await fetch(`${state.API}/sync-state`, { signal: controller.signal });
@@ -94,17 +93,16 @@ export async function checkSyncState() {
       if (document.querySelector('#modal-container .modal, .track-row.dragging')) return;
       console.log('[SYNC] State changed, updating...');
 
-      state.setUserFavorites(new Set(syncState.fav_ids));
-
       const plsRes = await fetch(`${state.API}/playlists`, { signal: controller.signal });
-      if (plsRes.ok) {
-        const playlists = await plsRes.json();
-        state.setUserPlaylists(playlists);
-        offlineStore.saveLibrarySnapshot('playlists', playlists);
-        if (handlers.renderSidebarPlaylists) handlers.renderSidebarPlaylists();
-        else if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
-        if (handlers.refreshRecentActivity) await handlers.refreshRecentActivity();
-      }
+      if (!plsRes.ok) return;
+      const playlists = await plsRes.json();
+      if (!Array.isArray(playlists)) return;
+      state.setUserFavorites(new Set(syncState.fav_ids));
+      state.setUserPlaylists(playlists);
+      offlineStore.saveLibrarySnapshot('playlists', playlists);
+      if (handlers.renderSidebarPlaylists) handlers.renderSidebarPlaylists();
+      else if (window.renderSidebarPlaylists) window.renderSidebarPlaylists();
+      if (handlers.refreshRecentActivity) await handlers.refreshRecentActivity({ signal: controller.signal });
 
       ui.updateFullscreenPlayButton();
 

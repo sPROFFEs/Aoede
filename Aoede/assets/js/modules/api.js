@@ -342,13 +342,9 @@ export async function deleteRadioApi(radioId) {
 // === RECOMMENDATIONS API ===
 
 export async function fetchRecommendations(options = {}) {
-  try {
-    const res = await fetch(`${state.API}/recommendations`, options);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    console.error('[RECS] Fetch error:', e);
-  }
-  return [];
+  const res = await fetch(`${state.API}/recommendations`, options);
+  if (!res.ok) throw new Error(`Recommendations unavailable (HTTP ${res.status})`);
+  return await res.json();
 }
 
 // === PLAYBACK QUEUE STATE API ===
@@ -417,13 +413,9 @@ export async function savePlaybackVolume(volume) {
 }
 
 export async function fetchMixes(options = {}) {
-  try {
-    const res = await fetch(`${state.API}/mixes`, options);
-    if (res.ok) return await res.json();
-  } catch (e) {
-    console.error('[MIXES] Fetch error:', e);
-  }
-  return [];
+  const res = await fetch(`${state.API}/mixes`, options);
+  if (!res.ok) throw new Error(`Mixes unavailable (HTTP ${res.status})`);
+  return await res.json();
 }
 
 export async function fetchDiscoveryFeed(limit = 20, category = 'all') {
@@ -484,7 +476,7 @@ export async function saveMixAsPlaylist(mixKey, name) {
   return null;
 }
 
-export async function fetchWrapped(year, { forceRefresh = false, summary = true, signal } = {}) {
+export async function fetchWrapped(year, { forceRefresh = false, summary = true, signal, strict = false } = {}) {
   try {
     const params = new URLSearchParams();
     if (forceRefresh) params.set('force_refresh', 'true');
@@ -493,7 +485,9 @@ export async function fetchWrapped(year, { forceRefresh = false, summary = true,
     const suffix = query ? `?${query}` : '';
     const res = await fetch(`${state.API}/wrapped/${encodeURIComponent(year)}${suffix}`, { cache: 'no-store', signal });
     if (res.ok) return await res.json();
+    if (strict) throw new Error(`Wrapped unavailable (HTTP ${res.status})`);
   } catch (e) {
+    if (strict) throw e;
     console.error('[WRAPPED] Fetch error:', e);
   }
   return null;

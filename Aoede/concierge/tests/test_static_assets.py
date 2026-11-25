@@ -86,7 +86,8 @@ def test_first_party_frontend_stays_inside_download_budgets():
     # Includes accessible collection menus and one shared focus trap for legacy dialogs.
     # Includes rich discovery category filtering, reason badges, and multi-tier lyrics.
     # Includes bounded queue rendering and account-scoped request coalescing.
-    assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 644_000
+    # Includes per-shelf offline recovery and non-blocking queue restoration.
+    assert sum(len(path.read_bytes().replace(b"\r\n", b"\n")) for path in javascript if path != appearance) < 647_000
     # Shared navigation, compact discovery/offline lists and accessible collection dialogs.
     assert (
         sum(

@@ -17,17 +17,23 @@ class NativeSync(private val app: AoedeApp) {
         running = true
         app.nativeApi.execute({
             val actions = app.nativeLibrary.list("pending", scope).reversed()
+            val blockedCollections = mutableSetOf<String>()
             for (action in actions) {
                 if (app.nativeLibrary.scope() != scope || app.nativeApi.origin != origin)
                     error("Account changed")
                 val key = action.getString("_native_record_id")
                 if (only != null && key != only) continue
-                if (only == null && action.optBoolean("review_required")) continue
                 if (
                     action.has("username") && action.optString("username") != app.nativeApi.username
                 )
                     continue
                 val payload = action.optJSONObject("payload") ?: JSONObject()
+                val relatedCollection = payload.optString("playlistId").ifBlank { payload.optString("temp_id") }
+                if (only == null && action.optBoolean("review_required")) {
+                    if (relatedCollection.isNotBlank()) blockedCollections.add(relatedCollection)
+                    continue
+                }
+                if (relatedCollection in blockedCollections) continue
                 fun collection(): String {
                     var id = payload.optString("playlistId")
                     val map =
@@ -35,62 +41,70 @@ class NativeSync(private val app: AoedeApp) {
                     if (map.has(id)) id = map.getString(id)
                     return NativeTrack.collectionPath(id)
                 }
-                when (action.optString("type")) {
-                    "listen_progress",
-                    "track_completed" ->
-                        app.nativeApi.request("/api/activity/listen", "POST", payload)
-                    "toggle_favorite" ->
-                        app.nativeApi.request(
-                            "/api/favorites/${NativeApi.encode(payload.get("trackId").toString())}",
-                            if (payload.optBoolean("liked")) "POST" else "DELETE",
-                        )
-                    "create_playlist" -> {
-                        val body =
-                            JSONObject(payload.toString())
-                                .put(
-                                    "request_id",
-                                    UUID.nameUUIDFromBytes((scope + ":" + key).toByteArray())
-                                        .toString(),
-                                )
-                        val result =
-                            app.nativeApi.request("/api/playlists", "POST", body) as JSONObject
-                        val temporary = payload.optString("temp_id")
-                        if (temporary.isNotBlank()) {
-                            val id = result.get("id").toString()
-                            val map =
-                                app.nativeLibrary.get("snapshot", "collection-map", scope)
-                                    ?: JSONObject()
-                            map.put(temporary, id)
-                            app.nativeLibrary.put("snapshot", "collection-map", map, scope)
-                            app.nativeLibrary.get("collection", temporary, scope)?.let {
-                                app.nativeLibrary.put("collection", id, it.put("id", id), scope)
-                                app.nativeLibrary.remove("collection", temporary, scope)
+                try {
+                    when (action.optString("type")) {
+                        "listen_progress",
+                        "track_completed" ->
+                            app.nativeApi.request("/api/activity/listen", "POST", payload)
+                        "toggle_favorite" ->
+                            app.nativeApi.request(
+                                "/api/favorites/${NativeApi.encode(payload.get("trackId").toString())}",
+                                if (payload.optBoolean("liked")) "POST" else "DELETE",
+                            )
+                        "create_playlist" -> {
+                            val body =
+                                JSONObject(payload.toString())
+                                    .put(
+                                        "request_id",
+                                        UUID.nameUUIDFromBytes((scope + ":" + key).toByteArray())
+                                            .toString(),
+                                    )
+                            val result =
+                                app.nativeApi.request("/api/playlists", "POST", body) as JSONObject
+                            val temporary = payload.optString("temp_id")
+                            if (temporary.isNotBlank()) {
+                                val id = result.get("id").toString()
+                                val map =
+                                    app.nativeLibrary.get("snapshot", "collection-map", scope)
+                                        ?: JSONObject()
+                                map.put(temporary, id)
+                                app.nativeLibrary.put("snapshot", "collection-map", map, scope)
+                                app.nativeLibrary.get("collection", temporary, scope)?.let {
+                                    app.nativeLibrary.put("collection", id, it.put("id", id), scope)
+                                    app.nativeLibrary.remove("collection", temporary, scope)
+                                }
                             }
                         }
+                        "add_to_playlist" ->
+                            app.nativeApi.request(
+                                collection() + "/add",
+                                "POST",
+                                JSONObject().put("track_id", payload.get("trackId")),
+                            )
+                        "remove_from_playlist" ->
+                            app.nativeApi.request(
+                                collection() +
+                                    "/remove/" +
+                                    NativeApi.encode(payload.get("trackId").toString()) +
+                                    if (payload.has("itemId")) "?item_id=" + payload.optLong("itemId")
+                                    else "",
+                                "DELETE",
+                            )
+                        "edit_playlist" ->
+                            app.nativeApi.request(
+                                collection(),
+                                "PUT",
+                                JSONObject().put("name", payload.getString("name")),
+                            )
+                        "delete_playlist" -> app.nativeApi.request(collection(), "DELETE")
+                        else -> error("Unknown legacy change retained for review")
                     }
-                    "add_to_playlist" ->
-                        app.nativeApi.request(
-                            collection() + "/add",
-                            "POST",
-                            JSONObject().put("track_id", payload.get("trackId")),
-                        )
-                    "remove_from_playlist" ->
-                        app.nativeApi.request(
-                            collection() +
-                                "/remove/" +
-                                NativeApi.encode(payload.get("trackId").toString()) +
-                                if (payload.has("itemId")) "?item_id=" + payload.optLong("itemId")
-                                else "",
-                            "DELETE",
-                        )
-                    "edit_playlist" ->
-                        app.nativeApi.request(
-                            collection(),
-                            "PUT",
-                            JSONObject().put("name", payload.getString("name")),
-                        )
-                    "delete_playlist" -> app.nativeApi.request(collection(), "DELETE")
-                    else -> error("Unknown legacy change retained for review")
+                } catch (error: NativeApi.Failure) {
+                    if (only != null || !error.apiError || (error.code != 403 && error.code != 404))
+                        throw error
+                    app.nativeLibrary.markPendingForReview(key, action, error.code, scope)
+                    if (relatedCollection.isNotBlank()) blockedCollections.add(relatedCollection)
+                    continue
                 }
                 app.nativeLibrary.remove("pending", key, scope)
             }

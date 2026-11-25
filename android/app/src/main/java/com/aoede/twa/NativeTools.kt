@@ -2503,8 +2503,12 @@ class NativeTools(private val ui: NativeUi) {
         }
         for (action in app.nativeLibrary.list("pending")) ui.row(
             action.optString("type"),
-            if (action.optBoolean("review_required")) "Legacy change · review before applying"
-            else "Waiting to synchronize",
+            when (action.optInt("review_status")) {
+                403 -> "Permission changed · review before retrying"
+                404 -> "Item unavailable · review before retrying"
+                else -> if (action.optBoolean("review_required")) "Legacy change · review before applying"
+                    else "Waiting to synchronize"
+            },
         ) {
             val type = action.optString("type")
             ui.confirm("Apply offline change", type) {

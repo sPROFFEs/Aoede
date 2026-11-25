@@ -34,7 +34,7 @@
 
 ## Why Aoede?
 
-**Aoede 1.3.1** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass, Vitrine, Vice or Cyberpunk without changing how you organize your music.
+**Aoede 1.3.2** brings your library, discovery and shared listening to the web, native Android and desktop clients. Choose Classic, Glass, Vitrine, Vice or Cyberpunk without changing how you organize your music.
 
 Keep audio on your own server, build collections that feel personal, and invite others to listen with you.
 

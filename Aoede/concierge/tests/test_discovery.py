@@ -1,5 +1,6 @@
 import asyncio
 import json
+from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -67,5 +68,42 @@ def test_trending_requests_fetch_their_own_category_and_keep_authentication(db_s
             monkeypatch.setattr(recs, "get_current_user_safe", lambda *_: None)
             assert (await client.get("/api/discovery/feed?category=trending")).status_code == 401
             assert trending.await_count == 2
+
+    asyncio.run(check())
+
+
+def test_home_serves_stale_recommendations_during_one_shared_refresh(monkeypatch, tmp_path):
+    user = SimpleNamespace(id=7, username="home")
+    stale = [{"title": "Stale", "items": []}]
+    refreshed = [{"title": "Refreshed", "items": []}]
+    local = {"title": "Local", "items": []}
+    monkeypatch.setattr(recs, "RECS_CACHE_DIR", str(tmp_path))
+    monkeypatch.setattr(recs, "get_current_user_safe", lambda *_: user)
+    monkeypatch.setattr(recs, "_home_recommendation_sections", lambda _db, _user, remote: [local, *remote])
+    monkeypatch.setattr(recs.database, "SessionLocal", lambda: nullcontext(SimpleNamespace(get=lambda *_: user)))
+    recs._write_recommendations(user.username, stale, -1)
+
+    async def check():
+        ready = asyncio.Event()
+
+        async def fetch(*_):
+            await ready.wait()
+            return refreshed
+
+        provider = AsyncMock(side_effect=fetch)
+        monkeypatch.setattr(recs, "_fetch_remote_recommendations", provider)
+        try:
+            async with asyncio.timeout(2):
+                first, second = await asyncio.gather(*(recs.get_recommendations(None, None) for _ in range(2)))
+                assert json.loads(first.body) == json.loads(second.body) == [local, *stale]
+                assert provider.await_count == 1
+                task = recs._recommendation_refreshes[user.id]
+                ready.set()
+                await task
+                result = await recs.get_recommendations(None, None)
+                assert json.loads(result.body) == [local, *refreshed]
+                assert provider.await_count == 1
+        finally:
+            ready.set()
 
     asyncio.run(check())

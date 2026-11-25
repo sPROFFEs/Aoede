@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import random
+import tempfile
 import time
 
 import database
@@ -16,6 +17,7 @@ import track_identity
 import youtube_service
 from async_utils import gather_named
 from fastapi import APIRouter, Depends, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from http_client import http_client
 from lastfm_service import lastfm_service
@@ -32,6 +34,14 @@ logger = logging.getLogger(__name__)
 # 48-hour cache for recommendations (in seconds)
 RECS_CACHE_TTL = 48 * 3600
 RECS_CACHE_DIR = "/saas-data/cache"
+LIVE_SHELF_TITLES = {
+    "Recently Added to Library",
+    "Recently played",
+    "On repeat lately",
+    "Rediscover",
+    "From artists you used to play",
+}
+_recommendation_refreshes: dict[int, asyncio.Task] = {}
 
 
 # --- HELPER FUNCTIONS ---
@@ -265,51 +275,85 @@ async def get_youtube_recommendations(request: Request, db: Session = Depends(ge
     return JSONResponse(trending)
 
 
+def _read_recommendations(username: str) -> tuple[list[dict], bool]:
+    try:
+        with open(os.path.join(RECS_CACHE_DIR, f"recs_{username}.json")) as f:
+            cached = json.load(f)
+        sections = [section for section in cached.get("sections", []) if section.get("title") not in LIVE_SHELF_TITLES]
+        return sections, cached.get("expires_at", 0) > time.time()
+    except FileNotFoundError:
+        pass
+    except (OSError, ValueError, AttributeError, TypeError) as e:
+        logger.warning("Recommendations cache read error: %s", e)
+    return [], False
+
+
+def _write_recommendations(username: str, sections: list[dict], ttl: int) -> None:
+    os.makedirs(RECS_CACHE_DIR, exist_ok=True)
+    target = os.path.join(RECS_CACHE_DIR, f"recs_{username}.json")
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=RECS_CACHE_DIR, delete=False) as f:
+            temporary = f.name
+            json.dump({"sections": sections, "expires_at": time.time() + ttl}, f)
+        os.replace(temporary, target)
+        temporary = None
+    finally:
+        if temporary:
+            os.unlink(temporary)
+
+
+def _start_recommendation_refresh(user_id: int, stale: list[dict]) -> asyncio.Task:
+    if user_id not in _recommendation_refreshes:
+        _recommendation_refreshes[user_id] = asyncio.create_task(_refresh_recommendations(user_id, stale))
+    return _recommendation_refreshes[user_id]
+
+
+async def _refresh_recommendations(user_id: int, stale: list[dict]) -> list[dict]:
+    try:
+        with database.SessionLocal() as db:
+            user = db.get(database.User, user_id)
+            if user is None:
+                return []
+            async with asyncio.timeout(30):
+                sections = await _fetch_remote_recommendations(user, db)
+            username = user.username
+        await run_in_threadpool(
+            _write_recommendations, username, sections or stale, RECS_CACHE_TTL if sections else 300
+        )
+        return sections or stale
+    except Exception as e:
+        logger.warning("Recommendations refresh failed: %s", e)
+        return stale
+    finally:
+        _recommendation_refreshes.pop(user_id, None)
+
+
+def _home_recommendation_sections(db: Session, user: database.User, remote: list[dict]) -> list[dict]:
+    from personalization_service import get_library_shelves
+
+    try:
+        shelves = get_library_shelves(db, user)
+    except Exception as e:
+        logger.warning("Library shelves could not be loaded: %s", e)
+        shelves = []
+    local = _get_local_section(db)
+    return [*shelves, *remote, *([local] if local else [])]
+
+
 @router.get("/api/recommendations")
 async def get_recommendations(request: Request, db: Session = Depends(get_db)):
-    """Get personalized, trending, and local recommendation rows"""
+    """Show library and cached shelves immediately, with one refresh per account."""
     user = get_current_user_safe(db, request)
     if not user:
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    remote, fresh = await run_in_threadpool(_read_recommendations, user.username)
+    if not fresh:
+        _start_recommendation_refresh(user.id, remote)
+    return JSONResponse(await run_in_threadpool(_home_recommendation_sections, db, user, remote))
 
-    # --- 48h CACHE CHECK ---
-    os.makedirs(RECS_CACHE_DIR, exist_ok=True)
-    cache_file = os.path.join(RECS_CACHE_DIR, f"recs_{user.username}.json")
-    # Library-driven shelves are titled here so we know which sections
-    # in the cache to drop on each refresh (always recomputed live).
-    LIVE_SHELF_TITLES = {
-        "Recently Added to Library",
-        "Recently played",
-        "On repeat lately",
-        "Rediscover",
-        "From artists you used to play",
-    }
-    try:
-        if os.path.exists(cache_file):
-            with open(cache_file, "r") as f:
-                cached = json.load(f)
-            if cached.get("expires_at", 0) > time.time():
-                logger.info("Recommendations cache hit for %s", user.username)
-                sections = [s for s in cached.get("sections", []) if s.get("title") not in LIVE_SHELF_TITLES]
 
-                # Library-driven shelves first, then the cached remote
-                # recommendations, then the always-on "Recently Added"
-                # section. Order chosen so the user sees their own
-                # library context before remote suggestions.
-                from personalization_service import get_library_shelves
-
-                lib_shelves = get_library_shelves(db, user)
-                local_section = _get_local_section(db)
-
-                merged = list(lib_shelves) + sections
-                if local_section:
-                    merged.append(local_section)
-                return JSONResponse(merged)
-    except Exception as e:
-        logger.warning("Recommendations cache read error: %s", e)
-
-    logger.info("Recommendations cache miss for %s, fetching fresh data", user.username)
-
+async def _fetch_remote_recommendations(user: database.User, db: Session) -> list[dict]:
     sections = []
     top_artists = set()
 
@@ -520,59 +564,7 @@ async def get_recommendations(request: Request, db: Session = Depends(get_db)):
     if mb_items:
         sections.append({"title": "MusicBrainz • Explore", "items": mb_items})
 
-    # 5. Local Gems
-    local_items = []
-    try:
-        local_raw = db.query(database.Track).order_by(database.Track.created_at.desc()).limit(12).all()
-        for t in local_raw:
-            local_items.append(
-                {
-                    "id": t.source_id or f"local:{t.id}",
-                    "db_id": t.id,
-                    "title": t.title,
-                    "artist": t.artist,
-                    "album": t.album,
-                    "thumbnail": f"/api/cover/{t.id}",
-                    "is_local": True,
-                    "source": "local",
-                }
-            )
-    except Exception as e:
-        logger.warning("Recommendations local error: %s", e)
-
-    if local_items:
-        sections.append({"title": "Recently Added to Library", "items": local_items})
-
-    # --- SAVE TO CACHE (only remote sections) ---
-    try:
-        # Library-driven shelves are always live, never cached.
-        live_titles = {
-            "Recently Added to Library",
-            "Recently played",
-            "On repeat lately",
-            "Rediscover",
-            "From artists you used to play",
-        }
-        remote_sections = [s for s in sections if s.get("title") not in live_titles]
-        with open(cache_file, "w") as f:
-            json.dump({"sections": remote_sections, "expires_at": time.time() + RECS_CACHE_TTL}, f)
-        logger.info("Recommendations cache saved for %s with %s remote sections", user.username, len(remote_sections))
-    except Exception as e:
-        logger.warning("Recommendations cache write error: %s", e)
-
-    # Inject the live library shelves at the TOP so the response reads
-    # [library context] [remote shelves] [recently added] — same order
-    # the cache-hit branch produces.
-    try:
-        from personalization_service import get_library_shelves
-
-        lib_shelves = get_library_shelves(db, user)
-        if lib_shelves:
-            sections = list(lib_shelves) + sections
-    except Exception as e:
-        logger.warning("Library shelves injection failed: %s", e)
-
-    return JSONResponse(sections)
+    return sections
 
 
 def _discovery_sections(sections):
@@ -625,33 +617,15 @@ def discovery_feed(
     if category not in {None, "all", "for_you", "trending", "gems"}:
         return JSONResponse({"error": "Invalid discovery category"}, status_code=400)
 
-    os.makedirs(RECS_CACHE_DIR, exist_ok=True)
-    cache_file = os.path.join(RECS_CACHE_DIR, f"recs_{user.username}.json")
-    items: list[dict] = []
+    cached, fresh = _read_recommendations(user.username)
+    items = _discovery_sections(cached)
+    if len(items) < 6 and not fresh and category != "trending":
+        import anyio
 
-    try:
-        if os.path.exists(cache_file):
-            with open(cache_file, "r") as f:
-                cached = json.load(f)
-            items.extend(_discovery_sections(cached.get("sections", [])))
-    except Exception as e:
-        logger.warning("Discovery feed cache read error: %s", e)
+        async def recommendations():
+            return await asyncio.shield(_start_recommendation_refresh(user.id, cached))
 
-    # If cache is missing, empty, or has fewer than 6 items, generate fresh recommendations dynamically!
-    if len(items) < 6 and category != "trending":
-        try:
-            import anyio
-
-            try:
-                recs_resp = anyio.from_thread.run(get_recommendations, request, db)
-            except RuntimeError:
-                recs_resp = asyncio.run(get_recommendations(request, db))
-            if hasattr(recs_resp, "body"):
-                data = json.loads(recs_resp.body.decode("utf-8"))
-                if isinstance(data, list):
-                    items.extend(_discovery_sections(data))
-        except Exception as e:
-            logger.warning("Dynamic recommendations generation for discovery failed: %s", e)
+        items = _discovery_sections(anyio.from_thread.run(recommendations))
 
     # Personalised feeds may have no trending entries. Fetch the genuine public feed on demand.
     if category == "trending" and not any(item.get("category") == "trending" for item in items):

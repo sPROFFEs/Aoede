@@ -129,6 +129,8 @@ const handlers = new Map();
 const bodyHandlers = new Map();
 let settingsMounts = 0;
 let navigation;
+let homeRecommendations;
+let savedHome;
 let homeWrapped = { year: 2026, enabled: true, visible: true };
 let pendingRooms = null;
 let pendingDiscovery, pendingArtist, pendingProfile;
@@ -177,9 +179,9 @@ const module = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/j
 await module.link(name => {
   const values = name === './state.js' ? { isSidebarOpen: true, toggleSidebar() { sidebarCloses++; }, setCurrentViewName() { navigationRevision++; }, viewGuard() { const revision = navigationRevision; return () => revision === navigationRevision; }, setCurrentViewParam() {}, setCurrentViewList() {}, recentPlaylists: [], recentMixes: [], recentRadios: [] }
     : name === './ui.js' ? { initSettingsTabs() { settingsMounts++; }, escHtml: String, t: (_, fallback) => fallback, getGreeting: () => 'Hello', homeTabsBar: () => '', refreshIcons() {} }
-    : name === './api.js' ? { fetchRecommendations: async () => { throw Error('Feed unavailable'); }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; }, fetchDiscoveryFeed: (...args) => { discoveryCalls.push(args); return pendingDiscovery; }, fetchArtist: () => pendingArtist, fetchUserProfile: () => pendingProfile }
+    : name === './api.js' ? { fetchRecommendations: async () => { if (!homeRecommendations) throw Error('Feed unavailable'); return homeRecommendations; }, fetchMixes: async () => [], fetchWrapped: async (year, options) => { homeCalls.push(options); return homeWrapped; }, fetchDiscoveryFeed: (...args) => { discoveryCalls.push(args); return pendingDiscovery; }, fetchArtist: () => pendingArtist, fetchUserProfile: () => pendingProfile }
     : name === './party.js' ? { fetchRooms: () => pendingRooms || Promise.resolve([]), renderHomeShelf: () => '<section>Parties</section>' }
-    : name === './offline_store.js' ? { saveLibrarySnapshot() {}, getLibrarySnapshot: async () => ({ wrapped: { year: 2025 } }) }
+    : name === './offline_store.js' ? { saveLibrarySnapshot(key, value) { if (key === 'home_feed') savedHome = value; }, getLibrarySnapshot: async () => savedHome ?? ({ wrapped: { year: 2025 } }) }
     : name === './appearance.js' ? { syncThemeControls() {} }
     : name === './system_monitor.js' ? { initSystemMonitor() {} }
     : name === './admin_downloads.js' ? { initDownloadManager() {} } : {};
@@ -225,6 +227,18 @@ for (const unavailable of [null, { enabled: false }, { visible: false }, { error
   assert.doesNotMatch(container.innerHTML, /Watch Wrapped/); // Do not revive the stale cached enabled state online.
 }
 console.log('PASS: Wrapped availability survives unrelated feed errors, appears above quick access, and respects enable/visibility changes.');
+homeRecommendations = [{ title: 'Existing recommendations', items: [] }];
+await module.namespace.renderHome(container);
+homeRecommendations = null;
+await module.namespace.renderHome(container);
+assert.match(container.innerHTML, /Existing recommendations/);
+assert.equal(savedHome.sections[0].title, 'Existing recommendations');
+homeRecommendations = [];
+await module.namespace.renderHome(container);
+assert.doesNotMatch(container.innerHTML, /Existing recommendations/);
+assert.equal(savedHome.sections.length, 0);
+homeRecommendations = null;
+console.log('PASS: a failed feed preserves the last good shelf; a successful empty result clears it.');
 
 let finishRooms, finishSettings;
 pendingRooms = new Promise(resolve => { finishRooms = resolve; });
@@ -336,8 +350,9 @@ context.fetch = () => {
 const syncModule = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/sync.js', import.meta.url), 'utf8'), { context });
 await syncModule.link(name => {
   if (name === './state.js') return stateModule;
-  const values = name === './offline_store.js' ? { flushPendingActions: async () => {} }
-    : name === './appearance.js' ? { syncTheme() {} } : {};
+  const values = name === './offline_store.js' ? { flushPendingActions: () => new Promise(() => {}), saveLibrarySnapshot() {} }
+    : name === './appearance.js' ? { syncTheme() {} }
+    : name === './ui.js' ? { updateFullscreenPlayButton() {} } : {};
   return new vm.SyntheticModule(Object.keys(values), function () {
     for (const [key, value] of Object.entries(values)) this.setExport(key, value);
   }, { context });
@@ -359,6 +374,21 @@ assert.equal(syncFetches, 2); // Completion releases the guard for the next sche
 finishSync({ ok: true, json: async () => ({ version: 1 }) });
 await nextSync;
 console.log('PASS: sync never overlaps or starts while hidden.');
+document.querySelectorAll = () => [];
+document.querySelector = () => null;
+let playlistRequests = 0;
+context.fetch = async path => path.endsWith('/sync-state')
+  ? { ok: true, json: async () => ({ version: 2, fav_ids: [] }) }
+  : ++playlistRequests === 1
+    ? { ok: false, status: 503 }
+    : { ok: true, json: async () => [{ id: 4 }] };
+await syncModule.namespace.checkSyncState();
+assert.equal(stateModule.namespace.lastSyncVersion, 1);
+await syncModule.namespace.checkSyncState();
+assert.equal(playlistRequests, 2);
+assert.equal(stateModule.namespace.lastSyncVersion, 2);
+assert.equal(stateModule.namespace.userPlaylists[0].id, 4);
+console.log('PASS: a playlist 503 leaves the revision pending and a stalled offline write does not block reads.');
 
 // Deferred actions keep their account and order; a 401/503 cannot discard changes.
 const actions = [
@@ -381,7 +411,7 @@ const sent = [];
 let status = 503;
 const offlineContext = vm.createContext({
   window: { USER_DATA: { username: 'alice' }, indexedDB: { open: () => resultRequest(db) } },
-  navigator: { onLine: true }, console, Date, Math,
+  navigator: { onLine: true }, console, Date, Math, AbortController, setTimeout, clearTimeout,
   fetch: async path => { sent.push(path); return { ok: status === 200, status }; }
 });
 const offline = new vm.SourceTextModule(await readFile(new URL('../Aoede/assets/js/modules/offline_store.js', import.meta.url), 'utf8'), { context: offlineContext });
@@ -450,12 +480,12 @@ console.log('PASS: verification startup blocks duplicate requests, preserves una
 
 // Execute the real initial-route selection, including server-rendered deep links.
 const entry = await readFile(new URL('../Aoede/assets/js/main.js', import.meta.url), 'utf8');
-const initialRoute = entry.slice(entry.indexOf('  const restoredSession ='), entry.indexOf('  // Initialize Lucide icons'));
+const initialRoute = entry.slice(entry.indexOf('  // Render using the local route;'), entry.indexOf('  // Initialize Lucide icons'));
 for (const native of [false, true]) for (const pathname of ['/wrapped/2026', '/wrapped', '/portal']) {
   const loads = [];
   const routeContext = vm.createContext({
     window: { AOEDE_ANDROID: native, location: { pathname }, AOEDE_INITIAL_VIEW: 'wrapped', AOEDE_INITIAL_PARAM: 2026 },
-    navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'playlist', param: 123 }) },
+    navigator: { onLine: true }, player: { getSavedPlaybackView: () => ({ view: 'playlist', param: 123 }), restorePlaybackSession: () => new Promise(() => {}) },
     views: { loadView: (...args) => loads.push(args) }, console
   });
   await vm.runInContext(`(async () => {${initialRoute}})()`, routeContext);
@@ -467,7 +497,7 @@ const homeExitLoads = [];
 const homeExitUrls = [];
 await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
   window: { location: { pathname: '/portal', search: '', hash: '#home' }, AOEDE_INITIAL_VIEW: 'home', history: { state: null, replaceState: (_state, _title, url) => homeExitUrls.push(url) } },
-  navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'wrapped', param: 2026 }) },
+  navigator: { onLine: true }, player: { getSavedPlaybackView: () => ({ view: 'wrapped', param: 2026 }), restorePlaybackSession: () => new Promise(() => {}) },
   views: { loadView: view => homeExitLoads.push(view) }, console
 });
 assert.deepEqual(homeExitLoads, ['home']); // Closing a story cannot reopen the summary from a saved playback session.
@@ -476,14 +506,14 @@ assert.deepEqual(homeExitUrls, ['/portal']); // Consume the intent once so later
 const nativeLoads = [];
 await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
   window: { AOEDE_ANDROID: true, location: { pathname: '/portal' }, AOEDE_INITIAL_VIEW: 'home' },
-  navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'system_monitor' }) },
+  navigator: { onLine: true }, player: { getSavedPlaybackView: () => ({ view: 'system_monitor' }), restorePlaybackSession: () => new Promise(() => {}) },
   views: { loadView: view => nativeLoads.push(view) }, console
 });
 assert.deepEqual(nativeLoads, ['home']); // Native launch restores music, without reopening transient admin/settings pages.
 const chosenViewLoads = [];
 await vm.runInNewContext(`(async () => {${initialRoute}})()`, {
   window: { location: { pathname: '/portal' }, AOEDE_INITIAL_VIEW: 'home' },
-  navigator: { onLine: true }, player: { restorePlaybackSession: async () => ({ view: 'wrapped', param: 2026 }) },
+  navigator: { onLine: true }, player: { getSavedPlaybackView: () => ({ view: 'wrapped', param: 2026 }), restorePlaybackSession: () => new Promise(() => {}) },
   views: { navigationVersion: 1, loadView: view => chosenViewLoads.push(view) }, console
 });
 assert.deepEqual(chosenViewLoads, []); // A late restore must preserve the user's newer navigation.

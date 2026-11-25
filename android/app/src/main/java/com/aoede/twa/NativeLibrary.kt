@@ -90,6 +90,18 @@ class NativeLibrary(private val app: AoedeApp) : SQLiteOpenHelper(app, "aoede-na
             }
 
     @Synchronized
+    fun markPendingForReview(id: String, action: JSONObject, status: Int, scope: String) {
+        action.remove("_native_record_id")
+        action.put("review_required", true).put("review_status", status)
+        writableDatabase.update(
+            "records",
+            ContentValues().apply { put("data", action.toString()) },
+            "scope=? AND kind=? AND id=?",
+            arrayOf(scope, "pending", id),
+        )
+    }
+
+    @Synchronized
     fun remove(kind: String, id: String, scope: String = scope()) {
         if (kind == "track") File(directory(scope), NativeApi.digest(id) + ".audio").delete()
         writableDatabase.delete("records", "scope=? AND kind=? AND id=?", arrayOf(scope, kind, id))

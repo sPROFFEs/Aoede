@@ -152,7 +152,7 @@ def test_home_dashboard_uses_compact_scrollable_shelves_and_stable_sections():
     assert 'class="grid-shelf home-rail" tabindex="0"' in views
     assert 'class="shelf-section home-shelf"' in views
     assert "${ui.homeTabsBar('all')}" in views
-    assert "paint('parties', party.renderHomeShelf(partyRooms));" in views
+    assert "paint('parties', party.renderHomeShelf(" in views
     assert "data-home-root" in views
     assert 'data-home-section="recommendations"' in views
     assert "container.style.opacity = '0'" not in views

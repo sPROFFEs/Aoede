@@ -117,7 +117,7 @@ class NativeVault(private val context: Context) {
 }
 
 class NativeApi(internal val app: AoedeApp) {
-    class Failure(val code: Int, message: String) : IOException(message)
+    class Failure(val code: Int, message: String, val apiError: Boolean = false) : IOException(message)
 
     private class ImageWork(
         val current: () -> Boolean,
@@ -404,6 +404,7 @@ class NativeApi(internal val app: AoedeApp) {
                         in 500..599 -> "The server could not complete this request (HTTP $code)"
                         else -> error.ifBlank { "Aoede request failed (HTTP $code)" }
                     },
+                    apiError = error.isNotBlank(),
                 )
             }
             if (result is JSONObject && result.has("error"))
