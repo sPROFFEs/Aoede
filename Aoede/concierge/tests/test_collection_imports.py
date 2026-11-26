@@ -8,11 +8,12 @@ import httpx
 import pytest
 import track_identity
 from fastapi import BackgroundTasks, FastAPI
+from sqlalchemy.orm import sessionmaker
 from starlette.requests import Request
 
 with patch("docker.from_env", return_value=MagicMock()):
     import downloader_service
-    from routers.music import downloads, playlists, sync
+    from routers.music import downloads, favorites, playlists, sync
 
 
 @pytest.fixture
@@ -245,6 +246,80 @@ def test_import_ownership_job_order_retry_and_pool_reuse(db_session, importer, m
         tracks[0].id,
     ]
     assert db_session.query(database.Track).count() == 2
+
+
+def test_concurrent_collection_imports_keep_their_targets_through_navidrome_sync(
+    db_session, importer, monkeypatch, tmp_path
+):
+    user, request, first_batch = importer
+    second_batch = BackgroundTasks()
+    audio = tmp_path / "shared.mp3"
+    audio.write_bytes(b"fixture")
+    track = database.Track(title="Shared Song", artist="Artist", filepath=str(audio), source_id="youtube:abcdefghijk")
+    db_session.add(track)
+    db_session.commit()
+    track_id = track.id
+
+    async def resolve(_user, _url):
+        return {
+            "name": "Collection",
+            "kind": "playlist",
+            "source": "youtube",
+            "skipped": 0,
+            "tracks": [
+                {
+                    "url": "https://www.youtube.com/watch?v=abcdefghijk",
+                    "title": "Shared Song",
+                    "artist": "Artist",
+                    "album": "Source",
+                    "position": 1,
+                }
+            ],
+        }
+
+    class Navidrome:
+        async def get(self, url, **_kwargs):
+            if url.endswith("/getStarred"):
+                return httpx.Response(503)
+            return httpx.Response(200, json={"subsonic-response": {"status": "ok", "playlists": {"playlist": []}}})
+
+    sessions = sessionmaker(bind=db_session.get_bind())
+    monkeypatch.setattr(database, "SessionLocal", sessions)
+    monkeypatch.setattr(collections, "resolve_collection", resolve)
+    monkeypatch.setattr(favorites, "http_client", Navidrome())
+    monkeypatch.setattr(favorites.manager, "get_or_spawn_container", lambda _username: "navidrome", raising=False)
+    monkeypatch.setattr(playlists.settings, "MUSIC_ROOT", str(tmp_path))
+    monkeypatch.setattr(playlists, "schedule_playlist_sync", lambda *_: None)
+    monkeypatch.setattr(playlists, "schedule_navidrome_sync", lambda *_, **_kw: None)
+    download = MagicMock(side_effect=AssertionError("The shared recording should be reused"))
+    monkeypatch.setattr(downloader_service.DownloadManager, "_download_source", download)
+
+    async def exercise():
+        first, second = await asyncio.gather(
+            downloads.import_collection.__wrapped__(
+                downloads.CollectionDownloadRequest(url="first", kind="album"), first_batch, request, db_session
+            ),
+            downloads.import_collection.__wrapped__(
+                downloads.CollectionDownloadRequest(url="second"), second_batch, request, db_session
+            ),
+        )
+        first_id, second_id = first["playlist_id"], second["playlist_id"]
+        assert first_id != second_id
+        await first_batch()
+        await favorites.sync_navidrome_to_local(db_session, user)
+        waiting = db_session.get(database.Playlist, second_id)
+        assert waiting is not None and not waiting.m3u_path
+        await second_batch()
+        db_session.expire_all()
+        for collection_id, kind in [(first_id, "album"), (second_id, "playlist")]:
+            collection = db_session.get(database.Playlist, collection_id)
+            assert collection.kind == kind and collection.owner_id == user.id
+            assert [(item.position, item.track_id) for item in collection.items] == [(1, track_id)]
+            job = db_session.query(database.DownloadJob).filter_by(target_modern_playlist_id=collection_id).one()
+            assert job.status == "finished" and job.resolved_track_id == track_id
+
+    asyncio.run(exercise())
+    download.assert_not_called()
 
 
 @pytest.mark.parametrize("source_id", ["youtube:abcdefghijk", "spotify:track:" + "a" * 22])
